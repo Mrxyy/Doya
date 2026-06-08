@@ -44,7 +44,7 @@ export interface ComposerSendClient {
     text: string,
     options: {
       messageId: string;
-      images: Array<{ data: string; mimeType: string }>;
+      images: Array<{ data: string; mimeType: string; fileName?: string }>;
       attachments: AgentAttachment[];
     },
   ) => Promise<void>;
@@ -128,7 +128,7 @@ export interface DispatchComposerAgentMessageInput {
   attachments: ComposerAttachment[];
   encodeImages: (
     images: AttachmentMetadata[],
-  ) => Promise<Array<{ data: string; mimeType: string }> | undefined>;
+  ) => Promise<Array<{ data: string; mimeType: string; fileName?: string }> | undefined>;
   stream: AgentStreamWriter;
 }
 

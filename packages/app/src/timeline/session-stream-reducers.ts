@@ -317,6 +317,9 @@ function mergeCanonicalUserWithOptimistic(
     ...(optimistic.attachments && optimistic.attachments.length > 0
       ? { attachments: optimistic.attachments }
       : {}),
+    ...(optimistic.selectionPreviewUri
+      ? { selectionPreviewUri: optimistic.selectionPreviewUri }
+      : {}),
   };
 }
 

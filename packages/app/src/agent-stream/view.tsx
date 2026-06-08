@@ -10,6 +10,7 @@ import React, {
   type ComponentProps,
   type ReactNode,
 } from "react";
+import { useRouter } from "expo-router";
 import {
   View,
   Text,
@@ -76,10 +77,14 @@ import {
 import { resolveWorkspaceIdByExecutionDirectory } from "@/utils/workspace-execution";
 import { navigateToPreparedWorkspaceTab } from "@/utils/workspace-navigation";
 import { useStableEvent } from "@/hooks/use-stable-event";
-import { isWeb } from "@/constants/platform";
+import { isDev, isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
 import { translateNow } from "@/i18n/i18n";
+import { extractAssistantImageSources } from "@/utils/assistant-image-metadata";
+import type { AttachmentMetadata } from "@/attachments/types";
+import { setAiCreationEditSource } from "@/stores/ai-creation-edit-source-store";
+import { buildHostAiCreationRoute } from "@/utils/host-routes";
 
 function renderLiveAuxiliaryNode(input: {
   pendingPermissions: ReactNode;
@@ -232,6 +237,113 @@ const AGENT_CAPABILITY_FLAG_KEYS: (keyof AgentCapabilityFlags)[] = [
 ];
 
 const EMPTY_STREAM_HEAD: StreamItem[] = [];
+const AI_CREATION_PLACEHOLDER_ID = "ai-creation-placeholder";
+const AI_CREATION_PLACEHOLDER_DOT_KEYS = Array.from({ length: 220 }, (_, index) => `dot-${index}`);
+const AI_CREATION_IMAGE_PATH_PATTERN =
+  /(?:^|[\s"'`(（：:])((?:(?:[A-Za-z]:[\\/]|\/|\.{1,2}[\\/])?[\w.@~+-]+[\\/])+[^"'`\s)）]+?\.(?:png|jpe?g|webp|gif|avif|bmp|tiff?))(?:$|[\s"'`)）.,;，。])/gi;
+
+function isAiCreationLabels(labels: Record<string, string> | undefined): boolean {
+  return (
+    labels?.surface === "ai_creation" ||
+    labels?.intent === "imagegen" ||
+    labels?.intent === "image_edit"
+  );
+}
+
+function isAiCreationProcessMessage(item: StreamItem): boolean {
+  return item.kind === "thought" || item.kind === "tool_call" || item.kind === "activity_log";
+}
+
+function stripAiCreationImagePathToken(source: string): string | null {
+  const trimmed = source
+    .trim()
+    .replace(/^`+|`+$/g, "")
+    .replace(/[，。.,;；:：]+$/g, "");
+  return trimmed || null;
+}
+
+function extractAiCreationImagePathSources(text: string): string[] {
+  const sources: string[] = [];
+  for (const match of text.matchAll(AI_CREATION_IMAGE_PATH_PATTERN)) {
+    const source = stripAiCreationImagePathToken(match[1] ?? "");
+    if (source) {
+      sources.push(source);
+    }
+  }
+  return sources;
+}
+
+function formatAiCreationImageMarkdownSource(source: string): string {
+  if (/[\s()]/.test(source)) {
+    return `<${source.replace(/>/g, "%3E")}>`;
+  }
+  return source;
+}
+
+function extractAiCreationResultSources(text: string): string[] {
+  return [...extractAssistantImageSources(text), ...extractAiCreationImagePathSources(text)];
+}
+
+function extractAiCreationFinalImageMarkdown(text: string): string | null {
+  const sources = [...new Set(extractAiCreationResultSources(text))];
+  if (sources.length === 0) {
+    return null;
+  }
+  const finalSource = sources[sources.length - 1];
+  return `![](${formatAiCreationImageMarkdownSource(finalSource)})`;
+}
+
+function findLastAiCreationAssistantResultItemId(items: StreamItem[]): string | null {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (
+      item?.kind === "assistant_message" &&
+      extractAiCreationResultSources(item.text).length > 0
+    ) {
+      return item.id;
+    }
+  }
+  return null;
+}
+
+function normalizeAiCreationStreamItems(
+  items: StreamItem[],
+  finalResultItemId: string | null,
+): StreamItem[] {
+  const normalized: StreamItem[] = [];
+  for (const item of items) {
+    if (isAiCreationProcessMessage(item)) {
+      continue;
+    }
+    if (item.kind !== "assistant_message") {
+      normalized.push(item);
+      continue;
+    }
+    if (item.id !== finalResultItemId) {
+      continue;
+    }
+    const imageMarkdown = extractAiCreationFinalImageMarkdown(item.text);
+    if (!imageMarkdown) continue;
+    normalized.push({ ...item, text: imageMarkdown });
+  }
+  return normalized;
+}
+
+function hasAssistantImage(items: StreamItem[]): boolean {
+  return items.some(
+    (item) =>
+      item.kind === "assistant_message" && extractAiCreationResultSources(item.text).length > 0,
+  );
+}
+
+function buildAiCreationPlaceholderItem(): StreamItem {
+  return {
+    kind: "assistant_message",
+    id: AI_CREATION_PLACEHOLDER_ID,
+    text: "",
+    timestamp: new Date(0),
+  };
+}
 
 const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamViewProps>(
   function AgentStreamView(
@@ -249,6 +361,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     ref,
   ) {
     const viewportRef = useRef<StreamViewportHandle | null>(null);
+    const router = useRouter();
     const isMobile = useIsCompactFormFactor();
     const streamRenderStrategy = useMemo(
       () =>
@@ -271,6 +384,9 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const client = useSessionStore((state) => state.sessions[resolvedServerId]?.client ?? null);
     const streamHead = useSessionStore((state) =>
       state.sessions[resolvedServerId]?.agentStreamHead?.get(agentId),
+    );
+    const agentLabels = useSessionStore(
+      (state) => state.sessions[resolvedServerId]?.agents.get(agentId)?.labels,
     );
 
     const workspaceRoot = agent.cwd?.trim() || "";
@@ -364,15 +480,68 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       handleInlinePathPress({ raw: filePath, path: filePath }, "main");
     });
 
+    const handleEditAiCreationImage = useStableEvent(
+      (image: AttachmentMetadata, previewUri: string) => {
+        setAiCreationEditSource({
+          entry: "result-edit",
+          image,
+          previewUri,
+          sourceAgentId: agentId,
+          sourceServerId: resolvedServerId,
+        });
+        router.push(buildHostAiCreationRoute(resolvedServerId));
+      },
+    );
+
+    const shouldNormalizeAiCreationStream = !isDev && isAiCreationLabels(agentLabels);
+    const aiCreationFinalResultItemId = useMemo(() => {
+      if (!shouldNormalizeAiCreationStream) {
+        return null;
+      }
+      return findLastAiCreationAssistantResultItemId([
+        ...streamItems,
+        ...(streamHead ?? EMPTY_STREAM_HEAD),
+      ]);
+    }, [shouldNormalizeAiCreationStream, streamHead, streamItems]);
+    const visibleStreamItems = useMemo(() => {
+      if (!shouldNormalizeAiCreationStream) {
+        return streamItems;
+      }
+      return normalizeAiCreationStreamItems(streamItems, aiCreationFinalResultItemId);
+    }, [aiCreationFinalResultItemId, shouldNormalizeAiCreationStream, streamItems]);
+    const visibleStreamHead = useMemo(() => {
+      if (!shouldNormalizeAiCreationStream) {
+        return streamHead ?? EMPTY_STREAM_HEAD;
+      }
+      const normalizedHead = normalizeAiCreationStreamItems(
+        streamHead ?? EMPTY_STREAM_HEAD,
+        aiCreationFinalResultItemId,
+      );
+      if (
+        agent.status === "running" &&
+        !hasAssistantImage(visibleStreamItems) &&
+        !hasAssistantImage(normalizedHead)
+      ) {
+        return [...normalizedHead, buildAiCreationPlaceholderItem()];
+      }
+      return normalizedHead;
+    }, [
+      agent.status,
+      aiCreationFinalResultItemId,
+      shouldNormalizeAiCreationStream,
+      streamHead,
+      visibleStreamItems,
+    ]);
+
     const baseRenderModel = useMemo(() => {
       return buildAgentStreamRenderModel({
         agentStatus: agent.status,
-        tail: streamItems,
-        head: streamHead ?? EMPTY_STREAM_HEAD,
+        tail: visibleStreamItems,
+        head: visibleStreamHead,
         platform: isWeb ? "web" : "native",
         isMobileBreakpoint: isMobile,
       });
-    }, [agent.status, isMobile, streamHead, streamItems]);
+    }, [agent.status, isMobile, visibleStreamHead, visibleStreamItems]);
     const streamLayout = useMemo(
       () =>
         layoutStream({
@@ -435,6 +604,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             message={item.text}
             images={item.images}
             attachments={item.attachments}
+            selectionPreviewUri={item.selectionPreviewUri}
             timestamp={item.timestamp.getTime()}
             capabilities={agent.capabilities}
             client={client}
@@ -448,6 +618,9 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
 
     const renderAssistantMessageItem = useCallback(
       (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "assistant_message" }>) => {
+        if (item.id === AI_CREATION_PLACEHOLDER_ID) {
+          return <AiCreationPlaceholder />;
+        }
         return (
           <AssistantFileLinkResolverProvider
             client={client}
@@ -463,11 +636,20 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               serverId={resolvedServerId}
               client={client}
               spacing={layoutItem.assistantSpacing}
+              onEditImage={isAiCreationLabels(agentLabels) ? handleEditAiCreationImage : undefined}
             />
           </AssistantFileLinkResolverProvider>
         );
       },
-      [client, handleInlinePathPress, resolvedServerId, toast, workspaceRoot],
+      [
+        agentLabels,
+        client,
+        handleEditAiCreationImage,
+        handleInlinePathPress,
+        resolvedServerId,
+        toast,
+        workspaceRoot,
+      ],
     );
 
     const renderThoughtItem = useCallback(
@@ -846,6 +1028,19 @@ function ToolCallSlot({
   return <ToolCall {...rest} onInlineDetailsExpandedChange={handleExpandedChange} />;
 }
 
+function AiCreationPlaceholder() {
+  return (
+    <View style={stylesheet.aiCreationPlaceholder}>
+      <Text style={stylesheet.aiCreationPlaceholderTitle}>Creating image</Text>
+      <View style={stylesheet.aiCreationDotField}>
+        {AI_CREATION_PLACEHOLDER_DOT_KEYS.map((dotKey) => (
+          <View key={dotKey} style={stylesheet.aiCreationDot} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const ThemedActivityIndicator = withUnistyles(ActivityIndicator);
 const ThemedCheckIcon = withUnistyles(Check);
 const ThemedXIcon = withUnistyles(X);
@@ -1202,6 +1397,35 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   scrollToBottomIcon: {
     color: theme.colors.foreground,
+  },
+  aiCreationPlaceholder: {
+    width: "100%",
+    maxWidth: 760,
+    minHeight: 520,
+    borderRadius: theme.borderRadius.xl,
+    backgroundColor: theme.colors.surface1,
+    padding: theme.spacing[8],
+    gap: theme.spacing[6],
+  },
+  aiCreationPlaceholderTitle: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xl,
+    fontWeight: theme.fontWeight.medium,
+  },
+  aiCreationDotField: {
+    flex: 1,
+    minHeight: 360,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignContent: "flex-start",
+    gap: 18,
+    opacity: 0.5,
+  },
+  aiCreationDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: theme.colors.foregroundMuted,
   },
 }));
 

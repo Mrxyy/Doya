@@ -355,6 +355,14 @@ export function buildHostOpenProjectRoute(serverId: string) {
   return `${base}/open-project` as const;
 }
 
+export function buildHostAiCreationRoute(serverId: string) {
+  const base = buildHostRootRoute(serverId);
+  if (base === "/") {
+    return "/" as const;
+  }
+  return `${base}/ai-creation` as const;
+}
+
 export function buildHostNewWorkspaceRoute(
   serverId: string,
   sourceDirectory: string,

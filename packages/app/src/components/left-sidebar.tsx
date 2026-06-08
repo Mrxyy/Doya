@@ -50,6 +50,7 @@ import {
 import { resolveActiveHost } from "@/utils/active-host";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
 import {
+  buildHostAiCreationRoute,
   buildHostOpenProjectRoute,
   buildHostSessionsRoute,
   buildSettingsRoute,
@@ -80,9 +81,11 @@ interface SidebarSharedProps {
   toggleProjectCollapsed: SidebarShortcutModel["toggleProjectCollapsed"];
   handleRefresh: () => void;
   handleOpenProject: () => void;
+  handleAiCreation: () => void;
   handleAccountLogin: () => void;
   handleAccountLogout: () => void;
   addProjectLabel: string;
+  aiCreationLabel: string;
   emptyProjectHint: string;
   sessionsLabel: string;
   handleHome: () => void;
@@ -134,6 +137,7 @@ export const LeftSidebar = memo(function LeftSidebar({
   const { collapsedProjectKeys, shortcutIndexByWorkspaceKey, toggleProjectCollapsed } =
     useSidebarShortcutModel({ projects, isInitialLoad });
   const addProjectLabel = t("sidebar.addProject");
+  const aiCreationLabel = t("sidebar.aiCreation");
   const emptyProjectHint = t("sidebar.addProject.empty");
   const sessionsLabel = t("common.sessions");
 
@@ -159,6 +163,17 @@ export const LeftSidebar = memo(function LeftSidebar({
   const handleOpenProjectDesktop = useCallback(() => {
     if (!activeServerId) return;
     router.push(buildHostOpenProjectRoute(activeServerId));
+  }, [activeServerId]);
+
+  const handleAiCreationMobile = useCallback(() => {
+    if (!activeServerId) return;
+    showMobileAgent();
+    router.push(buildHostAiCreationRoute(activeServerId));
+  }, [activeServerId, showMobileAgent]);
+
+  const handleAiCreationDesktop = useCallback(() => {
+    if (!activeServerId) return;
+    router.push(buildHostAiCreationRoute(activeServerId));
   }, [activeServerId]);
 
   const handleSettingsMobile = useCallback(() => {
@@ -229,6 +244,7 @@ export const LeftSidebar = memo(function LeftSidebar({
     toggleProjectCollapsed,
     handleRefresh,
     addProjectLabel,
+    aiCreationLabel,
     emptyProjectHint,
     sessionsLabel,
   };
@@ -242,6 +258,7 @@ export const LeftSidebar = memo(function LeftSidebar({
         isOpen={isOpen}
         closeToAgent={showMobileAgent}
         handleOpenProject={handleOpenProjectMobile}
+        handleAiCreation={handleAiCreationMobile}
         handleHome={handleHomeMobile}
         handleSettings={handleSettingsMobile}
         handleAccountLogin={handleAccountLoginMobile}
@@ -257,6 +274,7 @@ export const LeftSidebar = memo(function LeftSidebar({
       insetsTop={insets.top}
       isOpen={isOpen}
       handleOpenProject={handleOpenProjectDesktop}
+      handleAiCreation={handleAiCreationDesktop}
       handleHome={handleHomeDesktop}
       handleSettings={handleSettingsDesktop}
       handleAccountLogin={handleAccountLoginDesktop}
@@ -463,7 +481,9 @@ function MobileSidebar({
   toggleProjectCollapsed,
   handleRefresh,
   handleOpenProject,
+  handleAiCreation,
   addProjectLabel,
+  aiCreationLabel,
   emptyProjectHint,
   sessionsLabel,
   handleAccountLogin,
@@ -677,7 +697,9 @@ function MobileSidebar({
                 onRefresh={handleRefresh}
                 onWorkspacePress={handleWorkspacePress}
                 onAddProject={handleOpenProject}
+                onAiCreation={handleAiCreation}
                 addProjectLabel={addProjectLabel}
+                aiCreationLabel={aiCreationLabel}
                 emptyProjectHint={emptyProjectHint}
                 parentGestureRef={closeGestureRef}
               />
@@ -713,7 +735,9 @@ function DesktopSidebar({
   toggleProjectCollapsed,
   handleRefresh,
   handleOpenProject,
+  handleAiCreation,
   addProjectLabel,
+  aiCreationLabel,
   emptyProjectHint,
   sessionsLabel,
   handleAccountLogin,
@@ -812,7 +836,9 @@ function DesktopSidebar({
             isRefreshing={isManualRefresh && isRevalidating}
             onRefresh={handleRefresh}
             onAddProject={handleOpenProject}
+            onAiCreation={handleAiCreation}
             addProjectLabel={addProjectLabel}
+            aiCreationLabel={aiCreationLabel}
             emptyProjectHint={emptyProjectHint}
           />
         )}

@@ -193,7 +193,7 @@ export interface PaseoAgentTimelineRefetchOptions {
 
 export interface PaseoAgentSendOptions {
   messageId?: string;
-  images?: Array<{ data: string; mimeType: string }>;
+  images?: Array<{ data: string; mimeType: string; fileName?: string }>;
   attachments?: SendAgentMessageRequest["attachments"];
 }
 

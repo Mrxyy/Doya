@@ -49,6 +49,7 @@ import {
   Scissors,
   MicVocal,
   FileSymlink,
+  Pencil,
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { type Theme } from "@/styles/theme";
@@ -103,6 +104,8 @@ import {
 import { getCompactionMarkerLabel } from "./message-compaction-label";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
 import { persistAttachmentFromBytes, persistAttachmentFromDataUrl } from "@/attachments/service";
+import type { AttachmentMetadata } from "@/attachments/types";
+import { Button } from "@/components/ui/button";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { isWeb, isNative } from "@/constants/platform";
 import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
@@ -120,6 +123,7 @@ interface UserMessageProps {
   message: string;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  selectionPreviewUri?: string;
   timestamp: number;
   capabilities?: AgentCapabilityFlags;
   client?: DaemonClient | null;
@@ -390,6 +394,28 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     borderColor: theme.colors.borderAccent,
     overflow: "hidden",
   },
+  selectionReferenceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    marginBottom: theme.spacing[2],
+  },
+  selectionReferenceArrow: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xl,
+    lineHeight: theme.lineHeight.xl,
+  },
+  selectionReferenceThumb: {
+    width: 48,
+    height: 36,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: theme.colors.surface2,
+  },
+  selectionReferenceText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.lg,
+    fontWeight: theme.fontWeight.medium,
+  },
   imageThumbnail: {
     width: 48,
     height: 48,
@@ -447,6 +473,21 @@ function UserMessageAttachmentThumbnail({ image }: { image: UserMessageImageAtta
   return <Image source={imageSource} style={userMessageStylesheet.imageThumbnail} />;
 }
 
+function UserMessageSelectionReference({ previewUri }: { previewUri: string }) {
+  const imageSource = useMemo(() => ({ uri: previewUri }), [previewUri]);
+  return (
+    <View style={userMessageStylesheet.selectionReferenceRow}>
+      <Text style={userMessageStylesheet.selectionReferenceArrow}>↳</Text>
+      <Image
+        source={imageSource}
+        style={userMessageStylesheet.selectionReferenceThumb}
+        resizeMode="cover"
+      />
+      <Text style={userMessageStylesheet.selectionReferenceText}>Selection</Text>
+    </View>
+  );
+}
+
 function getUserMessageAttachmentLabel(attachment: AgentAttachment): string {
   switch (attachment.type) {
     case "review": {
@@ -471,6 +512,7 @@ export const UserMessage = memo(function UserMessage({
   message,
   images = [],
   attachments = [],
+  selectionPreviewUri,
   timestamp,
   capabilities,
   client,
@@ -544,6 +586,9 @@ export const UserMessage = memo(function UserMessage({
         onPointerLeave={handlePointerLeave}
       >
         <View style={userMessageStylesheet.bubble}>
+          {selectionPreviewUri ? (
+            <UserMessageSelectionReference previewUri={selectionPreviewUri} />
+          ) : null}
           {hasImages ? (
             <View style={imagePreviewContainerStyle}>
               {images.map((image) => (
@@ -754,6 +799,7 @@ interface AssistantMessageProps {
   serverId?: string;
   client?: DaemonClient | null;
   spacing?: "default" | "compactTop" | "compactBottom" | "compactBoth";
+  onEditImage?: (image: AttachmentMetadata, previewUri: string) => void;
 }
 
 export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
@@ -780,6 +826,13 @@ export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
     width: "100%",
     height: "100%",
   },
+  imageEditButton: {
+    position: "absolute",
+    top: theme.spacing[2],
+    right: theme.spacing[2],
+    backgroundColor: theme.colors.surface0,
+    borderColor: theme.colors.border,
+  },
   imageState: {
     alignItems: "center",
     justifyContent: "center",
@@ -803,6 +856,8 @@ const AssistantMarkdownResolvedImage = memo(function AssistantMarkdownResolvedIm
   source,
   workspaceRoot,
   serverId,
+  editableImage,
+  onEditImage,
 }: {
   uri: string;
   alt?: string;
@@ -810,6 +865,8 @@ const AssistantMarkdownResolvedImage = memo(function AssistantMarkdownResolvedIm
   source: string;
   workspaceRoot?: string;
   serverId?: string;
+  editableImage?: AttachmentMetadata | null;
+  onEditImage?: (image: AttachmentMetadata, previewUri: string) => void;
 }) {
   const cachedMetadata = useMemo(
     () => getAssistantImageMetadata({ source, workspaceRoot, serverId }),
@@ -879,6 +936,11 @@ const AssistantMarkdownResolvedImage = memo(function AssistantMarkdownResolvedIm
     [surfaceStyle],
   );
   const imageSource = useMemo(() => ({ uri }), [uri]);
+  const handleEditImage = useCallback(() => {
+    if (editableImage) {
+      onEditImage?.(editableImage, uri);
+    }
+  }, [editableImage, onEditImage, uri]);
 
   if (loadState.status !== "ready") {
     return (
@@ -905,6 +967,19 @@ const AssistantMarkdownResolvedImage = memo(function AssistantMarkdownResolvedIm
           accessibilityLabel={alt}
           onError={handleImageError}
         />
+        {editableImage && onEditImage ? (
+          <Button
+            variant="secondary"
+            size="xs"
+            leftIcon={Pencil}
+            onPress={handleEditImage}
+            style={assistantMessageStylesheet.imageEditButton}
+            accessibilityLabel="Edit image"
+            testID="assistant-image-edit"
+          >
+            Edit
+          </Button>
+        ) : null}
       </View>
     </View>
   );
@@ -917,6 +992,7 @@ function AssistantMarkdownImage({
   client,
   workspaceRoot,
   serverId,
+  onEditImage,
 }: {
   source: string;
   alt?: string;
@@ -924,6 +1000,7 @@ function AssistantMarkdownImage({
   client?: DaemonClient | null;
   workspaceRoot?: string;
   serverId?: string;
+  onEditImage?: (image: AttachmentMetadata, previewUri: string) => void;
 }) {
   const resolution = useMemo(
     () => resolveAssistantImageSource({ source, workspaceRoot }),
@@ -995,6 +1072,7 @@ function AssistantMarkdownImage({
   const dataImageAssetUri = useAttachmentPreviewUrl(dataImageQuery.data);
   const directUri = resolution?.kind === "direct" && !dataImage ? resolution.uri : null;
   const resolvedUri = directUri ?? dataImageAssetUri ?? fileAssetUri ?? null;
+  const editableImage = resolveEditableAssistantImage(query.data, dataImageQuery.data);
 
   const stateFrameStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
@@ -1015,6 +1093,8 @@ function AssistantMarkdownImage({
         source={source}
         workspaceRoot={workspaceRoot}
         serverId={serverId}
+        editableImage={editableImage}
+        onEditImage={onEditImage}
       />
     );
   }
@@ -1034,6 +1114,13 @@ function AssistantMarkdownImage({
       <Text style={assistantMessageStylesheet.imageErrorText}>{errorText}</Text>
     </View>
   );
+}
+
+function resolveEditableAssistantImage(
+  fileImage: AttachmentMetadata | null | undefined,
+  dataImage: AttachmentMetadata | null | undefined,
+): AttachmentMetadata | null {
+  return fileImage ?? dataImage ?? null;
 }
 
 function resolveAssistantImageErrorText(fileError: unknown, dataError: unknown): string {
@@ -1571,6 +1658,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   serverId,
   client,
   spacing = "default",
+  onEditImage,
 }: AssistantMessageProps) {
   const markdownParser = useMemo(() => {
     const parser = MarkdownIt({ typographer: true, linkify: true });
@@ -1871,11 +1959,12 @@ export const AssistantMessage = memo(function AssistantMessage({
             client={client}
             workspaceRoot={workspaceRoot}
             serverId={serverId}
+            onEditImage={onEditImage}
           />
         );
       },
     };
-  }, [client, fileLinkActions, markdownParser, serverId, workspaceRoot]);
+  }, [client, fileLinkActions, markdownParser, onEditImage, serverId, workspaceRoot]);
 
   const blocks = useMemo(() => splitMarkdownBlocks(message), [message]);
   const keyedBlocks = useMemo(

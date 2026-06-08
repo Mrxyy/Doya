@@ -65,6 +65,7 @@ import {
   MoreVertical,
   Pencil,
   Plus,
+  Sparkles,
   Trash2,
 } from "lucide-react-native";
 import { NestableScrollContainer } from "react-native-draggable-flatlist";
@@ -249,7 +250,9 @@ interface SidebarWorkspaceListProps {
   onRefresh?: () => void;
   onWorkspacePress?: () => void;
   onAddProject?: () => void;
+  onAiCreation?: () => void;
   addProjectLabel?: string;
+  aiCreationLabel?: string;
   emptyProjectHint?: string;
   listFooterComponent?: ReactElement | null;
   /** Gesture ref for coordinating with parent gestures (e.g., sidebar close) */
@@ -2733,7 +2736,9 @@ export function SidebarWorkspaceList({
   onRefresh: _onRefresh,
   onWorkspacePress,
   onAddProject,
+  onAiCreation,
   addProjectLabel = "Add project",
+  aiCreationLabel = "AI creation",
   emptyProjectHint = "Add a project to get started",
   listFooterComponent,
   parentGestureRef,
@@ -2758,6 +2763,7 @@ export function SidebarWorkspaceList({
   const selectionEnabled = isWorkspaceRoute;
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
   const useConversationSidebar = accountSession !== null;
+  const isAiCreationActive = pathname.includes("/ai-creation");
 
   const projectIconRequests = useMemo(() => {
     if (!serverId || useConversationSidebar) {
@@ -3041,6 +3047,16 @@ export function SidebarWorkspaceList({
             style={styles.newConversationButton}
           >
             {addProjectLabel}
+          </Button>
+          <Button
+            variant={isAiCreationActive ? "secondary" : "ghost"}
+            size="sm"
+            leftIcon={Sparkles}
+            onPress={onAiCreation}
+            style={styles.newConversationButton}
+            testID="sidebar-ai-creation"
+          >
+            {aiCreationLabel}
           </Button>
           <Text style={styles.historySectionLabel}>{t("sidebar.historyConversations")}</Text>
         </View>

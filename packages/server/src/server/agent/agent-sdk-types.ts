@@ -165,7 +165,7 @@ export interface AgentPersistenceHandle {
 
 export type AgentPromptContentBlock =
   | { type: "text"; text: string }
-  | { type: "image"; data: string; mimeType: string }
+  | { type: "image"; data: string; mimeType: string; fileName?: string }
   | AgentAttachment;
 
 export type AgentPromptInput = string | AgentPromptContentBlock[];

@@ -1603,12 +1603,12 @@ function codexImageOutputFromResult(result: unknown): ProviderImageOutput | null
   };
 }
 
-function writeImageAttachmentSync(mimeType: string, data: string): string {
+function writeImageAttachmentSync(mimeType: string, data: string, fileName?: string): string {
   const attachmentsDir = path.join(os.tmpdir(), CODEX_IMAGE_ATTACHMENT_DIR);
   fsSync.mkdirSync(attachmentsDir, { recursive: true });
   const normalized = normalizeImageData(mimeType, data);
   const extension = getImageExtension(normalized.mimeType);
-  const filename = `${randomUUID()}.${extension}`;
+  const filename = buildImageAttachmentFileName(extension, fileName);
   const filePath = path.join(attachmentsDir, filename);
   fsSync.writeFileSync(filePath, Buffer.from(normalized.data, "base64"));
   return filePath;
@@ -2668,15 +2668,26 @@ const CodexNotificationSchema = z.union([
     ),
 ]);
 
-async function writeImageAttachment(mimeType: string, data: string): Promise<string> {
+async function writeImageAttachment(
+  mimeType: string,
+  data: string,
+  fileName?: string,
+): Promise<string> {
   const attachmentsDir = path.join(os.tmpdir(), CODEX_IMAGE_ATTACHMENT_DIR);
   await fs.mkdir(attachmentsDir, { recursive: true });
   const normalized = normalizeImageData(mimeType, data);
   const extension = getImageExtension(normalized.mimeType);
-  const filename = `${randomUUID()}.${extension}`;
+  const filename = buildImageAttachmentFileName(extension, fileName);
   const filePath = path.join(attachmentsDir, filename);
   await fs.writeFile(filePath, Buffer.from(normalized.data, "base64"));
   return filePath;
+}
+
+function buildImageAttachmentFileName(extension: string, fileName?: string): string {
+  const rawBaseName = fileName ? path.basename(fileName, path.extname(fileName)) : "image";
+  const safeBaseName = rawBaseName.replace(/[^A-Za-z0-9._-]+/gu, "-").replace(/^-+|-+$/gu, "");
+  const baseName = safeBaseName || "image";
+  return `${randomUUID()}-${baseName}.${extension}`;
 }
 
 async function readCodexConfiguredDefaults(
@@ -2771,7 +2782,7 @@ export async function codexAppServerTurnInputFromPrompt(
     }
     if (block.type === "image") {
       try {
-        const filePath = await writeImageAttachment(block.mimeType, block.data);
+        const filePath = await writeImageAttachment(block.mimeType, block.data, block.fileName);
         output.push({ type: "localImage", path: filePath });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

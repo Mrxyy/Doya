@@ -63,7 +63,7 @@ export async function persistAttachmentFromFileUri(input: {
 
 export async function encodeAttachmentsForSend(
   attachments: readonly AttachmentMetadata[] | undefined,
-): Promise<Array<{ data: string; mimeType: string }> | undefined> {
+): Promise<Array<{ data: string; mimeType: string; fileName?: string }> | undefined> {
   if (!attachments || attachments.length === 0) {
     return undefined;
   }
@@ -76,6 +76,7 @@ export async function encodeAttachmentsForSend(
         return {
           data,
           mimeType: attachment.mimeType,
+          ...(attachment.fileName ? { fileName: attachment.fileName } : {}),
         };
       } catch (error) {
         console.error("[attachments] Failed to encode attachment for send", {
@@ -88,7 +89,7 @@ export async function encodeAttachmentsForSend(
   );
 
   const valid = encoded.filter(
-    (entry): entry is { data: string; mimeType: string } => entry !== null,
+    (entry): entry is { data: string; mimeType: string; fileName?: string } => entry !== null,
   );
   return valid.length > 0 ? valid : undefined;
 }

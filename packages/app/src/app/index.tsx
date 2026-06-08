@@ -2,19 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Redirect, usePathname } from "expo-router";
 import { StartupSplashScreen } from "@/screens/startup-splash-screen";
 import { useEarliestOnlineHostServerId, useHostRuntimeBootstrapState } from "@/app/_layout";
-import {
-  resolveStartupRedirectRoute,
-  resolveStartupWorkspaceSelection,
-} from "@/app/host-runtime-bootstrap";
+import { resolveStartupRedirectRoute } from "@/app/host-runtime-bootstrap";
 import {
   useIsLastWorkspaceSelectionHydrated,
   useLastWorkspaceSelection,
 } from "@/stores/navigation-active-workspace-store";
 import { shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 import { loadAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
-import { doesAccountSessionOwnWorkspace } from "@/account/account-workspace-display";
-import { useWorkspace } from "@/stores/session-store-hooks";
-import { buildHostOpenProjectRoute, buildHostWorkspaceRoute } from "@/utils/host-routes";
+import { buildHostOpenProjectRoute } from "@/utils/host-routes";
 
 const isDesktop = shouldUseDesktopDaemon();
 
@@ -48,23 +43,6 @@ export default function Index() {
     isWorkspaceSelectionLoaded,
     hasGivenUpWaitingForHost: bootstrapState.hasGivenUpWaitingForHost,
   });
-  const startupWorkspaceSelection = resolveStartupWorkspaceSelection({
-    pathname,
-    anyOnlineHostServerId,
-    workspaceSelection,
-    isWorkspaceSelectionLoaded,
-    hasGivenUpWaitingForHost: bootstrapState.hasGivenUpWaitingForHost,
-  });
-  const startupWorkspace = useWorkspace(
-    startupWorkspaceSelection?.serverId ?? null,
-    startupWorkspaceSelection?.workspaceId ?? null,
-  );
-  const canOpenStartupWorkspace =
-    !startupWorkspaceSelection ||
-    doesAccountSessionOwnWorkspace({
-      session: accountSession,
-      workspaceDirectory: startupWorkspace?.workspaceDirectory,
-    });
 
   if (anyOnlineHostServerId && !hasLoadedAccount) {
     return <StartupSplashScreen bootstrapState={isDesktop ? bootstrapState : undefined} />;
@@ -74,19 +52,8 @@ export default function Index() {
     return <Redirect href={buildHostOpenProjectRoute(anyOnlineHostServerId)} />;
   }
 
-  if (startupWorkspaceSelection && !canOpenStartupWorkspace && anyOnlineHostServerId) {
+  if (anyOnlineHostServerId) {
     return <Redirect href={buildHostOpenProjectRoute(anyOnlineHostServerId)} />;
-  }
-
-  if (startupWorkspaceSelection && canOpenStartupWorkspace) {
-    return (
-      <Redirect
-        href={buildHostWorkspaceRoute(
-          startupWorkspaceSelection.serverId,
-          startupWorkspaceSelection.workspaceId,
-        )}
-      />
-    );
   }
 
   if (redirectRoute) {

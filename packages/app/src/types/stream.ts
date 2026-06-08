@@ -4,6 +4,7 @@ import type { AttachmentMetadata } from "@/attachments/types";
 import { extractTaskEntriesFromToolCall } from "../utils/tool-call-parsers";
 import { splitMarkdownBlocks } from "@/utils/split-markdown-blocks";
 import { translateNow } from "@/i18n/i18n";
+import { extractAiCreationDisplayText } from "@/utils/ai-creation-display";
 
 /**
  * Simple hash function for deterministic ID generation
@@ -63,6 +64,7 @@ export interface UserMessageItem {
   optimistic?: true;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  selectionPreviewUri?: string;
 }
 
 export interface OptimisticUserMessageInput {
@@ -71,6 +73,7 @@ export interface OptimisticUserMessageInput {
   timestamp: Date;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  selectionPreviewUri?: string;
 }
 
 export type OptimisticUserMessagePlacement = "tail" | "active-head";
@@ -214,10 +217,14 @@ function buildUserMessageItem(input: {
       ...(input.optimistic.attachments && input.optimistic.attachments.length > 0
         ? { attachments: input.optimistic.attachments }
         : {}),
+      ...(input.optimistic.selectionPreviewUri
+        ? { selectionPreviewUri: input.optimistic.selectionPreviewUri }
+        : {}),
     };
   }
 
-  const parsed = extractFileAttachmentBlocks(input.text);
+  const displayText = extractAiCreationDisplayText(input.text) ?? input.text;
+  const parsed = extractFileAttachmentBlocks(displayText);
   return {
     kind: "user_message",
     id: input.id,
@@ -290,6 +297,7 @@ export function buildOptimisticUserMessage(input: OptimisticUserMessageInput): U
     ...(input.attachments && input.attachments.length > 0
       ? { attachments: input.attachments }
       : {}),
+    ...(input.selectionPreviewUri ? { selectionPreviewUri: input.selectionPreviewUri } : {}),
   };
 }
 

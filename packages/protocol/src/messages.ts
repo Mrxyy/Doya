@@ -863,6 +863,7 @@ const AgentAttachmentsSchema = z.unknown().transform(normalizeAgentAttachments).
 const ImageAttachmentSchema = z.object({
   data: z.string(), // base64 encoded image
   mimeType: z.string(), // e.g., "image/jpeg", "image/png"
+  fileName: z.string().optional(),
 });
 
 export const SendAgentMessageSchema = z.object({

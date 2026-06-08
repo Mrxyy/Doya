@@ -1058,6 +1058,7 @@ describe("turn lifecycle events", () => {
       timestamp: optimisticTimestamp,
       images: [image],
       attachments: [attachment],
+      selectionPreviewUri: "blob:http://localhost/source-preview",
     });
 
     const state = reduceStreamUpdate(
@@ -1085,6 +1086,66 @@ describe("turn lifecycle events", () => {
     assert.strictEqual(userMessage.optimistic, undefined);
     assert.deepStrictEqual(userMessage.images, [image]);
     assert.deepStrictEqual(userMessage.attachments, [attachment]);
+    assert.strictEqual(userMessage.selectionPreviewUri, "blob:http://localhost/source-preview");
+  });
+
+  it("shows AI creation prompts without internal imagegen instructions", () => {
+    const state = reduceStreamUpdate(
+      [],
+      {
+        type: "timeline",
+        provider: "codex",
+        item: {
+          type: "user_message",
+          text: [
+            "Use the Codex imagegen skill for this request. Follow the default built-in image_gen workflow unless the user explicitly asks for a CLI fallback.",
+            "",
+            "Create a raster image from this prompt:",
+            "生成一张卡通猫",
+            "",
+            "Aspect ratio: 1:1",
+            "Style: 自动",
+            "Save the final image into the current workspace if a workspace-bound asset is produced, and report the saved path and final prompt.",
+          ].join("\n"),
+          messageId: "canonical-ai-creation-user",
+        },
+      },
+      new Date("2025-01-01T15:03:20Z"),
+      { source: "canonical" },
+    );
+
+    const userMessage = state.find((item) => item.kind === "user_message");
+    invariant(userMessage?.kind === "user_message");
+    assert.strictEqual(userMessage.text, "生成图片： 生成一张卡通猫");
+  });
+
+  it("shows AI edit prompts without internal imagegen instructions", () => {
+    const state = reduceStreamUpdate(
+      [],
+      {
+        type: "timeline",
+        provider: "codex",
+        item: {
+          type: "user_message",
+          text: [
+            "Use the Codex imagegen skill for this request. Follow the default built-in image_gen workflow unless the user explicitly asks for a CLI fallback.",
+            "",
+            "Edit the attached image with this instruction:",
+            "把船改成红色快艇",
+            "",
+            "Aspect ratio: 1:1",
+            "Style guidance: 自动",
+          ].join("\n"),
+          messageId: "canonical-ai-edit-user",
+        },
+      },
+      new Date("2025-01-01T15:03:30Z"),
+      { source: "canonical" },
+    );
+
+    const userMessage = state.find((item) => item.kind === "user_message");
+    invariant(userMessage?.kind === "user_message");
+    assert.strictEqual(userMessage.text, "编辑图片： 把船改成红色快艇");
   });
 
   it("places optimistic user messages through one append helper", () => {

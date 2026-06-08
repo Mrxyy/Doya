@@ -1829,7 +1829,7 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
         return;
       }
       const trimmedPrompt = initialPrompt.trim();
-      let imagesData: Array<{ data: string; mimeType: string }> | undefined;
+      let imagesData: Array<{ data: string; mimeType: string; fileName?: string }> | undefined;
       try {
         imagesData = await encodeImages(images);
       } catch (error) {

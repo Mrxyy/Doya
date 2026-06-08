@@ -1135,7 +1135,7 @@ export class Session {
    */
   private buildAgentPrompt(
     text: string,
-    images?: Array<{ data: string; mimeType: string }>,
+    images?: Array<{ data: string; mimeType: string; fileName?: string }>,
     attachments?: AgentAttachment[],
   ): AgentPromptInput {
     const normalized = text?.trim() ?? "";
@@ -1149,7 +1149,15 @@ export class Session {
       blocks.push({ type: "text", text: normalized });
     }
     for (const image of images ?? []) {
-      blocks.push({ type: "image", data: image.data, mimeType: image.mimeType });
+      if (image.fileName) {
+        blocks.push({ type: "text", text: `Attached image: ${image.fileName}` });
+      }
+      blocks.push({
+        type: "image",
+        data: image.data,
+        mimeType: image.mimeType,
+        ...(image.fileName ? { fileName: image.fileName } : {}),
+      });
     }
     for (const attachment of attachments ?? []) {
       blocks.push(attachment);
@@ -3014,7 +3022,7 @@ export class Session {
     agentId: string,
     text: string,
     messageId?: string,
-    images?: Array<{ data: string; mimeType: string }>,
+    images?: Array<{ data: string; mimeType: string; fileName?: string }>,
     attachments?: AgentAttachment[],
     runOptions?: AgentRunOptions,
     options?: { spokenInput?: boolean },

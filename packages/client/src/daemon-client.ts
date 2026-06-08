@@ -242,7 +242,7 @@ export interface DaemonClientConfig {
 
 export interface SendMessageOptions {
   messageId?: string;
-  images?: Array<{ data: string; mimeType: string }>;
+  images?: Array<{ data: string; mimeType: string; fileName?: string }>;
   attachments?: SendAgentMessageRequest["attachments"];
 }
 

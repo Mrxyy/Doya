@@ -65,7 +65,7 @@ export interface CreateAgentFromSessionInput {
   initialPrompt?: string;
   clientMessageId?: string;
   outputSchema?: Record<string, unknown>;
-  images?: Array<{ data: string; mimeType: string }>;
+  images?: Array<{ data: string; mimeType: string; fileName?: string }>;
   attachments?: AgentAttachment[];
   git?: GitSetupOptions;
   labels: Record<string, string>;
@@ -202,6 +202,10 @@ async function resolveSessionCreateAgent(
   });
   const prompt = buildAgentPrompt(trimmedPrompt ?? "", input.images, input.attachments);
   const hasPromptContent = Array.isArray(prompt) ? prompt.length > 0 : prompt.length > 0;
+  const runOptions: AgentRunOptions = {
+    ...(input.outputSchema ? { outputSchema: input.outputSchema } : {}),
+    ...(input.clientMessageId ? { messageId: input.clientMessageId } : {}),
+  };
 
   return {
     config: sessionConfig,
@@ -214,7 +218,7 @@ async function resolveSessionCreateAgent(
     },
     metadataInitialPrompt: trimmedPrompt,
     prompt: hasPromptContent ? prompt : undefined,
-    runOptions: input.outputSchema ? { outputSchema: input.outputSchema } : undefined,
+    runOptions: Object.keys(runOptions).length > 0 ? runOptions : undefined,
     explicitTitle: input.explicitTitle,
     setupContinuation,
     background: true,
@@ -335,7 +339,7 @@ async function sendInitialPrompt(
 
 function buildAgentPrompt(
   text: string,
-  images?: Array<{ data: string; mimeType: string }>,
+  images?: Array<{ data: string; mimeType: string; fileName?: string }>,
   attachments?: AgentAttachment[],
 ): AgentPromptInput {
   const normalized = text.trim();
@@ -349,7 +353,15 @@ function buildAgentPrompt(
     blocks.push({ type: "text", text: normalized });
   }
   for (const image of images ?? []) {
-    blocks.push({ type: "image", data: image.data, mimeType: image.mimeType });
+    if (image.fileName) {
+      blocks.push({ type: "text", text: `Attached image: ${image.fileName}` });
+    }
+    blocks.push({
+      type: "image",
+      data: image.data,
+      mimeType: image.mimeType,
+      ...(image.fileName ? { fileName: image.fileName } : {}),
+    });
   }
   for (const attachment of attachments ?? []) {
     blocks.push(attachment);

@@ -71,6 +71,7 @@ import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { deriveSidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { buildDraftAgentSetup, type ClientSlashCommand } from "@/client-slash-commands";
 import { translateNow } from "@/i18n/i18n";
+import { extractAiCreationDisplayText } from "@/utils/ai-creation-display";
 
 interface ChatAgentStateShape {
   serverId: string | null;
@@ -204,7 +205,7 @@ function resolveWorkspaceAgentTabLabel(title: string | null | undefined): string
   if (normalized.toLowerCase() === "new agent") {
     return null;
   }
-  return normalized;
+  return extractAiCreationDisplayText(normalized) ?? normalized;
 }
 
 function shouldStoreFetchedAgentInActiveDirectory(agent: Agent): boolean {
