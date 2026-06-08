@@ -61,6 +61,7 @@ import { useLatchedBoolean } from "@/hooks/use-latched-boolean";
 import { useCompactWebViewportZoomLock } from "@/hooks/use-compact-web-viewport-zoom-lock";
 import { useOpenProject } from "@/hooks/use-open-project";
 import { useAppSettings } from "@/hooks/use-settings";
+import { I18nProvider } from "@/i18n/i18n";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { keyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher";
 import { polyfillCrypto } from "@/polyfills/crypto";
@@ -929,11 +930,13 @@ function RuntimeProviders({ children }: { children: ReactNode }) {
 function RootProviders({ children }: { children: ReactNode }) {
   return (
     <QueryProvider>
-      <SafeAreaProvider>
-        <KeyboardProvider>
-          <PortalProvider>{children}</PortalProvider>
-        </KeyboardProvider>
-      </SafeAreaProvider>
+      <I18nProvider>
+        <SafeAreaProvider>
+          <KeyboardProvider>
+            <PortalProvider>{children}</PortalProvider>
+          </KeyboardProvider>
+        </SafeAreaProvider>
+      </I18nProvider>
     </QueryProvider>
   );
 }

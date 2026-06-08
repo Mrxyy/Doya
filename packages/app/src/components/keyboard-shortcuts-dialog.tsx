@@ -5,13 +5,14 @@ import { getIsElectronRuntime } from "@/constants/layout";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { Shortcut } from "@/components/ui/shortcut";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
+import { useI18n } from "@/i18n/i18n";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import { buildKeyboardShortcutHelpSections } from "@/keyboard/keyboard-shortcuts";
 
 const SNAP_POINTS: string[] = ["70%", "92%"];
-const SHORTCUTS_HEADER: SheetHeader = { title: "Shortcuts" };
 
 export function KeyboardShortcutsDialog() {
+  const { t } = useI18n();
   const open = useKeyboardShortcutsStore((s) => s.shortcutsDialogOpen);
   const setOpen = useKeyboardShortcutsStore((s) => s.setShortcutsDialogOpen);
 
@@ -23,10 +24,11 @@ export function KeyboardShortcutsDialog() {
   );
 
   const handleClose = useCallback(() => setOpen(false), [setOpen]);
+  const header = useMemo<SheetHeader>(() => ({ title: t("settings.section.shortcuts") }), [t]);
 
   return (
     <AdaptiveModalSheet
-      header={SHORTCUTS_HEADER}
+      header={header}
       visible={open}
       onClose={handleClose}
       testID="keyboard-shortcuts-dialog"

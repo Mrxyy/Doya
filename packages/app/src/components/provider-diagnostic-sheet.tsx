@@ -27,6 +27,7 @@ import { formatTimeAgo } from "@/utils/time";
 import { compareMatchScores, scoreTextFields } from "@/utils/score-match";
 import type { AgentModelDefinition, AgentProvider } from "@getpaseo/protocol/agent-types";
 import type { ProviderProfileModel } from "@getpaseo/protocol/provider-config";
+import { translateNow } from "@/i18n/i18n";
 
 interface ProviderDiagnosticSheetProps {
   provider: string;
@@ -186,7 +187,10 @@ function AddCustomModelSubSheet({
       .finally(() => setSaving(false));
   }, [additionalModels, canAdd, onClose, patchConfig, provider, refresh, trimmed]);
 
-  const header = useMemo<SheetHeader>(() => ({ title: "Add custom model" }), []);
+  const header = useMemo<SheetHeader>(
+    () => ({ title: translateNow("ui.add.custom.model.bs1rsp") }),
+    [],
+  );
 
   return (
     <AdaptiveModalSheet
@@ -197,14 +201,14 @@ function AddCustomModelSubSheet({
       snapPoints={ADD_SNAP_POINTS}
     >
       <View style={sheetStyles.formGroup}>
-        <Text style={sheetStyles.formLabel}>Model ID</Text>
+        <Text style={sheetStyles.formLabel}>{translateNow("ui.model.id.1pv058y")}</Text>
         <AdaptiveTextInput
           initialValue={input}
           resetKey={`add-custom-${visible}`}
           value={input}
           onChangeText={setInput}
           onSubmitEditing={handleAdd}
-          placeholder="e.g. openai/gpt-5"
+          placeholder={translateNow("ui.e.g.openai.gpt.5.1plslty")}
           placeholderTextColor={theme.colors.foregroundMuted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -215,7 +219,7 @@ function AddCustomModelSubSheet({
         {error ? <Text style={sheetStyles.errorText}>{error}</Text> : null}
         <View style={sheetStyles.formActions}>
           <Button variant="secondary" size="sm" onPress={onClose} disabled={saving}>
-            Cancel
+            {translateNow("ui.cancel.x9d2fu")}
           </Button>
           <Button variant="default" size="sm" onPress={handleAdd} disabled={!canAdd || saving}>
             {saving ? "Adding…" : "Add"}
@@ -278,7 +282,7 @@ function DiagnosticSubSheet({
 
   const header = useMemo<SheetHeader>(
     () => ({
-      title: "Diagnostic",
+      title: translateNow("ui.diagnostic.7d9ww7"),
       actions: (
         <Pressable
           onPress={handleRefreshPress}
@@ -310,7 +314,7 @@ function DiagnosticSubSheet({
     body = (
       <View style={sheetStyles.codeBlockLoading}>
         <ActivityIndicator size="small" color={theme.colors.foregroundMuted} />
-        <Text style={sheetStyles.mutedText}>Running diagnostic…</Text>
+        <Text style={sheetStyles.mutedText}>{translateNow("ui.running.diagnostic.1w98z1a")}</Text>
       </View>
     );
   } else if (diagnostic) {
@@ -326,7 +330,9 @@ function DiagnosticSubSheet({
   } else {
     body = (
       <View style={sheetStyles.codeBlockLoading}>
-        <Text style={sheetStyles.mutedText}>No diagnostic available</Text>
+        <Text style={sheetStyles.mutedText}>
+          {translateNow("ui.no.diagnostic.available.1lambn3")}
+        </Text>
       </View>
     );
   }
@@ -379,7 +385,7 @@ function ProviderModalBody(props: ProviderModalBodyProps) {
     return (
       <View style={sheetStyles.emptyState}>
         <ActivityIndicator size="small" color={theme.colors.foregroundMuted} />
-        <Text style={sheetStyles.mutedText}>Loading models…</Text>
+        <Text style={sheetStyles.mutedText}>{translateNow("ui.loading.models.1vkf2t4")}</Text>
       </View>
     );
   }
@@ -397,14 +403,16 @@ function ProviderModalBody(props: ProviderModalBodyProps) {
   if (filteredDiscovered.length === 0 && filteredCustom.length === 0 && searchActive) {
     return (
       <View style={sheetStyles.emptyState}>
-        <Text style={sheetStyles.mutedText}>No models match your search</Text>
+        <Text style={sheetStyles.mutedText}>
+          {translateNow("ui.no.models.match.your.search.1sprseb")}
+        </Text>
       </View>
     );
   }
   if (discoveredCount === 0 && additionalCount === 0) {
     return (
       <View style={sheetStyles.emptyState}>
-        <Text style={sheetStyles.mutedText}>No models detected</Text>
+        <Text style={sheetStyles.mutedText}>{translateNow("ui.no.models.detected.1k8q5o9")}</Text>
       </View>
     );
   }
@@ -412,7 +420,10 @@ function ProviderModalBody(props: ProviderModalBodyProps) {
     <>
       {filteredDiscovered.length > 0 ? (
         <View style={sheetStyles.section}>
-          <SectionHeader title="Discovered" count={filteredDiscovered.length} />
+          <SectionHeader
+            title={translateNow("ui.discovered.15uw6eg")}
+            count={filteredDiscovered.length}
+          />
           <View style={settingsStyles.card}>
             {filteredDiscovered.map((model) => (
               <DiscoveredModelRow key={model.id} model={model} />
@@ -422,7 +433,10 @@ function ProviderModalBody(props: ProviderModalBodyProps) {
       ) : null}
       {filteredCustom.length > 0 ? (
         <View style={sheetStyles.section}>
-          <SectionHeader title="Custom models" count={filteredCustom.length} />
+          <SectionHeader
+            title={translateNow("ui.custom.models.sc0kwp")}
+            count={filteredCustom.length}
+          />
           <View style={settingsStyles.card}>
             {filteredCustom.map((model) => (
               <CustomModelRow
@@ -538,7 +552,7 @@ export function ProviderDiagnosticSheet({
       title: providerLabel,
       search: {
         onChange: setQuery,
-        placeholder: "Search models",
+        placeholder: translateNow("ui.search.models.xa2the"),
         testID: "provider-settings-search",
       },
     }),
@@ -552,10 +566,10 @@ export function ProviderDiagnosticSheet({
       </Text>
       <View style={sheetStyles.footerActions}>
         <Button variant="secondary" size="sm" leftIcon={Plus} onPress={handleOpenAddSheet}>
-          Add model
+          {translateNow("ui.add.model.8wezey")}
         </Button>
         <Button variant="secondary" size="sm" leftIcon={FileText} onPress={handleOpenDiagSheet}>
-          Diagnostic
+          {translateNow("ui.diagnostic.7d9ww7")}
         </Button>
         <Button
           variant="default"

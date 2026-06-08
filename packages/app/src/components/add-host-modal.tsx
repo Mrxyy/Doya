@@ -13,9 +13,12 @@ import {
 import { DaemonConnectionTestError } from "@/utils/test-daemon-connection";
 import { AdaptiveModalSheet, AdaptiveTextInput, type SheetHeader } from "./adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
+import { translateNow } from "@/i18n/i18n";
 
 const FLEX_ONE_STYLE = { flex: 1 } as const;
-const DIRECT_CONNECTION_HEADER: SheetHeader = { title: "Direct connection" };
+const DIRECT_CONNECTION_HEADER: SheetHeader = {
+  title: translateNow("ui.direct.connection.g05fth"),
+};
 
 interface DirectConnectionDraft {
   host: string;
@@ -360,7 +363,7 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
       }
       setErrorMessage(combined);
       if (!isMobile) {
-        Alert.alert("Connection failed", combined);
+        Alert.alert(translateNow("ui.connection.failed.13gm9wf"), combined);
       }
     } finally {
       setIsSaving(false);
@@ -431,20 +434,22 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
       onClose={handleClose}
       testID="add-host-modal"
     >
-      <Text style={styles.helper}>Enter the address of a Paseo server.</Text>
+      <Text style={styles.helper}>
+        {translateNow("ui.enter.the.address.of.a.paseo.server.96wi")}
+      </Text>
 
       <View style={styles.portRow}>
         <View style={hostFieldStyle}>
-          <Text style={styles.label}>Host</Text>
+          <Text style={styles.label}>{translateNow("ui.host.1cc7c")}</Text>
           <AdaptiveTextInput
             testID="direct-host-input"
             nativeID="direct-host-input"
-            accessibilityLabel="Host"
+            accessibilityLabel={translateNow("ui.host.1cc7c")}
             initialValue={host}
             resetKey={`direct-host-${inputResetKey}`}
             value={host}
             onChangeText={setHost}
-            placeholder="localhost"
+            placeholder={translateNow("ui.localhost.1f3x577")}
             placeholderTextColor={theme.colors.foregroundMuted}
             style={styles.input}
             autoCapitalize="none"
@@ -455,11 +460,11 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
           />
         </View>
         <View style={portFieldStyle}>
-          <Text style={styles.label}>Port</Text>
+          <Text style={styles.label}>{translateNow("ui.port.1hg2p")}</Text>
           <AdaptiveTextInput
             testID="direct-port-input"
             nativeID="direct-port-input"
-            accessibilityLabel="Port"
+            accessibilityLabel={translateNow("ui.port.1hg2p")}
             initialValue={port}
             resetKey={`direct-port-${inputResetKey}`}
             value={port}
@@ -482,7 +487,7 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
         onPress={handleToggleUseTls}
         disabled={isSaving}
         accessibilityRole="checkbox"
-        accessibilityLabel="Use SSL"
+        accessibilityLabel={translateNow("ui.use.ssl.p213ub")}
         accessibilityState={useTlsAccessibilityState}
         testID="direct-ssl-toggle"
       >
@@ -493,21 +498,21 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
             </View>
           ) : null}
         </View>
-        <Text style={styles.label}>Use SSL</Text>
+        <Text style={styles.label}>{translateNow("ui.use.ssl.p213ub")}</Text>
       </Pressable>
 
       <View style={styles.field}>
-        <Text style={styles.label}>Password</Text>
+        <Text style={styles.label}>{translateNow("ui.password.l71ry3")}</Text>
         <View style={styles.passwordRow}>
           <AdaptiveTextInput
             testID="direct-password-input"
             nativeID="direct-password-input"
-            accessibilityLabel="Password"
+            accessibilityLabel={translateNow("ui.password.l71ry3")}
             initialValue={password}
             resetKey={`direct-password-${inputResetKey}`}
             value={password}
             onChangeText={setPassword}
-            placeholder="Optional"
+            placeholder={translateNow("ui.optional.1ysjzpc")}
             placeholderTextColor={theme.colors.foregroundMuted}
             style={passwordInputStyle}
             autoCapitalize="none"
@@ -540,18 +545,18 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
           testID="direct-host-advanced-toggle"
         >
           <AdvancedIcon size={16} color={theme.colors.foregroundMuted} />
-          <Text style={styles.advancedText}>Advanced</Text>
+          <Text style={styles.advancedText}>{translateNow("ui.advanced.1o7meyq")}</Text>
         </Pressable>
         {isAdvancedOpen ? (
           <AdaptiveTextInput
             testID="direct-host-uri-input"
             nativeID="direct-host-uri-input"
-            accessibilityLabel="Connection URI"
+            accessibilityLabel={translateNow("ui.connection.uri.4eqvqi")}
             initialValue={advancedUri}
             resetKey={`direct-host-uri-${inputResetKey}`}
             value={advancedUri}
             onChangeText={setAdvancedUri}
-            placeholder="tcp://localhost:6767?ssl=true"
+            placeholder={translateNow("ui.tcp.localhost.6767.ssl.true.x4fvvg")}
             placeholderTextColor={theme.colors.foregroundMuted}
             style={styles.input}
             autoCapitalize="none"
@@ -572,7 +577,7 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
           onPress={handleCancel}
           disabled={isSaving}
         >
-          Cancel
+          {translateNow("ui.cancel.x9d2fu")}
         </Button>
         <Button
           style={FLEX_ONE_STYLE}

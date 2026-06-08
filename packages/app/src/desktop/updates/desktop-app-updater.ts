@@ -3,6 +3,7 @@ import type {
   DesktopAppUpdateInstallResult,
   DesktopReleaseChannel,
 } from "@/desktop/updates/desktop-updates";
+import { translateNow } from "@/i18n/i18n";
 
 export type DesktopAppUpdateStatus =
   | "idle"
@@ -248,7 +249,7 @@ export function createDesktopAppUpdater(deps: DesktopAppUpdaterDeps): DesktopApp
       const message = getErrorMessage(error);
       deps.reportInstallError?.({
         error,
-        message: "Unable to install the desktop app update.",
+        message: translateNow("ui.unable.to.install.the.desktop.app.update.1kuedw6"),
         logLabel: "[DesktopUpdater] Failed to install app update",
       });
       commit({

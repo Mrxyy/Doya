@@ -8,6 +8,7 @@ import { HeaderToggleButton } from "./header-toggle-button";
 import { selectIsAgentListOpen, usePanelStore } from "@/stores/panel-store";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { getShortcutOs } from "@/utils/shortcut-platform";
+import { translateNow } from "@/i18n/i18n";
 
 interface MenuHeaderProps {
   title?: string;
@@ -68,7 +69,7 @@ export function SidebarMenuToggle({
   return (
     <HeaderToggleButton
       onPress={handlePress}
-      tooltipLabel="Toggle sidebar"
+      tooltipLabel={translateNow("ui.toggle.sidebar.13jc6gg")}
       tooltipKeys={toggleShortcutKeys}
       tooltipSide={tooltipSide}
       testID={testID}

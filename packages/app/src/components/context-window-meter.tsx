@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { translateNow } from "@/i18n/i18n";
 
 interface ContextWindowMeterProps {
   maxTokens: number;
@@ -143,7 +144,7 @@ export function ContextWindowMeter({
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
         <View style={styles.tooltipContent}>
-          <Text style={styles.tooltipTitle}>Context window</Text>
+          <Text style={styles.tooltipTitle}>{translateNow("ui.context.window.1chbvz5")}</Text>
           <Text style={styles.tooltipText}>{`${roundedPercentage}% used`}</Text>
           <Text
             style={styles.tooltipDetail}

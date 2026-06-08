@@ -14,6 +14,7 @@ import {
 import { useDesktopAppUpdater } from "@/desktop/updates/use-desktop-app-updater";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { openExternalUrl } from "@/utils/open-external-url";
+import { translateNow } from "@/i18n/i18n";
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const CHANGELOG_URL = "https://paseo.sh/changelog";
@@ -128,7 +129,7 @@ function UpdateAvailableDescription({ versionLabel }: { versionLabel?: string })
           : "A new version is ready to install."}
       </SidebarCalloutDescriptionText>
       <SidebarCalloutDescriptionText>
-        Upgrading the app will stop running agents and close terminal sessions.
+        {translateNow("ui.upgrading.the.app.will.stop.running.agents.38oep6")}
       </SidebarCalloutDescriptionText>
     </>
   );

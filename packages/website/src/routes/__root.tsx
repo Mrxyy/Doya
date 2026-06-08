@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { createContext, useContext } from "react";
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { getLatestRelease } from "~/release";
-import { getStarCount } from "~/stars";
 
 interface ReleaseContext {
   version: string;
@@ -10,16 +9,11 @@ interface ReleaseContext {
   windowsArm64Asset: string | null;
 }
 
-interface StarsContext {
-  stars: string;
-}
-
 const ReleaseCtx = createContext<ReleaseContext>({
   version: "",
   windowsX64Asset: null,
   windowsArm64Asset: null,
 });
-const StarsCtx = createContext<StarsContext>({ stars: "" });
 
 const PLAUSIBLE_INIT_SCRIPT = {
   __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()`,
@@ -29,14 +23,9 @@ export function useRelease(): ReleaseContext {
   return useContext(ReleaseCtx);
 }
 
-export function useStars(): StarsContext {
-  return useContext(StarsCtx);
-}
-
 export const Route = createRootRoute({
   loader: async () => {
-    const [release, stars] = await Promise.all([getLatestRelease(), getStarCount()]);
-    return { ...release, ...stars };
+    return getLatestRelease();
   },
   head: () => ({
     meta: [
@@ -62,11 +51,9 @@ function RootComponent() {
   const data = Route.useLoaderData();
   return (
     <ReleaseCtx value={data}>
-      <StarsCtx value={data}>
-        <RootDocument>
-          <Outlet />
-        </RootDocument>
-      </StarsCtx>
+      <RootDocument>
+        <Outlet />
+      </RootDocument>
     </ReleaseCtx>
   );
 }

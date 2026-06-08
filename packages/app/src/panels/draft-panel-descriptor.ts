@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { PanelDescriptor, PanelIconProps } from "@/panels/panel-registry";
+import { translateNow } from "@/i18n/i18n";
 
 export function buildDraftPanelDescriptor(input: {
   isCreating: boolean;
@@ -19,7 +20,7 @@ export function buildDraftPanelDescriptor(input: {
   }
 
   return {
-    label: "New Agent",
+    label: translateNow("ui.new.agent.1xe0nd1"),
     subtitle: "New Agent",
     titleState: "ready",
     icon,

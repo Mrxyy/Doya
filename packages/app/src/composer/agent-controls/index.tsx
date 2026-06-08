@@ -63,6 +63,7 @@ import {
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useToast } from "@/contexts/toast-context";
 import { toErrorMessage } from "@/utils/error-messages";
+import { translateNow } from "@/i18n/i18n";
 
 interface AgentControlOption {
   id: string;
@@ -759,7 +760,7 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
             onPress={handleProviderPress}
             style={providerPressableStyle}
             accessibilityRole="button"
-            accessibilityLabel="Select agent provider"
+            accessibilityLabel={translateNow("ui.select.agent.provider.1xowm5s")}
             testID="agent-provider-selector"
           >
             <Text style={styles.modeBadgeText}>{displayProvider}</Text>
@@ -1007,7 +1008,7 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
           disabled={disabled || !canSelectThinking}
           style={thinkingButtonStyle}
           accessibilityRole="button"
-          accessibilityLabel="Select thinking option"
+          accessibilityLabel={translateNow("ui.select.thinking.option.92ngm9")}
           testID="agent-controls-thinking"
         >
           <Brain size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
@@ -1020,7 +1021,7 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
           disabled={disabled}
           style={featuresButtonStyle}
           accessibilityRole="button"
-          accessibilityLabel="Open agent features"
+          accessibilityLabel={translateNow("ui.open.agent.features.boy25q")}
           testID="agent-controls-features"
         >
           <Settings2 size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
@@ -1033,7 +1034,7 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
           value={selectedThinkingOptionId ?? ""}
           onSelect={handleSelectThinkingAndClose}
           searchable={false}
-          title="Thinking"
+          title={translateNow("ui.thinking.lbkij4")}
           open={activeSheet === "thinking"}
           onOpenChange={handleThinkingSheetOpenChange}
           anchorRef={thinkingAnchorRef}
@@ -1339,7 +1340,7 @@ function ThinkingComboboxOption({
   );
 }
 
-const FEATURES_SHEET_HEADER: SheetHeader = { title: "Features" };
+const FEATURES_SHEET_HEADER: SheetHeader = { title: translateNow("ui.features.1vajrkt") };
 
 export const AgentControls = memo(function AgentControls({
   agentId,

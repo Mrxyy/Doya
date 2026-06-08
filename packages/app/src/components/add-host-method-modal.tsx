@@ -4,8 +4,9 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { QrCode, Link2, ClipboardPaste } from "lucide-react-native";
 import { AdaptiveModalSheet, type SheetHeader } from "./adaptive-modal-sheet";
 import { isNative } from "@/constants/platform";
+import { translateNow } from "@/i18n/i18n";
 
-const ADD_CONNECTION_HEADER: SheetHeader = { title: "Add connection" };
+const ADD_CONNECTION_HEADER: SheetHeader = { title: translateNow("ui.add.connection.1vro999") };
 
 const styles = StyleSheet.create((theme) => ({
   option: {
@@ -73,13 +74,15 @@ export function AddHostMethodModal({
         style={styles.option}
         onPress={handleDirect}
         accessibilityRole="button"
-        accessibilityLabel="Direct connection"
+        accessibilityLabel={translateNow("ui.direct.connection.g05fth")}
         testID="add-host-method-direct"
       >
         <Link2 size={18} color={theme.colors.foreground} />
         <View style={styles.optionBody}>
-          <Text style={styles.optionText}>Direct connection</Text>
-          <Text style={styles.optionSubtext}>Local network or VPN.</Text>
+          <Text style={styles.optionText}>{translateNow("ui.direct.connection.g05fth")}</Text>
+          <Text style={styles.optionSubtext}>
+            {translateNow("ui.local.network.or.vpn.1keeii8")}
+          </Text>
         </View>
       </Pressable>
 
@@ -88,12 +91,14 @@ export function AddHostMethodModal({
           style={styles.option}
           onPress={handleScan}
           accessibilityRole="button"
-          accessibilityLabel="Scan QR code"
+          accessibilityLabel={translateNow("ui.scan.qr.code.185k4qx")}
         >
           <QrCode size={18} color={theme.colors.foreground} />
           <View style={styles.optionBody}>
-            <Text style={styles.optionText}>Scan QR code</Text>
-            <Text style={styles.optionSubtext}>Encrypted relay connection.</Text>
+            <Text style={styles.optionText}>{translateNow("ui.scan.qr.code.185k4qx")}</Text>
+            <Text style={styles.optionSubtext}>
+              {translateNow("ui.encrypted.relay.connection.w9951")}
+            </Text>
           </View>
         </Pressable>
       ) : null}
@@ -102,13 +107,15 @@ export function AddHostMethodModal({
         style={styles.option}
         onPress={handlePaste}
         accessibilityRole="button"
-        accessibilityLabel="Paste pairing link"
+        accessibilityLabel={translateNow("ui.paste.pairing.link.1yypom7")}
         testID="add-host-method-pair-link"
       >
         <ClipboardPaste size={18} color={theme.colors.foreground} />
         <View style={styles.optionBody}>
-          <Text style={styles.optionText}>Paste pairing link</Text>
-          <Text style={styles.optionSubtext}>Encrypted relay connection.</Text>
+          <Text style={styles.optionText}>{translateNow("ui.paste.pairing.link.1yypom7")}</Text>
+          <Text style={styles.optionSubtext}>
+            {translateNow("ui.encrypted.relay.connection.w9951")}
+          </Text>
         </View>
       </Pressable>
     </AdaptiveModalSheet>

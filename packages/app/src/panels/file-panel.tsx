@@ -5,6 +5,7 @@ import { FilePane } from "@/components/file-pane";
 import { usePaneContext } from "@/panels/pane-context";
 import type { PanelRegistration } from "@/panels/panel-registry";
 import { useWorkspaceExecutionAuthority } from "@/stores/session-store-hooks";
+import { translateNow } from "@/i18n/i18n";
 
 const CENTERED_PADDED_STYLE = {
   flex: 1,
@@ -34,7 +35,7 @@ function FilePanel() {
   if (!workspaceDirectory) {
     return (
       <View style={CENTERED_PADDED_STYLE}>
-        <Text>Workspace execution directory not found.</Text>
+        <Text>{translateNow("ui.workspace.execution.directory.not.found.o5uqnz")}</Text>
       </View>
     );
   }

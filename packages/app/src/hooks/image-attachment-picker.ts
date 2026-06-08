@@ -1,5 +1,6 @@
 import type { DesktopDialogBridge } from "@/desktop/host";
 import { isAbsolutePath } from "@/utils/path";
+import { translateNow } from "@/i18n/i18n";
 
 export type PickedImageSource = { kind: "file_uri"; uri: string } | { kind: "blob"; blob: Blob };
 
@@ -86,7 +87,7 @@ export async function openImagePathsWithDesktopDialog(
     directory: false,
     multiple: true,
     filters: [{ name: "Images", extensions: IMAGE_FILE_EXTENSIONS }],
-    title: "Attach images",
+    title: translateNow("ui.attach.images.1vi7es3"),
   };
 
   const dialogOpen = dialog?.open;

@@ -9,11 +9,10 @@ import {
   type PressableStateCallbackType,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useCallback, useMemo, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { formatTimeAgo } from "@/utils/time";
-import { shortenPath } from "@/utils/shorten-path";
 import { type AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { useSessionStore } from "@/stores/session-store";
 import { Archive } from "lucide-react-native";
@@ -21,6 +20,13 @@ import { getProviderIcon } from "@/components/provider-icons";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import type { Agent } from "@/stores/session-store";
 import { useArchiveAgent } from "@/hooks/use-archive-agent";
+import {
+  loadAccountBootstrapSession,
+  subscribeAccountSessionChanges,
+  type AccountBootstrapSession,
+} from "@/account/account-api";
+import { findAccountProjectForWorkspaceDirectory } from "@/account/account-workspace-display";
+import { translateNow } from "@/i18n/i18n";
 
 interface AgentListProps {
   agents: AggregatedAgent[];
@@ -139,6 +145,71 @@ function formatStatusLabel(status: AggregatedAgent["status"]): string {
   }
 }
 
+function useAccountSessionForAgentList(): AccountBootstrapSession | null {
+  const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null>(null);
+
+  const reloadSession = useCallback((isDisposed: () => boolean) => {
+    void (async () => {
+      const storedSession = await loadAccountBootstrapSession();
+      if (!isDisposed()) {
+        setAccountSession(storedSession);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    const isDisposed = () => disposed;
+    reloadSession(isDisposed);
+    const unsubscribe = subscribeAccountSessionChanges(() => reloadSession(isDisposed));
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [reloadSession]);
+
+  return accountSession;
+}
+
+function formatAgentDirectoryLabel(input: {
+  cwd: string;
+  accountSession: AccountBootstrapSession | null;
+}): string {
+  if (input.accountSession) {
+    const project = findAccountProjectForWorkspaceDirectory({
+      session: input.accountSession,
+      workspaceDirectory: input.cwd,
+    });
+    const projectName = project?.displayName.trim();
+    if (projectName) {
+      return projectName;
+    }
+  }
+
+  const directoryName = directoryNameFromPath(input.cwd);
+  if (isGeneratedWorkspaceDirectoryName(directoryName)) {
+    return (
+      input.accountSession?.workspace.displayName.trim() ||
+      translateNow("account.workspace.fallbackName")
+    );
+  }
+  return directoryName;
+}
+
+function directoryNameFromPath(path: string): string {
+  const normalized = path.trim().replace(/[\\/]+$/, "");
+  const segments = normalized.split(/[\\/]/).filter(Boolean);
+  return cleanGeneratedDirectoryName(segments.at(-1) ?? normalized);
+}
+
+function cleanGeneratedDirectoryName(name: string): string {
+  return name.replace(/^(.+)-[0-9a-f]{8}$/i, "$1");
+}
+
+function isGeneratedWorkspaceDirectoryName(name: string): boolean {
+  return /^ws_[0-9a-f-]{36}$/i.test(name);
+}
+
 function SessionBadge({
   label,
   icon,
@@ -177,6 +248,7 @@ function SessionRow({
   isMobile,
   selectedAgentId,
   showAttentionIndicator,
+  accountSession,
   onPress,
   onLongPress,
 }: {
@@ -184,6 +256,7 @@ function SessionRow({
   isMobile: boolean;
   selectedAgentId?: string;
   showAttentionIndicator: boolean;
+  accountSession: AccountBootstrapSession | null;
   onPress: (agent: AggregatedAgent) => void;
   onLongPress: (agent: AggregatedAgent) => void;
 }) {
@@ -192,7 +265,7 @@ function SessionRow({
   const agentKey = `${agent.serverId}:${agent.id}`;
   const isSelected = selectedAgentId === agentKey;
   const statusLabel = formatStatusLabel(agent.status);
-  const projectPath = shortenPath(agent.cwd);
+  const directoryLabel = formatAgentDirectoryLabel({ cwd: agent.cwd, accountSession });
   const ProviderIcon = getProviderIcon(agent.provider);
 
   const pressableStyle = useCallback(
@@ -233,18 +306,20 @@ function SessionRow({
           <Text style={sessionTitleStyle} numberOfLines={1}>
             {agent.title || "New session"}
           </Text>
-          {agent.archivedAt ? <SessionBadge label="Archived" icon={archivedIcon} /> : null}
+          {agent.archivedAt ? (
+            <SessionBadge label={translateNow("ui.archived.17pr5z6")} icon={archivedIcon} />
+          ) : null}
           {(agent.pendingPermissionCount ?? 0) > 0 ? (
             <SessionBadge label={`${agent.pendingPermissionCount} pending`} tone="warning" />
           ) : null}
           {!isMobile && showAttentionIndicator && agent.requiresAttention ? (
-            <SessionBadge label="Attention" tone="danger" />
+            <SessionBadge label={translateNow("ui.attention.radkvy")} tone="danger" />
           ) : null}
         </View>
         {isMobile && (
           <View style={styles.rowMetaRow}>
             <Text style={styles.sessionMetaText} numberOfLines={1}>
-              {projectPath}
+              {directoryLabel}
             </Text>
             <Text style={styles.sessionMetaSeparator}>·</Text>
             <Text style={styles.sessionMetaText}>{statusLabel}</Text>
@@ -264,7 +339,7 @@ function SessionRow({
       {!isMobile && (
         <>
           <Text style={styles.columnMeta} numberOfLines={1}>
-            {projectPath}
+            {directoryLabel}
           </Text>
           <Text style={styles.columnMetaFixed}>{statusLabel}</Text>
           <Text style={styles.columnMetaFixed}>{timeAgo}</Text>
@@ -272,7 +347,7 @@ function SessionRow({
       )}
       {isMobile && showAttentionIndicator && agent.requiresAttention ? (
         <View style={styles.rowTrailing}>
-          <SessionBadge label="Attention" tone="danger" />
+          <SessionBadge label={translateNow("ui.attention.radkvy")} tone="danger" />
         </View>
       ) : null}
     </Pressable>
@@ -293,6 +368,7 @@ export function AgentList({
   const [actionAgent, setActionAgent] = useState<AggregatedAgent | null>(null);
   const isMobile = useIsCompactFormFactor();
   const { archiveAgent } = useArchiveAgent();
+  const accountSession = useAccountSessionForAgentList();
 
   const actionClient = useSessionStore((state) =>
     actionAgent?.serverId ? (state.sessions[actionAgent.serverId]?.client ?? null) : null,
@@ -392,12 +468,20 @@ export function AgentList({
           isMobile={isMobile}
           selectedAgentId={selectedAgentId}
           showAttentionIndicator={showAttentionIndicator}
+          accountSession={accountSession}
           onPress={handleAgentPress}
           onLongPress={handleAgentLongPress}
         />
       );
     },
-    [handleAgentLongPress, handleAgentPress, isMobile, selectedAgentId, showAttentionIndicator],
+    [
+      accountSession,
+      handleAgentLongPress,
+      handleAgentPress,
+      isMobile,
+      selectedAgentId,
+      showAttentionIndicator,
+    ],
   );
 
   const keyExtractor = useCallback((item: FlatListItem) => item.key, []);
@@ -463,7 +547,7 @@ export function AgentList({
                 onPress={handleCloseActionSheet}
                 testID="agent-action-cancel"
               >
-                <Text style={styles.sheetCancelText}>Cancel</Text>
+                <Text style={styles.sheetCancelText}>{translateNow("ui.cancel.x9d2fu")}</Text>
               </Pressable>
               <Pressable
                 disabled={isActionDaemonUnavailable}
@@ -471,7 +555,7 @@ export function AgentList({
                 onPress={handleArchiveAgent}
                 testID="agent-action-archive"
               >
-                <Text style={sheetArchiveTextStyle}>Archive</Text>
+                <Text style={sheetArchiveTextStyle}>{translateNow("ui.archive.f5ovxe")}</Text>
               </Pressable>
             </View>
           </View>

@@ -32,6 +32,7 @@ import {
   type AppSettings,
   type DesktopSettingsBridge,
   type KeyValueStorage,
+  type LanguageSetting,
   type ReleaseChannel,
   type SendBehavior,
   type ServiceUrlBehavior,
@@ -60,6 +61,7 @@ export type {
   AppSettings,
   DesktopSettingsBridge,
   KeyValueStorage,
+  LanguageSetting,
   ReleaseChannel,
   SendBehavior,
   ServiceUrlBehavior,
@@ -142,6 +144,9 @@ export function useSettings(): UseSettingsReturn {
       const appUpdates: Partial<AppSettings> = {};
       if (updates.theme !== undefined) {
         appUpdates.theme = updates.theme;
+      }
+      if (updates.language !== undefined) {
+        appUpdates.language = updates.language;
       }
       if (updates.sendBehavior !== undefined) {
         appUpdates.sendBehavior = updates.sendBehavior;

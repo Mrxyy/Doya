@@ -12,6 +12,7 @@ import {
 import { useDesktopIpcErrorReporter } from "@/desktop/hooks/desktop-ipc-error";
 import type { DesktopSettings } from "@/desktop/settings/desktop-settings";
 import { confirmDialog } from "@/utils/confirm-dialog";
+import { translateNow } from "@/i18n/i18n";
 
 type DesktopDaemonSettings = DesktopSettings["daemon"];
 
@@ -41,11 +42,10 @@ export function useBuiltInDaemonManagement(
       executeDaemonManagementToggle(settings.manageBuiltInDaemon, daemonStatus, {
         confirm: () =>
           confirmDialog({
-            title: "Pause built-in daemon",
-            message:
-              "This will stop the built-in daemon immediately. Running agents and terminals connected to the built-in daemon will be stopped.",
-            confirmLabel: "Pause and stop",
-            cancelLabel: "Cancel",
+            title: translateNow("ui.pause.built.in.daemon.1qgqy2u"),
+            message: translateNow("ui.this.will.stop.the.built.in.daemon.immediately.1mntzq1"),
+            confirmLabel: translateNow("ui.pause.and.stop.2kmjed"),
+            cancelLabel: translateNow("ui.cancel.x9d2fu"),
             destructive: true,
           }),
         persistSettings: (next) => updateSettings(next) as Promise<void>,

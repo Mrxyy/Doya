@@ -95,7 +95,6 @@ export function LandingPage({ title, subtitle }: LandingPageProps) {
             <LocalVoiceSection />
             <CLISection />
             <FAQ />
-            <SponsorCTA />
           </div>
         </main>
         <SiteFooter />
@@ -1693,47 +1692,6 @@ function FAQ() {
           </a>
           .
         </FAQItem>
-      </div>
-    </motion.div>
-  );
-}
-
-function SponsorCTA() {
-  return (
-    <motion.div
-      initial={FADE_IN_UP}
-      whileInView={FADE_IN}
-      viewport={VIEWPORT_60}
-      transition={EASE_OUT_05}
-      className="rounded-xl bg-white/5 border border-white/10 p-8 md:p-10 text-left space-y-4 max-w-xl mx-auto"
-    >
-      <div className="text-sm text-muted-foreground leading-relaxed space-y-3">
-        <p>
-          I built Paseo because I wanted better tools for coding agents on my own setup. It&apos;s
-          an independent open source project, built around freedom of choice and real workflows. If
-          you like what I&apos;m building, consider becoming a supporter.
-        </p>
-        <p>- Mo</p>
-      </div>
-      <div className="pt-2">
-        <a
-          href="https://github.com/sponsors/boudra"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 rounded-lg bg-white/10 border border-white/20 px-5 py-2.5 text-sm font-medium text-white hover:bg-white/15 transition-colors"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            className="text-pink-400"
-          >
-            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-          </svg>
-          Sponsor on GitHub
-        </a>
       </div>
     </motion.div>
   );

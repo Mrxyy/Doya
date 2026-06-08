@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { AgentList } from "@/components/agent-list";
 import { useAgentHistory } from "@/hooks/use-agent-history";
+import { useI18n } from "@/i18n/i18n";
 import { buildHostOpenProjectRoute } from "@/utils/host-routes";
 
 export function SessionsScreen({ serverId }: { serverId: string }) {
@@ -23,6 +24,7 @@ export function SessionsScreen({ serverId }: { serverId: string }) {
 
 function SessionsScreenContent({ serverId }: { serverId: string }) {
   const { theme } = useUnistyles();
+  const { t } = useI18n();
   const { agents, hasMore, isInitialLoad, isLoadingMore, isRevalidating, loadMore, refreshAll } =
     useAgentHistory({
       serverId,
@@ -56,16 +58,16 @@ function SessionsScreenContent({ serverId }: { serverId: string }) {
       hasMore ? (
         <View style={styles.footer}>
           <Button variant="ghost" onPress={loadMore} disabled={isLoadingMore}>
-            {isLoadingMore ? "Loading..." : "Load more"}
+            {isLoadingMore ? t("common.loading") : t("common.loadMore")}
           </Button>
         </View>
       ) : null,
-    [hasMore, loadMore, isLoadingMore],
+    [hasMore, loadMore, isLoadingMore, t],
   );
 
   return (
     <View style={styles.container}>
-      <MenuHeader title="Sessions" />
+      <MenuHeader title={t("common.sessions")} />
       {isInitialLoad ? (
         <View style={styles.loadingContainer}>
           <LoadingSpinner size="large" color={theme.colors.foregroundMuted} />
@@ -73,9 +75,9 @@ function SessionsScreenContent({ serverId }: { serverId: string }) {
       ) : null}
       {!isInitialLoad && sortedAgents.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No sessions yet</Text>
+          <Text style={styles.emptyText}>{t("sessions.empty")}</Text>
           <Button variant="ghost" leftIcon={ChevronLeft} onPress={handleBack}>
-            Back
+            {t("common.back")}
           </Button>
         </View>
       ) : null}

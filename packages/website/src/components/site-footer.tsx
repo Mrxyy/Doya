@@ -9,7 +9,7 @@ export function SiteFooter({ width = "default" }: SiteFooterProps) {
     width === "prose" ? "max-w-prose p-6 md:p-12 md:pt-0" : "max-w-5xl p-6 md:p-20 md:pt-0";
   return (
     <footer className={`${widthClasses} mx-auto`}>
-      <div className="border-t border-white/10 pt-8 pb-4 grid grid-cols-2 sm:grid-cols-4 gap-8 text-sm">
+      <div className="border-t border-white/10 pt-8 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-8 text-sm">
         <div className="space-y-3">
           <p className="text-white/60 font-medium">Product</p>
           <div className="space-y-2">
@@ -71,35 +71,6 @@ export function SiteFooter({ width = "default" }: SiteFooterProps) {
               className="block text-muted-foreground hover:text-foreground transition-colors"
             >
               All providers
-            </a>
-          </div>
-        </div>
-        <div className="space-y-3">
-          <p className="text-white/60 font-medium">Community</p>
-          <div className="space-y-2">
-            <a
-              href="https://discord.gg/jz8T2uahpH"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Discord
-            </a>
-            <a
-              href="https://www.reddit.com/r/PaseoAI/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Reddit
-            </a>
-            <a
-              href="https://github.com/getpaseo/paseo"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block text-muted-foreground hover:text-foreground transition-colors"
-            >
-              GitHub
             </a>
           </div>
         </div>

@@ -104,6 +104,7 @@ import { useGithubSearchQuery } from "@/git/use-github-search-query";
 import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { useComposerGithubAutoAttach } from "./github/auto-attach";
 import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
+import { translateNow } from "@/i18n/i18n";
 
 type QueuedMessage = QueuedComposerMessage;
 
@@ -476,7 +477,7 @@ function QueuedMessageRow({ item, onEdit, onSendNow }: QueuedMessageRowProps) {
         <Pressable
           onPress={handleEdit}
           style={styles.queueActionButton}
-          accessibilityLabel="Edit queued message"
+          accessibilityLabel={translateNow("ui.edit.queued.message.2ujjf4")}
           accessibilityRole="button"
         >
           <ThemedPencil size={ICON_SIZE.sm} uniProps={iconForegroundMapping} />
@@ -484,7 +485,7 @@ function QueuedMessageRow({ item, onEdit, onSendNow }: QueuedMessageRowProps) {
         <Pressable
           onPress={handleSendNow}
           style={QUEUE_SEND_BUTTON_STYLE}
-          accessibilityLabel="Send queued message now"
+          accessibilityLabel={translateNow("ui.send.queued.message.now.wxlrig")}
           accessibilityRole="button"
         >
           <ThemedArrowUp size={ICON_SIZE.sm} uniProps={iconAccentForegroundMapping} />
@@ -728,7 +729,7 @@ function ComposerCancelButton({
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
         <View style={styles.tooltipRow}>
-          <Text style={styles.tooltipText}>Interrupt</Text>
+          <Text style={styles.tooltipText}>{translateNow("ui.interrupt.15gl1dv")}</Text>
           {shortcutNode}
         </View>
       </TooltipContent>
@@ -820,7 +821,7 @@ function ComposerVoiceModeButton({
       <TooltipTrigger
         onPress={handleToggleRealtimeVoice}
         disabled={!isConnected || isVoiceSwitching}
-        accessibilityLabel="Enable Voice mode"
+        accessibilityLabel={translateNow("ui.enable.voice.mode.12pfe6m")}
         accessibilityRole="button"
         style={realtimeVoiceButtonStyle}
       >
@@ -828,7 +829,7 @@ function ComposerVoiceModeButton({
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
         <View style={styles.tooltipRow}>
-          <Text style={styles.tooltipText}>Voice mode</Text>
+          <Text style={styles.tooltipText}>{translateNow("ui.voice.mode.6y6tbl")}</Text>
           {shortcutNode}
         </View>
       </TooltipContent>
@@ -1509,7 +1510,7 @@ export function Composer({
     () => [
       {
         id: "image",
-        label: "Add image",
+        label: translateNow("ui.add.image.8u6gvw"),
         icon: <ThemedPaperclip size={ICON_SIZE.md} uniProps={iconForegroundMutedMapping} />,
         onSelect: () => {
           void handlePickImage();
@@ -1517,7 +1518,7 @@ export function Composer({
       },
       {
         id: "github",
-        label: "Add issue or PR",
+        label: translateNow("ui.add.issue.or.pr.c6uuyh"),
         icon: <ThemedGithub size={ICON_SIZE.md} uniProps={iconForegroundMutedMapping} />,
         onSelect: () => {
           setIsGithubPickerOpen(true);
@@ -1714,7 +1715,7 @@ export function Composer({
               keepOpenOnSelect
               searchable
               searchPlaceholder="Search issues and PRs..."
-              title="Attach issue or PR"
+              title={translateNow("ui.attach.issue.or.pr.1tduk2l")}
               open={isGithubPickerOpen}
               onOpenChange={handleGithubPickerOpenChange}
               onSearchQueryChange={setGithubSearchQuery}

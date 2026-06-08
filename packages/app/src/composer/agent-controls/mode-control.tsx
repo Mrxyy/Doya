@@ -30,6 +30,7 @@ import { toErrorMessage } from "@/utils/error-messages";
 import { formatAgentModeLabel } from "@/composer/agent-controls/utils";
 import type { AgentMode, AgentProvider } from "@getpaseo/protocol/agent-types";
 import { getModeVisuals, type AgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
+import { translateNow } from "@/i18n/i18n";
 
 export type AgentModeControlPlacement = "toolbar" | "footer";
 
@@ -182,10 +183,10 @@ function AgentModeControlView({
 
   const sheetHeader = useMemo<SheetHeader>(
     () => ({
-      title: "Mode",
+      title: translateNow("ui.mode.1firn"),
       search: {
         onChange: setSearchQuery,
-        placeholder: "Search modes...",
+        placeholder: translateNow("ui.search.modes.i4nf6e"),
         testID: "mode-search-input",
       },
     }),

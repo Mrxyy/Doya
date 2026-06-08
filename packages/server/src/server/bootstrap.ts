@@ -136,6 +136,11 @@ import { createScriptStatusEmitter } from "./script-status-projection.js";
 import { WorkspaceScriptRuntimeStore } from "./workspace-script-runtime-store.js";
 import { isHostnameAllowed, type HostnamesConfig } from "./hostnames.js";
 import { createRequireBearerMiddleware, type DaemonAuthConfig } from "./auth.js";
+import {
+  AccountControlPlane,
+  AccountControlPlaneError,
+  type AccountAuthResult,
+} from "./account-control-plane.js";
 
 type AgentMcpTransportMap = Map<string, StreamableHTTPServerTransport>;
 
@@ -167,6 +172,29 @@ function createAgentMcpBaseUrl(listenTarget: ListenTarget | null): string | null
     "/mcp/agents",
     `http://${formatHostForHttpUrl(host)}:${listenTarget.port}`,
   ).toString();
+}
+
+function formatAccountAuthResult(result: AccountAuthResult): object {
+  return {
+    user: {
+      userId: result.user.userId,
+      email: result.user.email,
+    },
+    accessToken: result.accessToken,
+    workspace: {
+      workspaceId: result.workspace.workspaceId,
+      displayName: result.workspace.displayName,
+      runtime: {
+        cwd: result.workspace.cwd,
+      },
+    },
+    projects: result.projects.map((project) => ({
+      projectId: project.projectId,
+      workspaceId: project.workspaceId,
+      displayName: project.displayName,
+      cwd: project.cwd,
+    })),
+  };
 }
 
 function summarizeAgentMcpDebugMessage(body: unknown): Record<string, unknown> {
@@ -417,6 +445,96 @@ export async function createPaseoDaemon(
 
   // Middleware
   app.use(express.json());
+
+  const accountControlPlane = new AccountControlPlane({ paseoHome: config.paseoHome });
+  const sendAccountError = (res: express.Response, error: unknown): void => {
+    if (error instanceof AccountControlPlaneError) {
+      res.status(error.statusCode).json({ error: error.message });
+      return;
+    }
+    logger.error({ err: error }, "Account API request failed");
+    res.status(500).json({ error: "账号服务请求失败" });
+  };
+
+  app.post("/api/account/register", (req, res) => {
+    void (async () => {
+      try {
+        const result = await accountControlPlane.register({
+          email: typeof req.body?.email === "string" ? req.body.email : "",
+          displayName: typeof req.body?.displayName === "string" ? req.body.displayName : undefined,
+        });
+        res.json(formatAccountAuthResult(result));
+      } catch (error) {
+        sendAccountError(res, error);
+      }
+    })();
+  });
+
+  app.post("/api/account/login", (req, res) => {
+    void (async () => {
+      try {
+        const result = await accountControlPlane.login({
+          email: typeof req.body?.email === "string" ? req.body.email : "",
+        });
+        res.json(formatAccountAuthResult(result));
+      } catch (error) {
+        sendAccountError(res, error);
+      }
+    })();
+  });
+
+  app.post("/api/account/session", (req, res) => {
+    void (async () => {
+      try {
+        const result = await accountControlPlane.getSession({
+          userId: typeof req.body?.userId === "string" ? req.body.userId : "",
+          accessToken: typeof req.body?.accessToken === "string" ? req.body.accessToken : "",
+        });
+        res.json(formatAccountAuthResult(result));
+      } catch (error) {
+        sendAccountError(res, error);
+      }
+    })();
+  });
+
+  app.post("/api/account/projects", (req, res) => {
+    void (async () => {
+      try {
+        const project = await accountControlPlane.createProject({
+          userId: typeof req.body?.userId === "string" ? req.body.userId : "",
+          workspaceId: typeof req.body?.workspaceId === "string" ? req.body.workspaceId : "",
+          accessToken: typeof req.body?.accessToken === "string" ? req.body.accessToken : "",
+          displayName: typeof req.body?.displayName === "string" ? req.body.displayName : "",
+        });
+        res.json({ project });
+      } catch (error) {
+        sendAccountError(res, error);
+      }
+    })();
+  });
+
+  app.post("/api/account/projects/delete", (req, res) => {
+    void (async () => {
+      try {
+        const projects = await accountControlPlane.deleteProject({
+          userId: typeof req.body?.userId === "string" ? req.body.userId : "",
+          workspaceId: typeof req.body?.workspaceId === "string" ? req.body.workspaceId : "",
+          projectId: typeof req.body?.projectId === "string" ? req.body.projectId : "",
+          accessToken: typeof req.body?.accessToken === "string" ? req.body.accessToken : "",
+        });
+        res.json({
+          projects: projects.map((project) => ({
+            projectId: project.projectId,
+            workspaceId: project.workspaceId,
+            displayName: project.displayName,
+            cwd: project.cwd,
+          })),
+        });
+      } catch (error) {
+        sendAccountError(res, error);
+      }
+    })();
+  });
 
   // Health check endpoint
   app.get("/api/health", (_req, res) => {

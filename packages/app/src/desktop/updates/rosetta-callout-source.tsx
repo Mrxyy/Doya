@@ -9,6 +9,7 @@ import {
 } from "@/desktop/updates/desktop-updates";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { openExternalUrl } from "@/utils/open-external-url";
+import { translateNow } from "@/i18n/i18n";
 
 const FALLBACK_DOWNLOAD_URL = "https://paseo.sh/download";
 
@@ -16,10 +17,10 @@ function RosettaCalloutDescription() {
   return (
     <>
       <SidebarCalloutDescriptionText>
-        You&apos;re running the Intel build of Paseo under Rosetta on Apple Silicon.
+        {translateNow("ui.you.apostrophe.re.running.the.intel.build.ybbi2z")}
       </SidebarCalloutDescriptionText>
       <SidebarCalloutDescriptionText>
-        This causes high CPU usage. Download the Apple Silicon build to fix it.
+        {translateNow("ui.this.causes.high.cpu.usage.download.the.1fyyeq")}
       </SidebarCalloutDescriptionText>
     </>
   );
@@ -67,13 +68,13 @@ export function RosettaCalloutSource() {
     return callouts.show({
       id: "desktop-rosetta-warning",
       priority: 300,
-      title: "Download the Apple Silicon build",
+      title: translateNow("ui.download.the.apple.silicon.build.1xlz9rk"),
       description: <RosettaCalloutDescription />,
       variant: "error",
       dismissible: false,
       actions: [
         {
-          label: "Download",
+          label: translateNow("ui.download.ooknmw"),
           onPress: openDownload,
           variant: "primary",
         },

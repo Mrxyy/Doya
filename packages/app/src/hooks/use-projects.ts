@@ -1,9 +1,19 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { getHostRuntimeStore, useHosts } from "@/runtime/host-runtime";
 import { normalizeWorkspaceDescriptor, type WorkspaceDescriptor } from "@/stores/session-store";
 import { buildProjects, type ProjectHost, type ProjectSummary } from "@/utils/projects";
+import {
+  loadAccountBootstrapSession,
+  subscribeAccountSessionChanges,
+  type AccountBootstrapSession,
+} from "@/account/account-api";
+import {
+  applyAccountProjectDisplay,
+  doesAccountSessionOwnWorkspace,
+  findAccountProjectForWorkspaceDirectory,
+} from "@/account/account-workspace-display";
 
 export const projectsQueryKey = ["projects"] as const;
 
@@ -38,6 +48,7 @@ export interface ProjectsHostInput {
 export interface FetchAggregatedProjectsInput {
   hosts: ProjectsHostInput[];
   runtime: ProjectsRuntime;
+  accountSession?: AccountBootstrapSession | null;
 }
 
 export interface FetchAggregatedProjectsResult {
@@ -75,6 +86,41 @@ async function fetchAllWorkspaceDescriptors(
   return entries;
 }
 
+function applyAccountProjectScope(
+  workspaces: WorkspaceDescriptor[],
+  accountSession: AccountBootstrapSession | null | undefined,
+): WorkspaceDescriptor[] {
+  if (!accountSession) {
+    return workspaces;
+  }
+  const scopedWorkspaces: WorkspaceDescriptor[] = [];
+  for (const workspace of workspaces) {
+    if (
+      !doesAccountSessionOwnWorkspace({
+        session: accountSession,
+        workspaceDirectory: workspace.workspaceDirectory,
+      })
+    ) {
+      continue;
+    }
+    const project = findAccountProjectForWorkspaceDirectory({
+      session: accountSession,
+      workspaceDirectory: workspace.workspaceDirectory,
+    });
+    if (!project) {
+      continue;
+    }
+    scopedWorkspaces.push(
+      applyAccountProjectDisplay({
+        workspace,
+        session: accountSession,
+        project,
+      }),
+    );
+  }
+  return scopedWorkspaces;
+}
+
 export async function fetchAggregatedProjects(
   input: FetchAggregatedProjectsInput,
 ): Promise<FetchAggregatedProjectsResult> {
@@ -102,7 +148,10 @@ export async function fetchAggregatedProjects(
             serverId: host.serverId,
             serverName: host.serverName,
             isOnline,
-            workspaces: await fetchAllWorkspaceDescriptors(client),
+            workspaces: applyAccountProjectScope(
+              await fetchAllWorkspaceDescriptors(client),
+              input.accountSession,
+            ),
           },
           error: null,
         };
@@ -134,6 +183,7 @@ export async function fetchAggregatedProjects(
 export function useProjects(): UseProjectsResult {
   const hosts = useHosts();
   const runtime = getHostRuntimeStore();
+  const accountSession = useAccountBootstrapSessionForProjects();
   const hostInputs = useMemo<ProjectsHostInput[]>(
     () =>
       hosts.map((host) => ({
@@ -144,17 +194,55 @@ export function useProjects(): UseProjectsResult {
   );
 
   const projectsQuery = useQuery({
-    queryKey: projectsQueryKey,
-    queryFn: () => fetchAggregatedProjects({ hosts: hostInputs, runtime }),
+    queryKey: [
+      ...projectsQueryKey,
+      accountSession === undefined ? "loading-account" : (accountSession?.user.userId ?? "guest"),
+      accountSession?.workspace.workspaceId ?? "",
+      accountSession?.projects.map((project) => project.projectId).join(",") ?? "",
+    ],
+    queryFn: () =>
+      fetchAggregatedProjects({
+        hosts: hostInputs,
+        runtime,
+        accountSession: accountSession ?? null,
+      }),
+    enabled: accountSession !== undefined,
   });
 
   return {
     projects: projectsQuery.data?.projects ?? [],
     hostErrors: projectsQuery.data?.hostErrors ?? [],
-    isLoading: projectsQuery.isLoading,
+    isLoading: accountSession === undefined || projectsQuery.isLoading,
     isFetching: projectsQuery.isFetching,
     refetch: () => {
       void projectsQuery.refetch();
     },
   };
+}
+
+function useAccountBootstrapSessionForProjects(): AccountBootstrapSession | null | undefined {
+  const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null | undefined>(
+    undefined,
+  );
+  const reloadSession = useCallback((isDisposed?: () => boolean) => {
+    void (async () => {
+      const stored = await loadAccountBootstrapSession();
+      if (!isDisposed?.()) {
+        setAccountSession(stored);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    const isDisposed = () => disposed;
+    reloadSession(isDisposed);
+    const unsubscribe = subscribeAccountSessionChanges(() => reloadSession(isDisposed));
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [reloadSession]);
+
+  return accountSession;
 }

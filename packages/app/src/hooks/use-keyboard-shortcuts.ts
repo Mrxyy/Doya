@@ -17,12 +17,12 @@ import {
   type ShortcutCallbackName,
 } from "@/keyboard/route-shortcut";
 import { getShortcutOs } from "@/utils/shortcut-platform";
-import { useOpenProjectPicker } from "@/hooks/use-open-project-picker";
 import { useKeyboardShortcutOverrides } from "@/hooks/use-keyboard-shortcut-overrides";
 import { isNative } from "@/constants/platform";
 import { getDesktopHost, isElectronRuntime } from "@/desktop/host";
 import { isImeComposingKeyboardEvent } from "@/utils/keyboard-ime";
 import { useActiveServerId } from "@/hooks/use-active-server-id";
+import { buildHostOpenProjectRoute } from "@/utils/host-routes";
 import {
   navigateToLastWorkspace,
   useActiveWorkspaceSelection,
@@ -54,7 +54,6 @@ export function useKeyboardShortcuts({
     timeoutId: null,
   });
   const activeServerId = useActiveServerId();
-  const openProjectPickerAction = useOpenProjectPicker(activeServerId);
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
 
   useEffect(() => {
@@ -109,7 +108,7 @@ export function useKeyboardShortcuts({
           router.push(action.route as Parameters<typeof router.push>[0]);
           return true;
         case "open-project-picker":
-          void openProjectPickerAction();
+          if (activeServerId) router.push(buildHostOpenProjectRoute(activeServerId));
           return true;
         case "callback":
           callbacksByName[action.name]?.();
@@ -279,7 +278,7 @@ export function useKeyboardShortcuts({
     enabled,
     activeWorkspaceSelection,
     isMobile,
-    openProjectPickerAction,
+    activeServerId,
     pathname,
     resetModifiers,
     router,

@@ -17,6 +17,7 @@ import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
 import { useAssistantFileLinkResolverContext } from "./provider";
 import type { AssistantFileLinkSource } from "./resolver";
 import { useFileLink } from "./use-file-link";
+import { translateNow } from "@/i18n/i18n";
 
 interface AssistantMarkdownLinkProps {
   source: AssistantFileLinkSource;
@@ -224,7 +225,7 @@ function FileLinkHoverTooltip({
             <View style={styles.tooltipHintRow}>
               <Shortcut keys={FILE_LINK_TOOLTIP_MOD_KEYS} />
               <Text selectable={false} style={styles.tooltipHintText}>
-                click for side pane
+                {translateNow("ui.click.for.side.pane.nqjf4y")}
               </Text>
             </View>
           </View>

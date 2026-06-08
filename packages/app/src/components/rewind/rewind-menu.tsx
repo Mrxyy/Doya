@@ -12,6 +12,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type RewindMode, useRewindCapabilities } from "./use-rewind-capabilities";
 import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
+import { translateNow } from "@/i18n/i18n";
 
 export type { RewindMode };
 
@@ -79,7 +80,7 @@ export const RewindMenu = memo(function RewindMenu({
   const tooltipContent = useMemo(
     () => (
       <TooltipContent side="top" align="center" offset={8}>
-        <Text style={styles.tooltipText}>Rewind to this message</Text>
+        <Text style={styles.tooltipText}>{translateNow("ui.rewind.to.this.message.1dwmvgl")}</Text>
       </TooltipContent>
     ),
     [],
@@ -95,7 +96,7 @@ export const RewindMenu = memo(function RewindMenu({
         <TooltipTrigger asChild>
           <View style={styles.triggerSlot} collapsable={false}>
             <DropdownMenuTrigger
-              accessibilityLabel="Rewind to this message"
+              accessibilityLabel={translateNow("ui.rewind.to.this.message.1dwmvgl")}
               accessibilityRole="button"
               disabled={isLocked}
               style={triggerStyle}
@@ -114,7 +115,9 @@ export const RewindMenu = memo(function RewindMenu({
       </Tooltip>
       <DropdownMenuContent align="end" minWidth={220} side="bottom" testID={`${testID}-content`}>
         <View style={styles.warningHeader}>
-          <Text style={styles.warningText}>This action cannot be undone</Text>
+          <Text style={styles.warningText}>
+            {translateNow("ui.this.action.cannot.be.undone.1mvwayr")}
+          </Text>
         </View>
         <DropdownMenuSeparator />
         {items.map((item) => (

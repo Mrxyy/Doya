@@ -68,18 +68,7 @@ function SignupForm() {
   if (status === "success") {
     return (
       <section className="space-y-3">
-        <p className="text-white/70">
-          Got it. I&apos;ll be in touch. If you don&apos;t hear back within a week, ping me on{" "}
-          <a
-            href="https://discord.gg/jz8T2uahpH"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-white/80"
-          >
-            Discord
-          </a>
-          .
-        </p>
+        <p className="text-white/70">Got it. I&apos;ll be in touch soon.</p>
       </section>
     );
   }
@@ -130,8 +119,8 @@ function SignupForm() {
       {error && (
         <p className="text-sm text-red-400">
           {error === "webhook not configured"
-            ? "The form isn't wired up yet. Try Discord for now."
-            : "Something went wrong. Try again or DM me on Discord."}
+            ? "The form isn't wired up yet."
+            : "Something went wrong. Try again later."}
         </p>
       )}
 
@@ -143,18 +132,6 @@ function SignupForm() {
         >
           {submitting ? "Sending…" : "Send"}
         </button>
-        <p className="text-sm text-white/50">
-          Or{" "}
-          <a
-            href="https://discord.gg/jz8T2uahpH"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-white/80"
-          >
-            DM me on Discord
-          </a>
-          .
-        </p>
       </div>
     </form>
   );

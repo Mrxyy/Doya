@@ -4,6 +4,11 @@ Paseo uses **file-based JSON persistence** instead of a traditional database. Al
 
 All server-side stores live under `$PASEO_HOME` (defaults to `~/.paseo`).
 
+Account/workspace records are part of the daemon data model. The daemon maps a
+registered user to an automatically assigned workspace directory, and projects
+created from the app become subdirectories inside that user's workspace. See
+[multi-tenant](multi-tenant/README.md).
+
 ---
 
 ## Directory layout
@@ -27,6 +32,10 @@ $PASEO_HOME/
 ├── projects/
 │   ├── projects.json                    # Project registry
 │   └── workspaces.json                  # Workspace registry
+├── accounts/
+│   ├── accounts.json                    # Users, assigned workspaces, projects
+│   └── workspaces/
+│       └── {workspaceId}/projects/...   # User project execution directories
 └── push-tokens.json                     # Expo push notification tokens
 ```
 

@@ -13,6 +13,7 @@ import {
 import type { Theme } from "@/styles/theme";
 import type { SubagentRow } from "./select";
 import { buildSubagentRowPresentationData, formatHeaderLabel } from "./track-presentation";
+import { translateNow } from "@/i18n/i18n";
 
 const ThemedArchive = withUnistyles(Archive);
 const ThemedChevronDown = withUnistyles(ChevronDown);
@@ -203,7 +204,7 @@ function SubagentArchiveButton({
           </Pressable>
         </TooltipTrigger>
         <TooltipContent side="top" align="center" offset={8}>
-          <Text style={styles.tooltipText}>Archive subagent</Text>
+          <Text style={styles.tooltipText}>{translateNow("ui.archive.subagent.1gwp94z")}</Text>
         </TooltipContent>
       </Tooltip>
     </View>

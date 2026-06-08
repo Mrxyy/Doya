@@ -5,6 +5,7 @@ import type { ListTerminalsResponse } from "@getpaseo/protocol/messages";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
 import { useSessionStore } from "@/stores/session-store";
 import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-types";
+import { translateNow } from "@/i18n/i18n";
 
 interface RenamingTabState {
   kind: "terminal" | "agent";
@@ -115,7 +116,7 @@ export function WorkspaceTabRenameModal({
       visible={renamingTab !== null}
       title={title}
       initialValue={initialValue}
-      submitLabel="Rename"
+      submitLabel={translateNow("ui.rename.14f8jfi")}
       maxLength={200}
       onClose={onClose}
       onSubmit={onSubmit}

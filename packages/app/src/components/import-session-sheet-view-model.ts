@@ -1,6 +1,7 @@
 import type { FetchRecentProviderSessionEntry } from "@getpaseo/client/internal/daemon-client";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
 import { IMPORTABLE_PROVIDERS } from "@getpaseo/protocol/importable-providers";
+import { translateNow } from "@/i18n/i18n";
 
 export const IMPORTABLE_PROVIDER_IDS: Set<string> = new Set(IMPORTABLE_PROVIDERS);
 export const PER_PROVIDER_LIMIT = 15;
@@ -139,7 +140,13 @@ export function computeEmptyState(input: EmptyStateInputs): {
     return { showEmptyState, emptyStateTitle: `No ${label} sessions found.` };
   }
   if (input.totalAlreadyImportedCount > 0) {
-    return { showEmptyState, emptyStateTitle: "All recent sessions are already imported." };
+    return {
+      showEmptyState,
+      emptyStateTitle: translateNow("ui.all.recent.sessions.are.already.imported.5x9zh5"),
+    };
   }
-  return { showEmptyState, emptyStateTitle: "No recent sessions to import." };
+  return {
+    showEmptyState,
+    emptyStateTitle: translateNow("ui.no.recent.sessions.to.import.16o5wld"),
+  };
 }

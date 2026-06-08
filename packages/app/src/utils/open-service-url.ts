@@ -5,6 +5,7 @@ import {
   type ServiceUrlBehavior,
 } from "@/hooks/use-settings";
 import { openExternalUrl } from "@/utils/open-external-url";
+import { translateNow } from "@/i18n/i18n";
 
 export interface OpenServiceUrlOptions {
   openInApp?: (url: string) => void;
@@ -37,9 +38,9 @@ async function resolveBehavior(url: string): Promise<Exclude<ServiceUrlBehavior,
   }
 
   const result = await askWithCheckbox(`Open ${url}?`, {
-    title: "Open service URL",
+    title: translateNow("ui.open.service.url.27pzu6"),
     okLabel: "In Paseo",
-    cancelLabel: "External browser",
+    cancelLabel: translateNow("settings.option.externalBrowser"),
     checkboxLabel: "Don't ask again",
   });
 

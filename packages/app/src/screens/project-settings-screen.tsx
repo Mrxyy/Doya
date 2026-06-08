@@ -43,6 +43,7 @@ import {
 } from "@/utils/project-config-form";
 import { buildProjectsSettingsRoute } from "@/utils/host-routes";
 import type { ProjectHostEntry, ProjectSummary } from "@/utils/projects";
+import { translateNow } from "@/i18n/i18n";
 
 const SCRIPT_SERVICE_TYPE = "service";
 
@@ -57,26 +58,26 @@ interface MetadataPromptField {
 
 const METADATA_PROMPT_FIELDS: Record<MetadataPromptKey, MetadataPromptField> = {
   agentTitle: {
-    title: "Agent titles",
-    placeholder: "Keep titles imperative and under 40 characters",
+    title: translateNow("ui.agent.titles.ub9tx2"),
+    placeholder: translateNow("ui.keep.titles.imperative.and.under.40.characters.i2bq9f"),
     sectionTestID: "metadata-prompt-agent-title-section",
     inputTestID: "metadata-prompt-agent-title-input",
   },
   branchName: {
-    title: "Branch names",
-    placeholder: "Prefix branches with feat/ or fix/, mb/ for personal branches",
+    title: translateNow("ui.branch.names.wjx9wq"),
+    placeholder: translateNow("ui.prefix.branches.with.feat.or.fix.mb.for.130a9tv"),
     sectionTestID: "metadata-prompt-branch-name-section",
     inputTestID: "metadata-prompt-branch-name-input",
   },
   commitMessage: {
-    title: "Commit messages",
-    placeholder: "Use Conventional Commits with a scope",
+    title: translateNow("ui.commit.messages.xbqf3p"),
+    placeholder: translateNow("ui.use.conventional.commits.with.a.scope.1xjnd8q"),
     sectionTestID: "metadata-prompt-commit-message-section",
     inputTestID: "metadata-prompt-commit-message-input",
   },
   pullRequest: {
-    title: "Pull requests",
-    placeholder: "Lead with a one-paragraph summary, include a Test plan section",
+    title: translateNow("ui.pull.requests.q03acf"),
+    placeholder: translateNow("ui.lead.with.a.one.paragraph.summary.include.a.zvi6c9"),
     sectionTestID: "metadata-prompt-pull-request-section",
     inputTestID: "metadata-prompt-pull-request-input",
   },
@@ -168,7 +169,7 @@ function NoEditableTarget() {
         variant="secondary"
         size="md"
       >
-        Back to projects
+        {translateNow("ui.back.to.projects.1r99kva")}
       </Button>
     </View>
   );
@@ -178,14 +179,14 @@ function BackToProjectsButton() {
   return (
     <Button
       testID="project-settings-back-link"
-      accessibilityLabel="Back to projects"
+      accessibilityLabel={translateNow("ui.back.to.projects.1r99kva")}
       onPress={navigateBackToProjects}
       variant="ghost"
       size="sm"
       leftIcon={ArrowLeft}
       style={styles.backButton}
     >
-      Back to projects
+      {translateNow("ui.back.to.projects.1r99kva")}
     </Button>
   );
 }
@@ -360,7 +361,7 @@ function ReadFailureCallout({ kind, error, onReload, hasMultipleHosts }: ReadFai
     <View style={styles.errorBlock}>
       <Alert testID={testID} variant="error" title={title} description={description}>
         <Button testID={`${testID}-action-0`} onPress={onReload} variant="outline" size="sm">
-          Reload
+          {translateNow("ui.reload.14f7jjt")}
         </Button>
       </Alert>
     </View>
@@ -375,14 +376,14 @@ function resolveReadFailureCopy(input: {
   if (input.kind === "invalid_project_config") {
     return {
       testID: "invalid-callout",
-      title: "paseo.json couldn't be parsed",
-      description: "Fix the file on disk, then reload.",
+      title: translateNow("ui.paseo.json.couldn.t.be.parsed.i08wji"),
+      description: translateNow("ui.fix.the.file.on.disk.then.reload.1kc0rmi"),
     };
   }
   if (input.kind === "project_not_found") {
     return {
       testID: "project-not-found-callout",
-      title: "This host doesn't have this project",
+      title: translateNow("ui.this.host.doesn.t.have.this.project.1rkw7a3"),
       description: input.hasMultipleHosts
         ? "Switch to another host above, or reload."
         : "The selected host has no record of this project.",
@@ -392,14 +393,14 @@ function resolveReadFailureCopy(input: {
     const detail = errorToDetail(input.error);
     return {
       testID: "read-transport-callout",
-      title: "Couldn't load paseo.json",
+      title: translateNow("ui.couldn.t.load.paseo.json.19hstmm"),
       description: detail ?? "The host didn't respond.",
     };
   }
   return {
     testID: "read-failed-callout",
-    title: "Couldn't load paseo.json",
-    description: "Reload to try again.",
+    title: translateNow("ui.couldn.t.load.paseo.json.19hstmm"),
+    description: translateNow("ui.reload.to.try.again.bqaxrl"),
   };
 }
 
@@ -455,7 +456,7 @@ function ProjectConfigForm({
         });
         setWriteError(null);
         queryClient.invalidateQueries({ queryKey: ["projects"] });
-        toast.show("Project saved", { variant: "success" });
+        toast.show(translateNow("ui.project.saved.12vugm8"), { variant: "success" });
       } else {
         setWriteError(result.error);
       }
@@ -498,10 +499,10 @@ function ProjectConfigForm({
   const handleRemoveScript = useCallback(
     async (script: ProjectScriptDraft) => {
       const ok = await confirmDialog({
-        title: "Remove script?",
+        title: translateNow("ui.remove.script.1lta15k"),
         message: `Remove ${script.name || "this script"}?`,
-        confirmLabel: "Remove",
-        cancelLabel: "Cancel",
+        confirmLabel: translateNow("ui.remove.14f871g"),
+        cancelLabel: translateNow("ui.cancel.x9d2fu"),
         destructive: true,
       });
       if (!ok) return;
@@ -583,7 +584,7 @@ function ProjectConfigForm({
         hitSlop={8}
         style={settingsStyles.sectionHeaderLink}
         accessibilityRole="button"
-        accessibilityLabel="Add script"
+        accessibilityLabel={translateNow("ui.add.script.1thhk5m")}
         testID="scripts-add-button"
       >
         <Plus size={ICON_SIZE} color={styles.iconColor.color} />
@@ -596,7 +597,7 @@ function ProjectConfigForm({
     () => (
       <ExternalLink
         href={WORKTREE_DOCS_URL}
-        label="Docs"
+        label={translateNow("ui.docs.19rvf")}
         tooltip={WORKTREE_DOCS_TOOLTIP}
         testID="worktree-setup-docs-link"
       />
@@ -607,7 +608,7 @@ function ProjectConfigForm({
     () => (
       <ExternalLink
         href={WORKTREE_DOCS_URL}
-        label="Docs"
+        label={translateNow("ui.docs.19rvf")}
         tooltip={WORKTREE_DOCS_TOOLTIP}
         testID="worktree-teardown-docs-link"
       />
@@ -622,38 +623,42 @@ function ProjectConfigForm({
   return (
     <View>
       <SettingsGroup
-        title="Worktree lifecycle hooks"
+        title={translateNow("ui.worktree.lifecycle.hooks.21b6p5")}
         info={WORKTREE_GROUP_INFO}
         testID="worktree-group"
       >
-        <SettingsSection title="Setup" testID="worktree-setup-section" trailing={setupDocsLink}>
+        <SettingsSection
+          title={translateNow("ui.setup.1bhvtp")}
+          testID="worktree-setup-section"
+          trailing={setupDocsLink}
+        >
           <SettingsTextAreaCard
             testID="worktree-setup-input"
-            accessibilityLabel="Worktree setup commands"
+            accessibilityLabel={translateNow("ui.worktree.setup.commands.80eke4")}
             value={draft.setupText}
             onChangeText={handleSetupChange}
-            placeholder="npm install"
+            placeholder={translateNow("ui.npm.install.u2f886")}
           />
         </SettingsSection>
 
         <SettingsSection
-          title="Teardown"
+          title={translateNow("ui.teardown.18l7ktg")}
           testID="worktree-teardown-section"
           trailing={teardownDocsLink}
           flush
         >
           <SettingsTextAreaCard
             testID="worktree-teardown-input"
-            accessibilityLabel="Worktree teardown commands"
+            accessibilityLabel={translateNow("ui.worktree.teardown.commands.6hif0z")}
             value={draft.teardownText}
             onChangeText={handleTeardownChange}
-            placeholder="docker compose down"
+            placeholder={translateNow("ui.docker.compose.down.1k7qhyo")}
           />
         </SettingsSection>
       </SettingsGroup>
 
       <SettingsGroup
-        title="Scripts"
+        title={translateNow("ui.scripts.1ne3754")}
         info={SCRIPTS_GROUP_INFO}
         trailing={scriptsTrailing}
         testID="scripts-group"
@@ -661,7 +666,7 @@ function ProjectConfigForm({
         <View style={settingsStyles.card} testID="scripts-list">
           {draft.scripts.length === 0 ? (
             <View style={settingsStyles.row}>
-              <Text style={styles.emptyScripts}>No scripts yet.</Text>
+              <Text style={styles.emptyScripts}>{translateNow("ui.no.scripts.yet.1vjzkn1")}</Text>
             </View>
           ) : (
             draft.scripts.map((script, index) => (
@@ -677,7 +682,11 @@ function ProjectConfigForm({
         </View>
       </SettingsGroup>
 
-      <SettingsGroup title="Metadata generation" info={METADATA_GROUP_INFO} testID="metadata-group">
+      <SettingsGroup
+        title={translateNow("ui.metadata.generation.1k4itmx")}
+        info={METADATA_GROUP_INFO}
+        testID="metadata-group"
+      >
         {METADATA_PROMPT_KEYS.map((key, index) => (
           <MetadataPromptSection
             key={key}
@@ -694,8 +703,8 @@ function ProjectConfigForm({
           <Alert
             testID="stale-callout"
             variant="error"
-            title="Config changed on disk"
-            description="Reload to fetch the latest paseo.json before saving."
+            title={translateNow("ui.config.changed.on.disk.xf1xxw")}
+            description={translateNow("ui.reload.to.fetch.the.latest.paseo.json.1qdla5f")}
           >
             <Button
               testID="stale-callout-action-0"
@@ -703,7 +712,7 @@ function ProjectConfigForm({
               variant="outline"
               size="sm"
             >
-              Reload
+              {translateNow("ui.reload.14f7jjt")}
             </Button>
           </Alert>
         </View>
@@ -714,8 +723,8 @@ function ProjectConfigForm({
           <Alert
             testID="write-failed-callout"
             variant="error"
-            title="Couldn't save paseo.json"
-            description="Try again, or reload the latest version from disk."
+            title={translateNow("ui.couldn.t.save.paseo.json.o7sjk7")}
+            description={translateNow("ui.try.again.or.reload.the.latest.version.hok48k")}
           >
             <Button
               testID="write-failed-callout-action-0"
@@ -723,7 +732,7 @@ function ProjectConfigForm({
               variant="outline"
               size="sm"
             >
-              Try again
+              {translateNow("ui.try.again.agecuz")}
             </Button>
             <Button
               testID="write-failed-callout-action-1"
@@ -731,7 +740,7 @@ function ProjectConfigForm({
               variant="outline"
               size="sm"
             >
-              Reload
+              {translateNow("ui.reload.14f7jjt")}
             </Button>
           </Alert>
         </View>
@@ -740,7 +749,7 @@ function ProjectConfigForm({
       <View style={styles.footer}>
         <Button
           testID="save-button"
-          accessibilityLabel="Save project config"
+          accessibilityLabel={translateNow("ui.save.project.config.1bjz8y4")}
           variant="default"
           size="md"
           disabled={saveDisabled}
@@ -783,7 +792,7 @@ function ProjectNameEditor({ project, client }: ProjectNameEditorProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       setIsEditing(false);
-      toast.show("Project renamed", { variant: "success" });
+      toast.show(translateNow("ui.project.renamed.1rzcbzz"), { variant: "success" });
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : "Couldn't rename project";
@@ -823,7 +832,7 @@ function ProjectNameEditor({ project, client }: ProjectNameEditorProps) {
         </Text>
         <Pressable
           testID="project-name-edit-button"
-          accessibilityLabel="Rename project"
+          accessibilityLabel={translateNow("ui.rename.project.163b8t3")}
           onPress={handleStartEdit}
           hitSlop={8}
           style={styles.nameEditorIconButton}
@@ -833,13 +842,13 @@ function ProjectNameEditor({ project, client }: ProjectNameEditorProps) {
         {project.projectCustomName ? (
           <Pressable
             testID="project-name-reset-button"
-            accessibilityLabel="Reset project name to default"
+            accessibilityLabel={translateNow("ui.reset.project.name.to.default.y1dn4p")}
             onPress={handleReset}
             disabled={renameMutation.isPending}
             hitSlop={8}
             style={styles.nameEditorResetButton}
           >
-            <Text style={styles.nameEditorResetText}>Reset</Text>
+            <Text style={styles.nameEditorResetText}>{translateNow("ui.reset.1ay23z")}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -850,7 +859,7 @@ function ProjectNameEditor({ project, client }: ProjectNameEditorProps) {
     <View style={styles.nameEditorRow}>
       <TextInput
         testID="project-name-input"
-        accessibilityLabel="Project name"
+        accessibilityLabel={translateNow("ui.project.name.haha36")}
         value={value}
         onChangeText={setValue}
         placeholder={project.projectName}
@@ -863,7 +872,7 @@ function ProjectNameEditor({ project, client }: ProjectNameEditorProps) {
       />
       <Pressable
         testID="project-name-save-button"
-        accessibilityLabel="Save project name"
+        accessibilityLabel={translateNow("ui.save.project.name.c6cqtx")}
         onPress={handleSave}
         disabled={renameMutation.isPending}
         hitSlop={8}
@@ -873,7 +882,7 @@ function ProjectNameEditor({ project, client }: ProjectNameEditorProps) {
       </Pressable>
       <Pressable
         testID="project-name-cancel-button"
-        accessibilityLabel="Cancel renaming"
+        accessibilityLabel={translateNow("ui.cancel.renaming.1jdjvi9")}
         onPress={handleCancel}
         disabled={renameMutation.isPending}
         hitSlop={8}
@@ -1046,7 +1055,7 @@ function ScriptRow({ script, isFirst, onEdit, onRemove }: ScriptRowProps) {
       </Pressable>
       <DropdownMenu>
         <DropdownMenuTrigger
-          accessibilityLabel="Open script menu"
+          accessibilityLabel={translateNow("ui.open.script.menu.rx19em")}
           testID={`script-row-menu-${script.id}`}
           style={styles.scriptKebab}
         >
@@ -1054,14 +1063,14 @@ function ScriptRow({ script, isFirst, onEdit, onRemove }: ScriptRowProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" minWidth={160}>
           <DropdownMenuItem testID={`script-action-${script.id}-edit`} onSelect={handleEdit}>
-            Edit
+            {translateNow("ui.edit.1a6ui")}
           </DropdownMenuItem>
           <DropdownMenuItem
             testID={`script-action-${script.id}-remove`}
             destructive
             onSelect={handleRemove}
           >
-            Remove
+            {translateNow("ui.remove.14f871g")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -1162,14 +1171,14 @@ function ScriptEditModal({ script, onChange, onCancel, onSave }: ScriptEditModal
       desktopMaxWidth={560}
     >
       <View style={styles.modalSection}>
-        <Text style={styles.modalLabel}>Name</Text>
+        <Text style={styles.modalLabel}>{translateNow("ui.name.1fvl7")}</Text>
         <TextInput
           testID="script-edit-name"
-          accessibilityLabel="Script name"
+          accessibilityLabel={translateNow("ui.script.name.ldaeg0")}
           value={script.name}
           onChangeText={handleNameChange}
           onBlur={handleNameBlur}
-          placeholder="dev"
+          placeholder={translateNow("ui.dev.24np")}
           placeholderTextColor={styles.placeholderColor.color}
           style={styles.modalInput}
         />
@@ -1180,15 +1189,15 @@ function ScriptEditModal({ script, onChange, onCancel, onSave }: ScriptEditModal
         ) : null}
       </View>
       <View style={styles.modalSection}>
-        <Text style={styles.modalLabel}>Command</Text>
+        <Text style={styles.modalLabel}>{translateNow("ui.command.178xjxn")}</Text>
         <TextInput
           testID="script-edit-command"
-          accessibilityLabel="Script command"
+          accessibilityLabel={translateNow("ui.script.command.g7kb9y")}
           multiline
           value={script.commandText}
           onChangeText={handleCommandChange}
           onBlur={handleCommandBlur}
-          placeholder="npm run dev"
+          placeholder={translateNow("ui.npm.run.dev.nauh8r")}
           placeholderTextColor={styles.placeholderColor.color}
           style={styles.modalMultilineInput}
         />
@@ -1201,25 +1210,27 @@ function ScriptEditModal({ script, onChange, onCancel, onSave }: ScriptEditModal
       <View style={styles.modalSection}>
         <View style={styles.serviceToggleRow}>
           <View style={styles.serviceToggleText}>
-            <Text style={styles.serviceToggleLabel}>Run as a service</Text>
+            <Text style={styles.serviceToggleLabel}>
+              {translateNow("ui.run.as.a.service.am1xr1")}
+            </Text>
             <Text style={styles.modalHint}>
-              Paseo supervises the process and assigns a port via $PASEO_PORT
+              {translateNow("ui.paseo.supervises.the.process.and.assigns.a.19tj95w")}
             </Text>
           </View>
           <Switch
             value={isService}
             onValueChange={handleServiceToggle}
-            accessibilityLabel="Run as a service"
+            accessibilityLabel={translateNow("ui.run.as.a.service.am1xr1")}
             testID="script-edit-service-toggle"
           />
         </View>
       </View>
       <View style={styles.modalFooter}>
         <Button onPress={onCancel} variant="ghost" size="md" testID="script-edit-cancel">
-          Cancel
+          {translateNow("ui.cancel.x9d2fu")}
         </Button>
         <Button onPress={handleSavePress} variant="default" size="md" testID="script-edit-save">
-          Save
+          {translateNow("ui.save.1j2ql")}
         </Button>
       </View>
     </AdaptiveModalSheet>

@@ -62,6 +62,7 @@ import {
   type ProviderSelectionModelRow,
   type ProviderSelectorProvider,
 } from "@/provider-selection/provider-selection";
+import { translateNow } from "@/i18n/i18n";
 
 // TODO: this should be configured per provider in the provider manifest
 const PROVIDERS_WITH_MODEL_DESCRIPTIONS = new Set(["opencode", "pi"]);
@@ -267,7 +268,7 @@ function FavoritesSection({
   return (
     <View style={styles.favoritesContainer}>
       <View style={styles.sectionHeading}>
-        <Text style={styles.sectionHeadingText}>Favorites</Text>
+        <Text style={styles.sectionHeadingText}>{translateNow("ui.favorites.3m84dz")}</Text>
       </View>
       {favoriteRows.map((row) => (
         <SelectableModelRow
@@ -320,14 +321,14 @@ function GroupProviderButton({ provider, onDrillDown }: GroupProviderButtonProps
           color={theme.colors.foregroundMuted}
           style={styles.rowSpinner}
         />
-        <Text style={styles.drillDownCount}>Loading</Text>
+        <Text style={styles.drillDownCount}>{translateNow("ui.loading.x3ivx8")}</Text>
       </View>
     );
   } else {
     stateNode = (
       <View style={styles.rowStateInline}>
         <AlertTriangle size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
-        <Text style={styles.drillDownCount}>Error</Text>
+        <Text style={styles.drillDownCount}>{translateNow("ui.error.1410q0")}</Text>
       </View>
     );
   }
@@ -488,7 +489,9 @@ function SelectorContent({
   const emptyState = (
     <View style={styles.emptyState}>
       <Search size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
-      <Text style={styles.emptyStateText}>No models match your search</Text>
+      <Text style={styles.emptyStateText}>
+        {translateNow("ui.no.models.match.your.search.1sprseb")}
+      </Text>
     </View>
   );
 
@@ -505,7 +508,7 @@ function SelectorContent({
             color={theme.colors.foregroundMuted}
             style={styles.rowSpinner}
           />
-          <Text style={styles.emptyStateText}>Loading</Text>
+          <Text style={styles.emptyStateText}>{translateNow("ui.loading.x3ivx8")}</Text>
         </View>
       );
     }
@@ -722,7 +725,7 @@ export function CombinedModelSelector({
 
   const sheetHeader = useMemo<SheetHeader>(() => {
     if (view.kind === "all") {
-      return { title: "Select provider" };
+      return { title: translateNow("ui.select.provider.xyt4z9") };
     }
     const ProviderIconForView = getProviderIcon(view.providerId);
     const headerActions = (
@@ -751,7 +754,7 @@ export function CombinedModelSelector({
       search: {
         onChange: handleSearchQueryChange,
         resetKey: `${view.providerId}:${searchResetKey}`,
-        placeholder: "Search models...",
+        placeholder: translateNow("ui.search.models.1spr6ng"),
         autoFocus: platformIsWeb,
         testID: "model-search-input",
       },
@@ -832,7 +835,9 @@ export function CombinedModelSelector({
         ) : (
           <View style={styles.sheetLoadingState}>
             <ActivityIndicator size="small" color={theme.colors.foregroundMuted} />
-            <Text style={styles.sheetLoadingText}>Loading model selector…</Text>
+            <Text style={styles.sheetLoadingText}>
+              {translateNow("ui.loading.model.selector.ubgv70")}
+            </Text>
           </View>
         )}
       </Combobox>

@@ -65,6 +65,7 @@ CLAUDE.local.md
 .debug.conversations/
 .debug/
 .paseo/
+.paseo-hosted/
 .wrangler/
 **/.wrangler/
 **/.tanstack/

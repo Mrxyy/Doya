@@ -10,6 +10,7 @@ import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-
 import { useToast } from "@/contexts/toast-context";
 import { useBranchSwitcher } from "@/hooks/use-branch-switcher";
 import { ScreenTitle } from "@/components/headers/screen-title";
+import { translateNow } from "@/i18n/i18n";
 
 interface BranchSwitcherProps {
   currentBranchName: string | null;
@@ -101,10 +102,10 @@ export function BranchSwitcher({
         value={currentBranchName}
         onSelect={handleBranchSelect}
         searchable
-        placeholder="Switch branch..."
+        placeholder={translateNow("ui.switch.branch.uxdqdc")}
         searchPlaceholder="Filter branches..."
         emptyText="No branches found."
-        title="Switch branch"
+        title={translateNow("ui.switch.branch.ze01ym")}
         open={isOpen}
         onOpenChange={setIsOpen}
         anchorRef={anchorRef}

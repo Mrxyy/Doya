@@ -6,6 +6,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatConnectionStatus } from "@/utils/daemons";
 import type { WorkspaceRouteState } from "@/screens/workspace/workspace-route-state";
+import { translateNow } from "@/i18n/i18n";
 
 interface WorkspaceRouteStateActions {
   onRetryHost: () => void;
@@ -60,7 +61,7 @@ function WorkspaceConnecting({ hostName }: { hostName: string }) {
     <View style={styles.emptyState}>
       <LoadingSpinner size="small" color={theme.colors.foregroundMuted} />
       <View style={styles.textStack}>
-        <Text style={styles.title}>Loading workspace</Text>
+        <Text style={styles.title}>{translateNow("ui.loading.workspace.1p9mm4x")}</Text>
         <Text style={styles.description}>{hostName}</Text>
       </View>
     </View>
@@ -107,10 +108,10 @@ function WorkspaceUnreachable({
       {canRetry ? (
         <View style={styles.actions}>
           <Button size="sm" variant="default" leftIcon={RotateCw} onPress={onRetry}>
-            Retry
+            {translateNow("ui.retry.1ay360")}
           </Button>
           <Button size="sm" variant="outline" leftIcon={Settings} onPress={onManageHost}>
-            Manage host
+            {translateNow("ui.manage.host.qznomb")}
           </Button>
         </View>
       ) : null}
@@ -122,12 +123,12 @@ function WorkspaceMissing({ hostName, onDismiss }: { hostName: string; onDismiss
   return (
     <View style={styles.emptyState}>
       <View style={styles.textStack}>
-        <Text style={styles.title}>Workspace not found</Text>
+        <Text style={styles.title}>{translateNow("ui.workspace.not.found.6mtbm2")}</Text>
         <Text style={styles.description}>{hostName}</Text>
       </View>
       <View style={styles.actions}>
         <Button size="sm" variant="default" leftIcon={ArrowLeftToLine} onPress={onDismiss}>
-          Back
+          {translateNow("ui.back.187if")}
         </Button>
       </View>
     </View>

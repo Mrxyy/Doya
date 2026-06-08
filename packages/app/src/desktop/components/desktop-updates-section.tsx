@@ -16,6 +16,7 @@ import { useDaemonStatus } from "@/desktop/hooks/use-daemon-status";
 import { useDesktopSettings, type DesktopSettings } from "@/desktop/settings/desktop-settings";
 import { resolveAppVersion } from "@/utils/app-version";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
+import { translateNow } from "@/i18n/i18n";
 
 type DesktopDaemonSettings = DesktopSettings["daemon"];
 
@@ -65,7 +66,10 @@ function useDaemonCliStatusModal() {
     }
     void Clipboard.setStringAsync(cliStatusOutput)
       .then(() => {
-        Alert.alert("Copied", "Status copied to clipboard.");
+        Alert.alert(
+          translateNow("ui.copied.xh3l5w"),
+          translateNow("ui.status.copied.to.clipboard.hljevj"),
+        );
         return;
       })
       .catch((error) => {
@@ -96,12 +100,15 @@ function useDaemonLogsModal(daemonLogs: { logPath?: string } | null) {
 
     void Clipboard.setStringAsync(logPath)
       .then(() => {
-        Alert.alert("Copied", "Log path copied.");
+        Alert.alert(translateNow("ui.copied.xh3l5w"), translateNow("ui.log.path.copied.11v2y5n"));
         return;
       })
       .catch((error) => {
         console.error("[Settings] Failed to copy log path", error);
-        Alert.alert("Error", "Unable to copy log path.");
+        Alert.alert(
+          translateNow("ui.error.1410q0"),
+          translateNow("ui.unable.to.copy.log.path.117fwt6"),
+        );
       });
   }, [daemonLogs?.logPath]);
 
@@ -169,10 +176,10 @@ function DaemonCliStatusModal({
         </Text>
         <View style={styles.modalActions}>
           <Button variant="outline" size="sm" onPress={onClose}>
-            Close
+            {translateNow("ui.close.12tjh4")}
           </Button>
           <Button size="sm" onPress={onCopy}>
-            Copy
+            {translateNow("ui.copy.19579")}
           </Button>
         </View>
       </View>
@@ -223,8 +230,10 @@ function DaemonInfoCard(props: DaemonInfoCardProps) {
     <View style={settingsStyles.card}>
       <View style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Status</Text>
-          <Text style={settingsStyles.rowHint}>Only the built-in desktop daemon is shown here</Text>
+          <Text style={settingsStyles.rowTitle}>{translateNow("ui.status.154b66q")}</Text>
+          <Text style={settingsStyles.rowHint}>
+            {translateNow("ui.only.the.built.in.desktop.daemon.is.9kmfra")}
+          </Text>
         </View>
         <View style={styles.statusValueGroup}>
           <Text style={styles.valueText}>{daemonStatusStateText}</Text>
@@ -233,31 +242,39 @@ function DaemonInfoCard(props: DaemonInfoCardProps) {
       </View>
       <View style={ROW_WITH_BORDER_STYLE}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Manage built-in daemon</Text>
-          <Text style={settingsStyles.rowHint}>Let Paseo start and stop the built-in daemon</Text>
+          <Text style={settingsStyles.rowTitle}>
+            {translateNow("ui.manage.built.in.daemon.1arvqut")}
+          </Text>
+          <Text style={settingsStyles.rowHint}>
+            {translateNow("ui.let.paseo.start.and.stop.the.built.1rj5o2r")}
+          </Text>
         </View>
         <Switch
           value={!isDaemonManagementPaused}
           onValueChange={handleToggleDaemonManagement}
           disabled={isUpdatingDaemonManagement}
-          accessibilityLabel="Manage built-in daemon"
+          accessibilityLabel={translateNow("ui.manage.built.in.daemon.1arvqut")}
         />
       </View>
       <View style={ROW_WITH_BORDER_STYLE}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Keep daemon running after quit</Text>
-          <Text style={settingsStyles.rowHint}>Daemon keeps running when you quit Paseo</Text>
+          <Text style={settingsStyles.rowTitle}>
+            {translateNow("ui.keep.daemon.running.after.quit.l9xbhx")}
+          </Text>
+          <Text style={settingsStyles.rowHint}>
+            {translateNow("ui.daemon.keeps.running.when.you.quit.paseo.1cyvilv")}
+          </Text>
         </View>
         <Switch
           value={keepRunningAfterQuit}
           onValueChange={handleToggleKeepRunningAfterQuit}
           disabled={isUpdatingKeepRunningAfterQuit}
-          accessibilityLabel="Keep daemon running after quit"
+          accessibilityLabel={translateNow("ui.keep.daemon.running.after.quit.l9xbhx")}
         />
       </View>
       <View style={ROW_WITH_BORDER_STYLE}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Log file</Text>
+          <Text style={settingsStyles.rowTitle}>{translateNow("ui.log.file.xeifi0")}</Text>
           <Text style={settingsStyles.rowHint}>
             {daemonLogs?.logPath ?? "Log path unavailable"}
           </Text>
@@ -265,7 +282,7 @@ function DaemonInfoCard(props: DaemonInfoCardProps) {
         <View style={styles.actionGroup}>
           {daemonLogs?.logPath ? (
             <Button variant="outline" size="sm" leftIcon={copyIcon} onPress={handleCopyLogPath}>
-              Copy path
+              {translateNow("ui.copy.path.1l2u0uo")}
             </Button>
           ) : null}
           <Button
@@ -275,15 +292,15 @@ function DaemonInfoCard(props: DaemonInfoCardProps) {
             onPress={handleOpenLogs}
             disabled={!daemonLogs}
           >
-            Open logs
+            {translateNow("ui.open.logs.1lqzdlx")}
           </Button>
         </View>
       </View>
       <View style={ROW_WITH_BORDER_STYLE}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Full status</Text>
+          <Text style={settingsStyles.rowTitle}>{translateNow("ui.full.status.9v381v")}</Text>
           <Text style={settingsStyles.rowHint}>
-            Runs `paseo daemon status` and shows the output
+            {translateNow("ui.runs.paseo.daemon.status.and.shows.the.1q0sf9x")}
           </Text>
         </View>
         <Button
@@ -382,9 +399,9 @@ export function LocalDaemonSection() {
         textStyle={settingsStyles.sectionHeaderLinkText}
         style={settingsStyles.sectionHeaderLink}
         onPress={handleOpenAdvancedSettings}
-        accessibilityLabel="Open advanced daemon settings"
+        accessibilityLabel={translateNow("ui.open.advanced.daemon.settings.4auzw7")}
       >
-        Advanced settings
+        {translateNow("ui.advanced.settings.6gdg01")}
       </Button>
     ),
     [advancedSettingsIcon, handleOpenAdvancedSettings],
@@ -396,7 +413,7 @@ export function LocalDaemonSection() {
 
   return (
     <SettingsSection
-      title="Daemon"
+      title={translateNow("ui.daemon.xq95lw")}
       trailing={advancedSettingsButton}
       testID="host-page-daemon-lifecycle-card"
     >
@@ -513,5 +530,5 @@ const LOADING_CARD_STYLE = [settingsStyles.card, styles.loadingCard];
 const ROW_WITH_BORDER_STYLE = [settingsStyles.row, settingsStyles.rowBorder];
 const LOGS_MODAL_SNAP_POINTS = ["70%", "92%"];
 const CLI_STATUS_MODAL_SNAP_POINTS = ["60%", "85%"];
-const DAEMON_LOGS_HEADER: SheetHeader = { title: "Daemon logs" };
-const DAEMON_STATUS_HEADER: SheetHeader = { title: "Daemon status" };
+const DAEMON_LOGS_HEADER: SheetHeader = { title: translateNow("ui.daemon.logs.10lycob") };
+const DAEMON_STATUS_HEADER: SheetHeader = { title: translateNow("ui.daemon.status.p57sha") };

@@ -42,6 +42,7 @@ import {
   type PickerItem,
 } from "./new-workspace-picker-item";
 import { findCheckoutHintPrAttachment, syncPickerPrAttachment } from "./new-workspace-picker-state";
+import { translateNow } from "@/i18n/i18n";
 
 function resolveCheckoutRequest(
   selectedItem: PickerItem | null,
@@ -133,7 +134,7 @@ function RefPickerTrigger({
           disabled={disabled}
           style={badgePressableStyle}
           accessibilityRole="button"
-          accessibilityLabel="Starting ref"
+          accessibilityLabel={translateNow("ui.starting.ref.543owj")}
         >
           <RefPickerBadgeContent
             selectedItem={selectedItem}
@@ -144,7 +145,9 @@ function RefPickerTrigger({
         </Pressable>
       </TooltipTrigger>
       <TooltipContent side="top" align="center" offset={8}>
-        <Text style={styles.tooltipText}>Choose where to start from</Text>
+        <Text style={styles.tooltipText}>
+          {translateNow("ui.choose.where.to.start.from.2pra17")}
+        </Text>
       </TooltipContent>
     </Tooltip>
   );
@@ -166,7 +169,8 @@ function CheckoutHintBadge({
   return (
     <View style={styles.checkoutHintBadge}>
       <Text style={styles.badgeText} numberOfLines={1}>
-        Check out PR #{prNumber}?
+        {translateNow("ui.check.out.pr.iiwqbz")}
+        {prNumber}?
       </Text>
       <Pressable
         testID="new-workspace-checkout-hint-accept"
@@ -880,7 +884,7 @@ export function NewWorkspaceScreen({
             onSelect={handleSelectOption}
             searchable
             searchPlaceholder="Search branches and PRs"
-            title="Start from"
+            title={translateNow("ui.start.from.5zd420")}
             open={pickerOpen}
             onOpenChange={handlePickerOpenChange}
             onSearchQueryChange={setPickerSearchQuery}
@@ -936,7 +940,7 @@ export function NewWorkspaceScreen({
               <SidebarMenuToggle />
               <View style={styles.headerTitleContainer}>
                 <Text style={styles.headerTitle} numberOfLines={1}>
-                  New workspace
+                  {translateNow("ui.new.workspace.1enuqr9")}
                 </Text>
                 <Text style={styles.headerProjectTitle} numberOfLines={1}>
                   {workspaceTitle}

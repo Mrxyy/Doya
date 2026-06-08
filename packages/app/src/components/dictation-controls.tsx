@@ -5,6 +5,7 @@ import { X, ArrowUp, RefreshCcw, Check, Mic, Pencil } from "lucide-react-native"
 import { VolumeMeter } from "./volume-meter";
 import { FOOTER_HEIGHT } from "@/constants/layout";
 import type { DictationStatus } from "@/hooks/use-dictation";
+import { translateNow } from "@/i18n/i18n";
 
 interface DictationControlsProps {
   volume: number;
@@ -71,7 +72,7 @@ export function DictationControls({
         onPress={onStart}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel="Start voice dictation"
+        accessibilityLabel={translateNow("ui.start.voice.dictation.wuwk37")}
         style={micButtonStyle}
       >
         <Mic size={theme.iconSize.md} color={theme.colors.foreground} />
@@ -89,7 +90,7 @@ export function DictationControls({
         <Pressable
           onPress={handleCancel}
           disabled={actionsDisabled && !isFailed}
-          accessibilityLabel="Cancel dictation"
+          accessibilityLabel={translateNow("ui.cancel.dictation.11wzu2h")}
           style={cancelButtonStyle}
         >
           <X size={theme.iconSize.sm} color={theme.colors.foreground} />
@@ -102,7 +103,7 @@ export function DictationControls({
         {!actionsDisabled && isFailed ? (
           <Pressable
             onPress={onRetry}
-            accessibilityLabel="Retry dictation"
+            accessibilityLabel={translateNow("ui.retry.dictation.5vcvhj")}
             style={ACTION_CONFIRM_STYLE}
           >
             <RefreshCcw size={theme.iconSize.sm} color={theme.colors.surface0} />
@@ -112,14 +113,14 @@ export function DictationControls({
           <>
             <Pressable
               onPress={onAccept}
-              accessibilityLabel="Insert transcription"
+              accessibilityLabel={translateNow("ui.insert.transcription.1rfgcqz")}
               style={ACTION_SECONDARY_STYLE}
             >
               <Check size={theme.iconSize.sm} color={theme.colors.foreground} />
             </Pressable>
             <Pressable
               onPress={onAcceptAndSend}
-              accessibilityLabel="Insert transcription and send"
+              accessibilityLabel={translateNow("ui.insert.transcription.and.send.vcmp7q")}
               style={ACTION_CONFIRM_STYLE}
             >
               <ArrowUp size={theme.iconSize.sm} color={theme.colors.surface0} />
@@ -189,7 +190,7 @@ export function DictationOverlay({
         onPress={handleCancel}
         disabled={actionsDisabled && !isFailed}
         accessibilityRole="button"
-        accessibilityLabel="Cancel dictation"
+        accessibilityLabel={translateNow("ui.cancel.dictation.11wzu2h")}
         style={overlayCancelButtonStyle}
       >
         <X size={theme.iconSize.lg} color={theme.colors.accentForeground} strokeWidth={2.5} />
@@ -223,7 +224,7 @@ export function DictationOverlay({
           <Pressable
             onPress={onRetry}
             accessibilityRole="button"
-            accessibilityLabel="Retry dictation"
+            accessibilityLabel={translateNow("ui.retry.dictation.5vcvhj")}
             style={overlayRetryButtonStyle}
           >
             <RefreshCcw size={theme.iconSize.lg} color={theme.colors.accent} strokeWidth={2.5} />
@@ -234,7 +235,7 @@ export function DictationOverlay({
             <Pressable
               onPress={onAccept}
               accessibilityRole="button"
-              accessibilityLabel="Insert transcription"
+              accessibilityLabel={translateNow("ui.insert.transcription.1rfgcqz")}
               style={OVERLAY_ACCEPT_BUTTON_STYLE}
             >
               <Pencil
@@ -246,7 +247,7 @@ export function DictationOverlay({
             <Pressable
               onPress={onAcceptAndSend}
               accessibilityRole="button"
-              accessibilityLabel="Insert transcription and send"
+              accessibilityLabel={translateNow("ui.insert.transcription.and.send.vcmp7q")}
               style={overlayConfirmButtonStyle}
             >
               <ArrowUp size={theme.iconSize.lg} color={theme.colors.accent} strokeWidth={2.5} />

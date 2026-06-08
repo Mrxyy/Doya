@@ -1,5 +1,6 @@
 import type { PaseoConfigRaw } from "@getpaseo/protocol/messages";
 import { buildProjectSettingsRoute } from "@/utils/host-routes";
+import { translateNow } from "@/i18n/i18n";
 
 export interface WorktreeSetupWorkspaceInput {
   projectId: string;
@@ -64,9 +65,8 @@ export function buildWorktreeSetupCalloutPolicy(
     id: calloutKey,
     dismissalKey: calloutKey,
     priority: 100,
-    title: "Set up worktree scripts",
-    description:
-      "Add setup commands so new worktrees can install dependencies and prepare themselves automatically.",
+    title: translateNow("ui.set.up.worktree.scripts.3wikv2"),
+    description: translateNow("ui.add.setup.commands.so.new.worktrees.can.install.10bjhm3"),
     actionLabel: "Open project settings",
     projectSettingsRoute: buildProjectSettingsRoute(project.projectKey),
     testID: `worktree-setup-callout-${project.projectKey}`,

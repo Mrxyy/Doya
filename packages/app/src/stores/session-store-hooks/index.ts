@@ -66,9 +66,23 @@ export function useWorkspaceExecutionAuthority(
 }
 
 export function useWorkspaceStructure(serverId: string | null): WorkspaceStructure {
+  return useWorkspaceStructureForFilter(serverId, undefined, undefined);
+}
+
+export function useWorkspaceStructureForFilter(
+  serverId: string | null,
+  filterWorkspace: ((workspace: WorkspaceDescriptor) => boolean) | undefined,
+  projectDisplayNameForWorkspace: ((workspace: WorkspaceDescriptor) => string | null) | undefined,
+): WorkspaceStructure {
   const projects = useStoreWithEqualityFn(
     useSessionStore,
-    (state) => selectWorkspaceStructureProjects(state, serverId),
+    (state) =>
+      selectWorkspaceStructureProjects(
+        state,
+        serverId,
+        filterWorkspace,
+        projectDisplayNameForWorkspace,
+      ),
     workspaceEqualityFns.deep,
   );
   const projectOrder = useStoreWithEqualityFn(

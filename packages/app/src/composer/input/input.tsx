@@ -57,6 +57,7 @@ import { isWeb } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useComposerHeightMirror } from "./height-mirror";
 import { computeCanStartDictation } from "./state";
+import { translateNow } from "@/i18n/i18n";
 
 export interface AttachmentMenuItem {
   id: string;
@@ -217,7 +218,7 @@ function AttachmentDropdown({
         <TooltipTrigger asChild>
           <DropdownMenuTrigger
             disabled={!isConnected || disabled}
-            accessibilityLabel="Add attachment"
+            accessibilityLabel={translateNow("ui.add.attachment.1c4gile")}
             accessibilityRole="button"
             testID="message-input-attach-button"
             style={attachButtonStyle}
@@ -226,7 +227,7 @@ function AttachmentDropdown({
           </DropdownMenuTrigger>
         </TooltipTrigger>
         <TooltipContent side="top" align="center" offset={8}>
-          <Text style={styles.tooltipText}>Add attachment</Text>
+          <Text style={styles.tooltipText}>{translateNow("ui.add.attachment.1c4gile")}</Text>
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent
@@ -640,7 +641,8 @@ function FocusHint({
   if (!visible || !focusInputKeys) return null;
   return (
     <Text style={styles.focusHintText} pointerEvents="none">
-      {formatShortcut(focusInputKeys[0], getShortcutOs())} to focus
+      {formatShortcut(focusInputKeys[0], getShortcutOs())}
+      {translateNow("ui.to.focus.ha4kj7")}
     </Text>
   );
 }
@@ -1740,7 +1742,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
               onChangeText={handleInputChange}
               placeholder={placeholder}
               uniProps={textInputPlaceholderColorMapping}
-              accessibilityLabel="Message agent..."
+              accessibilityLabel={translateNow("ui.message.agent.1xqollu")}
               onFocus={handleInputFocus}
               onBlur={handleInputBlur}
               style={textInputStyle}

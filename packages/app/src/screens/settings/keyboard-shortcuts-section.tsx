@@ -19,6 +19,7 @@ import {
   keyboardEventToComboString,
 } from "@/keyboard/shortcut-string";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
+import { useI18n, translateNow } from "@/i18n/i18n";
 import { getShortcutOs } from "@/utils/shortcut-platform";
 import { getIsElectronRuntime } from "@/constants/layout";
 import { isNative } from "@/constants/platform";
@@ -41,7 +42,7 @@ function ShortcutSequence({
   }, [chord, heldModifiers]);
 
   if ((!chord || chord.length === 0) && !heldModifiers) {
-    return <Text style={styles.capturingText}>Press shortcut...</Text>;
+    return <Text style={styles.capturingText}>{translateNow("ui.press.shortcut.h9gbv")}</Text>;
   }
 
   return <Shortcut chord={displayChord} />;
@@ -138,7 +139,7 @@ function ShortcutRow({
           <>
             {isCapturing && capturedCombos.length > 0 ? (
               <Button variant="ghost" size="sm" onPress={onDone}>
-                Done
+                {translateNow("ui.done.19s4i")}
               </Button>
             ) : null}
             <Button variant="ghost" size="sm" onPress={isCapturing ? onCancel : onRebind}>
@@ -148,7 +149,7 @@ function ShortcutRow({
         )}
         {overrideCombo !== undefined && !isCapturing && (
           <Button variant="ghost" size="sm" onPress={onReset}>
-            <Text style={styles.resetText}>Reset</Text>
+            <Text style={styles.resetText}>{translateNow("ui.reset.1ay23z")}</Text>
           </Button>
         )}
       </View>
@@ -157,6 +158,7 @@ function ShortcutRow({
 }
 
 export function KeyboardShortcutsSection() {
+  const { t } = useI18n();
   const [capturingBindingId, setCapturingBindingId] = useState<string | null>(null);
   const [capturedCombos, setCapturedCombos] = useState<string[]>([]);
   const [heldModifiers, setHeldModifiers] = useState<string | null>(null);
@@ -244,9 +246,11 @@ export function KeyboardShortcutsSection() {
 
   if (isNative) {
     return (
-      <SettingsSection title="Shortcuts">
+      <SettingsSection title={t("settings.section.shortcuts")}>
         <View style={mobileCardStyle}>
-          <Text style={styles.mobileText}>Keyboard shortcuts are only available on desktop</Text>
+          <Text style={styles.mobileText}>
+            {translateNow("ui.keyboard.shortcuts.are.only.available.on.desktop.12mmfn2")}
+          </Text>
         </View>
       </SettingsSection>
     );
@@ -254,7 +258,7 @@ export function KeyboardShortcutsSection() {
 
   const resetAllButton = hasOverrides ? (
     <Button variant="ghost" size="sm" onPress={handleResetAll}>
-      Reset all
+      {translateNow("ui.reset.all.1ul3jn4")}
     </Button>
   ) : undefined;
 

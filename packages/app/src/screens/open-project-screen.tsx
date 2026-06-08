@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import { View, Text, Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
-import { FolderOpen, Inbox, Plug, Smartphone } from "lucide-react-native";
+import { Bot, FolderOpen, Plug, Smartphone } from "lucide-react-native";
+import { AdaptiveModalSheet, AdaptiveTextInput } from "@/components/adaptive-modal-sheet";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
-import { CommunityLinks } from "@/components/community-links";
 import { MenuHeader } from "@/components/headers/menu-header";
-import { useOpenProjectPicker } from "@/hooks/use-open-project-picker";
+import { Button } from "@/components/ui/button";
 import { usePanelStore } from "@/stores/panel-store";
 import {
   useIsCompactFormFactor,
@@ -17,21 +17,52 @@ import {
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
-import { buildHostAgentDetailRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
-import { ImportSessionSheet } from "@/components/import-session-sheet";
-import { useHostRuntimeClient } from "@/runtime/host-runtime";
+import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import {
+  createAccountProject,
+  loadAccountBootstrapSession,
+  loginAccountUser,
+  refreshAccountBootstrapSession,
+  registerAccountUser,
+  saveAccountBootstrapSession,
+  type AccountBootstrapSession,
+  type AccountProjectRecord,
+} from "@/account/account-api";
+import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
 import { useOpenProject } from "@/hooks/use-open-project";
-import type { Href } from "expo-router";
+import { useI18n, translateNow } from "@/i18n/i18n";
+
+const FULL_WIDTH_STYLE = { width: "100%" } as const;
 
 export function OpenProjectScreen({ serverId }: { serverId: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const openDesktopAgentList = usePanelStore((s) => s.openDesktopAgentList);
-  const openProjectPicker = useOpenProjectPicker(serverId);
   const isLocalDaemon = useIsLocalDaemon(serverId);
-  const client = useHostRuntimeClient(serverId);
   const openProject = useOpenProject(serverId);
   const [isPairDeviceOpen, setIsPairDeviceOpen] = useState(false);
-  const [isImportSheetOpen, setIsImportSheetOpen] = useState(false);
+  const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null>(null);
+  const [isAccountProjectOpen, setIsAccountProjectOpen] = useState(false);
+  const [hasLoadedAccount, setHasLoadedAccount] = useState(false);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [accountWorkspaceName, setAccountWorkspaceName] = useState(() =>
+    t("account.workspace.defaultName"),
+  );
+  const [accountProjectName, setAccountProjectName] = useState(() =>
+    t("account.project.defaultName"),
+  );
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const accountProjectHeader = useMemo(() => ({ title: t("account.project.modalTitle") }), [t]);
+  const accountProjects = useMemo(
+    () =>
+      accountSession
+        ? accountSession.projects.filter(
+            (project) => project.workspaceId === accountSession.workspace.workspaceId,
+          )
+        : [],
+    [accountSession],
+  );
 
   const isCompactLayout = useIsCompactFormFactor();
 
@@ -41,29 +72,234 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
     }
   }, [isCompactLayout, openDesktopAgentList]);
 
-  const handleOpenPicker = useCallback(() => {
-    void openProjectPicker();
-  }, [openProjectPicker]);
+  useEffect(() => {
+    let disposed = false;
+    void (async () => {
+      const stored = await loadAccountBootstrapSession();
+      if (!disposed) {
+        try {
+          const refreshed = stored ? await refreshAccountBootstrapSession(stored) : null;
+          if (refreshed) {
+            await saveAccountBootstrapSession(refreshed);
+          }
+          setAccountSession(refreshed);
+          setAccountEmail(refreshed?.user.email ?? stored?.user.email ?? "");
+        } catch {
+          setAccountSession(stored ? { ...stored, projects: [] } : null);
+          setAccountEmail(stored?.user.email ?? "");
+          if (stored) {
+            setAccountError(t("openProject.error.sessionKept"));
+          }
+        }
+        setHasLoadedAccount(true);
+      }
+    })();
+    return () => {
+      disposed = true;
+    };
+  }, [t]);
 
   const handleOpenPairDevice = useCallback(() => setIsPairDeviceOpen(true), []);
   const handleClosePairDevice = useCallback(() => setIsPairDeviceOpen(false), []);
 
-  const handleOpenImportSession = useCallback(() => setIsImportSheetOpen(true), []);
-  const handleCloseImportSession = useCallback(() => setIsImportSheetOpen(false), []);
-
-  const handleImported = useCallback(
-    (agent: { id: string; cwd: string }) => {
-      void (async () => {
-        await openProject(agent.cwd);
-        router.push(buildHostAgentDetailRoute(serverId, agent.id) as Href);
-      })();
-    },
-    [openProject, router, serverId],
-  );
-
   const handleOpenProviders = useCallback(() => {
     router.push(buildSettingsHostSectionRoute(serverId, "providers"));
   }, [router, serverId]);
+
+  const handleOpenAccountProject = useCallback(() => {
+    setAccountError(null);
+    setIsAccountProjectOpen(true);
+  }, []);
+
+  const handleCloseAccountProject = useCallback(() => {
+    if (accountBusy) return;
+    setIsAccountProjectOpen(false);
+    setAccountError(null);
+  }, [accountBusy]);
+
+  const handleSaveAccountSession = useCallback(async (session: AccountBootstrapSession) => {
+    await saveAccountBootstrapSession(session);
+    setAccountSession(session);
+    setAccountEmail(session.user.email);
+  }, []);
+
+  const handleLoginAccount = useCallback(() => {
+    setAccountBusy(true);
+    setAccountError(null);
+    void (async () => {
+      try {
+        const session = await loginAccountUser({ email: accountEmail });
+        await handleSaveAccountSession(session);
+      } catch (caught) {
+        setAccountError(caught instanceof Error ? caught.message : t("openProject.error.login"));
+      } finally {
+        setAccountBusy(false);
+      }
+    })();
+  }, [handleSaveAccountSession, accountEmail, t]);
+
+  const handleRegisterAccount = useCallback(() => {
+    setAccountBusy(true);
+    setAccountError(null);
+    void (async () => {
+      try {
+        const session = await registerAccountUser({
+          email: accountEmail,
+          displayName: accountWorkspaceName,
+        });
+        await handleSaveAccountSession(session);
+      } catch (caught) {
+        setAccountError(caught instanceof Error ? caught.message : t("openProject.error.register"));
+      } finally {
+        setAccountBusy(false);
+      }
+    })();
+  }, [handleSaveAccountSession, accountEmail, accountWorkspaceName, t]);
+
+  const handleCreateAccountProject = useCallback(() => {
+    if (!accountSession) return;
+    setAccountBusy(true);
+    setAccountError(null);
+    void (async () => {
+      try {
+        const project = await createAccountProject({
+          userId: accountSession.user.userId,
+          workspaceId: accountSession.workspace.workspaceId,
+          accessToken: accountSession.accessToken,
+          displayName: accountProjectName,
+        });
+        const nextSession = {
+          ...accountSession,
+          projects: [
+            ...accountSession.projects.filter((item) => item.projectId !== project.projectId),
+            project,
+          ],
+        };
+        await handleSaveAccountSession(nextSession);
+        const opened = await openProject(project.cwd, {
+          transformWorkspace: (workspace) =>
+            applyAccountProjectDisplay({
+              workspace,
+              session: nextSession,
+              project,
+            }),
+        });
+        if (!opened) {
+          throw new Error(t("openProject.error.openProjectDaemon"));
+        }
+        setIsAccountProjectOpen(false);
+      } catch (caught) {
+        setAccountError(
+          caught instanceof Error ? caught.message : t("openProject.error.createProject"),
+        );
+      } finally {
+        setAccountBusy(false);
+      }
+    })();
+  }, [handleSaveAccountSession, accountProjectName, accountSession, openProject, t]);
+
+  const handleOpenAccountProjectRecord = useCallback(
+    (project: AccountProjectRecord) => {
+      if (!accountSession) return;
+      setAccountBusy(true);
+      setAccountError(null);
+      void (async () => {
+        try {
+          const opened = await openProject(project.cwd, {
+            transformWorkspace: (workspace) =>
+              applyAccountProjectDisplay({
+                workspace,
+                session: accountSession,
+                project,
+              }),
+          });
+          if (!opened) {
+            throw new Error(t("openProject.error.openProjectDaemon"));
+          }
+        } catch (caught) {
+          setAccountError(
+            caught instanceof Error ? caught.message : t("openProject.error.openProject"),
+          );
+        } finally {
+          setAccountBusy(false);
+        }
+      })();
+    },
+    [accountSession, openProject, t],
+  );
+
+  if (!hasLoadedAccount) {
+    return (
+      <View style={styles.container}>
+        <MenuHeader borderless />
+        <View style={styles.content}>
+          <TitlebarDragRegion />
+          <PaseoLogo size={52} />
+        </View>
+      </View>
+    );
+  }
+
+  if (!accountSession) {
+    return (
+      <View style={styles.container}>
+        <MenuHeader borderless />
+        <View style={styles.authContent}>
+          <TitlebarDragRegion />
+          <View style={styles.authPanel}>
+            <PaseoLogo size={52} />
+            <View style={styles.authTitleGroup}>
+              <Text style={styles.authTitle}>{t("openProject.accountAuth.title")}</Text>
+              <Text style={styles.authSubtitle}>{t("openProject.accountAuth.subtitle")}</Text>
+            </View>
+            <View style={styles.sheetStack}>
+              <Text style={styles.fieldLabel}>{t("openProject.accountAuth.email")}</Text>
+              <AdaptiveTextInput
+                testID="workspace-auth-email"
+                accessibilityLabel={t("openProject.accountAuth.email")}
+                value={accountEmail}
+                onChangeText={setAccountEmail}
+                placeholder={translateNow("ui.you.example.com.1qsej4s")}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                style={styles.sheetInput}
+              />
+              <Text style={styles.fieldLabel}>{t("openProject.accountAuth.workspaceName")}</Text>
+              <AdaptiveTextInput
+                testID="workspace-auth-workspace-name"
+                accessibilityLabel={t("openProject.accountAuth.workspaceName")}
+                value={accountWorkspaceName}
+                onChangeText={setAccountWorkspaceName}
+                placeholder={t("account.workspace.defaultName")}
+                style={styles.sheetInput}
+              />
+              {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
+              <View style={styles.sheetActions}>
+                <Button
+                  variant="secondary"
+                  style={FULL_WIDTH_STYLE}
+                  loading={accountBusy}
+                  disabled={accountBusy || !accountEmail.trim()}
+                  onPress={handleLoginAccount}
+                >
+                  {t("common.login")}
+                </Button>
+                <Button
+                  style={FULL_WIDTH_STYLE}
+                  loading={accountBusy}
+                  disabled={accountBusy || !accountEmail.trim() || !accountWorkspaceName.trim()}
+                  onPress={handleRegisterAccount}
+                >
+                  {t("openProject.accountAuth.register")}
+                </Button>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -75,54 +311,122 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
         </View>
         <View style={styles.tiles}>
           <HomeTile
-            icon={FolderOpen}
-            title="Add a project"
-            description="Open a folder on your machine"
-            onPress={handleOpenPicker}
-            testID="open-project-submit"
+            icon={Bot}
+            title={t("openProject.newProject.title")}
+            description={t("openProject.newProject.description")}
+            status={accountError ?? accountSession.user.email}
+            onPress={handleOpenAccountProject}
+            testID="open-project-account-workspace"
             accent
-          />
-          <HomeTile
-            icon={Inbox}
-            title="Import session"
-            description="Bring in recent external CLI sessions"
-            onPress={handleOpenImportSession}
-            testID="open-project-import-session"
+            disabled={accountBusy}
           />
           <HomeTile
             icon={Plug}
-            title="Setup providers"
-            description="Configure Claude Code, Codex, and more"
+            title={t("common.setupProviders")}
+            description={t("common.setupProviders.description")}
             onPress={handleOpenProviders}
             testID="open-project-setup-providers"
           />
           {isLocalDaemon ? (
             <HomeTile
               icon={Smartphone}
-              title="Pair device"
-              description="Connect your phone to this daemon"
+              title={t("openProject.pairDevice")}
+              description={t("openProject.pairDevice.description")}
               onPress={handleOpenPairDevice}
               testID="open-project-pair-device"
             />
           ) : null}
         </View>
-      </View>
-      <View style={styles.communityRow}>
-        <CommunityLinks />
+        <View style={styles.projectSection}>
+          <Text style={styles.sectionTitle}>{t("openProject.projects.title")}</Text>
+          {accountProjects.length === 0 ? (
+            <Text style={styles.emptyProjectText}>{t("account.project.empty")}</Text>
+          ) : (
+            <View style={styles.projectList}>
+              {accountProjects.map((project) => (
+                <AccountProjectTile
+                  key={project.projectId}
+                  project={project}
+                  onOpen={handleOpenAccountProjectRecord}
+                  disabled={accountBusy}
+                />
+              ))}
+            </View>
+          )}
+        </View>
       </View>
       <PairDeviceModal
         visible={isPairDeviceOpen}
         onClose={handleClosePairDevice}
         testID="open-project-pair-device-modal"
       />
-      <ImportSessionSheet
-        visible={isImportSheetOpen}
-        client={client}
-        serverId={serverId}
-        onClose={handleCloseImportSession}
-        onImported={handleImported}
-      />
+      <AdaptiveModalSheet
+        header={accountProjectHeader}
+        visible={isAccountProjectOpen}
+        onClose={handleCloseAccountProject}
+        desktopMaxWidth={420}
+        testID="account-project-modal"
+      >
+        <View style={styles.sheetStack}>
+          <Text style={styles.fieldLabel}>{t("account.project.fieldName")}</Text>
+          <AdaptiveTextInput
+            testID="account-project-name"
+            accessibilityLabel={t("account.project.fieldName")}
+            value={accountProjectName}
+            onChangeText={setAccountProjectName}
+            placeholder={t("account.project.defaultName")}
+            style={styles.sheetInput}
+          />
+          {accountSession ? (
+            <Text style={styles.sheetHint}>{accountSession.workspace.displayName}</Text>
+          ) : null}
+          {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
+          <View style={styles.sheetActions}>
+            <Button
+              variant="secondary"
+              style={FULL_WIDTH_STYLE}
+              onPress={handleCloseAccountProject}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              style={FULL_WIDTH_STYLE}
+              loading={accountBusy}
+              disabled={accountBusy || !accountProjectName.trim()}
+              onPress={handleCreateAccountProject}
+            >
+              {t("common.createAndOpen")}
+            </Button>
+          </View>
+        </View>
+      </AdaptiveModalSheet>
     </View>
+  );
+}
+
+function AccountProjectTile({
+  project,
+  onOpen,
+  disabled,
+}: {
+  project: AccountProjectRecord;
+  onOpen: (project: AccountProjectRecord) => void;
+  disabled?: boolean;
+}) {
+  const handlePress = useCallback(() => {
+    onOpen(project);
+  }, [onOpen, project]);
+  const { t } = useI18n();
+
+  return (
+    <HomeTile
+      icon={FolderOpen}
+      title={project.displayName}
+      description={t("account.project.description")}
+      onPress={handlePress}
+      disabled={disabled}
+      testID={`account-project-${project.projectId}`}
+    />
   );
 }
 
@@ -133,9 +437,20 @@ interface HomeTileProps {
   onPress: () => void;
   testID?: string;
   accent?: boolean;
+  disabled?: boolean;
+  status?: string | null;
 }
 
-function HomeTile({ icon: Icon, title, description, onPress, testID, accent }: HomeTileProps) {
+function HomeTile({
+  icon: Icon,
+  title,
+  description,
+  onPress,
+  testID,
+  accent,
+  disabled,
+  status,
+}: HomeTileProps) {
   // useUnistyles is acceptable here: leaf component, off the hot path (home screen renders once).
   const { theme } = useUnistyles();
   const [hovered, setHovered] = useState(false);
@@ -149,8 +464,9 @@ function HomeTile({ icon: Icon, title, description, onPress, testID, accent }: H
       styles.tile,
       hovered && styles.tileHovered,
       pressed && styles.tilePressed,
+      disabled && styles.tileDisabled,
     ],
-    [hovered],
+    [disabled, hovered],
   );
 
   return (
@@ -159,11 +475,15 @@ function HomeTile({ icon: Icon, title, description, onPress, testID, accent }: H
       onHoverIn={handleHoverIn}
       onHoverOut={handleHoverOut}
       testID={testID}
+      disabled={disabled}
       style={pressableStyle}
     >
       <Icon size={20} color={iconColor} />
       <View style={styles.tileText}>
-        <Text style={styles.tileTitle}>{title}</Text>
+        <View style={styles.tileTitleRow}>
+          <Text style={styles.tileTitle}>{title}</Text>
+          {status ? <Text style={styles.tileStatus}>{status}</Text> : null}
+        </View>
         <Text style={styles.tileDescription}>{description}</Text>
       </View>
     </Pressable>
@@ -189,6 +509,35 @@ const styles = StyleSheet.create((theme) => ({
       md: HEADER_INNER_HEIGHT + theme.spacing[6],
     },
   },
+  authContent: {
+    position: "relative",
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: theme.spacing[6],
+    paddingBottom: {
+      xs: HEADER_INNER_HEIGHT_MOBILE + HEADER_TOP_PADDING_MOBILE + theme.spacing[6],
+      md: HEADER_INNER_HEIGHT + theme.spacing[6],
+    },
+  },
+  authPanel: {
+    width: "100%",
+    maxWidth: 420,
+    gap: theme.spacing[6],
+  },
+  authTitleGroup: {
+    gap: theme.spacing[2],
+  },
+  authTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize["2xl"],
+    fontWeight: theme.fontWeight.semibold,
+  },
+  authSubtitle: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+  },
   logo: {
     marginBottom: theme.spacing[8],
   },
@@ -199,6 +548,25 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
+    gap: theme.spacing[3],
+  },
+  projectSection: {
+    width: "100%",
+    maxWidth: 452,
+    marginTop: theme.spacing[6],
+    gap: theme.spacing[3],
+  },
+  sectionTitle: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  emptyProjectText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  projectList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: theme.spacing[3],
   },
   tile: {
@@ -218,30 +586,58 @@ const styles = StyleSheet.create((theme) => ({
   tilePressed: {
     opacity: 0.85,
   },
+  tileDisabled: {
+    opacity: theme.opacity[50],
+  },
   tileText: {
     gap: theme.spacing[1],
+  },
+  tileTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing[2],
   },
   tileTitle: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.normal,
   },
+  tileStatus: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+  },
   tileDescription: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 18,
   },
-  communityRow: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: {
-      xs: HEADER_INNER_HEIGHT_MOBILE + HEADER_TOP_PADDING_MOBILE + theme.spacing[2],
-      md: HEADER_INNER_HEIGHT + theme.spacing[2],
-    },
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 0,
+  sheetStack: {
+    gap: theme.spacing[3],
+  },
+  fieldLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  sheetInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.lg,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[3],
+  },
+  sheetHint: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  errorText: {
+    color: theme.colors.destructive,
+    fontSize: theme.fontSize.sm,
+  },
+  sheetActions: {
+    gap: theme.spacing[2],
+    marginTop: theme.spacing[1],
   },
 }));

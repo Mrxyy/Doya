@@ -1,5 +1,6 @@
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { normalizeWorkspaceOpaqueId, normalizeWorkspacePath } from "@/utils/workspace-identity";
+import { translateNow } from "@/i18n/i18n";
 
 export interface WorkspaceAuthorityResult {
   workspaceId: string;
@@ -101,7 +102,7 @@ export function getWorkspaceExecutionAuthority(
       return {
         ok: false,
         reason: "workspace_id_missing",
-        message: "Workspace id is required.",
+        message: translateNow("ui.workspace.id.is.required.47mg4z"),
       };
     }
   }

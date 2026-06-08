@@ -5,7 +5,6 @@ import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { keyboardActionDispatcher } from "@/keyboard/keyboard-action-dispatcher";
 import { useAllAgentsList } from "@/hooks/use-all-agents-list";
 import type { AggregatedAgent } from "@/hooks/use-aggregated-agents";
-import { useOpenProjectPicker } from "@/hooks/use-open-project-picker";
 import {
   clearCommandCenterFocusRestoreElement,
   takeCommandCenterFocusRestoreElement,
@@ -20,6 +19,7 @@ import { getIsElectronRuntime } from "@/constants/layout";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { focusWithRetries } from "@/utils/web-focus";
 import { useActiveServerId } from "@/hooks/use-active-server-id";
+import { translateNow } from "@/i18n/i18n";
 
 const EMPTY_AGENTS: AggregatedAgent[] = [];
 const EMPTY_ACTION_ITEMS: CommandCenterActionItem[] = [];
@@ -61,7 +61,7 @@ interface CommandCenterActionDefinition {
 const COMMAND_CENTER_ACTIONS: readonly CommandCenterActionDefinition[] = [
   {
     id: "new-agent",
-    title: "Open project",
+    title: translateNow("ui.open.project.10m6ezn"),
     icon: "plus",
     actionId: "new-agent",
     keywords: ["open", "project", "folder", "workspace", "repo"],
@@ -69,14 +69,14 @@ const COMMAND_CENTER_ACTIONS: readonly CommandCenterActionDefinition[] = [
   },
   {
     id: "home",
-    title: "Home",
+    title: translateNow("ui.home.1cc1r"),
     icon: "home",
     keywords: ["home", "start", "import", "session", "pair", "device", "providers"],
     routeKind: "home",
   },
   {
     id: "settings",
-    title: "Settings",
+    title: translateNow("ui.settings.osmo8z"),
     icon: "settings",
     keywords: ["settings", "preferences", "config", "configuration"],
     routeKind: "settings",
@@ -229,14 +229,12 @@ export function useCommandCenter() {
     [pathname, setOpen],
   );
 
-  const openProjectPicker = useOpenProjectPicker(activeServerId);
-
   const handleSelectAction = useCallback(
     (action: CommandCenterActionItem) => {
       clearCommandCenterFocusRestoreElement();
       setOpen(false);
       if (action.id === "new-agent") {
-        void openProjectPicker();
+        if (activeServerId) router.push(buildHostOpenProjectRoute(activeServerId) as Href);
         return;
       }
       if (!action.route) {
@@ -245,7 +243,7 @@ export function useCommandCenter() {
       didNavigateRef.current = true;
       router.push(action.route);
     },
-    [openProjectPicker, setOpen],
+    [activeServerId, setOpen],
   );
 
   const handleSelectItem = useCallback(

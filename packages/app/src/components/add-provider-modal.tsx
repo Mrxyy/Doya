@@ -18,6 +18,7 @@ import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import type { Theme } from "@/styles/theme";
 import { openExternalUrl } from "@/utils/open-external-url";
+import { translateNow } from "@/i18n/i18n";
 
 interface AddProviderModalProps {
   serverId: string;
@@ -30,7 +31,7 @@ type InstallState = "installed" | "available";
 const FLEX_ONE_STYLE = { flex: 1 } as const;
 const ACTION_BUTTON_STYLE = { width: 92 } as const;
 const MODAL_SNAP_POINTS = ["78%", "92%"];
-const ADD_PROVIDER_HEADER: SheetHeader = { title: "Add provider" };
+const ADD_PROVIDER_HEADER: SheetHeader = { title: translateNow("ui.add.provider.1nvsy40") };
 const SEARCH_ICON_SIZE = 16;
 const PROVIDER_FALLBACK_ICON_SIZE = 20;
 const PROVIDER_REMOTE_ICON_SIZE = 24;
@@ -118,7 +119,7 @@ function ProviderCatalogRow({ entry, state, installing, onInstall }: ProviderCat
           style={styles.installLink}
         >
           <Text style={styles.installLinkText} numberOfLines={1}>
-            Install instructions
+            {translateNow("ui.install.instructions.1u96pm2")}
           </Text>
           <ThemedExternalLink size={12} uniProps={foregroundMutedColorMapping} />
         </Pressable>
@@ -172,7 +173,7 @@ export function AddProviderModal({ serverId, visible, onClose }: AddProviderModa
         handleClose();
       } catch (installError) {
         Alert.alert(
-          "Unable to install provider",
+          translateNow("ui.unable.to.install.provider.hev3ke"),
           installError instanceof Error ? installError.message : String(installError),
         );
       } finally {
@@ -197,12 +198,12 @@ export function AddProviderModal({ serverId, visible, onClose }: AddProviderModa
         </View>
         <AdaptiveTextInput
           testID="provider-catalog-search"
-          accessibilityLabel="Search providers"
+          accessibilityLabel={translateNow("ui.search.providers.hv7akq")}
           initialValue={search}
           resetKey={`provider-catalog-search-${searchResetKey}`}
           value={search}
           onChangeText={setSearch}
-          placeholder="Search providers"
+          placeholder={translateNow("ui.search.providers.hv7akq")}
           style={styles.searchInput}
           autoCapitalize="none"
           autoCorrect={false}
@@ -211,7 +212,7 @@ export function AddProviderModal({ serverId, visible, onClose }: AddProviderModa
 
       {filteredEntries.length === 0 ? (
         <View style={styles.stateBox}>
-          <Text style={styles.stateText}>No providers found</Text>
+          <Text style={styles.stateText}>{translateNow("ui.no.providers.found.c1iwjp")}</Text>
         </View>
       ) : null}
 
@@ -231,7 +232,7 @@ export function AddProviderModal({ serverId, visible, onClose }: AddProviderModa
 
       <View style={styles.actions}>
         <Button style={FLEX_ONE_STYLE} variant="secondary" onPress={handleClose}>
-          Cancel
+          {translateNow("ui.cancel.x9d2fu")}
         </Button>
       </View>
     </AdaptiveModalSheet>

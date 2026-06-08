@@ -1,6 +1,7 @@
 import { Text, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useMemo } from "react";
+import { translateNow } from "@/i18n/i18n";
 
 interface BrowserPaneProps {
   browserId: string;
@@ -24,8 +25,11 @@ export function BrowserPane({ browserId }: BrowserPaneProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={titleStyle}>Browser is desktop-only</Text>
-      <Text style={subtitleStyle}>Browser session {browserId}</Text>
+      <Text style={titleStyle}>{translateNow("ui.browser.is.desktop.only.159qhnf")}</Text>
+      <Text style={subtitleStyle}>
+        {translateNow("ui.browser.session.xyazr2")}
+        {browserId}
+      </Text>
     </View>
   );
 }

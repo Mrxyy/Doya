@@ -161,6 +161,8 @@ export function selectWorkspaceExecutionAuthority(
 export function selectWorkspaceStructureProjects(
   state: SessionsSnapshot,
   serverId: string | null,
+  filterWorkspace?: (workspace: WorkspaceDescriptor) => boolean,
+  projectDisplayNameForWorkspace?: (workspace: WorkspaceDescriptor) => string | null,
 ): WorkspaceStructureProject[] {
   if (!serverId) {
     return EMPTY_WORKSPACE_STRUCTURE.projects;
@@ -179,12 +181,16 @@ export function selectWorkspaceStructureProjects(
   >();
 
   for (const workspace of workspaces.values()) {
+    if (filterWorkspace && !filterWorkspace(workspace)) {
+      continue;
+    }
+    const projectDisplayName =
+      projectDisplayNameForWorkspace?.(workspace)?.trim() || workspace.projectDisplayName;
     const project =
       byProject.get(workspace.projectId) ??
       ({
         projectKey: workspace.projectId,
-        projectName:
-          workspace.projectDisplayName || projectDisplayNameFromProjectId(workspace.projectId),
+        projectName: projectDisplayName || projectDisplayNameFromProjectId(workspace.projectId),
         projectKind: workspace.projectKind,
         iconWorkingDir: workspace.projectRootPath,
         workspaceKeys: [],

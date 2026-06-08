@@ -33,6 +33,7 @@ import {
   createAgentLastActivityCoalescer,
   type AgentLastActivityCommitter,
 } from "@/runtime/activity";
+import { applyAccountWorkspaceFallbackDisplay } from "@/account/account-workspace-display";
 
 // Re-export types that were in session-context
 export type MessageEntry =
@@ -137,7 +138,7 @@ export interface WorkspaceDescriptor {
 export function normalizeWorkspaceDescriptor(
   payload: WorkspaceDescriptorPayload,
 ): WorkspaceDescriptor {
-  return {
+  return applyAccountWorkspaceFallbackDisplay({
     id: normalizeWorkspaceOpaqueId(payload.id) ?? payload.id,
     projectId: payload.projectId,
     projectDisplayName: payload.projectDisplayName,
@@ -154,7 +155,7 @@ export function normalizeWorkspaceDescriptor(
     gitRuntime: payload.gitRuntime,
     githubRuntime: payload.githubRuntime,
     project: payload.project,
-  };
+  });
 }
 
 function preserveWorkspaceDescriptorIdentity(

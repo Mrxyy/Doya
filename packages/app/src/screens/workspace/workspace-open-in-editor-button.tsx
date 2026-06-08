@@ -29,6 +29,7 @@ import { isAbsolutePath } from "@/utils/path";
 import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { filterTargetsForDaemonLocation } from "./workspace-open-targets";
+import { translateNow } from "@/i18n/i18n";
 
 interface WorkspaceOpenInEditorButtonProps {
   serverId: string;
@@ -153,7 +154,7 @@ export function WorkspaceOpenInEditorButton({
     }
     return {
       id: "github",
-      label: "GitHub",
+      label: translateNow("ui.github.za171f"),
       icon: <ThemedGitHubIcon size={16} uniProps={mutedColorMapping} />,
       requiresLocalDaemon: false,
       onOpen: () => openExternalUrl(url),
@@ -240,7 +241,9 @@ export function WorkspaceOpenInEditorButton({
           ) : (
             <View style={styles.splitButtonContent}>
               {primaryOption.icon}
-              {!hideLabels && <Text style={styles.splitButtonText}>Open</Text>}
+              {!hideLabels && (
+                <Text style={styles.splitButtonText}>{translateNow("ui.open.1gtii")}</Text>
+              )}
             </View>
           )}
         </Pressable>
@@ -250,7 +253,7 @@ export function WorkspaceOpenInEditorButton({
               testID="workspace-open-in-editor-caret"
               style={caretTriggerStyle}
               accessibilityRole="button"
-              accessibilityLabel="Choose editor"
+              accessibilityLabel={translateNow("ui.choose.editor.1tq26ie")}
             >
               <ThemedChevronDown size={16} uniProps={mutedColorMapping} />
             </DropdownMenuTrigger>

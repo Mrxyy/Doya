@@ -6,6 +6,7 @@ import { ArrowUpRight, Terminal, Blocks, Check } from "lucide-react-native";
 import { settingsStyles } from "@/styles/settings";
 import { SettingsSection } from "@/screens/settings/settings-section";
 import { Button } from "@/components/ui/button";
+import { useI18n, translateNow } from "@/i18n/i18n";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import {
@@ -37,6 +38,7 @@ function formatUpdateMessage(ops: readonly SkillOp[]): string {
 }
 
 export function IntegrationsSection() {
+  const { t } = useI18n();
   const { theme } = useUnistyles();
   const showSection = shouldUseDesktopDaemon();
   const {
@@ -77,9 +79,9 @@ export function IntegrationsSection() {
     if (isSkillsWorking) return;
     const ops = skillsStatus?.ops ?? [];
     const confirmed = await confirmDialog({
-      title: "Update Paseo skills?",
+      title: translateNow("ui.update.paseo.skills.1823idu"),
       message: ops.length > 0 ? formatUpdateMessage(ops) : "Sync bundled skills to your machine.",
-      confirmLabel: "Update",
+      confirmLabel: translateNow("ui.update.1608rft"),
     });
     if (!confirmed) return;
     await updateSkills();
@@ -88,9 +90,9 @@ export function IntegrationsSection() {
   const handleUninstallSkills = useCallback(async () => {
     if (isSkillsWorking) return;
     const confirmed = await confirmDialog({
-      title: "Uninstall Paseo skills?",
+      title: translateNow("ui.uninstall.paseo.skills.1vdf65n"),
       message: UNINSTALL_MESSAGE,
-      confirmLabel: "Uninstall",
+      confirmLabel: translateNow("ui.uninstall.msnagy"),
       destructive: true,
     });
     if (!confirmed) return;
@@ -120,9 +122,9 @@ export function IntegrationsSection() {
           textStyle={settingsStyles.sectionHeaderLinkText}
           style={settingsStyles.sectionHeaderLink}
           onPress={handleOpenCliDocs}
-          accessibilityLabel="Open CLI documentation"
+          accessibilityLabel={translateNow("ui.open.cli.documentation.1anmulg")}
         >
-          CLI docs
+          {translateNow("ui.cli.docs.rev0bf")}
         </Button>
         <Button
           variant="ghost"
@@ -131,9 +133,9 @@ export function IntegrationsSection() {
           textStyle={settingsStyles.sectionHeaderLinkText}
           style={settingsStyles.sectionHeaderLink}
           onPress={handleOpenSkillsDocs}
-          accessibilityLabel="Open skills documentation"
+          accessibilityLabel={translateNow("ui.open.skills.documentation.z4hrv6")}
         >
-          Skills docs
+          {translateNow("ui.skills.docs.7jx7i1")}
         </Button>
       </View>
     ),
@@ -147,20 +149,22 @@ export function IntegrationsSection() {
   const skillsState = skillsStatus?.state ?? null;
 
   return (
-    <SettingsSection title="Integrations" trailing={trailing}>
+    <SettingsSection title={t("settings.section.integrations")} trailing={trailing}>
       <View style={settingsStyles.card}>
         <View style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
             <View style={styles.rowTitleRow}>
               <Terminal size={theme.iconSize.md} color={theme.colors.foreground} />
-              <Text style={settingsStyles.rowTitle}>Command line</Text>
+              <Text style={settingsStyles.rowTitle}>{translateNow("ui.command.line.y3r1l5")}</Text>
             </View>
-            <Text style={settingsStyles.rowHint}>Control and script agents from your terminal</Text>
+            <Text style={settingsStyles.rowHint}>
+              {translateNow("ui.control.and.script.agents.from.your.terminal.twyfr0")}
+            </Text>
           </View>
           {cliStatus?.installed ? (
             <View style={styles.installedLabel}>
               <Check size={14} color={theme.colors.foregroundMuted} />
-              <Text style={styles.mutedText}>Installed</Text>
+              <Text style={styles.mutedText}>{translateNow("ui.installed.xmek4a")}</Text>
             </View>
           ) : (
             <Button
@@ -177,7 +181,9 @@ export function IntegrationsSection() {
           <View style={settingsStyles.rowContent}>
             <View style={styles.rowTitleRow}>
               <Blocks size={theme.iconSize.md} color={theme.colors.foreground} />
-              <Text style={settingsStyles.rowTitle}>Orchestration skills</Text>
+              <Text style={settingsStyles.rowTitle}>
+                {translateNow("ui.orchestration.skills.1bxy7fl")}
+              </Text>
             </View>
             <Text style={settingsStyles.rowHint}>
               {skillsState === "drift"
@@ -214,10 +220,10 @@ function SkillsActions({ state, isWorking, onInstall, onUpdate, onUninstall }: S
       <View style={styles.actionsRow}>
         <View style={styles.installedLabel}>
           <Check size={14} color={theme.colors.foregroundMuted} />
-          <Text style={styles.mutedText}>Installed</Text>
+          <Text style={styles.mutedText}>{translateNow("ui.installed.xmek4a")}</Text>
         </View>
         <Button variant="outline" size="sm" onPress={onUninstall} disabled={isWorking}>
-          Uninstall
+          {translateNow("ui.uninstall.msnagy")}
         </Button>
       </View>
     );
@@ -230,7 +236,7 @@ function SkillsActions({ state, isWorking, onInstall, onUpdate, onUninstall }: S
           {isWorking ? "Working..." : "Update"}
         </Button>
         <Button variant="outline" size="sm" onPress={onUninstall} disabled={isWorking}>
-          Uninstall
+          {translateNow("ui.uninstall.msnagy")}
         </Button>
       </View>
     );

@@ -7,8 +7,10 @@ import { DesktopPermissionRow } from "@/desktop/components/desktop-permission-ro
 import { useDesktopPermissions } from "@/desktop/permissions/use-desktop-permissions";
 import { settingsStyles } from "@/styles/settings";
 import { SettingsSection } from "@/screens/settings/settings-section";
+import { useI18n, translateNow } from "@/i18n/i18n";
 
 export function DesktopPermissionsSection() {
+  const { t } = useI18n();
   const { theme } = useUnistyles();
   const {
     isDesktopApp,
@@ -59,7 +61,7 @@ export function DesktopPermissionsSection() {
         leftIcon={refreshIcon}
         onPress={handleRefreshPress}
         disabled={isBusy}
-        accessibilityLabel="Refresh desktop permissions"
+        accessibilityLabel={translateNow("ui.refresh.desktop.permissions.re8k2j")}
       >
         {isRefreshing ? "Refreshing..." : "Refresh"}
       </Button>
@@ -72,10 +74,10 @@ export function DesktopPermissionsSection() {
   }
 
   return (
-    <SettingsSection title="Permissions" trailing={refreshButton}>
+    <SettingsSection title={t("settings.section.permissions")} trailing={refreshButton}>
       <View style={settingsStyles.card}>
         <DesktopPermissionRow
-          title="Notifications"
+          title={translateNow("ui.notifications.y97he0")}
           status={snapshot?.notifications ?? null}
           isRequesting={requestingPermission === "notifications"}
           onRequest={handleRequestNotifications}
@@ -86,7 +88,7 @@ export function DesktopPermissionsSection() {
         />
         {testNotificationError ? <Text style={errorTextStyle}>{testNotificationError}</Text> : null}
         <DesktopPermissionRow
-          title="Microphone"
+          title={translateNow("ui.microphone.1jn2gy2")}
           showBorder
           status={snapshot?.microphone ?? null}
           isRequesting={requestingPermission === "microphone"}

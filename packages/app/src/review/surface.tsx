@@ -20,6 +20,7 @@ import type { ShortcutKey } from "@/utils/format-shortcut";
 import { useWorkspaceFocusRestoration } from "@/workspace/focus";
 import { useReviewDraftComments, useReviewDraftStore, type ReviewDraftComment } from "./store";
 import { buildReviewableDiffTargetKey, type ReviewableDiffTarget } from "@/utils/diff-layout";
+import { translateNow } from "@/i18n/i18n";
 
 type PressableState = PressableStateCallbackType & { hovered?: boolean };
 type WebTextInputRef = TextInput & {
@@ -449,7 +450,7 @@ function CommentRow({
       <View style={styles.commentActions}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Edit review comment"
+          accessibilityLabel={translateNow("ui.edit.review.comment.132p8p9")}
           testID={`review-comment-edit-${comment.id}`}
           hitSlop={SMALL_ACTION_HIT_SLOP}
           onPress={handleEdit}
@@ -459,7 +460,7 @@ function CommentRow({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Delete review comment"
+          accessibilityLabel={translateNow("ui.delete.review.comment.18u1rpo")}
           testID={`review-comment-delete-${comment.id}`}
           hitSlop={SMALL_ACTION_HIT_SLOP}
           onPress={handleDelete}
@@ -574,9 +575,9 @@ export function InlineReviewEditor({
     <View style={styles.editorBlock} testID={testID}>
       <TextInput
         ref={inputRef}
-        accessibilityLabel="Review comment"
+        accessibilityLabel={translateNow("ui.review.comment.14idd4n")}
         testID={testID ? `${testID}-input` : undefined}
-        placeholder="Leave a comment"
+        placeholder={translateNow("ui.leave.a.comment.qfz1w7")}
         placeholderTextColor={theme.colors.foregroundMuted}
         multiline
         value={body}
@@ -587,7 +588,7 @@ export function InlineReviewEditor({
       />
       <View style={styles.editorActions}>
         <Button
-          accessibilityLabel="Cancel review comment"
+          accessibilityLabel={translateNow("ui.cancel.review.comment.xri6e5")}
           testID={testID ? `${testID}-cancel` : undefined}
           hitSlop={SMALL_ACTION_HIT_SLOP}
           onPress={onCancel}
@@ -595,10 +596,10 @@ export function InlineReviewEditor({
           size="xs"
           trailing={cancelShortcut}
         >
-          Cancel
+          {translateNow("ui.cancel.x9d2fu")}
         </Button>
         <Button
-          accessibilityLabel="Save review comment"
+          accessibilityLabel={translateNow("ui.save.review.comment.qi33i2")}
           testID={testID ? `${testID}-save` : undefined}
           hitSlop={SMALL_ACTION_HIT_SLOP}
           disabled={!canSave}
@@ -607,7 +608,7 @@ export function InlineReviewEditor({
           size="xs"
           trailing={saveShortcut}
         >
-          Comment
+          {translateNow("ui.comment.178xmwv")}
         </Button>
       </View>
     </View>

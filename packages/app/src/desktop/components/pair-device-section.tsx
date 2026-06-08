@@ -9,6 +9,7 @@ import { settingsStyles } from "@/styles/settings";
 import { Button } from "@/components/ui/button";
 import { getDesktopDaemonPairing, shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 import { useState } from "react";
+import { translateNow } from "@/i18n/i18n";
 
 type PairingViewState =
   | { tag: "loading" }
@@ -154,7 +155,7 @@ function PairDeviceBody(props: PairDeviceBodyProps) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="small" />
-        <Text style={styles.hint}>Loading pairing offer…</Text>
+        <Text style={styles.hint}>{translateNow("ui.loading.pairing.offer.zlzj8m")}</Text>
       </View>
     );
   }
@@ -164,7 +165,7 @@ function PairDeviceBody(props: PairDeviceBodyProps) {
       <View style={styles.centered}>
         <Text style={styles.hint}>{viewState.message}</Text>
         <Button variant="outline" size="sm" leftIcon={retryIcon} onPress={handleRefetch}>
-          Retry
+          {translateNow("ui.retry.1ay360")}
         </Button>
       </View>
     );
@@ -172,9 +173,7 @@ function PairDeviceBody(props: PairDeviceBodyProps) {
 
   return (
     <View style={styles.content}>
-      <Text style={styles.hint}>
-        Scan this QR code with Paseo on your phone, or copy the link below.
-      </Text>
+      <Text style={styles.hint}>{translateNow("ui.scan.this.qr.code.with.paseo.on.japl1n")}</Text>
       <View style={styles.qrContainer}>
         <PairDeviceQrContent qrImageSource={qrImageSource} qrQuery={qrQuery} />
       </View>
@@ -204,7 +203,7 @@ function PairDeviceQrContent(props: {
     return <Image source={props.qrImageSource} style={styles.qrImage} resizeMode="contain" />;
   }
   if (props.qrQuery.isError) {
-    return <Text style={styles.hint}>QR code unavailable.</Text>;
+    return <Text style={styles.hint}>{translateNow("ui.qr.code.unavailable.1w8mdbm")}</Text>;
   }
   return <ActivityIndicator size="small" />;
 }

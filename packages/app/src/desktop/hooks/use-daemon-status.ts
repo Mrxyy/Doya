@@ -8,6 +8,7 @@ import {
   type DesktopDaemonStatus,
 } from "@/desktop/daemon/desktop-daemon";
 import { useDesktopIpcQueryErrorToast } from "@/desktop/hooks/desktop-ipc-error";
+import { translateNow } from "@/i18n/i18n";
 
 const DAEMON_STATUS_QUERY_KEY = ["desktopDaemonStatus"] as const;
 
@@ -33,7 +34,7 @@ export function useDaemonStatus() {
   });
   useDesktopIpcQueryErrorToast({
     error: query.error,
-    message: "Unable to load desktop daemon status.",
+    message: translateNow("ui.unable.to.load.desktop.daemon.status.68463q"),
     logLabel: "[DesktopDaemon] Failed to load daemon status",
   });
 

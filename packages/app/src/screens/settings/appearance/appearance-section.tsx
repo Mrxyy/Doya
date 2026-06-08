@@ -24,7 +24,9 @@ import {
   sanitizeFontFamily,
   useAppSettings,
   type AppSettings,
+  type LanguageSetting,
 } from "@/hooks/use-settings";
+import { useI18n, translateNow } from "@/i18n/i18n";
 import {
   DEFAULT_MONO_FONT_STACK,
   DEFAULT_UI_FONT_STACK,
@@ -49,15 +51,13 @@ const ThemedChevronDown = withUnistyles(ChevronDown);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
-// Stored value -> displayed label. `auto` reads as "System" for the app theme.
-const THEME_LABELS: Record<AppSettings["theme"], string> = {
+const THEME_LABELS: Record<Exclude<AppSettings["theme"], "auto">, string> = {
   light: "Light",
   dark: "Dark",
   zinc: "Zinc",
   midnight: "Midnight",
   claude: "Claude",
   ghostty: "Ghostty",
-  auto: "System",
 };
 
 const PRIMARY_THEMES: readonly AppSettings["theme"][] = ["light", "dark", "auto"];
@@ -67,6 +67,7 @@ const DARK_VARIANT_THEMES: readonly AppSettings["theme"][] = [
   "claude",
   "ghostty",
 ];
+const LANGUAGE_VALUES: readonly LanguageSetting[] = ["system", "en", "zh"];
 
 // Platform default stacks can be the bare native tokens ("normal"/"monospace");
 // those read as a bug, so show a human label in the placeholder instead.
@@ -128,13 +129,14 @@ interface ThemeMenuItemProps {
 }
 
 function ThemeMenuItem({ themeValue, selected, onChange }: ThemeMenuItemProps) {
+  const { t } = useI18n();
   const handleSelect = useCallback(() => {
     onChange(themeValue);
   }, [onChange, themeValue]);
   const leading = useMemo(() => <ThemeLeading themeValue={themeValue} />, [themeValue]);
   return (
     <DropdownMenuItem selected={selected} onSelect={handleSelect} leading={leading}>
-      {THEME_LABELS[themeValue]}
+      {themeLabel(themeValue, t)}
     </DropdownMenuItem>
   );
 }
@@ -145,18 +147,19 @@ interface ThemeRowProps {
 }
 
 function ThemeRow({ value, onChange }: ThemeRowProps) {
+  const { t } = useI18n();
   return (
     <View style={settingsStyles.row}>
       <View style={settingsStyles.rowContent}>
-        <Text style={settingsStyles.rowTitle}>Theme</Text>
+        <Text style={settingsStyles.rowTitle}>{t("settings.appearance.theme")}</Text>
       </View>
       <DropdownMenu>
         <DropdownMenuTrigger
           style={dropdownTriggerStyle}
-          accessibilityLabel={`Theme: ${THEME_LABELS[value]}`}
+          accessibilityLabel={`${t("settings.appearance.theme")}: ${themeLabel(value, t)}`}
         >
           <ThemeLeading themeValue={value} />
-          <Text style={styles.triggerText}>{THEME_LABELS[value]}</Text>
+          <Text style={styles.triggerText}>{themeLabel(value, t)}</Text>
           <ThemedChevronDown size={ICON_SIZE.sm} uniProps={mutedColorMapping} />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="bottom" align="end" width={200}>
@@ -181,6 +184,70 @@ function ThemeRow({ value, onChange }: ThemeRowProps) {
       </DropdownMenu>
     </View>
   );
+}
+
+function themeLabel(theme: AppSettings["theme"], t: ReturnType<typeof useI18n>["t"]): string {
+  return theme === "auto" ? t("settings.appearance.themeSystem") : THEME_LABELS[theme];
+}
+
+interface LanguageMenuItemProps {
+  value: LanguageSetting;
+  selected: boolean;
+  onChange: (language: LanguageSetting) => void;
+}
+
+function LanguageMenuItem({ value, selected, onChange }: LanguageMenuItemProps) {
+  const { t } = useI18n();
+  const handleSelect = useCallback(() => {
+    onChange(value);
+  }, [onChange, value]);
+  return (
+    <DropdownMenuItem selected={selected} onSelect={handleSelect}>
+      {languageLabel(value, t)}
+    </DropdownMenuItem>
+  );
+}
+
+interface LanguageRowProps {
+  value: LanguageSetting;
+  onChange: (language: LanguageSetting) => void;
+}
+
+function LanguageRow({ value, onChange }: LanguageRowProps) {
+  const { t } = useI18n();
+  return (
+    <View style={styles.rowWithBorder}>
+      <View style={settingsStyles.rowContent}>
+        <Text style={settingsStyles.rowTitle}>{t("settings.language.title")}</Text>
+      </View>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          style={dropdownTriggerStyle}
+          accessibilityLabel={`${t("settings.language.title")}: ${languageLabel(value, t)}`}
+        >
+          <ThemedMonitor size={ICON_SIZE.md} uniProps={mutedColorMapping} />
+          <Text style={styles.triggerText}>{languageLabel(value, t)}</Text>
+          <ThemedChevronDown size={ICON_SIZE.sm} uniProps={mutedColorMapping} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="bottom" align="end" width={200}>
+          {LANGUAGE_VALUES.map((language) => (
+            <LanguageMenuItem
+              key={language}
+              value={language}
+              selected={value === language}
+              onChange={onChange}
+            />
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </View>
+  );
+}
+
+function languageLabel(language: LanguageSetting, t: ReturnType<typeof useI18n>["t"]): string {
+  if (language === "en") return t("settings.language.english");
+  if (language === "zh") return t("settings.language.zh");
+  return t("settings.language.system");
 }
 
 // ---------------------------------------------------------------------------
@@ -278,7 +345,7 @@ function FontSizeRow({
           style={styles.sizeInput}
           accessibilityLabel={accessibilityLabel}
         />
-        <Text style={styles.unit}>px</Text>
+        <Text style={styles.unit}>{translateNow("ui.px.2rs")}</Text>
       </View>
     </View>
   );
@@ -319,8 +386,10 @@ function SyntaxRow({ value, onChange }: SyntaxRowProps) {
   return (
     <View style={settingsStyles.row}>
       <View style={settingsStyles.rowContent}>
-        <Text style={settingsStyles.rowTitle}>Highlight theme</Text>
-        <Text style={settingsStyles.rowHint}>Colors for code, independent of the app theme</Text>
+        <Text style={settingsStyles.rowTitle}>{translateNow("ui.highlight.theme.5gmr7h")}</Text>
+        <Text style={settingsStyles.rowHint}>
+          {translateNow("ui.colors.for.code.independent.of.the.app.t67mg0")}
+        </Text>
       </View>
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -350,6 +419,7 @@ function SyntaxRow({ value, onChange }: SyntaxRowProps) {
 // ---------------------------------------------------------------------------
 
 export function AppearanceSection() {
+  const { t } = useI18n();
   const { settings, updateSettings } = useAppSettings();
   const showFontFamilyRows = !isNative;
 
@@ -369,6 +439,13 @@ export function AppearanceSection() {
   const handleThemeChange = useCallback(
     (theme: AppSettings["theme"]) => {
       void updateSettings({ theme });
+    },
+    [updateSettings],
+  );
+
+  const handleLanguageChange = useCallback(
+    (language: LanguageSetting) => {
+      void updateSettings({ language });
     },
     [updateSettings],
   );
@@ -455,18 +532,19 @@ export function AppearanceSection() {
 
   return (
     <View>
-      <SettingsSection title="Theme">
+      <SettingsSection title={t("settings.appearance.theme")}>
         <View style={settingsStyles.card}>
           <ThemeRow value={settings.theme} onChange={handleThemeChange} />
+          <LanguageRow value={settings.language} onChange={handleLanguageChange} />
         </View>
       </SettingsSection>
-      <SettingsSection title="Fonts">
+      <SettingsSection title={t("settings.appearance.fonts")}>
         <View style={settingsStyles.card}>
           {showFontFamilyRows ? (
             <FontFamilyRow
-              title="Interface font"
-              hint="Used across the app. Leave empty for the system default"
-              accessibilityLabel="Interface font family"
+              title={t("settings.appearance.interfaceFont")}
+              hint={t("settings.appearance.interfaceFontHint")}
+              accessibilityLabel={t("settings.appearance.interfaceFontAccessibility")}
               placeholder={UI_FONT_PLACEHOLDER}
               value={settings.uiFontFamily}
               draft={uiFontDraft}
@@ -476,8 +554,8 @@ export function AppearanceSection() {
             />
           ) : null}
           <FontSizeRow
-            title="Interface size"
-            accessibilityLabel="Interface font size"
+            title={t("settings.appearance.interfaceSize")}
+            accessibilityLabel={t("settings.appearance.interfaceSizeAccessibility")}
             draft={uiSizeDraft}
             withBorder={showFontFamilyRows}
             onChangeDraft={handleUiSizeChange}
@@ -485,9 +563,9 @@ export function AppearanceSection() {
           />
           {showFontFamilyRows ? (
             <FontFamilyRow
-              title="Code font"
-              hint="Used in code, diffs, and the terminal output. Leave empty for the system default"
-              accessibilityLabel="Code font family"
+              title={t("settings.appearance.codeFont")}
+              hint={t("settings.appearance.codeFontHint")}
+              accessibilityLabel={t("settings.appearance.codeFontAccessibility")}
               placeholder={MONO_FONT_PLACEHOLDER}
               value={settings.monoFontFamily}
               draft={monoFontDraft}
@@ -497,15 +575,15 @@ export function AppearanceSection() {
             />
           ) : null}
           <FontSizeRow
-            title="Code size"
-            accessibilityLabel="Code font size"
+            title={t("settings.appearance.codeSize")}
+            accessibilityLabel={t("settings.appearance.codeSizeAccessibility")}
             draft={codeSizeDraft}
             onChangeDraft={handleCodeSizeChange}
             onCommit={commitCodeSize}
           />
         </View>
       </SettingsSection>
-      <SettingsSection title="Syntax">
+      <SettingsSection title={t("settings.appearance.syntax")}>
         <View style={settingsStyles.card}>
           <SyntaxRow value={settings.syntaxTheme} onChange={handleSyntaxThemeChange} />
         </View>

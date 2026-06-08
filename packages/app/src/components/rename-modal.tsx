@@ -8,6 +8,7 @@ import {
 } from "@/components/adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
 import { isWeb } from "@/constants/platform";
+import { translateNow } from "@/i18n/i18n";
 
 export interface AdaptiveRenameModalProps {
   visible: boolean;
@@ -147,7 +148,7 @@ export function AdaptiveRenameModal({
             disabled={isPending}
             testID={cancelTestID}
           >
-            Cancel
+            {translateNow("ui.cancel.x9d2fu")}
           </Button>
           <Button
             variant="default"

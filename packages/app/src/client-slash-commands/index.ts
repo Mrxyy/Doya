@@ -1,5 +1,6 @@
 import type { Agent } from "@/stores/session-store";
 import type { WorkspaceDraftTabSetup } from "@/stores/workspace-tabs-store";
+import { translateNow } from "@/i18n/i18n";
 
 export type ClientSlashCommandKind = "archive-agent" | "replace-agent-with-draft";
 export type ClientSlashCommandExecution = "immediate" | "insert";
@@ -17,7 +18,7 @@ export const CLIENT_SLASH_COMMANDS: readonly ClientSlashCommand[] = [
   {
     name: "exit",
     aliases: ["quit", "q"],
-    description: "Archive the current agent",
+    description: translateNow("ui.archive.the.current.agent.1mnjw35"),
     argumentHint: "",
     kind: "archive-agent",
     execution: "immediate",
@@ -25,7 +26,7 @@ export const CLIENT_SLASH_COMMANDS: readonly ClientSlashCommand[] = [
   {
     name: "clear",
     aliases: ["new"],
-    description: "Archive this agent and start a fresh draft",
+    description: translateNow("ui.archive.this.agent.and.start.a.fresh.draft.1677dai"),
     argumentHint: "",
     kind: "replace-agent-with-draft",
     execution: "immediate",

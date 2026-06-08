@@ -20,6 +20,7 @@ import {
   type WorkspaceSetupSnapshot,
 } from "@/stores/workspace-setup-store";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";
+import { translateNow } from "@/i18n/i18n";
 
 function useSetupPanelDescriptor(
   target: { kind: "setup"; workspaceId: string },
@@ -33,7 +34,7 @@ function useSetupPanelDescriptor(
 
   if (snapshot?.status === "completed") {
     return {
-      label: "Setup",
+      label: translateNow("ui.setup.1bhvtp"),
       subtitle: "Setup completed",
       titleState: "ready",
       icon: CheckCircle2,
@@ -43,7 +44,7 @@ function useSetupPanelDescriptor(
 
   if (snapshot?.status === "failed") {
     return {
-      label: "Setup",
+      label: translateNow("ui.setup.1bhvtp"),
       subtitle: "Setup failed",
       titleState: "ready",
       icon: CircleAlert,
@@ -52,7 +53,7 @@ function useSetupPanelDescriptor(
   }
 
   return {
-    label: "Setup",
+    label: translateNow("ui.setup.1bhvtp"),
     subtitle: "Workspace setup",
     titleState: "ready",
     icon: SquareTerminal,
@@ -230,7 +231,7 @@ function SetupPanel() {
       {isWaiting ? (
         <View style={styles.waitingContainer}>
           <ThemedActivityIndicator size="large" uniProps={foregroundMutedColorMapping} />
-          <Text style={styles.waitingText}>Setting up workspace...</Text>
+          <Text style={styles.waitingText}>{translateNow("ui.setting.up.workspace.nf20by")}</Text>
         </View>
       ) : null}
       {!isWaiting && hasNoSetupCommands ? (
@@ -238,9 +239,9 @@ function SetupPanel() {
           <Text
             style={styles.emptyText}
             accessible
-            accessibilityLabel="No setup commands ran for this workspace"
+            accessibilityLabel={translateNow("ui.no.setup.commands.ran.for.this.workspace.jhh3z5")}
           >
-            No setup commands ran for this workspace.
+            {translateNow("ui.no.setup.commands.ran.for.this.workspace.zstzhp")}
           </Text>
         </View>
       ) : null}
@@ -348,7 +349,7 @@ function SetupCommandRow({
               showsVerticalScrollIndicator
               testID="workspace-setup-log"
               accessible
-              accessibilityLabel="Workspace setup log"
+              accessibilityLabel={translateNow("ui.workspace.setup.log.zhlzqu")}
             >
               <Text selectable dataSet={CODE_SURFACE_DATASET} style={styles.logText}>
                 {processedLog}
@@ -359,9 +360,9 @@ function SetupCommandRow({
               style={styles.logScrollContent}
               testID="workspace-setup-log"
               accessible
-              accessibilityLabel="Workspace setup log"
+              accessibilityLabel={translateNow("ui.workspace.setup.log.zhlzqu")}
             >
-              <Text style={styles.emptyLogText}>No output</Text>
+              <Text style={styles.emptyLogText}>{translateNow("ui.no.output.169ldeo")}</Text>
             </View>
           )}
           {hasError && errorMessage ? (
@@ -402,7 +403,7 @@ function StandaloneLogView({ commands, log }: { commands: SetupCommand[]; log: s
       showsVerticalScrollIndicator
       testID="workspace-setup-log"
       accessible
-      accessibilityLabel="Workspace setup log"
+      accessibilityLabel={translateNow("ui.workspace.setup.log.zhlzqu")}
     >
       <Text selectable dataSet={CODE_SURFACE_DATASET} style={styles.logText}>
         {log}

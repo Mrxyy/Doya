@@ -70,6 +70,7 @@ import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { deriveSidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { buildDraftAgentSetup, type ClientSlashCommand } from "@/client-slash-commands";
+import { translateNow } from "@/i18n/i18n";
 
 interface ChatAgentStateShape {
   serverId: string | null;
@@ -154,7 +155,7 @@ function renderChatAgentNonReadyView(args: {
     return (
       <View style={styles.container} testID="agent-not-found">
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Agent not found</Text>
+          <Text style={styles.errorText}>{translateNow("ui.agent.not.found.41iqnu")}</Text>
         </View>
       </View>
     );
@@ -163,7 +164,7 @@ function renderChatAgentNonReadyView(args: {
     return (
       <View style={styles.container} testID="agent-load-error">
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load agent</Text>
+          <Text style={styles.errorText}>{translateNow("ui.failed.to.load.agent.1q8nq19")}</Text>
           <Text style={styles.statusText}>{viewState.message}</Text>
         </View>
       </View>
@@ -600,7 +601,7 @@ function AgentPanelBody({
     return (
       <View style={styles.container} testID="agent-not-found">
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Agent not found</Text>
+          <Text style={styles.errorText}>{translateNow("ui.agent.not.found.41iqnu")}</Text>
         </View>
       </View>
     );
@@ -610,7 +611,7 @@ function AgentPanelBody({
     return (
       <View style={styles.container} testID="agent-load-error">
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load agent</Text>
+          <Text style={styles.errorText}>{translateNow("ui.failed.to.load.agent.1q8nq19")}</Text>
           <Text style={styles.statusText}>{lookupState.message}</Text>
         </View>
       </View>
@@ -796,7 +797,7 @@ function ChatAgentContent({
     }
     if (!reconnectToastArmedRef.current) {
       reconnectToastArmedRef.current = true;
-      panelToast.api.show("Reconnecting...", {
+      panelToast.api.show(translateNow("ui.reconnecting.1iz03lv"), {
         durationMs: null,
         testID: "agent-reconnecting-toast",
       });
@@ -1160,8 +1161,10 @@ function ChatAgentReadyContent({
         {isArchivingCurrentAgent ? (
           <View style={styles.archivingOverlay} testID="agent-archiving-overlay">
             <ThemedActivityIndicator size="large" uniProps={foregroundColorMapping} />
-            <Text style={styles.archivingTitle}>Archiving agent...</Text>
-            <Text style={styles.archivingSubtitle}>Please wait while we archive this agent.</Text>
+            <Text style={styles.archivingTitle}>{translateNow("ui.archiving.agent.vgnp7u")}</Text>
+            <Text style={styles.archivingSubtitle}>
+              {translateNow("ui.please.wait.while.we.archive.this.agent.agnu8v")}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -1470,10 +1473,12 @@ function AgentSessionUnavailableState({
       <View style={styles.container}>
         <View style={styles.centerState}>
           <Text style={styles.errorText}>
-            Cannot open this agent because {serverLabel} is not configured on this device.
+            {translateNow("ui.cannot.open.this.agent.because.17uh7r6")}
+            {serverLabel}
+            {translateNow("ui.is.not.configured.on.this.device.1bpejg8")}
           </Text>
           <Text style={styles.statusText}>
-            Add the host in Settings or open an agent on a configured server to continue.
+            {translateNow("ui.add.the.host.in.settings.or.open.qq1q8k")}
           </Text>
         </View>
       </View>
@@ -1502,9 +1507,12 @@ function AgentSessionUnavailableState({
           </>
         ) : (
           <>
-            <Text style={styles.offlineTitle}>Reconnecting to {serverLabel}...</Text>
+            <Text style={styles.offlineTitle}>
+              {translateNow("ui.reconnecting.to.1iyzuy8")}
+              {serverLabel}...
+            </Text>
             <Text style={styles.offlineDescription}>
-              We will show this agent again as soon as the host is reachable.
+              {translateNow("ui.we.will.show.this.agent.again.as.1pc8y1b")}
             </Text>
             {lastError ? <Text style={styles.offlineDetails}>{lastError}</Text> : null}
           </>

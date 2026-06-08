@@ -1,5 +1,6 @@
 import type { Agent } from "@/stores/session-store";
 import type { ConfirmDialogInput } from "@/utils/confirm-dialog";
+import { translateNow } from "@/i18n/i18n";
 
 export interface ResolveArchiveSubagentDialogInput {
   title: Agent["title"] | null | undefined;
@@ -31,8 +32,8 @@ export function resolveArchiveSubagentDialog(
     message: isRunning
       ? `${subagentLabel} is still running. Archiving it will stop the subagent and remove it from the track.`
       : `Remove ${subagentLabel} from the track. The subagent will be archived.`,
-    confirmLabel: "Archive",
-    cancelLabel: "Cancel",
+    confirmLabel: translateNow("ui.archive.f5ovxe"),
+    cancelLabel: translateNow("ui.cancel.x9d2fu"),
     destructive: true,
   };
 }

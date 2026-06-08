@@ -1,5 +1,6 @@
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { PairDeviceSection } from "@/desktop/components/pair-device-section";
+import { translateNow } from "@/i18n/i18n";
 
 export interface PairDeviceModalProps {
   visible: boolean;
@@ -8,7 +9,7 @@ export interface PairDeviceModalProps {
 }
 
 const SNAP_POINTS: string[] = ["82%", "94%"];
-const PAIR_DEVICE_HEADER: SheetHeader = { title: "Pair a device" };
+const PAIR_DEVICE_HEADER: SheetHeader = { title: translateNow("ui.pair.a.device.zgwqcb") };
 
 export function PairDeviceModal({ visible, onClose, testID }: PairDeviceModalProps) {
   return (

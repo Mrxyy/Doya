@@ -1,4 +1,5 @@
 import type { DesktopAppUpdateStatus } from "@/desktop/updates/use-desktop-app-updater";
+import { translateNow } from "@/i18n/i18n";
 
 export type UpdateCalloutBody =
   | { kind: "available"; versionLabel: string | null }
@@ -67,9 +68,11 @@ export function resolveUpdateCalloutDescriptor(
     body = { kind: "available", versionLabel: formatVersionLabel(latestVersion) };
   }
 
-  const actions: UpdateCalloutActionDescriptor[] = [{ role: "changelog", label: "What's new" }];
+  const actions: UpdateCalloutActionDescriptor[] = [
+    { role: "changelog", label: translateNow("ui.what.s.new.1poz3io") },
+  ];
   if (isError) {
-    actions.push({ role: "retry", label: "Retry", variant: "primary" });
+    actions.push({ role: "retry", label: translateNow("ui.retry.1ay360"), variant: "primary" });
   } else {
     actions.push({
       role: "install",

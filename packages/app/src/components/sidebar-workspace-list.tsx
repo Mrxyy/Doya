@@ -15,6 +15,11 @@ import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { slugify, validateBranchSlug, MAX_SLUG_LENGTH } from "@getpaseo/protocol/branch-slug";
 import { ProjectIconView } from "@/components/project-icon-view";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
+import {
+  deleteAccountProject,
+  saveAccountBootstrapSession,
+  type AccountBootstrapSession,
+} from "@/account/account-api";
 import { invalidateCheckoutGitQueriesForClient } from "@/git/query-keys";
 import {
   memo,
@@ -62,6 +67,7 @@ import { DraggableList, type DraggableRenderItemInfo } from "./draggable-list";
 import type { DraggableListDragHandleProps } from "./draggable-list.types";
 import { getHostRuntimeStore, isHostRuntimeConnected } from "@/runtime/host-runtime";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { useI18n, translateNow } from "@/i18n/i18n";
 import { projectIconQueryKey, projectIconToDataUri } from "@/hooks/use-project-icon-query";
 import {
   buildHostNewWorkspaceRoute,
@@ -226,6 +232,7 @@ function selectionForSelectedWorkspace(
 interface SidebarWorkspaceListProps {
   projects: SidebarProjectEntry[];
   serverId: string | null;
+  accountSession?: AccountBootstrapSession | null;
   collapsedProjectKeys: ReadonlySet<string>;
   onToggleProjectCollapsed: (projectKey: string) => void;
   shortcutIndexByWorkspaceKey: Map<string, number>;
@@ -233,6 +240,8 @@ interface SidebarWorkspaceListProps {
   onRefresh?: () => void;
   onWorkspacePress?: () => void;
   onAddProject?: () => void;
+  addProjectLabel?: string;
+  emptyProjectHint?: string;
   listFooterComponent?: ReactElement | null;
   /** Gesture ref for coordinating with parent gestures (e.g., sidebar close) */
   parentGestureRef?: MutableRefObject<GestureType | undefined>;
@@ -652,7 +661,7 @@ function ProjectKebabMenu({
         hitSlop={8}
         style={projectKebabStyle}
         accessibilityRole={platformIsWeb ? undefined : "button"}
-        accessibilityLabel="Project actions"
+        accessibilityLabel={translateNow("ui.project.actions.qpacie")}
         testID={`sidebar-project-kebab-${projectKey}`}
       >
         {renderKebabTriggerIcon}
@@ -664,17 +673,17 @@ function ProjectKebabMenu({
             leading={settingsLeadingIcon}
             onSelect={handleOpenProjectSettings}
           >
-            Open project settings
+            {translateNow("ui.open.project.settings.ye79z4")}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
           testID={`sidebar-project-menu-remove-${projectKey}`}
           leading={trash2LeadingIcon}
           status={removeProjectStatus}
-          pendingLabel="Removing..."
+          pendingLabel={translateNow("ui.removing.oue8vh")}
           onSelect={onRemoveProject}
         >
-          Remove project
+          {translateNow("ui.remove.project.ku4j31")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -720,7 +729,10 @@ function WorkspaceRowRightGroup({
   return (
     <View style={styles.workspaceRowRight}>
       {showScriptsIcon ? (
-        <View testID="workspace-globe-icon" accessibilityLabel="Scripts available">
+        <View
+          testID="workspace-globe-icon"
+          accessibilityLabel={translateNow("ui.scripts.available.8x55sh")}
+        >
           {hasRunningService ? (
             <ThemedGlobe size={12} uniProps={blueColorMapping} />
           ) : (
@@ -728,7 +740,9 @@ function WorkspaceRowRightGroup({
           )}
         </View>
       ) : null}
-      {isCreating ? <Text style={styles.workspaceCreatingText}>Creating...</Text> : null}
+      {isCreating ? (
+        <Text style={styles.workspaceCreatingText}>{translateNow("ui.creating.ljb1th")}</Text>
+      ) : null}
       {showKebab && onArchive ? (
         <WorkspaceKebabMenu
           workspaceKey={workspace.workspaceKey}
@@ -788,7 +802,7 @@ function WorkspaceKebabMenu({
         hitSlop={8}
         style={workspaceKebabStyle}
         accessibilityRole={platformIsWeb ? undefined : "button"}
-        accessibilityLabel="Workspace actions"
+        accessibilityLabel={translateNow("ui.workspace.actions.hgggnm")}
         testID={`sidebar-workspace-kebab-${workspaceKey}`}
       >
         {renderKebabTriggerIcon}
@@ -800,7 +814,7 @@ function WorkspaceKebabMenu({
             leading={copyLeadingIcon}
             onSelect={onCopyPath}
           >
-            Copy path
+            {translateNow("ui.copy.path.1l2u0uo")}
           </DropdownMenuItem>
         ) : null}
         {onCopyBranchName ? (
@@ -809,7 +823,7 @@ function WorkspaceKebabMenu({
             leading={copyLeadingIcon}
             onSelect={onCopyBranchName}
           >
-            Copy branch name
+            {translateNow("ui.copy.branch.name.iu31vi")}
           </DropdownMenuItem>
         ) : null}
         {onRename ? (
@@ -818,7 +832,7 @@ function WorkspaceKebabMenu({
             leading={renameLeadingIcon}
             onSelect={onRename}
           >
-            Rename workspace
+            {translateNow("ui.rename.workspace.1uz145v")}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
@@ -995,7 +1009,9 @@ function NewWorktreeButton({
         </TooltipTrigger>
         <TooltipContent side="bottom" align="center" offset={8}>
           <View style={styles.projectActionTooltipRow}>
-            <Text style={styles.projectActionTooltipText}>New workspace</Text>
+            <Text style={styles.projectActionTooltipText}>
+              {translateNow("ui.new.workspace.1enuqr9")}
+            </Text>
             {showShortcutHint && newWorktreeKeys ? (
               <Shortcut chord={newWorktreeKeys} style={styles.projectActionTooltipShortcut} />
             ) : null}
@@ -1622,10 +1638,10 @@ function WorkspaceRowWithMenu({
     }
 
     const confirmed = await confirmDialog({
-      title: "Hide workspace?",
+      title: translateNow("ui.hide.workspace.1g07360"),
       message: `Hide "${workspace.name}" from the sidebar?\n\nFiles on disk will not be changed.`,
-      confirmLabel: "Hide",
-      cancelLabel: "Cancel",
+      confirmLabel: translateNow("ui.hide.1c7du"),
+      cancelLabel: translateNow("ui.cancel.x9d2fu"),
       destructive: true,
     });
     if (!confirmed) {
@@ -1763,10 +1779,10 @@ function WorkspaceRowWithMenu({
       />
       <AdaptiveRenameModal
         visible={isRenameOpen}
-        title="Rename workspace"
+        title={translateNow("ui.rename.workspace.1uz145v")}
         initialValue={workspace.name}
-        placeholder="branch-name"
-        submitLabel="Rename"
+        placeholder={translateNow("ui.branch.name.1hv0b86")}
+        submitLabel={translateNow("ui.rename.14f8jfi")}
         validate={validateRenameSlug}
         maxLength={MAX_SLUG_LENGTH}
         onClose={handleCloseRename}
@@ -1820,10 +1836,10 @@ function NonGitProjectRowWithMenuContent({
 
     void (async () => {
       const confirmed = await confirmDialog({
-        title: "Hide workspace?",
+        title: translateNow("ui.hide.workspace.1g07360"),
         message: `Hide "${workspace.name}" from the sidebar?\n\nFiles on disk will not be changed.`,
-        confirmLabel: "Hide",
-        cancelLabel: "Cancel",
+        confirmLabel: translateNow("ui.hide.1c7du"),
+        cancelLabel: translateNow("ui.cancel.x9d2fu"),
         destructive: true,
       });
       if (!confirmed) {
@@ -1882,11 +1898,11 @@ function NonGitProjectRowWithMenuContent({
         <ContextMenuItem
           testID={`sidebar-workspace-context-${workspace.workspaceKey}-archive`}
           status={isArchivingWorkspace ? "pending" : "idle"}
-          pendingLabel="Hiding..."
+          pendingLabel={translateNow("ui.hiding.1ddj78v")}
           destructive
           onSelect={handleArchiveWorkspace}
         >
-          Hide from sidebar
+          {translateNow("ui.hide.from.sidebar.8nzcv8")}
         </ContextMenuItem>
       </ContextMenuContent>
     </>
@@ -2146,6 +2162,7 @@ function WorkspaceRow({
 
 function ProjectBlock({
   project,
+  accountSession,
   collapsed,
   displayName,
   iconDataUri,
@@ -2166,6 +2183,7 @@ function ProjectBlock({
   activeWorkspaceSelection,
 }: {
   project: SidebarProjectEntry;
+  accountSession: AccountBootstrapSession | null;
   collapsed: boolean;
   displayName: string;
   iconDataUri: string | null;
@@ -2272,35 +2290,58 @@ function ProjectBlock({
 
     void (async () => {
       const confirmed = await confirmDialog({
-        title: "Remove project?",
+        title: translateNow("ui.remove.project.6nvxvm"),
         message: `Remove "${displayName}" from the sidebar?\n\nFiles on disk will not be changed.`,
-        confirmLabel: "Remove",
-        cancelLabel: "Cancel",
+        confirmLabel: translateNow("ui.remove.14f871g"),
+        cancelLabel: translateNow("ui.cancel.x9d2fu"),
         destructive: true,
       });
       if (!confirmed) {
         return;
       }
 
+      if (!accountSession) {
+        toast.error("Please log in first");
+        return;
+      }
+
       const client = getHostRuntimeStore().getClient(serverId);
-      if (!client) {
+      if (project.workspaces.length > 0 && !client) {
         toast.error("Host is not connected");
         return;
       }
 
       setIsRemovingProject(true);
-      void archiveWorkspacesOptimistically({
-        client,
-        workspaces: project.workspaces,
-      }).then((failures) => {
-        if (failures.length > 0) {
-          toast.error("Failed to remove some workspaces");
+      void (async () => {
+        try {
+          const projects = await deleteAccountProject({
+            userId: accountSession.user.userId,
+            workspaceId: accountSession.workspace.workspaceId,
+            projectId: project.projectKey,
+            accessToken: accountSession.accessToken,
+          });
+          await saveAccountBootstrapSession({
+            ...accountSession,
+            projects,
+          });
+
+          if (client && project.workspaces.length > 0) {
+            const failures = await archiveWorkspacesOptimistically({
+              client,
+              workspaces: project.workspaces,
+            });
+            if (failures.length > 0) {
+              toast.error("Failed to remove some workspaces");
+            }
+          }
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Failed to remove project");
+        } finally {
+          setIsRemovingProject(false);
         }
-        setIsRemovingProject(false);
-        return;
-      });
+      })();
     })();
-  }, [isRemovingProject, serverId, displayName, toast, project.workspaces]);
+  }, [accountSession, isRemovingProject, serverId, displayName, toast, project]);
 
   const flattenedRowWorkspaceId =
     rowModel.kind === "workspace_link" ? rowModel.workspace.workspaceId : null;
@@ -2400,6 +2441,7 @@ function areProjectBlockPropsEqual(previous: ProjectBlockProps, next: ProjectBlo
   });
   return (
     previous.project === next.project &&
+    previous.accountSession === next.accountSession &&
     previous.collapsed === next.collapsed &&
     previous.displayName === next.displayName &&
     previous.iconDataUri === next.iconDataUri &&
@@ -2426,6 +2468,7 @@ const MemoProjectBlock = memo(ProjectBlock, areProjectBlockPropsEqual);
 export function SidebarWorkspaceList({
   projects,
   serverId,
+  accountSession = null,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
   shortcutIndexByWorkspaceKey,
@@ -2433,9 +2476,12 @@ export function SidebarWorkspaceList({
   onRefresh: _onRefresh,
   onWorkspacePress,
   onAddProject,
+  addProjectLabel = "Add project",
+  emptyProjectHint = "Add a project to get started",
   listFooterComponent,
   parentGestureRef,
 }: SidebarWorkspaceListProps) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const [creatingWorkspaceIds, setCreatingWorkspaceIds] = useState<Set<string>>(() => new Set());
   const creatingWorkspaceTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
@@ -2658,6 +2704,7 @@ export function SidebarWorkspaceList({
       return (
         <MemoProjectBlock
           project={item}
+          accountSession={accountSession}
           collapsed={collapsedProjectKeys.has(item.projectKey)}
           displayName={item.projectName}
           iconDataUri={projectIconByProjectKey.get(item.projectKey) ?? null}
@@ -2681,6 +2728,7 @@ export function SidebarWorkspaceList({
     },
     [
       collapsedProjectKeys,
+      accountSession,
       activeWorkspaceSelection,
       handleWorktreeCreated,
       handleWorkspaceReorder,
@@ -2700,10 +2748,10 @@ export function SidebarWorkspaceList({
     <>
       {projects.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>No projects yet</Text>
-          <Text style={styles.emptyText}>Add a project to get started</Text>
+          <Text style={styles.emptyTitle}>{t("account.project.empty")}</Text>
+          <Text style={styles.emptyText}>{emptyProjectHint}</Text>
           <Button variant="ghost" size="sm" leftIcon={Plus} onPress={onAddProject}>
-            Add project
+            {addProjectLabel}
           </Button>
         </View>
       ) : (

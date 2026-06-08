@@ -21,6 +21,7 @@ import { HighlightedLines } from "./highlighted-content";
 import { DiffViewer } from "./diff-viewer";
 import { getCodeInsets } from "./code-insets";
 import { isWeb } from "@/constants/platform";
+import { translateNow } from "@/i18n/i18n";
 
 const ScrollView = isWeb ? RNScrollView : GHScrollView;
 
@@ -387,7 +388,8 @@ function SubAgentDetailSection({
             <View style={styles.codeLine} dataSet={CODE_SURFACE_DATASET}>
               {childSessionId ? (
                 <Text selectable style={styles.subAgentSessionText}>
-                  session {childSessionId}
+                  {translateNow("ui.session.wtt6dy")}
+                  {childSessionId}
                 </Text>
               ) : null}
               {hasActions ? (
@@ -609,8 +611,8 @@ function buildUnknownSections(detail: UnknownDetail, ds: DetailStyles): ReactNod
   }
 
   const sectionsFromTopLevel = [
-    { title: "Input", value: detail.input },
-    { title: "Output", value: detail.output },
+    { title: translateNow("ui.input.165lt6"), value: detail.input },
+    { title: translateNow("ui.output.1390izl"), value: detail.output },
   ].filter((entry) =>
     hasMeaningfulToolCallDetail({
       type: "unknown",
@@ -731,7 +733,7 @@ function buildDetailSections(
 function ErrorSection({ errorText, ds }: { errorText: string; ds: DetailStyles }) {
   return (
     <View style={styles.section}>
-      <Text style={SECTION_TITLE_ERROR_STYLE}>Error</Text>
+      <Text style={SECTION_TITLE_ERROR_STYLE}>{translateNow("ui.error.1410q0")}</Text>
       <ScrollView
         horizontal
         nestedScrollEnabled
@@ -786,7 +788,11 @@ function ToolCallDetailsContentInner({
     if (showLoadingSkeleton) {
       return <LoadingSkeleton containerStyle={ds.loadingContainerStyle} />;
     }
-    return <Text style={styles.emptyStateText}>No additional details available</Text>;
+    return (
+      <Text style={styles.emptyStateText}>
+        {translateNow("ui.no.additional.details.available.1yosn81")}
+      </Text>
+    );
   }
 
   return <View style={ds.fullBleedContainerStyle}>{sections}</View>;

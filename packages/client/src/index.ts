@@ -30,6 +30,7 @@ export { DaemonClient };
 export type {
   DaemonClientConfig,
   DaemonEvent,
+  FetchAgentTimelinePayload,
   WebSocketFactory,
   WebSocketLike,
 } from "./daemon-client.js";

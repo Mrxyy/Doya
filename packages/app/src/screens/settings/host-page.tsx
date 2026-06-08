@@ -28,6 +28,7 @@ import type { HostConnection, HostProfile } from "@/types/host-connection";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { formatConnectionStatus, getConnectionStatusTone } from "@/utils/daemons";
 import { formatLatency } from "@/utils/latency";
+import { translateNow } from "@/i18n/i18n";
 
 const RESTART_CONFIRMATION_MESSAGE =
   "This will restart the daemon. Agents running on it will keep going; the app will reconnect automatically.";
@@ -50,13 +51,13 @@ function formatActiveConnectionBadge(
   if (activeConnection.type === "relay") {
     return {
       icon: <Globe size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />,
-      text: "Relay",
+      text: translateNow("ui.relay.1axwtt"),
     };
   }
   if (activeConnection.type === "directSocket" || activeConnection.type === "directPipe") {
     return {
       icon: <Monitor size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />,
-      text: "Local",
+      text: translateNow("ui.local.17tcgb"),
     };
   }
   return {
@@ -71,8 +72,10 @@ function formatDaemonVersionBadge(version: string | null): string | null {
   return trimmed.startsWith("v") ? trimmed : `v${trimmed}`;
 }
 
-const REMOVE_CONNECTION_HEADER: SheetHeader = { title: "Remove connection" };
-const REMOVE_HOST_HEADER: SheetHeader = { title: "Remove host" };
+const REMOVE_CONNECTION_HEADER: SheetHeader = {
+  title: translateNow("ui.remove.connection.umljh6"),
+};
+const REMOVE_HOST_HEADER: SheetHeader = { title: translateNow("ui.remove.host.lrdtwk") };
 
 function useHostProfile(serverId: string): HostProfile | null {
   const daemons = useHosts();
@@ -83,7 +86,7 @@ function HostNotFound() {
   return (
     <View>
       <View style={EMPTY_CARD_STYLE}>
-        <Text style={styles.emptyText}>Host not found</Text>
+        <Text style={styles.emptyText}>{translateNow("ui.host.not.found.peumjh")}</Text>
       </View>
     </View>
   );
@@ -180,7 +183,7 @@ export function HostConnectionsPage({ serverId }: { serverId: string }) {
       <HostConnectionError serverId={serverId} />
       <ConnectionsSection host={host} />
       {isLocalDaemon ? (
-        <SettingsSection title="Pair devices">
+        <SettingsSection title={translateNow("ui.pair.devices.rppznb")}>
           <PairDeviceRow />
         </SettingsSection>
       ) : null}
@@ -199,13 +202,15 @@ export function HostOrchestrationPage({ serverId }: { serverId: string }) {
   return (
     <View>
       {isConnected ? (
-        <SettingsSection title="Orchestration">
+        <SettingsSection title={translateNow("ui.orchestration.1i7le75")}>
           <InjectPaseoToolsCard serverId={serverId} />
           <AppendSystemPromptCard serverId={serverId} />
         </SettingsSection>
       ) : (
         <View style={EMPTY_CARD_STYLE}>
-          <Text style={styles.emptyText}>Connect to this host to manage orchestration</Text>
+          <Text style={styles.emptyText}>
+            {translateNow("ui.connect.to.this.host.to.manage.orchestration.11czly")}
+          </Text>
         </View>
       )}
     </View>
@@ -282,7 +287,7 @@ export function HostRenameButton({ host }: { host: HostProfile }) {
         hitSlop={8}
         style={styles.identityEditButton}
         accessibilityRole="button"
-        accessibilityLabel="Edit label"
+        accessibilityLabel={translateNow("ui.edit.label.14rpdvi")}
         testID="host-page-label-edit-button"
       >
         <Pencil size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
@@ -290,10 +295,10 @@ export function HostRenameButton({ host }: { host: HostProfile }) {
 
       <AdaptiveRenameModal
         visible={isEditing}
-        title="Rename host"
+        title={translateNow("ui.rename.host.ohv222")}
         initialValue={host.label}
-        placeholder="My Host"
-        submitLabel="Save"
+        placeholder={translateNow("ui.my.host.1fi50gs")}
+        submitLabel={translateNow("ui.save.1j2ql")}
         onClose={closeEditor}
         onSubmit={handleSubmit}
         testID="host-page-rename-modal"
@@ -336,13 +341,16 @@ function ConnectionsSection({ host }: { host: HostProfile }) {
       .then(() => setPendingRemoveConnection(null))
       .catch((error) => {
         console.error("[HostPage] Failed to remove connection", error);
-        Alert.alert("Error", "Unable to remove connection");
+        Alert.alert(
+          translateNow("ui.error.1410q0"),
+          translateNow("ui.unable.to.remove.connection.1351af6"),
+        );
       })
       .finally(() => setIsRemovingConnection(false));
   }, [pendingRemoveConnection, removeConnection, host.serverId]);
 
   return (
-    <SettingsSection title="Connections">
+    <SettingsSection title={translateNow("ui.connections.1k3sgfp")}>
       <View style={settingsStyles.card} testID="host-page-connections-card">
         {host.connections.map((conn, index) => {
           const probe = probeByConnectionId.get(conn.id);
@@ -368,7 +376,9 @@ function ConnectionsSection({ host }: { host: HostProfile }) {
           testID="remove-connection-confirm-modal"
         >
           <Text style={styles.confirmText}>
-            Remove {pendingRemoveConnection.title}? This cannot be undone.
+            {translateNow("ui.remove.14f871g")}
+            {pendingRemoveConnection.title}
+            {translateNow("ui.this.cannot.be.undone.ka2hde")}
           </Text>
           <View style={styles.confirmActions}>
             <Button
@@ -378,7 +388,7 @@ function ConnectionsSection({ host }: { host: HostProfile }) {
               onPress={handleCancelConfirm}
               disabled={isRemovingConnection}
             >
-              Cancel
+              {translateNow("ui.cancel.x9d2fu")}
             </Button>
             <Button
               variant="destructive"
@@ -388,7 +398,7 @@ function ConnectionsSection({ host }: { host: HostProfile }) {
               disabled={isRemovingConnection}
               testID="remove-connection-confirm"
             >
-              Remove
+              {translateNow("ui.remove.14f871g")}
             </Button>
           </View>
         </AdaptiveModalSheet>
@@ -454,7 +464,7 @@ function ConnectionRow({
         textStyle={destructiveTextStyle}
         onPress={handlePressRemove}
       >
-        Remove
+        {translateNow("ui.remove.14f871g")}
       </Button>
     </View>
   );
@@ -508,7 +518,7 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
       setIsRestarting(false);
       if (!reconnected) {
         Alert.alert(
-          "Unable to reconnect",
+          translateNow("ui.unable.to.reconnect.m4pw7z"),
           `${host.label} did not come back online. Please verify it restarted.`,
         );
       }
@@ -518,15 +528,15 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
   const handleRestart = useCallback(() => {
     if (!daemonClient) {
       Alert.alert(
-        "Host unavailable",
-        "This host is not connected. Wait for it to come online before restarting.",
+        translateNow("ui.host.unavailable.1h6vzzs"),
+        translateNow("ui.this.host.is.not.connected.wait.for.5p5tv3"),
       );
       return;
     }
     if (!isHostConnected()) {
       Alert.alert(
-        "Host offline",
-        "This host is offline. Paseo reconnects automatically—wait until it's back online before restarting.",
+        translateNow("ui.host.offline.j4wgi3"),
+        translateNow("ui.this.host.is.offline.paseo.reconnects.automatically.kn27va"),
       );
       return;
     }
@@ -534,8 +544,8 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
     void confirmDialog({
       title: `Restart ${host.label}`,
       message: RESTART_CONFIRMATION_MESSAGE,
-      confirmLabel: "Restart",
-      cancelLabel: "Cancel",
+      confirmLabel: translateNow("ui.restart.19oinzj"),
+      cancelLabel: translateNow("ui.cancel.x9d2fu"),
       destructive: true,
     })
       .then((confirmed) => {
@@ -548,8 +558,8 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
             if (!isMountedRef.current) return;
             setIsRestarting(false);
             Alert.alert(
-              "Error",
-              "Failed to send the restart request. Paseo reconnects automatically—try again once the host shows as online.",
+              translateNow("ui.error.1410q0"),
+              translateNow("ui.failed.to.send.the.restart.request.paseo.17n7sos"),
             );
           });
         void waitForDaemonRestart();
@@ -557,7 +567,10 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
       })
       .catch((error) => {
         console.error(`[HostPage] Failed to open restart confirmation for ${host.label}`, error);
-        Alert.alert("Error", "Unable to open the restart confirmation dialog.");
+        Alert.alert(
+          translateNow("ui.error.1410q0"),
+          translateNow("ui.unable.to.open.the.restart.confirmation.dialog.8wa6s9"),
+        );
       });
   }, [daemonClient, host.label, host.serverId, isHostConnected, waitForDaemonRestart]);
 
@@ -570,9 +583,9 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
     <View style={settingsStyles.card} testID="host-page-restart-card">
       <View style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Restart daemon</Text>
+          <Text style={settingsStyles.rowTitle}>{translateNow("ui.restart.daemon.nfiswl")}</Text>
           <Text style={settingsStyles.rowHint}>
-            Restarts the daemon process. The app will reconnect automatically
+            {translateNow("ui.restarts.the.daemon.process.the.app.will.1cntp62")}
           </Text>
         </View>
         <Button
@@ -611,15 +624,17 @@ function InjectPaseoToolsCard({ serverId }: { serverId: string }) {
     <View style={settingsStyles.card} testID="host-page-inject-mcp-card">
       <View style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Enable Paseo tools</Text>
+          <Text style={settingsStyles.rowTitle}>
+            {translateNow("ui.enable.paseo.tools.1erbjhm")}
+          </Text>
           <Text style={settingsStyles.rowHint}>
-            Agents will be able to manage worktrees, agents and schedules
+            {translateNow("ui.agents.will.be.able.to.manage.worktrees.bnzb32")}
           </Text>
         </View>
         <Switch
           value={config?.mcp.injectIntoAgents !== false}
           onValueChange={handleValueChange}
-          accessibilityLabel="Inject Paseo tools"
+          accessibilityLabel={translateNow("ui.inject.paseo.tools.1l3ngc8")}
         />
       </View>
     </View>
@@ -633,7 +648,10 @@ function AppendSystemPromptCard({ serverId }: { serverId: string }) {
   const [draft, setDraft] = useState(persistedPrompt);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const header = useMemo<SheetHeader>(() => ({ title: "Append system prompt" }), []);
+  const header = useMemo<SheetHeader>(
+    () => ({ title: translateNow("ui.append.system.prompt.obrrbj") }),
+    [],
+  );
 
   useEffect(() => {
     setDraft(persistedPrompt);
@@ -676,8 +694,10 @@ function AppendSystemPromptCard({ serverId }: { serverId: string }) {
       <View style={settingsStyles.card} testID="host-page-append-system-prompt-card">
         <View style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowTitle}>System prompt</Text>
-            <Text style={settingsStyles.rowHint}>Adds a system prompt to all agents</Text>
+            <Text style={settingsStyles.rowTitle}>{translateNow("ui.system.prompt.1aj8itx")}</Text>
+            <Text style={settingsStyles.rowHint}>
+              {translateNow("ui.adds.a.system.prompt.to.all.agents.1l5aqd6")}
+            </Text>
           </View>
           <Button
             variant="outline"
@@ -685,7 +705,7 @@ function AppendSystemPromptCard({ serverId }: { serverId: string }) {
             onPress={handleOpen}
             testID="host-page-append-system-prompt-edit"
           >
-            Edit
+            {translateNow("ui.edit.1a6ui")}
           </Button>
         </View>
       </View>
@@ -700,10 +720,10 @@ function AppendSystemPromptCard({ serverId }: { serverId: string }) {
         >
           <SettingsTextAreaCard
             testID="host-page-append-system-prompt-input"
-            accessibilityLabel="Append system prompt"
+            accessibilityLabel={translateNow("ui.append.system.prompt.obrrbj")}
             value={draft}
             onChangeText={setDraft}
-            placeholder="Always keep replies concise."
+            placeholder={translateNow("ui.always.keep.replies.concise.1j8wc7q")}
           />
           <View style={styles.appendPromptActions}>
             <Button
@@ -713,7 +733,7 @@ function AppendSystemPromptCard({ serverId }: { serverId: string }) {
               disabled={!hasChanges || isSaving}
               testID="host-page-append-system-prompt-reset"
             >
-              Reset
+              {translateNow("ui.reset.1ay23z")}
             </Button>
             <Button
               variant="default"
@@ -747,9 +767,9 @@ function PairDeviceRow() {
         testID="host-page-pair-device-row"
       >
         <View style={settingsStyles.rowContent}>
-          <Text style={settingsStyles.rowTitle}>Pair a device</Text>
+          <Text style={settingsStyles.rowTitle}>{translateNow("ui.pair.a.device.zgwqcb")}</Text>
           <Text style={settingsStyles.rowHint}>
-            Scan a QR code or copy a link to connect your phone to this host
+            {translateNow("ui.scan.a.qr.code.or.copy.a.e77n3g")}
           </Text>
         </View>
         <ChevronRight size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
@@ -791,7 +811,10 @@ function RemoveHostSection({ host, onRemoved }: { host: HostProfile; onRemoved?:
       })
       .catch((error) => {
         console.error("[HostPage] Failed to remove host", error);
-        Alert.alert("Error", "Unable to remove host");
+        Alert.alert(
+          translateNow("ui.error.1410q0"),
+          translateNow("ui.unable.to.remove.host.1k0ppl8"),
+        );
       })
       .finally(() => setIsRemoving(false));
   }, [host.serverId, onRemoved, removeHost]);
@@ -802,15 +825,18 @@ function RemoveHostSection({ host, onRemoved }: { host: HostProfile; onRemoved?:
   );
 
   return (
-    <SettingsSection title="Danger zone" testID="host-page-remove-host-card">
+    <SettingsSection
+      title={translateNow("ui.danger.zone.i0kcbt")}
+      testID="host-page-remove-host-card"
+    >
       <RestartDaemonCard host={host} />
 
       <View style={settingsStyles.card}>
         <View style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowTitle}>Remove host</Text>
+            <Text style={settingsStyles.rowTitle}>{translateNow("ui.remove.host.lrdtwk")}</Text>
             <Text style={settingsStyles.rowHint}>
-              Removes this host and its saved connections from this device
+              {translateNow("ui.removes.this.host.and.its.saved.connections.1e4hvda")}
             </Text>
           </View>
           <Button
@@ -821,7 +847,7 @@ function RemoveHostSection({ host, onRemoved }: { host: HostProfile; onRemoved?:
             onPress={handleOpenConfirm}
             testID="host-page-remove-host-button"
           >
-            Remove
+            {translateNow("ui.remove.14f871g")}
           </Button>
         </View>
       </View>
@@ -834,7 +860,9 @@ function RemoveHostSection({ host, onRemoved }: { host: HostProfile; onRemoved?:
           testID="remove-host-confirm-modal"
         >
           <Text style={styles.confirmText}>
-            Remove {host.label}? This will delete its saved connections.
+            {translateNow("ui.remove.14f871g")}
+            {host.label}
+            {translateNow("ui.this.will.delete.its.saved.connections.16c0zqq")}
           </Text>
           <View style={styles.confirmActions}>
             <Button
@@ -844,7 +872,7 @@ function RemoveHostSection({ host, onRemoved }: { host: HostProfile; onRemoved?:
               onPress={handleCancel}
               disabled={isRemoving}
             >
-              Cancel
+              {translateNow("ui.cancel.x9d2fu")}
             </Button>
             <Button
               variant="destructive"
@@ -854,7 +882,7 @@ function RemoveHostSection({ host, onRemoved }: { host: HostProfile; onRemoved?:
               disabled={isRemoving}
               testID="remove-host-confirm"
             >
-              Remove
+              {translateNow("ui.remove.14f871g")}
             </Button>
           </View>
         </AdaptiveModalSheet>

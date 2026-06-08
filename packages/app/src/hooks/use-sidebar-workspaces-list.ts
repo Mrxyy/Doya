@@ -5,8 +5,13 @@ import {
   useSessionStore,
   type WorkspaceDescriptor,
 } from "@/stores/session-store";
+import type { AccountBootstrapSession, AccountProjectRecord } from "@/account/account-api";
+import {
+  doesAccountSessionOwnWorkspace,
+  findAccountProjectForWorkspaceDirectory,
+} from "@/account/account-workspace-display";
 import { selectPrHintFromStatus } from "@/git/use-pr-status-query";
-import { useWorkspaceStructure } from "@/stores/session-store-hooks";
+import { useWorkspaceStructureForFilter } from "@/stores/session-store-hooks";
 import { getHostRuntimeStore } from "@/runtime/host-runtime";
 import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
 import { shouldSuppressWorkspaceForLocalArchive } from "@/contexts/session-workspace-upserts";
@@ -71,9 +76,106 @@ function toWorkspaceDescriptor(payload: WorkspaceDescriptorPayload): WorkspaceDe
   return normalizeWorkspaceDescriptor(payload);
 }
 
+function mergeAccountProjectsIntoSidebar(input: {
+  accountProjects: AccountProjectRecord[];
+  workspaceProjects: SidebarProjectEntry[];
+}): SidebarProjectEntry[] {
+  if (input.accountProjects.length === 0) {
+    return EMPTY_PROJECTS;
+  }
+
+  const workspaceProjectByAccountProjectId = new Map<string, SidebarProjectEntry>();
+  const unmatchedWorkspaceProjects = [...input.workspaceProjects];
+  for (const accountProject of input.accountProjects) {
+    const index = unmatchedWorkspaceProjects.findIndex((project) =>
+      sidebarProjectMatchesAccountProject(project, accountProject),
+    );
+    if (index < 0) {
+      continue;
+    }
+    const [workspaceProject] = unmatchedWorkspaceProjects.splice(index, 1);
+    if (workspaceProject) {
+      workspaceProjectByAccountProjectId.set(accountProject.projectId, workspaceProject);
+    }
+  }
+
+  return input.accountProjects.map((accountProject) => {
+    const workspaceProject = workspaceProjectByAccountProjectId.get(accountProject.projectId);
+    if (workspaceProject) {
+      return {
+        ...workspaceProject,
+        projectKey: accountProject.projectId,
+        projectName: accountProject.displayName,
+        iconWorkingDir: accountProject.cwd,
+        workspaces: workspaceProject.workspaces.map((workspace) =>
+          mapWorkspaceToAccountProject({
+            workspace,
+            accountProject,
+          }),
+        ),
+      };
+    }
+    return {
+      projectKey: accountProject.projectId,
+      projectName: accountProject.displayName,
+      projectKind: "directory",
+      iconWorkingDir: accountProject.cwd,
+      workspaces: [],
+    };
+  });
+}
+
+function mapWorkspaceToAccountProject(input: {
+  workspace: SidebarWorkspaceEntry;
+  accountProject: AccountProjectRecord;
+}): SidebarWorkspaceEntry {
+  return {
+    workspaceKey: input.workspace.workspaceKey,
+    serverId: input.workspace.serverId,
+    workspaceId: input.workspace.workspaceId,
+    projectKey: input.accountProject.projectId,
+    projectRootPath: input.accountProject.cwd,
+    workspaceDirectory: input.workspace.workspaceDirectory,
+    projectKind: input.workspace.projectKind,
+    workspaceKind: input.workspace.workspaceKind,
+    name: input.workspace.name,
+    statusBucket: input.workspace.statusBucket,
+    archivingAt: input.workspace.archivingAt,
+    diffStat: input.workspace.diffStat,
+    prHint: input.workspace.prHint,
+    archiveHasUncommittedChanges: input.workspace.archiveHasUncommittedChanges,
+    archiveUnpushedCommitCount: input.workspace.archiveUnpushedCommitCount,
+    scripts: input.workspace.scripts,
+    hasRunningScripts: input.workspace.hasRunningScripts,
+  };
+}
+
+function sidebarProjectMatchesAccountProject(
+  sidebarProject: SidebarProjectEntry,
+  accountProject: AccountProjectRecord,
+): boolean {
+  if (sidebarProject.projectKey === accountProject.projectId) {
+    return true;
+  }
+  if (sidebarProject.iconWorkingDir === accountProject.cwd) {
+    return true;
+  }
+  return sidebarProject.workspaces.some((workspace) => {
+    const workspaceDirectory = workspace.workspaceDirectory?.trim();
+    return Boolean(
+      workspaceDirectory &&
+      (workspaceDirectory === accountProject.cwd ||
+        workspaceDirectory.startsWith(`${accountProject.cwd}/`) ||
+        workspaceDirectory.startsWith(`${accountProject.cwd}\\`)),
+    );
+  });
+}
+
 export function useSidebarWorkspacesList(options?: {
   serverId?: string | null;
   enabled?: boolean;
+  accountSession?: AccountBootstrapSession | null;
+  requireAccount?: boolean;
 }): SidebarWorkspacesListResult {
   const runtime = getHostRuntimeStore();
 
@@ -88,7 +190,52 @@ export function useSidebarWorkspacesList(options?: {
   const hasHydratedWorkspaces = useSessionStore((state) =>
     isActive && serverId ? (state.sessions[serverId]?.hasHydratedWorkspaces ?? false) : false,
   );
-  const workspaceStructure = useWorkspaceStructure(isActive ? serverId : null);
+  const shouldFilterByAccount = options?.requireAccount === true;
+  const accountSession = options?.accountSession ?? null;
+  const workspaceFilter = useCallback(
+    (workspace: WorkspaceDescriptor) => {
+      if (!shouldFilterByAccount) {
+        return true;
+      }
+      if (!accountSession) {
+        return false;
+      }
+      if (
+        !doesAccountSessionOwnWorkspace({
+          session: accountSession,
+          workspaceDirectory: workspace.workspaceDirectory,
+        })
+      ) {
+        return false;
+      }
+      return Boolean(
+        findAccountProjectForWorkspaceDirectory({
+          session: accountSession,
+          workspaceDirectory: workspace.workspaceDirectory,
+        }),
+      );
+    },
+    [accountSession, shouldFilterByAccount],
+  );
+  const projectDisplayNameForWorkspace = useCallback(
+    (workspace: WorkspaceDescriptor) => {
+      if (!shouldFilterByAccount || !accountSession) {
+        return null;
+      }
+      return (
+        findAccountProjectForWorkspaceDirectory({
+          session: accountSession,
+          workspaceDirectory: workspace.workspaceDirectory,
+        })?.displayName ?? null
+      );
+    },
+    [accountSession, shouldFilterByAccount],
+  );
+  const workspaceStructure = useWorkspaceStructureForFilter(
+    isActive ? serverId : null,
+    workspaceFilter,
+    projectDisplayNameForWorkspace,
+  );
 
   const connectionStatus = useSyncExternalStore(
     (onStoreChange) =>
@@ -110,14 +257,23 @@ export function useSidebarWorkspacesList(options?: {
   );
 
   const projects = useMemo(() => {
-    if (!serverId || workspaceStructure.projects.length === 0) {
+    if (!serverId) {
       return EMPTY_PROJECTS;
     }
-    return buildSidebarProjectsFromStructure({
+    const workspaceProjects = buildSidebarProjectsFromStructure({
       serverId,
       projects: workspaceStructure.projects,
     });
-  }, [serverId, workspaceStructure]);
+    if (!shouldFilterByAccount || !accountSession) {
+      return workspaceProjects.length === 0 ? EMPTY_PROJECTS : workspaceProjects;
+    }
+    return mergeAccountProjectsIntoSidebar({
+      accountProjects: accountSession.projects.filter(
+        (project) => project.workspaceId === accountSession.workspace.workspaceId,
+      ),
+      workspaceProjects,
+    });
+  }, [accountSession, serverId, shouldFilterByAccount, workspaceStructure]);
 
   useEffect(() => {
     if (!serverId) {

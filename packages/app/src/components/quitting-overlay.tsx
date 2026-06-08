@@ -4,6 +4,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { getIsElectronRuntime } from "@/constants/layout";
 import { listenToDesktopEvent } from "@/desktop/electron/events";
+import { translateNow } from "@/i18n/i18n";
 
 export function QuittingOverlay() {
   const { theme } = useUnistyles();
@@ -37,8 +38,8 @@ export function QuittingOverlay() {
   return (
     <View style={styles.overlay}>
       <LoadingSpinner size="large" color={theme.colors.foregroundMuted} />
-      <Text style={styles.title}>Quitting Paseo…</Text>
-      <Text style={styles.detail}>Stopping the local daemon.</Text>
+      <Text style={styles.title}>{translateNow("ui.quitting.paseo.ltcb6l")}</Text>
+      <Text style={styles.detail}>{translateNow("ui.stopping.the.local.daemon.1uhhdoa")}</Text>
     </View>
   );
 }

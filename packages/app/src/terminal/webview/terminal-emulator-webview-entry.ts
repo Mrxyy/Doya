@@ -11,6 +11,7 @@ import type {
   TerminalLocalFileLinkSource,
   TerminalLocalFileLinkTarget,
 } from "../local-links/terminal-local-link-provider";
+import { translateNow } from "@/i18n/i18n";
 
 interface MountMessage {
   type: "mount";
@@ -199,7 +200,7 @@ class TerminalWebViewBridge {
     } catch (error) {
       sendToNative({
         type: "debug",
-        message: "terminal webview receive failed",
+        message: translateNow("ui.terminal.webview.receive.failed.s3zi2t"),
         details: error instanceof Error ? { message: error.message, stack: error.stack } : error,
       });
     }

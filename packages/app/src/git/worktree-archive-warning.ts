@@ -1,4 +1,5 @@
 import { confirmDialog } from "@/utils/confirm-dialog";
+import { translateNow } from "@/i18n/i18n";
 
 export interface WorktreeArchiveRisk {
   isDirty?: boolean | null;
@@ -72,8 +73,8 @@ export async function confirmRiskyWorktreeArchive(
   return await confirmDialog({
     title: `Archive "${input.worktreeName}"?`,
     message,
-    confirmLabel: "Archive",
-    cancelLabel: "Cancel",
+    confirmLabel: translateNow("ui.archive.f5ovxe"),
+    cancelLabel: translateNow("ui.cancel.x9d2fu"),
     destructive: true,
   });
 }

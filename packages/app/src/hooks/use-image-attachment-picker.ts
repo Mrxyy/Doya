@@ -8,6 +8,7 @@ import {
   type PickedImageAttachmentInput,
 } from "@/hooks/image-attachment-picker";
 import { isWeb } from "@/constants/platform";
+import { translateNow } from "@/i18n/i18n";
 
 interface UseImageAttachmentPickerResult {
   pickImages: () => Promise<PickedImageAttachmentInput[] | null>;
@@ -31,8 +32,8 @@ export function useImageAttachmentPicker(): UseImageAttachmentPickerResult {
 
     if (!currentPermission?.granted) {
       Alert.alert(
-        "Permission required",
-        "Please allow access to your photo library to attach images.",
+        translateNow("ui.permission.required.qkb4c0"),
+        translateNow("ui.please.allow.access.to.your.photo.library.bi1xfa"),
       );
       return false;
     }
@@ -83,7 +84,10 @@ export function useImageAttachmentPicker(): UseImageAttachmentPickerResult {
       return await normalizePickedImageAssets(result.assets);
     } catch (error) {
       console.error("[ImageAttachmentPicker] Failed to pick image:", error);
-      Alert.alert("Error", "Failed to select image");
+      Alert.alert(
+        translateNow("ui.error.1410q0"),
+        translateNow("ui.failed.to.select.image.d0ec55"),
+      );
       return null;
     } finally {
       isPickingRef.current = false;

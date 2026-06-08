@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
+import { translateNow } from "@/i18n/i18n";
 
 export type RewindMode = "conversation" | "files" | "both";
 
@@ -25,21 +26,21 @@ export function resolveRewindMenuItems(
   if (capabilities.supportsRewindConversation) {
     items.push({
       mode: "conversation",
-      label: "Rewind conversation",
+      label: translateNow("ui.rewind.conversation.j8j44o"),
       testID: "rewind-menu-conversation",
     });
   }
   if (capabilities.supportsRewindFiles) {
     items.push({
       mode: "files",
-      label: "Rewind files",
+      label: translateNow("ui.rewind.files.7w34s2"),
       testID: "rewind-menu-files",
     });
   }
   if (capabilities.supportsRewindBoth) {
     items.push({
       mode: "both",
-      label: "Rewind conversation and files",
+      label: translateNow("ui.rewind.conversation.and.files.13q0nee"),
       testID: "rewind-menu-both",
     });
   }

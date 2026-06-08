@@ -9,6 +9,7 @@ import { DEFAULT_MONO_FONT_STACK } from "@/styles/theme";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import { tokenizeToLines } from "@/utils/highlight-cache";
 import { CHANGED_LINE_INDICES, PREVIEW_AFTER, PREVIEW_BEFORE } from "./preview-snippet";
+import { translateNow } from "@/i18n/i18n";
 
 // Snippets are TypeScript; the cache keys grammar selection off the extension.
 const PREVIEW_EXTENSION = "ts";
@@ -149,7 +150,7 @@ export function AppearancePreview({ overrides }: AppearancePreviewProps) {
   return (
     <View
       accessibilityRole="image"
-      accessibilityLabel="Live preview of the syntax theme and code font"
+      accessibilityLabel={translateNow("ui.live.preview.of.the.syntax.theme.and.d2769")}
       dataSet={CODE_SURFACE_DATASET}
       style={styles.card}
     >

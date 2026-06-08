@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { SettingsSection } from "@/screens/settings/settings-section";
 import { useProviderSettingsStore } from "@/stores/provider-settings-store";
 import { ChevronRight, Plus } from "lucide-react-native";
+import { translateNow } from "@/i18n/i18n";
 
 type ProviderDefinition = ReturnType<typeof buildProviderDefinitions>[number];
 type ProviderEntry = NonNullable<ReturnType<typeof useProvidersSnapshot>["entries"]>[number];
@@ -26,17 +27,20 @@ interface ProviderStatus {
 }
 
 function getProviderStatus(status: string, enabled: boolean, modelCount: number): ProviderStatus {
-  if (!enabled) return { tone: "muted", label: "Disabled", modelCount: null };
-  if (status === "loading") return { tone: "loading", label: "Loading", modelCount: null };
-  if (status === "error") return { tone: "danger", label: "Error", modelCount: null };
+  if (!enabled)
+    return { tone: "muted", label: translateNow("ui.disabled.5jsqzg"), modelCount: null };
+  if (status === "loading")
+    return { tone: "loading", label: translateNow("ui.loading.x3ivx8"), modelCount: null };
+  if (status === "error")
+    return { tone: "danger", label: translateNow("ui.error.1410q0"), modelCount: null };
   if (status === "ready") {
     return {
       tone: "success",
-      label: "Available",
+      label: translateNow("ui.available.l05x2h"),
       modelCount: modelCount > 0 ? modelCount : null,
     };
   }
-  return { tone: "warning", label: "Not installed", modelCount: null };
+  return { tone: "warning", label: translateNow("ui.not.installed.18u0jx"), modelCount: null };
 }
 
 interface ProviderRowProps {
@@ -203,7 +207,7 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
         await patchConfig({ providers: { [providerId]: { enabled } } });
       } catch (error) {
         Alert.alert(
-          "Unable to update provider",
+          translateNow("ui.unable.to.update.provider.1391lrk"),
           error instanceof Error ? error.message : String(error),
         );
       } finally {
@@ -222,11 +226,13 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
             hitSlop={8}
             style={settingsStyles.sectionHeaderLink}
             accessibilityRole="button"
-            accessibilityLabel="Add provider"
+            accessibilityLabel={translateNow("ui.add.provider.1nvsy40")}
             testID="add-provider-button"
           >
             <Plus size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
-            <Text style={settingsStyles.sectionHeaderLinkText}>Add provider</Text>
+            <Text style={settingsStyles.sectionHeaderLinkText}>
+              {translateNow("ui.add.provider.1nvsy40")}
+            </Text>
           </Pressable>
         </View>
       ) : undefined,
@@ -242,19 +248,21 @@ export function ProvidersSection({ serverId }: ProvidersSectionProps) {
   return (
     <>
       <SettingsSection
-        title="Providers"
+        title={translateNow("ui.providers.o33mo2")}
         trailing={headerActions}
         testID="host-page-providers-card"
         style={styles.sectionSpacing}
       >
         {!hasServer || !isConnected ? (
           <View style={EMPTY_CARD_STYLE}>
-            <Text style={styles.emptyText}>Connect to this host to see providers</Text>
+            <Text style={styles.emptyText}>
+              {translateNow("ui.connect.to.this.host.to.see.providers.4102vp")}
+            </Text>
           </View>
         ) : null}
         {hasServer && isConnected && isLoading ? (
           <View style={EMPTY_CARD_STYLE}>
-            <Text style={styles.emptyText}>Loading...</Text>
+            <Text style={styles.emptyText}>{translateNow("ui.loading.13pudaq")}</Text>
           </View>
         ) : null}
         {hasServer && isConnected && !isLoading && providerDefinitions.length > 0 ? (

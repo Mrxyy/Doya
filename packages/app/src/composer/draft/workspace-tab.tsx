@@ -39,6 +39,7 @@ import type { UserMessageImageAttachment } from "@/types/stream";
 import { MAX_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import type { WorkspaceDraftTabSetup } from "@/stores/workspace-tabs-store";
+import { translateNow } from "@/i18n/i18n";
 
 const EMPTY_PENDING_PERMISSIONS = new Map();
 const EMPTY_ONLINE_SERVER_IDS: string[] = [];
@@ -225,7 +226,7 @@ function buildDraftAgentSnapshot(input: {
     pendingPermissions: [],
     persistence: null,
     runtimeInfo: { provider, sessionId: null, model, modeId },
-    title: "Agent",
+    title: translateNow("ui.agent.11mjtx"),
     cwd: workspaceDirectory,
     model,
     features: composerState.agentControls.features,

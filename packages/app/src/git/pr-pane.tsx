@@ -24,6 +24,7 @@ import type {
   PrPaneData,
   PrState,
 } from "@/git/pr-pane-data";
+import { translateNow } from "@/i18n/i18n";
 
 function rowPressableStyle({ hovered }: { hovered?: boolean }) {
   return [styles.row, Boolean(hovered) && styles.hoverable];
@@ -117,7 +118,7 @@ export function PrPane({ data }: { data: PrPaneData }) {
       <View style={styles.divider} />
 
       <Section
-        title="Checks"
+        title={translateNow("ui.checks.xd1vuz")}
         open={checksOpen}
         onToggle={handleToggleChecks}
         summary={
@@ -151,7 +152,7 @@ export function PrPane({ data }: { data: PrPaneData }) {
       <View style={styles.divider} />
 
       <Section
-        title="Reviews"
+        title={translateNow("ui.reviews.19pz3zv")}
         open={reviewsOpen}
         onToggle={handleToggleReviews}
         summary={

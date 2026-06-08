@@ -5,6 +5,7 @@ import type { ComboboxOption } from "@/components/ui/combobox";
 import type { ToastApi } from "@/components/toast-host";
 import { invalidateCheckoutGitQueriesForClient } from "@/git/query-keys";
 import { confirmDialog } from "@/utils/confirm-dialog";
+import { translateNow } from "@/i18n/i18n";
 
 interface UseBranchSwitcherInput {
   client: DaemonClient | null;
@@ -85,18 +86,17 @@ export function useBranchSwitcher({
         const targetStash = stashPayload.entries.find((e) => e.branch === branchId);
         if (!targetStash) return;
         const shouldRestore = await confirmDialog({
-          title: "Restore stashed changes?",
-          message:
-            "This branch has stashed changes from a previous session. Would you like to restore them?",
-          confirmLabel: "Restore",
-          cancelLabel: "Later",
+          title: translateNow("ui.restore.stashed.changes.1f3e49m"),
+          message: translateNow("ui.this.branch.has.stashed.changes.from.a.previous.1d0noo0"),
+          confirmLabel: translateNow("ui.restore.19oiycu"),
+          cancelLabel: translateNow("ui.later.17krcc"),
         });
         if (!shouldRestore) return;
         const popPayload = await client.stashPop(normalizedWorkspaceId, targetStash.index);
         if (popPayload.error) {
           toast.error(popPayload.error.message);
         } else {
-          toast.show("Stashed changes restored");
+          toast.show(translateNow("ui.stashed.changes.restored.1rzkev3"));
         }
         await invalidateStashAndCheckout();
       } catch {
@@ -110,10 +110,12 @@ export function useBranchSwitcher({
     async (branchId: string) => {
       if (!client) return;
       const shouldStash = await confirmDialog({
-        title: "Uncommitted changes",
-        message: "You have uncommitted changes. Stash them before switching branches?",
-        confirmLabel: "Stash & Switch",
-        cancelLabel: "Cancel",
+        title: translateNow("ui.uncommitted.changes.tcy0sm"),
+        message: translateNow(
+          "ui.you.have.uncommitted.changes.stash.them.before.switching.1orphsk",
+        ),
+        confirmLabel: translateNow("ui.stash.switch.z1jbw9"),
+        cancelLabel: translateNow("ui.cancel.x9d2fu"),
       });
       if (!shouldStash) return;
 

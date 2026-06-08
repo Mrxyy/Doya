@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { useAccountWorkspaceMetadata } from "@/account/use-account-workspace-metadata";
 import { useSidebarWorkspacesList } from "@/hooks/use-sidebar-workspaces-list";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
 import { useSidebarCollapsedSectionsStore } from "@/stores/sidebar-collapsed-sections-store";
@@ -11,7 +12,13 @@ export function WorkspaceShortcutTargetsSubscriber({
   enabled: boolean;
   serverId: string | null;
 }) {
-  const { projects } = useSidebarWorkspacesList({ serverId, enabled });
+  const accountSession = useAccountWorkspaceMetadata(serverId);
+  const { projects } = useSidebarWorkspacesList({
+    serverId,
+    enabled,
+    accountSession,
+    requireAccount: true,
+  });
   const collapsedProjectKeys = useSidebarCollapsedSectionsStore(
     (state) => state.collapsedProjectKeys,
   );

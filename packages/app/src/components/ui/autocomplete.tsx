@@ -13,6 +13,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { File, Folder } from "lucide-react-native";
 import type { Theme } from "@/styles/theme";
 import { getAutocompleteScrollOffset } from "./autocomplete-utils";
+import { translateNow } from "@/i18n/i18n";
 
 export interface AutocompleteOption {
   id: string;
@@ -223,7 +224,10 @@ export function Autocomplete({
     return (
       <View style={containerStyle}>
         <View style={styles.emptyItem}>
-          <Text style={styles.emptyText}>Error: {errorMessage}</Text>
+          <Text style={styles.emptyText}>
+            {translateNow("ui.error.ygvmfm")}
+            {errorMessage}
+          </Text>
         </View>
       </View>
     );

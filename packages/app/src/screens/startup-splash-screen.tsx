@@ -21,6 +21,7 @@ import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { isNative, isWeb } from "@/constants/platform";
 import { useWebScrollbarStyle } from "@/hooks/use-web-scrollbar-style";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
+import { translateNow } from "@/i18n/i18n";
 
 interface StartupSplashScreenProps {
   bootstrapState?: {
@@ -409,12 +410,11 @@ export function StartupSplashScreen({ bootstrapState }: StartupSplashScreenProps
         <View style={styles.errorContent}>
           <View style={styles.errorHeader}>
             <PaseoLogo size={64} />
-            <Text style={styles.title}>Something went wrong</Text>
+            <Text style={styles.title}>{translateNow("ui.something.went.wrong.h3jr53")}</Text>
           </View>
 
           <Text style={styles.errorDescription}>
-            The local server failed to start. If this keeps happening, please report the issue on
-            GitHub and include the logs below.
+            {translateNow("ui.the.local.server.failed.to.start.if.fs6dqk")}
           </Text>
 
           <Text dataSet={CODE_SURFACE_DATASET} style={styles.errorMessage}>
@@ -437,16 +437,16 @@ export function StartupSplashScreen({ bootstrapState }: StartupSplashScreenProps
 
           <View style={styles.actionRow}>
             <Button variant="secondary" leftIcon={copyIcon} onPress={handleCopyLogs}>
-              Copy logs
+              {translateNow("ui.copy.logs.1l2rqze")}
             </Button>
             <Button variant="outline" leftIcon={warningIcon} onPress={openGithubIssue}>
-              Open GitHub issue
+              {translateNow("ui.open.github.issue.wdw3te")}
             </Button>
             <Button variant="outline" leftIcon={bookIcon} onPress={openDocs}>
-              Docs
+              {translateNow("ui.docs.19rvf")}
             </Button>
             <Button variant="default" leftIcon={retryIcon} onPress={bootstrapState.retry}>
-              Retry
+              {translateNow("ui.retry.1ay360")}
             </Button>
           </View>
         </View>

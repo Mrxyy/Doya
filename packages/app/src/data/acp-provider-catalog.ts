@@ -1,4 +1,5 @@
 import { ACP_PROVIDER_ICON_SVGS } from "@/assets/acp-provider-icons";
+import { translateNow } from "@/i18n/i18n";
 
 export interface AcpProviderCatalogEntry {
   id: string;
@@ -14,9 +15,8 @@ export interface AcpProviderCatalogEntry {
 const CATALOG_DATA = [
   {
     id: "agoragentic-acp",
-    title: "Agoragentic",
-    description:
-      "Agent marketplace with 174+ AI capabilities. Browse, invoke, and pay for agent services settled in USDC on Base L2.",
+    title: translateNow("ui.agoragentic.ru3hna"),
+    description: translateNow("ui.agent.marketplace.with.174.ai.capabilities.browse.invoke.wklpwt"),
     version: "1.3.0",
     iconId: "agoragentic-acp",
     installLink: "https://agoragentic.com",
@@ -24,8 +24,8 @@ const CATALOG_DATA = [
   },
   {
     id: "amp-acp",
-    title: "Amp",
-    description: "ACP wrapper for Amp - the frontier coding agent",
+    title: translateNow("ui.amp.1ew4"),
+    description: translateNow("ui.acp.wrapper.for.amp.the.frontier.coding.agent.14ccvda"),
     version: "0.7.0",
     iconId: "amp-acp",
     installLink: "https://github.com/tao12345666333/amp-acp",
@@ -33,9 +33,8 @@ const CATALOG_DATA = [
   },
   {
     id: "auggie",
-    title: "Auggie CLI",
-    description:
-      "Augment Code's powerful software agent, backed by industry-leading context engine",
+    title: translateNow("ui.auggie.cli.15vsh80"),
+    description: translateNow("ui.augment.code.s.powerful.software.agent.backed.by.1aofqal"),
     version: "0.26.0",
     iconId: "auggie",
     installLink: "https://www.augmentcode.com/",
@@ -46,8 +45,8 @@ const CATALOG_DATA = [
   },
   {
     id: "autohand",
-    title: "Autohand Code",
-    description: "Autohand Code - AI coding agent powered by Autohand AI",
+    title: translateNow("ui.autohand.code.wvrfhr"),
+    description: translateNow("ui.autohand.code.ai.coding.agent.powered.by.autohand.lw3gwq"),
     version: "0.2.1",
     iconId: "autohand",
     installLink: "https://www.autohand.ai/cli/",
@@ -55,8 +54,8 @@ const CATALOG_DATA = [
   },
   {
     id: "claude-acp",
-    title: "Claude Agent",
-    description: "ACP wrapper for Anthropic's Claude",
+    title: translateNow("ui.claude.agent.1mw1udf"),
+    description: translateNow("ui.acp.wrapper.for.anthropic.s.claude.13w9ut8"),
     version: "0.32.0",
     iconId: "claude-acp",
     installLink: "https://github.com/agentclientprotocol/claude-agent-acp",
@@ -64,9 +63,8 @@ const CATALOG_DATA = [
   },
   {
     id: "cline",
-    title: "Cline",
-    description:
-      "Autonomous coding agent CLI - capable of creating/editing files, running commands, using the browser, and more",
+    title: translateNow("ui.cline.12tewn"),
+    description: translateNow("ui.autonomous.coding.agent.cli.capable.of.creating.editing.1pri8g4"),
     version: "2.18.0",
     iconId: "cline",
     installLink: "https://cline.bot/cli",
@@ -74,8 +72,8 @@ const CATALOG_DATA = [
   },
   {
     id: "codebuddy-code",
-    title: "Codebuddy Code",
-    description: "Tencent Cloud's official intelligent coding tool",
+    title: translateNow("ui.codebuddy.code.17lifp0"),
+    description: translateNow("ui.tencent.cloud.s.official.intelligent.coding.tool.h41te2"),
     version: "2.95.0",
     iconId: "codebuddy-code",
     installLink: "https://www.codebuddy.cn/cli/",
@@ -83,8 +81,8 @@ const CATALOG_DATA = [
   },
   {
     id: "codex-acp",
-    title: "Codex CLI",
-    description: "ACP adapter for OpenAI's coding assistant",
+    title: translateNow("ui.codex.cli.eucga3"),
+    description: translateNow("ui.acp.adapter.for.openai.s.coding.assistant.htdvcg"),
     version: "0.13.0",
     iconId: "codex-acp",
     installLink: "https://github.com/zed-industries/codex-acp",
@@ -92,8 +90,8 @@ const CATALOG_DATA = [
   },
   {
     id: "cortex-code",
-    title: "Cortex Code",
-    description: "Snowflake's Cortex Code coding agent",
+    title: translateNow("ui.cortex.code.1b328cs"),
+    description: translateNow("ui.snowflake.s.cortex.code.coding.agent.13a65d1"),
     version: "1.0.73",
     iconId: "cortex-code",
     installLink: "https://docs.snowflake.com/en/user-guide/cortex-code/cortex-code-cli",
@@ -101,8 +99,8 @@ const CATALOG_DATA = [
   },
   {
     id: "corust-agent",
-    title: "Corust Agent",
-    description: "Co-building with a seasoned Rust partner.",
+    title: translateNow("ui.corust.agent.1xs0oqd"),
+    description: translateNow("ui.co.building.with.a.seasoned.rust.partner.1jwbx76"),
     version: "0.5.1",
     iconId: "corust-agent",
     installLink: "https://github.com/Corust-ai/corust-agent-release/releases",
@@ -111,7 +109,7 @@ const CATALOG_DATA = [
   {
     id: "crow-cli",
     title: "crow-cli",
-    description: "Minimal ACP Native Coding Agent",
+    description: translateNow("ui.minimal.acp.native.coding.agent.1sypg3r"),
     version: "0.1.23",
     iconId: "crow-cli",
     installLink: "https://crow-ai.dev/",
@@ -119,8 +117,8 @@ const CATALOG_DATA = [
   },
   {
     id: "cursor",
-    title: "Cursor",
-    description: "Cursor's coding agent",
+    title: translateNow("ui.cursor.xkfud2"),
+    description: translateNow("ui.cursor.s.coding.agent.pytsel"),
     version: "2026.03.30",
     iconId: "cursor",
     installLink: "https://docs.cursor.com/en/cli/overview",
@@ -128,8 +126,8 @@ const CATALOG_DATA = [
   },
   {
     id: "deepagents",
-    title: "DeepAgents",
-    description: "Batteries-included AI coding and general purpose agent powered by LangChain.",
+    title: translateNow("ui.deepagents.1wrntx6"),
+    description: translateNow("ui.batteries.included.ai.coding.and.general.purpose.agent.ab1wa2"),
     version: "0.1.7",
     iconId: "deepagents",
     installLink: "https://docs.langchain.com/oss/javascript/deepagents/overview",
@@ -137,8 +135,8 @@ const CATALOG_DATA = [
   },
   {
     id: "deepseek-tui",
-    title: "DeepSeek TUI",
-    description: "Terminal coding agent for DeepSeek V4",
+    title: translateNow("ui.deepseek.tui.jtwoks"),
+    description: translateNow("ui.terminal.coding.agent.for.deepseek.v4.wx3jau"),
     version: "0.8.39",
     iconId: "deepseek-tui",
     installLink: "https://github.com/Hmbown/DeepSeek-TUI",
@@ -146,8 +144,8 @@ const CATALOG_DATA = [
   },
   {
     id: "devin",
-    title: "Devin CLI",
-    description: "Cognition's Devin for Terminal via Agent Client Protocol",
+    title: translateNow("ui.devin.cli.xoxeii"),
+    description: translateNow("ui.cognition.s.devin.for.terminal.via.agent.client.ybg39f"),
     version: "manual",
     iconId: null,
     installLink: "https://cli.devin.ai/docs",
@@ -155,8 +153,8 @@ const CATALOG_DATA = [
   },
   {
     id: "dimcode",
-    title: "DimCode",
-    description: "A coding agent that puts leading models at your command.",
+    title: translateNow("ui.dimcode.1j2bkhh"),
+    description: translateNow("ui.a.coding.agent.that.puts.leading.models.at.1n40bmy"),
     version: "0.0.66",
     iconId: "dimcode",
     installLink: "https://dimcode.dev/docs/acp.html",
@@ -164,9 +162,8 @@ const CATALOG_DATA = [
   },
   {
     id: "dirac",
-    title: "Dirac",
-    description:
-      "Reduces API costs by more than 50%, produces better and faster work. Uses Hash anchored parallel edits, AST manipulation and a whole lot of neat optimizations. Fully Open Source.",
+    title: translateNow("ui.dirac.13bgwf"),
+    description: translateNow("ui.reduces.api.costs.by.more.than.50.produces.1fp2r69"),
     version: "0.3.36",
     iconId: "dirac",
     installLink: "https://dirac.run",
@@ -174,8 +171,8 @@ const CATALOG_DATA = [
   },
   {
     id: "factory-droid",
-    title: "Factory Droid",
-    description: "Factory Droid - AI coding agent powered by Factory AI",
+    title: translateNow("ui.factory.droid.d3alra"),
+    description: translateNow("ui.factory.droid.ai.coding.agent.powered.by.factory.165weth"),
     version: "0.119.0",
     iconId: "factory-droid",
     installLink: "https://factory.ai/product/cli",
@@ -188,7 +185,7 @@ const CATALOG_DATA = [
   {
     id: "fast-agent",
     title: "fast-agent",
-    description: "Code and build agents with comprehensive multi-provider support",
+    description: translateNow("ui.code.and.build.agents.with.comprehensive.multi.provider.cwt8ba"),
     version: "0.7.0",
     iconId: "fast-agent",
     installLink: "https://fast-agent.ai/acp/",
@@ -196,8 +193,8 @@ const CATALOG_DATA = [
   },
   {
     id: "gemini",
-    title: "Gemini CLI",
-    description: "Google's official CLI for Gemini",
+    title: translateNow("ui.gemini.cli.1u3j8hh"),
+    description: translateNow("ui.google.s.official.cli.for.gemini.1h7casm"),
     version: "0.41.1",
     iconId: "gemini",
     installLink: "https://geminicli.com",
@@ -205,8 +202,8 @@ const CATALOG_DATA = [
   },
   {
     id: "github-copilot-cli",
-    title: "GitHub Copilot",
-    description: "GitHub's AI pair programmer",
+    title: translateNow("ui.github.copilot.1n3nvjj"),
+    description: translateNow("ui.github.s.ai.pair.programmer.rt6991"),
     version: "1.0.41",
     iconId: "github-copilot-cli",
     installLink: "https://github.com/features/copilot/cli/",
@@ -214,9 +211,8 @@ const CATALOG_DATA = [
   },
   {
     id: "glm-acp-agent",
-    title: "GLM Agent",
-    description:
-      "ACP agent powered by Zhipu AI's GLM Coding Plan models (glm-5.1, glm-5-turbo, glm-4.7, glm-4.5-air). Supports streaming, tool calls, mid-session model switching, image input via Z.AI Coding Plan Vision MCP, and session load/fork/resume with on-disk persistence.",
+    title: translateNow("ui.glm.agent.727uml"),
+    description: translateNow("ui.acp.agent.powered.by.zhipu.ai.s.glm.12ejv9a"),
     version: "1.1.2",
     iconId: "glm-acp-agent",
     installLink: "https://github.com/stefandevo/glm-acp-agent",
@@ -225,7 +221,7 @@ const CATALOG_DATA = [
   {
     id: "goose",
     title: "goose",
-    description: "A local, extensible, open source AI agent that automates engineering tasks",
+    description: translateNow("ui.a.local.extensible.open.source.ai.agent.that.1gsl1ng"),
     version: "1.33.1",
     iconId: "goose",
     installLink: "https://block.github.io/goose/",
@@ -233,9 +229,8 @@ const CATALOG_DATA = [
   },
   {
     id: "grok",
-    title: "Grok",
-    description:
-      "xAI's Grok Build agentic coding CLI with plan mode and parallel subagents. Requires a SuperGrok or X Premium+ subscription.",
+    title: translateNow("ui.grok.1brc7"),
+    description: translateNow("ui.xai.s.grok.build.agentic.coding.cli.with.13yzaa5"),
     version: "0.2.11",
     iconId: "grok",
     installLink: "https://docs.x.ai/build/overview",
@@ -243,8 +238,8 @@ const CATALOG_DATA = [
   },
   {
     id: "hermes",
-    title: "Hermes",
-    description: "Nous Research self-improving AI agent",
+    title: translateNow("ui.hermes.zov45i"),
+    description: translateNow("ui.nous.research.self.improving.ai.agent.760oph"),
     version: "manual",
     iconId: null,
     installLink: "https://hermes-agent.nousresearch.com/docs/user-guide/features/acp",
@@ -252,8 +247,8 @@ const CATALOG_DATA = [
   },
   {
     id: "junie",
-    title: "Junie",
-    description: "AI Coding Agent by JetBrains",
+    title: translateNow("ui.junie.16ttj3"),
+    description: translateNow("ui.ai.coding.agent.by.jetbrains.mvc2me"),
     version: "1468.30.0",
     iconId: "junie",
     installLink: "https://junie.jetbrains.com/docs/junie-cli-acp.html",
@@ -261,8 +256,8 @@ const CATALOG_DATA = [
   },
   {
     id: "kilo",
-    title: "Kilo",
-    description: "The open source coding agent",
+    title: translateNow("ui.kilo.1e4jl"),
+    description: translateNow("ui.the.open.source.coding.agent.ihos0d"),
     version: "7.2.40",
     iconId: "kilo",
     installLink: "https://kilo.ai/docs/code-with-ai/platforms/cli",
@@ -270,8 +265,8 @@ const CATALOG_DATA = [
   },
   {
     id: "kiro",
-    title: "Kiro CLI",
-    description: "Amazon's AI coding agent with native ACP support",
+    title: translateNow("ui.kiro.cli.1syeg7v"),
+    description: translateNow("ui.amazon.s.ai.coding.agent.with.native.acp.16e8nb9"),
     version: "manual",
     iconId: null,
     installLink: "https://kiro.dev/docs/cli/acp/",
@@ -279,8 +274,8 @@ const CATALOG_DATA = [
   },
   {
     id: "kimi",
-    title: "Kimi CLI",
-    description: "Moonshot AI's coding assistant",
+    title: translateNow("ui.kimi.cli.1qhvkoq"),
+    description: translateNow("ui.moonshot.ai.s.coding.assistant.1d9fcxb"),
     version: "1.41.0",
     iconId: "kimi",
     installLink: "https://github.com/MoonshotAI/kimi-cli",
@@ -288,9 +283,8 @@ const CATALOG_DATA = [
   },
   {
     id: "minion-code",
-    title: "Minion Code",
-    description:
-      "An enhanced AI code assistant built on the Minion framework with rich development tools",
+    title: translateNow("ui.minion.code.1x44rbr"),
+    description: translateNow("ui.an.enhanced.ai.code.assistant.built.on.the.10sm83e"),
     version: "0.1.44",
     iconId: "minion-code",
     installLink: "https://github.com/femto/minion-code",
@@ -298,8 +292,8 @@ const CATALOG_DATA = [
   },
   {
     id: "mistral-vibe",
-    title: "Mistral Vibe",
-    description: "Mistral's open-source coding assistant",
+    title: translateNow("ui.mistral.vibe.numhli"),
+    description: translateNow("ui.mistral.s.open.source.coding.assistant.134m8m6"),
     version: "2.9.3",
     iconId: "mistral-vibe",
     installLink: "https://github.com/mistralai/mistral-vibe",
@@ -307,8 +301,8 @@ const CATALOG_DATA = [
   },
   {
     id: "nova",
-    title: "Nova",
-    description: "Nova by Compass AI - a fully-fledged software engineer at your command",
+    title: translateNow("ui.nova.1g66k"),
+    description: translateNow("ui.nova.by.compass.ai.a.fully.fledged.software.1pktkei"),
     version: "1.1.4",
     iconId: "nova",
     installLink: "https://www.compassap.ai/portfolio/nova.html",
@@ -316,8 +310,8 @@ const CATALOG_DATA = [
   },
   {
     id: "opencode",
-    title: "OpenCode",
-    description: "The open source coding agent",
+    title: translateNow("ui.opencode.1rquk53"),
+    description: translateNow("ui.the.open.source.coding.agent.ihos0d"),
     version: "1.14.39",
     iconId: "opencode",
     installLink: "https://opencode.ai/docs/acp/",
@@ -325,8 +319,8 @@ const CATALOG_DATA = [
   },
   {
     id: "pi-acp",
-    title: "pi ACP",
-    description: "ACP adapter for pi coding agent",
+    title: translateNow("ui.pi.acp.1indvwn"),
+    description: translateNow("ui.acp.adapter.for.pi.coding.agent.10x32nw"),
     version: "0.0.26",
     iconId: "pi-acp",
     installLink: "https://github.com/svkozak/pi-acp",
@@ -334,8 +328,8 @@ const CATALOG_DATA = [
   },
   {
     id: "poolside",
-    title: "Poolside",
-    description: "Poolside's coding agent",
+    title: translateNow("ui.poolside.bl5uoj"),
+    description: translateNow("ui.poolside.s.coding.agent.7h0wgg"),
     version: "1.0.0",
     iconId: "poolside",
     installLink: "https://docs.poolside.ai/cli/pool",
@@ -343,8 +337,8 @@ const CATALOG_DATA = [
   },
   {
     id: "qoder",
-    title: "Qoder CLI",
-    description: "AI coding assistant with agentic capabilities",
+    title: translateNow("ui.qoder.cli.mg5pir"),
+    description: translateNow("ui.ai.coding.assistant.with.agentic.capabilities.cgmghd"),
     version: "0.2.6",
     iconId: "qoder",
     installLink: "https://qoder.com",
@@ -352,8 +346,8 @@ const CATALOG_DATA = [
   },
   {
     id: "qwen-code",
-    title: "Qwen Code",
-    description: "Alibaba's Qwen coding assistant",
+    title: translateNow("ui.qwen.code.1ln6cym"),
+    description: translateNow("ui.alibaba.s.qwen.coding.assistant.w2xp4x"),
     version: "0.15.6",
     iconId: "qwen-code",
     installLink: "https://qwenlm.github.io/qwen-code-docs/en/users/overview",
@@ -361,9 +355,8 @@ const CATALOG_DATA = [
   },
   {
     id: "sigit",
-    title: "siGit Code",
-    description:
-      "Local-first coding agent. Runs entirely on your machine with optional on-device LLM inference via Onde.",
+    title: translateNow("ui.sigit.code.1nlbok1"),
+    description: translateNow("ui.local.first.coding.agent.runs.entirely.on.your.1umow1q"),
     version: "1.0.3",
     iconId: "sigit",
     installLink: "https://github.com/getsigit/sigit",
@@ -371,8 +364,8 @@ const CATALOG_DATA = [
   },
   {
     id: "stakpak",
-    title: "Stakpak",
-    description: "Open-source DevOps agent in Rust with enterprise-grade security",
+    title: translateNow("ui.stakpak.1v6jj9r"),
+    description: translateNow("ui.open.source.devops.agent.in.rust.with.enterprise.n9rpug"),
     version: "0.3.80",
     iconId: "stakpak",
     installLink: "https://stakpak.dev/",
@@ -380,9 +373,8 @@ const CATALOG_DATA = [
   },
   {
     id: "vtcode",
-    title: "VT Code",
-    description:
-      "An open-source coding agent with LLM-native code understanding and robust shell safety. Supports multiple LLM providers with automatic failover and efficient context management.",
+    title: translateNow("ui.vt.code.o0q8mn"),
+    description: translateNow("ui.an.open.source.coding.agent.with.llm.native.1mm6uu0"),
     version: "0.96.14",
     iconId: "vtcode",
     installLink: "https://github.com/vinhnx/VTCode/blob/main/docs/guides/zed-acp.md",

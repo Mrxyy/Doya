@@ -47,6 +47,7 @@ import {
   type OpenFileDisposition,
   type WorkspaceFileOpenRequest,
 } from "@/workspace/file-open";
+import { translateNow } from "@/i18n/i18n";
 
 interface TerminalPaneProps {
   serverId: string;
@@ -67,15 +68,15 @@ const MODIFIER_LABELS = {
 } as const;
 
 const KEY_BUTTONS = {
-  esc: { id: "esc", label: "Esc", key: "Escape" },
-  tab: { id: "tab", label: "Tab", key: "Tab" },
+  esc: { id: "esc", label: translateNow("ui.esc.1hzp"), key: "Escape" },
+  tab: { id: "tab", label: translateNow("ui.tab.1sol"), key: "Tab" },
   up: { id: "up", label: "↑", key: "ArrowUp" },
   down: { id: "down", label: "↓", key: "ArrowDown" },
   left: { id: "left", label: "←", key: "ArrowLeft" },
   right: { id: "right", label: "→", key: "ArrowRight" },
-  enter: { id: "enter", label: "Enter", key: "Enter" },
+  enter: { id: "enter", label: translateNow("ui.enter.13yi0o"), key: "Enter" },
   backspace: { id: "backspace", label: "⌫", key: "Backspace" },
-  space: { id: "space", label: "Space", key: " " },
+  space: { id: "space", label: translateNow("ui.space.1boi5i"), key: " " },
 } as const;
 
 interface ModifierState {
@@ -750,7 +751,7 @@ export function TerminalPane({
   if (!client || !isConnected) {
     return (
       <View style={styles.centerState}>
-        <Text style={styles.stateText}>Host is not connected</Text>
+        <Text style={styles.stateText}>{translateNow("ui.host.is.not.connected.n90cm6")}</Text>
       </View>
     );
   }

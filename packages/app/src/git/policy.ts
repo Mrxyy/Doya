@@ -6,6 +6,7 @@ import type {
   CheckoutPrStatusResponse,
   PullRequestMergeable,
 } from "@getpaseo/protocol/messages";
+import { translateNow } from "@/i18n/i18n";
 
 export type GitActionId =
   | "commit"
@@ -125,21 +126,21 @@ const PULL_REQUEST_DIRECT_MERGE_ACTION_MODELS = [
   {
     id: "merge-pr-squash",
     role: "direct",
-    label: "Squash and merge",
+    label: translateNow("ui.squash.and.merge.16au7fy"),
     method: "squash",
     startsGroup: true,
   },
   {
     id: "merge-pr-merge",
     role: "direct",
-    label: "Create a merge commit",
+    label: translateNow("ui.create.a.merge.commit.1xmgjya"),
     method: "merge",
     startsGroup: false,
   },
   {
     id: "merge-pr-rebase",
     role: "direct",
-    label: "Rebase and merge",
+    label: translateNow("ui.rebase.and.merge.1ylqbsj"),
     method: "rebase",
     startsGroup: false,
   },
@@ -149,21 +150,21 @@ const PULL_REQUEST_AUTO_MERGE_ENABLE_ACTION_MODELS = [
   {
     id: "enable-pr-auto-merge-squash",
     role: "auto",
-    label: "Enable auto-merge with squash",
+    label: translateNow("ui.enable.auto.merge.with.squash.sujey8"),
     method: "squash",
     startsGroup: true,
   },
   {
     id: "enable-pr-auto-merge-merge",
     role: "auto",
-    label: "Enable auto-merge with merge commit",
+    label: translateNow("ui.enable.auto.merge.with.merge.commit.c56pow"),
     method: "merge",
     startsGroup: false,
   },
   {
     id: "enable-pr-auto-merge-rebase",
     role: "auto",
-    label: "Enable auto-merge with rebase",
+    label: translateNow("ui.enable.auto.merge.with.rebase.s6k4ol"),
     method: "rebase",
     startsGroup: false,
   },
@@ -204,8 +205,8 @@ export function buildGitActions(input: BuildGitActionsInput): GitActions {
 
   allActions.set("commit", {
     id: "commit",
-    label: "Commit",
-    pendingLabel: "Committing...",
+    label: translateNow("ui.commit.xh1r9z"),
+    pendingLabel: translateNow("ui.committing.1gxw0i1"),
     successLabel: "Committed",
     disabled: input.runtime.commit.disabled,
     status: input.runtime.commit.status,
@@ -216,8 +217,8 @@ export function buildGitActions(input: BuildGitActionsInput): GitActions {
 
   allActions.set("pull", {
     id: "pull",
-    label: "Pull",
-    pendingLabel: "Pulling...",
+    label: translateNow("ui.pull.1hkdh"),
+    pendingLabel: translateNow("ui.pulling.1wqvoxd"),
     successLabel: "Pulled",
     disabled: input.runtime.pull.disabled,
     status: input.runtime.pull.status,
@@ -229,8 +230,8 @@ export function buildGitActions(input: BuildGitActionsInput): GitActions {
 
   allActions.set("push", {
     id: "push",
-    label: "Push",
-    pendingLabel: "Pushing...",
+    label: translateNow("ui.push.1hkje"),
+    pendingLabel: translateNow("ui.pushing.1xqfrie"),
     successLabel: "Pushed",
     disabled: input.runtime.push.disabled,
     status: input.runtime.push.status,
@@ -242,8 +243,8 @@ export function buildGitActions(input: BuildGitActionsInput): GitActions {
 
   allActions.set("pull-and-push", {
     id: "pull-and-push",
-    label: "Pull and push",
-    pendingLabel: "Pulling and pushing...",
+    label: translateNow("ui.pull.and.push.fthixq"),
+    pendingLabel: translateNow("ui.pulling.and.pushing.1hpzhf6"),
     successLabel: "Pulled and pushed",
     disabled: input.runtime["pull-and-push"].disabled,
     status: input.runtime["pull-and-push"].status,
@@ -261,8 +262,8 @@ export function buildGitActions(input: BuildGitActionsInput): GitActions {
 
   allActions.set("merge-branch", {
     id: "merge-branch",
-    label: "Merge locally",
-    pendingLabel: "Merging...",
+    label: translateNow("ui.merge.locally.1ttdgkw"),
+    pendingLabel: translateNow("ui.merging.h1eveh"),
     successLabel: "Merged",
     disabled: input.runtime["merge-branch"].disabled,
     status: input.runtime["merge-branch"].status,
@@ -277,7 +278,7 @@ export function buildGitActions(input: BuildGitActionsInput): GitActions {
   allActions.set("merge-from-base", {
     id: "merge-from-base",
     label: `Update from ${input.baseRefLabel}`,
-    pendingLabel: "Updating...",
+    pendingLabel: translateNow("ui.updating.k7r494"),
     successLabel: "Updated",
     disabled: input.runtime["merge-from-base"].disabled,
     status: input.runtime["merge-from-base"].status,
@@ -291,8 +292,8 @@ export function buildGitActions(input: BuildGitActionsInput): GitActions {
 
   allActions.set("archive-worktree", {
     id: "archive-worktree",
-    label: "Archive worktree",
-    pendingLabel: "Archiving...",
+    label: translateNow("ui.archive.worktree.gu5ujx"),
+    pendingLabel: translateNow("ui.archiving.1c0i2i7"),
     successLabel: "Archived",
     disabled: input.runtime["archive-worktree"].disabled,
     status: input.runtime["archive-worktree"].status,
@@ -396,8 +397,8 @@ function buildPrAction(input: BuildGitActionsInput): GitAction {
   if (input.hasPullRequest && input.pullRequestUrl) {
     return {
       id: "pr",
-      label: "View PR",
-      pendingLabel: "View PR",
+      label: translateNow("ui.view.pr.z1ho3h"),
+      pendingLabel: translateNow("ui.view.pr.z1ho3h"),
       successLabel: "View PR",
       disabled: input.runtime.pr.disabled,
       status: input.runtime.pr.status,
@@ -413,8 +414,8 @@ function buildPrAction(input: BuildGitActionsInput): GitAction {
 
   return {
     id: "pr",
-    label: "Create PR",
-    pendingLabel: "Creating PR...",
+    label: translateNow("ui.create.pr.171bs06"),
+    pendingLabel: translateNow("ui.creating.pr.ut0oit"),
     successLabel: "PR Created",
     disabled: input.runtime.pr.disabled,
     status: input.runtime.pr.status,
@@ -436,7 +437,7 @@ function buildDirectPullRequestMergeAction(
   return {
     id: model.id,
     label: model.label,
-    pendingLabel: "Merging PR...",
+    pendingLabel: translateNow("ui.merging.pr.ng271d"),
     successLabel: "PR merged",
     disabled: runtime.disabled || shouldDisableMergePrAction(input),
     status: runtime.status,
@@ -455,7 +456,7 @@ function buildEnablePullRequestAutoMergeAction(
   return {
     id: model.id,
     label: model.label,
-    pendingLabel: "Enabling auto-merge...",
+    pendingLabel: translateNow("ui.enabling.auto.merge.1eyd6ac"),
     successLabel: "Auto-merge enabled",
     disabled: runtime.disabled,
     status: runtime.status,
@@ -473,8 +474,8 @@ function buildDisablePullRequestAutoMergeAction(input: BuildGitActionsInput): Gi
       : "Auto-merge is enabled, but this account can't disable it";
   return {
     id: "disable-pr-auto-merge",
-    label: "Auto-merge enabled",
-    pendingLabel: "Disabling auto-merge...",
+    label: translateNow("ui.auto.merge.enabled.1uoyl7f"),
+    pendingLabel: translateNow("ui.disabling.auto.merge.15sezax"),
     successLabel: "Auto-merge disabled",
     disabled: runtime.disabled || input.pullRequestGithub?.viewerCanDisableAutoMerge !== true,
     status: runtime.status,

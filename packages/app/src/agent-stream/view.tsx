@@ -79,6 +79,7 @@ import { useStableEvent } from "@/hooks/use-stable-event";
 import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
+import { translateNow } from "@/i18n/i18n";
 
 function renderLiveAuxiliaryNode(input: {
   pendingPermissions: ReactNode;
@@ -170,7 +171,9 @@ function renderListEmptyComponent(input: {
 
   return (
     <View style={input.emptyStateStyle}>
-      <Text style={stylesheet.emptyStateText}>Start chatting with this agent...</Text>
+      <Text style={stylesheet.emptyStateText}>
+        {translateNow("ui.start.chatting.with.this.agent.avw6i5")}
+      </Text>
     </View>
   );
 }
@@ -745,7 +748,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
                   style={stylesheet.scrollToBottomButton}
                   onPress={scrollToBottom}
                   accessibilityRole="button"
-                  accessibilityLabel="Scroll to bottom"
+                  accessibilityLabel={translateNow("ui.scroll.to.bottom.1yk60vx")}
                   testID="scroll-to-bottom-button"
                 >
                   <ChevronDown size={24} color={stylesheet.scrollToBottomIcon.color} />
@@ -931,7 +934,7 @@ function PermissionRequestCard({
     return [
       {
         id: "reject",
-        label: "Deny",
+        label: translateNow("ui.deny.19kq4"),
         behavior: "deny",
         variant: "danger",
         intent: "dismiss",
@@ -1015,7 +1018,7 @@ function PermissionRequestCard({
       handleResponse({
         behavior: "deny",
         selectedActionId: action.id,
-        message: "Denied by user",
+        message: translateNow("ui.denied.by.user.1m1h6z3"),
       });
     },
     [handleResponse],
@@ -1042,7 +1045,7 @@ function PermissionRequestCard({
   const footer = (
     <>
       <Text testID="permission-request-question" style={permissionStyles.question}>
-        How would you like to proceed?
+        {translateNow("ui.how.would.you.like.to.proceed.1g5qhzd")}
       </Text>
 
       <View style={optionsContainerStyle}>
@@ -1094,7 +1097,7 @@ function PermissionRequestCard({
 
       {planMarkdown ? (
         <PlanCard
-          title="Proposed plan"
+          title={translateNow("ui.proposed.plan.1rfkkg3")}
           text={planMarkdown}
           testID="permission-plan-card"
           disableOuterSpacing

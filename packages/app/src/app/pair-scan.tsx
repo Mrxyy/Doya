@@ -12,6 +12,7 @@ import { ConnectionOfferSchema } from "@getpaseo/protocol/connection-offer";
 import { buildHostRootRoute, buildSettingsHostRoute } from "@/utils/host-routes";
 import { isWeb } from "@/constants/platform";
 import { BackHeader } from "@/components/headers/back-header";
+import { translateNow } from "@/i18n/i18n";
 
 const styles = StyleSheet.create((theme) => ({
   container: {
@@ -191,7 +192,7 @@ export default function PairScanScreen() {
       } catch (error) {
         lastScannedRef.current = null;
         const message = error instanceof Error ? error.message : "Unable to pair host";
-        Alert.alert("Error", message);
+        Alert.alert(translateNow("ui.error.1410q0"), message);
       } finally {
         setIsPairing(false);
       }
@@ -216,15 +217,19 @@ export default function PairScanScreen() {
   if (isWeb) {
     return (
       <View style={styles.container}>
-        <BackHeader title="Scan QR" onBack={handleRouterBack} />
+        <BackHeader title={translateNow("ui.scan.qr.1n4s7t0")} onBack={handleRouterBack} />
         <View style={bodyStyle}>
           <View style={styles.permissionCard}>
-            <Text style={styles.permissionTitle}>Not available on web</Text>
+            <Text style={styles.permissionTitle}>
+              {translateNow("ui.not.available.on.web.knkuxj")}
+            </Text>
             <Text style={styles.permissionBody}>
               {`QR scanning isn't supported in the web build. Use "Paste link" instead.`}
             </Text>
             <Pressable style={styles.permissionButton} onPress={closeToSource}>
-              <Text style={styles.permissionButtonText}>Back to Settings</Text>
+              <Text style={styles.permissionButtonText}>
+                {translateNow("ui.back.to.settings.xjdqjz")}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -236,17 +241,21 @@ export default function PairScanScreen() {
 
   return (
     <View style={styles.container}>
-      <BackHeader title="Scan QR" onBack={closeToSource} />
+      <BackHeader title={translateNow("ui.scan.qr.1n4s7t0")} onBack={closeToSource} />
 
       <View style={bodyStyle}>
         {!granted ? (
           <View style={styles.permissionCard}>
-            <Text style={styles.permissionTitle}>Camera permission</Text>
+            <Text style={styles.permissionTitle}>
+              {translateNow("ui.camera.permission.14it216")}
+            </Text>
             <Text style={styles.permissionBody}>
-              Allow camera access to scan the pairing QR code from your daemon.
+              {translateNow("ui.allow.camera.access.to.scan.the.pairing.1jujyw2")}
             </Text>
             <Pressable style={styles.permissionButton} onPress={handleRequestPermission}>
-              <Text style={styles.permissionButtonText}>Grant permission</Text>
+              <Text style={styles.permissionButtonText}>
+                {translateNow("ui.grant.permission.181inar")}
+              </Text>
             </Pressable>
           </View>
         ) : (
@@ -264,7 +273,9 @@ export default function PairScanScreen() {
                 <View style={CORNER_BL_STYLE} />
                 <View style={CORNER_BR_STYLE} />
               </View>
-              {isPairing ? <Text style={helperTextStyle}>Pairing…</Text> : null}
+              {isPairing ? (
+                <Text style={helperTextStyle}>{translateNow("ui.pairing.gfsyv2")}</Text>
+              ) : null}
             </View>
           </View>
         )}

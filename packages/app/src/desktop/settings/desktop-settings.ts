@@ -7,6 +7,7 @@ import {
   useDesktopIpcQueryErrorToast,
 } from "@/desktop/hooks/desktop-ipc-error";
 import type { ReleaseChannel } from "@/hooks/use-settings";
+import { translateNow } from "@/i18n/i18n";
 
 const DESKTOP_SETTINGS_QUERY_KEY = ["desktop-settings"] as const;
 
@@ -53,7 +54,7 @@ export function useDesktopSettings(): {
   });
   useDesktopIpcQueryErrorToast({
     error: loadError,
-    message: "Unable to load desktop settings.",
+    message: translateNow("ui.unable.to.load.desktop.settings.1i04fxh"),
     logLabel: "[DesktopSettings] Failed to load settings",
   });
 
@@ -83,7 +84,7 @@ export function useDesktopSettings(): {
       }
       reportError({
         error: saveError,
-        message: "Unable to save desktop settings.",
+        message: translateNow("ui.unable.to.save.desktop.settings.13d1qpo"),
         logLabel: "[DesktopSettings] Failed to save settings",
       });
     },

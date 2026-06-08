@@ -3,6 +3,7 @@ import type { AgentAttachment, AgentStreamEventPayload } from "@getpaseo/protoco
 import type { AttachmentMetadata } from "@/attachments/types";
 import { extractTaskEntriesFromToolCall } from "../utils/tool-call-parsers";
 import { splitMarkdownBlocks } from "@/utils/split-markdown-blocks";
+import { translateNow } from "@/i18n/i18n";
 
 /**
  * Simple hash function for deterministic ID generation
@@ -537,7 +538,8 @@ export function mergeAgentToolCallItem(
   const mergedStatus = mergeAgentToolCallStatus(existing.payload.data.status, data.status);
   const mergedError =
     mergedStatus === "failed"
-      ? (data.error ?? existing.payload.data.error ?? { message: "Tool call failed" })
+      ? (data.error ??
+        existing.payload.data.error ?? { message: translateNow("ui.tool.call.failed.n2katz") })
       : null;
   const mergedMetadata = mergeToolCallMetadata(existing.payload.data.metadata, data.metadata);
   const mergedDetail = mergeToolCallDetail(existing.payload.data.detail, data.detail);

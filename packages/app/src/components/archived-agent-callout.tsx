@@ -8,6 +8,7 @@ import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-
 import { useKeyboardShiftStyle } from "@/hooks/use-keyboard-shift-style";
 import { Button } from "@/components/ui/button";
 import type { Theme } from "@/styles/theme";
+import { translateNow } from "@/i18n/i18n";
 
 interface ArchivedAgentCalloutProps {
   serverId: string;
@@ -43,14 +44,16 @@ export function ArchivedAgentCallout({ serverId, agentId }: ArchivedAgentCallout
       <View style={styles.inputAreaContainer}>
         <View style={styles.inputAreaContent}>
           <View style={styles.callout}>
-            <Text style={styles.calloutText}>This agent is archived</Text>
+            <Text style={styles.calloutText}>
+              {translateNow("ui.this.agent.is.archived.1v2f8b")}
+            </Text>
             <Button
               size="sm"
               variant="secondary"
               onPress={handleUnarchive}
               disabled={!isConnected || isUnarchiving}
             >
-              Unarchive
+              {translateNow("ui.unarchive.1d2vf1l")}
             </Button>
           </View>
         </View>

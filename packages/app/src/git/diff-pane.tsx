@@ -113,6 +113,7 @@ import {
   useInlineReviewController,
   type InlineReviewActions,
 } from "@/review";
+import { translateNow } from "@/i18n/i18n";
 
 export type { GitActionId, GitAction, GitActions } from "@/git/policy";
 
@@ -870,12 +871,12 @@ const DiffFileHeader = memo(function DiffFileHeader({
               </Text>
               {file.isNew && (
                 <View style={styles.newBadge}>
-                  <Text style={styles.newBadgeText}>New</Text>
+                  <Text style={styles.newBadgeText}>{translateNow("ui.new.1ocg")}</Text>
                 </View>
               )}
               {file.isDeleted && (
                 <View style={styles.deletedBadge}>
-                  <Text style={styles.deletedBadgeText}>Deleted</Text>
+                  <Text style={styles.deletedBadgeText}>{translateNow("ui.deleted.1h673ll")}</Text>
                 </View>
               )}
             </View>
@@ -1096,7 +1097,7 @@ function DiffLayoutToggleGroup({
         <TooltipTrigger asChild>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Unified diff"
+            accessibilityLabel={translateNow("ui.unified.diff.1vtg8vn")}
             testID="changes-layout-unified"
             onPress={onUnified}
             style={unifiedToggleStyle}
@@ -1108,14 +1109,14 @@ function DiffLayoutToggleGroup({
           </Pressable>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <Text style={styles.tooltipText}>Unified diff</Text>
+          <Text style={styles.tooltipText}>{translateNow("ui.unified.diff.1vtg8vn")}</Text>
         </TooltipContent>
       </Tooltip>
       <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Side-by-side diff"
+            accessibilityLabel={translateNow("ui.side.by.side.diff.18j0te6")}
             testID="changes-layout-split"
             onPress={onSplit}
             style={splitToggleStyle}
@@ -1127,7 +1128,7 @@ function DiffLayoutToggleGroup({
           </Pressable>
         </TooltipTrigger>
         <TooltipContent side="bottom">
-          <Text style={styles.tooltipText}>Side-by-side diff</Text>
+          <Text style={styles.tooltipText}>{translateNow("ui.side.by.side.diff.18j0te6")}</Text>
         </TooltipContent>
       </Tooltip>
     </View>
@@ -1153,7 +1154,7 @@ function DiffWhitespaceToggle({
       <TooltipTrigger asChild>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Hide whitespace"
+          accessibilityLabel={translateNow("ui.hide.whitespace.1kc3oqj")}
           testID="changes-toggle-whitespace"
           style={toggleStyle}
           onPress={onToggle}
@@ -1165,7 +1166,7 @@ function DiffWhitespaceToggle({
         </Pressable>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <Text style={styles.tooltipText}>Hide whitespace</Text>
+        <Text style={styles.tooltipText}>{translateNow("ui.hide.whitespace.1kc3oqj")}</Text>
       </TooltipContent>
     </Tooltip>
   );
@@ -1260,7 +1261,7 @@ function DiffRefreshButton({ isRefreshing, toggleStyle, onPress }: DiffRefreshBu
         </Pressable>
       </TooltipTrigger>
       <TooltipContent side="bottom">
-        <Text style={styles.tooltipText}>Refresh</Text>
+        <Text style={styles.tooltipText}>{translateNow("ui.refresh.19hc5a3")}</Text>
       </TooltipContent>
     </Tooltip>
   );
@@ -1350,7 +1351,7 @@ function DiffBodyContent({
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={foregroundMutedColor} />
-        <Text style={styles.loadingText}>Checking repository...</Text>
+        <Text style={styles.loadingText}>{translateNow("ui.checking.repository.44iqm6")}</Text>
       </View>
     );
   }
@@ -1364,7 +1365,7 @@ function DiffBodyContent({
   if (notGit) {
     return (
       <View style={styles.emptyContainer} testID="changes-not-git">
-        <Text style={styles.emptyText}>Not a git repository</Text>
+        <Text style={styles.emptyText}>{translateNow("ui.not.a.git.repository.1p72e9w")}</Text>
       </View>
     );
   }
@@ -2102,7 +2103,7 @@ export function GitDiffPane({
                 style={diffModeTriggerStyle}
                 testID="changes-diff-status"
                 accessibilityRole="button"
-                accessibilityLabel="Diff mode"
+                accessibilityLabel={translateNow("ui.diff.mode.1hmo4vy")}
               >
                 <Text style={styles.diffStatusText} numberOfLines={1}>
                   {diffMode === "uncommitted" ? "Uncommitted" : "Committed"}
@@ -2115,7 +2116,7 @@ export function GitDiffPane({
                   selected={diffMode === "uncommitted"}
                   onSelect={handleSelectUncommitted}
                 >
-                  Uncommitted
+                  {translateNow("ui.uncommitted.41yqqr")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -2124,7 +2125,7 @@ export function GitDiffPane({
                   description={committedDiffDescription}
                   onSelect={handleSelectBase}
                 >
-                  Committed
+                  {translateNow("ui.committed.8hbmfw")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

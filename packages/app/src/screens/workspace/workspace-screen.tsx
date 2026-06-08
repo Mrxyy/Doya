@@ -19,6 +19,7 @@ import {
   CopyX,
   ArrowLeftToLine,
   ArrowRightToLine,
+  Bot,
   ChevronDown,
   Copy,
   Ellipsis,
@@ -41,6 +42,7 @@ import invariant from "tiny-invariant";
 import { SidebarMenuToggle } from "@/components/headers/menu-header";
 import { HeaderToggleButton } from "@/components/headers/header-toggle-button";
 import { ScreenHeader } from "@/components/headers/screen-header";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { BranchSwitcher } from "@/components/branch-switcher";
 import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import { Shortcut } from "@/components/ui/shortcut";
@@ -67,6 +69,7 @@ import { ImportSessionSheet } from "@/components/import-session-sheet";
 import { ExplorerSidebarAnimationProvider } from "@/contexts/explorer-sidebar-animation-context";
 import { useToast } from "@/contexts/toast-context";
 import { useExplorerOpenGesture } from "@/hooks/use-explorer-open-gesture";
+import { useI18n, translateNow } from "@/i18n/i18n";
 import { selectIsFileExplorerOpen, usePanelStore } from "@/stores/panel-store";
 import { type ExplorerCheckoutContext } from "@/stores/explorer-checkout-context";
 import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-store";
@@ -101,6 +104,17 @@ import { useWorkspaceTerminalSessionRetention } from "@/terminal/hooks/use-works
 import type { CheckoutStatusPayload } from "@/git/use-status-query";
 import { checkoutStatusQueryKey } from "@/git/query-keys";
 import { confirmDialog } from "@/utils/confirm-dialog";
+import {
+  loadAccountBootstrapSession,
+  type AccountBootstrapSession,
+  type AccountProjectRecord,
+} from "@/account/account-api";
+import {
+  applyAccountProjectDisplay,
+  applyAccountWorkspaceDisplay,
+  doesAccountSessionOwnWorkspace,
+  findAccountProjectForWorkspaceDirectory,
+} from "@/account/account-workspace-display";
 import { useArchiveAgent } from "@/hooks/use-archive-agent";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { createWorkspaceBrowser, useBrowserStore } from "@/stores/browser-store";
@@ -168,7 +182,11 @@ import { isAbsolutePath } from "@/utils/path";
 import { useIsCompactFormFactor, supportsDesktopPaneSplits } from "@/constants/layout";
 import { getIsElectron, isNative, isWeb } from "@/constants/platform";
 import { useContainerWidthBelow } from "@/hooks/use-container-width";
-import { buildHostRootRoute, buildSettingsHostRoute } from "@/utils/host-routes";
+import {
+  buildHostOpenProjectRoute,
+  buildHostRootRoute,
+  buildSettingsHostRoute,
+} from "@/utils/host-routes";
 import { canCreateWorkspaceTerminal } from "@/screens/workspace/terminals/state";
 import { useWorkspaceTerminals } from "@/screens/workspace/terminals/use-workspace-terminals";
 import {
@@ -690,7 +708,7 @@ const MobileWorkspaceTabSwitcher = memo(function MobileWorkspaceTabSwitcher({
         value={activeTabKey}
         onSelect={onSelectSwitcherTab}
         searchable={false}
-        title="Switch tab"
+        title={translateNow("ui.switch.tab.r768qx")}
         searchPlaceholder="Search tabs"
         open={isOpen}
         onOpenChange={setIsOpen}
@@ -916,7 +934,7 @@ function WorkspaceHeaderMenu({
         testID="workspace-header-menu-trigger"
         style={isMobile ? styles.compactHeaderActionButton : styles.headerActionButton}
         accessibilityRole="button"
-        accessibilityLabel="Workspace actions"
+        accessibilityLabel={translateNow("ui.workspace.actions.hgggnm")}
       >
         {renderTriggerIcon}
       </DropdownMenuTrigger>
@@ -926,7 +944,7 @@ function WorkspaceHeaderMenu({
           leading={menuNewAgentIcon}
           onSelect={onCreateDraftTab}
         >
-          New agent
+          {translateNow("ui.new.agent.1xvm2cl")}
         </DropdownMenuItem>
         <DropdownMenuItem
           testID="workspace-header-new-terminal"
@@ -934,7 +952,7 @@ function WorkspaceHeaderMenu({
           disabled={createTerminalDisabled}
           onSelect={onCreateTerminal}
         >
-          New terminal
+          {translateNow("ui.new.terminal.1rzsw7w")}
         </DropdownMenuItem>
         {showCreateBrowserTab ? (
           <DropdownMenuItem
@@ -942,7 +960,7 @@ function WorkspaceHeaderMenu({
             leading={menuNewBrowserIcon}
             onSelect={onCreateBrowser}
           >
-            New browser tab
+            {translateNow("ui.new.browser.tab.a1cxz1")}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
@@ -951,7 +969,7 @@ function WorkspaceHeaderMenu({
           disabled={importAgentDisabled}
           onSelect={onOpenImportSheet}
         >
-          Import session
+          {translateNow("ui.import.session.le0x17")}
         </DropdownMenuItem>
         <DropdownMenuItem
           testID="workspace-header-copy-path"
@@ -959,7 +977,7 @@ function WorkspaceHeaderMenu({
           disabled={!isAbsolutePath(normalizedWorkspaceId)}
           onSelect={onCopyWorkspacePath}
         >
-          Copy workspace path
+          {translateNow("ui.copy.workspace.path.qackhn")}
         </DropdownMenuItem>
         {currentBranchName ? (
           <DropdownMenuItem
@@ -967,7 +985,7 @@ function WorkspaceHeaderMenu({
             leading={menuCopyIcon}
             onSelect={onCopyBranchName}
           >
-            Copy branch name
+            {translateNow("ui.copy.branch.name.iu31vi")}
           </DropdownMenuItem>
         ) : null}
         {showWorkspaceSetup ? (
@@ -978,7 +996,7 @@ function WorkspaceHeaderMenu({
               leading={menuSettingsIcon}
               onSelect={onOpenSetupTab}
             >
-              Show setup
+              {translateNow("ui.show.setup.lr0wje")}
             </DropdownMenuItem>
           </>
         ) : null}
@@ -1161,7 +1179,7 @@ function renderWorkspaceContent(input: RenderWorkspaceContentInput): React.React
     return (
       <View style={styles.emptyState}>
         <Text style={styles.emptyStateText}>
-          Workspace execution directory is missing. Reload workspace data before opening tabs.
+          {translateNow("ui.workspace.execution.directory.is.missing.reload.workspace.yht77")}
         </Text>
       </View>
     );
@@ -1177,7 +1195,7 @@ function renderWorkspaceContent(input: RenderWorkspaceContentInput): React.React
     return (
       <View style={styles.emptyState}>
         <Text style={styles.emptyStateText}>
-          No tabs are available yet. Use New tab to create an agent or terminal.
+          {translateNow("ui.no.tabs.are.available.yet.use.new.1udvb2k")}
         </Text>
       </View>
     );
@@ -1472,7 +1490,7 @@ function useWorkspaceTerminalTabActions({
     toast.error("Workspace path is not available yet");
   }, [toast]);
   const handleTerminalCreateQueued = useCallback(() => {
-    toast.show("Preparing workspace, opening terminal when ready...");
+    toast.show(translateNow("ui.preparing.workspace.opening.terminal.when.ready.qbtjia"));
   }, [toast]);
 
   return {
@@ -1532,6 +1550,7 @@ function WorkspaceScreenContent({
   isRouteFocused,
 }: WorkspaceScreenContentProps) {
   const _insets = useSafeAreaInsets();
+  const router = useRouter();
   const toast = useToast();
   const isMobile = useIsCompactFormFactor();
   const isFocusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
@@ -1543,6 +1562,11 @@ function WorkspaceScreenContent({
     [workspaceId],
   );
   const workspaceDescriptor = useWorkspace(normalizedServerId, normalizedWorkspaceId);
+  const mergeWorkspaces = useSessionStore((state) => state.mergeWorkspaces);
+  const [accountSessionForWorkspace, setAccountSessionForWorkspace] =
+    useState<AccountBootstrapSession | null>(null);
+  const [accountProjectForWorkspace, setAccountProjectForWorkspace] =
+    useState<AccountProjectRecord | null>(null);
   const workspaceScripts = getWorkspaceScripts(workspaceDescriptor);
   const { handleRetryHost, handleManageHost, handleDismissMissingWorkspace } =
     useWorkspaceRouteActions(normalizedServerId);
@@ -1566,6 +1590,62 @@ function WorkspaceScreenContent({
   );
   const { workspaceDirectory, isMissingWorkspaceExecutionAuthority } =
     resolveWorkspaceAuthorityState(workspaceAuthority, workspaceDescriptor);
+
+  useEffect(() => {
+    if (!normalizedServerId || !workspaceDescriptor || !workspaceDirectory) {
+      return;
+    }
+    let disposed = false;
+    void (async () => {
+      const accountSession = await loadAccountBootstrapSession();
+      if (!accountSession) {
+        if (!disposed && normalizedServerId) {
+          router.replace(buildHostOpenProjectRoute(normalizedServerId) as Href);
+        }
+        return;
+      }
+      if (
+        disposed ||
+        !doesAccountSessionOwnWorkspace({
+          session: accountSession,
+          workspaceDirectory,
+        })
+      ) {
+        if (!disposed) {
+          setAccountSessionForWorkspace(null);
+          setAccountProjectForWorkspace(null);
+        }
+        return;
+      }
+      const accountProject = findAccountProjectForWorkspaceDirectory({
+        session: accountSession,
+        workspaceDirectory,
+      });
+      setAccountSessionForWorkspace(accountSession);
+      setAccountProjectForWorkspace(accountProject);
+      const nextWorkspace = accountProject
+        ? applyAccountProjectDisplay({
+            workspace: workspaceDescriptor,
+            session: accountSession,
+            project: accountProject,
+          })
+        : applyAccountWorkspaceDisplay({
+            workspace: workspaceDescriptor,
+            session: accountSession,
+          });
+      if (
+        nextWorkspace.name === workspaceDescriptor.name &&
+        nextWorkspace.projectDisplayName === workspaceDescriptor.projectDisplayName &&
+        nextWorkspace.projectCustomName === workspaceDescriptor.projectCustomName
+      ) {
+        return;
+      }
+      mergeWorkspaces(normalizedServerId, [nextWorkspace]);
+    })();
+    return () => {
+      disposed = true;
+    };
+  }, [mergeWorkspaces, normalizedServerId, router, workspaceDescriptor, workspaceDirectory]);
   const [isImportSheetVisible, setIsImportSheetVisible] = useState(false);
   const canOpenImportSheet = [client, isConnected, workspaceDirectory].every(Boolean);
   const openImportSheet = useCallback(() => {
@@ -2336,10 +2416,10 @@ function WorkspaceScreenContent({
       const { tabId, terminalId } = input;
       await closeTab(tabId, async () => {
         const confirmed = await confirmDialog({
-          title: "Close terminal?",
-          message: "Any running process in this terminal will be stopped immediately.",
-          confirmLabel: "Close",
-          cancelLabel: "Cancel",
+          title: translateNow("ui.close.terminal.umfwmz"),
+          message: translateNow("ui.any.running.process.in.this.terminal.will.be.1mttq09"),
+          confirmLabel: translateNow("ui.close.12tjh4"),
+          cancelLabel: translateNow("ui.cancel.x9d2fu"),
           destructive: true,
         });
         if (!confirmed) {
@@ -2383,11 +2463,10 @@ function WorkspaceScreenContent({
 
         if (isRunning && closePolicy.kind === "archive-on-close") {
           const confirmed = await confirmDialog({
-            title: "Archive running agent?",
-            message:
-              "This agent is still running. Archiving it will stop the agent and close the tab.",
-            confirmLabel: "Archive",
-            cancelLabel: "Cancel",
+            title: translateNow("ui.archive.running.agent.1jcvxcp"),
+            message: translateNow("ui.this.agent.is.still.running.archiving.it.will.1nvj0yv"),
+            confirmLabel: translateNow("ui.archive.f5ovxe"),
+            cancelLabel: translateNow("ui.cancel.x9d2fu"),
             destructive: true,
           });
           if (!confirmed) {
@@ -2498,7 +2577,7 @@ function WorkspaceScreenContent({
         return;
       }
 
-      toast.show("Reloading agent…", { durationMs: null });
+      toast.show(translateNow("ui.reloading.agent.x6mszc"), { durationMs: null });
       try {
         await client.refreshAgent(agentId);
         // Send the existing cursor so the server detects the new epoch and
@@ -2514,7 +2593,7 @@ function WorkspaceScreenContent({
             ? { cursor: { epoch: currentCursor.epoch, seq: currentCursor.endSeq } }
             : {}),
         });
-        toast.show("Reloaded agent", { variant: "success" });
+        toast.show(translateNow("ui.reloaded.agent.17nazgd"), { variant: "success" });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to reload agent");
       }
@@ -2575,8 +2654,8 @@ function WorkspaceScreenContent({
       const confirmed = await confirmDialog({
         title,
         message: buildBulkCloseConfirmationMessage(groups),
-        confirmLabel: "Close",
-        cancelLabel: "Cancel",
+        confirmLabel: translateNow("ui.close.12tjh4"),
+        cancelLabel: translateNow("ui.cancel.x9d2fu"),
         destructive: true,
       });
       if (!confirmed) {
@@ -2613,7 +2692,7 @@ function WorkspaceScreenContent({
       }
       await handleBulkCloseTabs({
         tabsToClose: paneTabs.slice(0, index),
-        title: "Close tabs to the left?",
+        title: translateNow("ui.close.tabs.to.the.left.bxoa5a"),
         logLabel: "to the left",
       });
     },
@@ -2635,7 +2714,7 @@ function WorkspaceScreenContent({
       }
       await handleBulkCloseTabs({
         tabsToClose: paneTabs.slice(index + 1),
-        title: "Close tabs to the right?",
+        title: translateNow("ui.close.tabs.to.the.right.hqtst9"),
         logLabel: "to the right",
       });
     },
@@ -2654,7 +2733,7 @@ function WorkspaceScreenContent({
       const tabsToClose = paneTabs.filter((tab) => tab.tabId !== tabId);
       await handleBulkCloseTabs({
         tabsToClose,
-        title: "Close other tabs?",
+        title: translateNow("ui.close.other.tabs.1sao89"),
         logLabel: "from close other tabs",
       });
     },
@@ -3044,7 +3123,7 @@ function WorkspaceScreenContent({
   const renderSplitPaneEmptyState = useCallback(function renderSplitPaneEmptyState() {
     return (
       <View style={styles.emptyState}>
-        <Text style={styles.emptyStateText}>No tabs in this pane.</Text>
+        <Text style={styles.emptyStateText}>{translateNow("ui.no.tabs.in.this.pane.1nyyu58")}</Text>
       </View>
     );
   }, []);
@@ -3131,7 +3210,9 @@ function WorkspaceScreenContent({
                 offset={8}
               >
                 <View style={styles.explorerTooltipRow}>
-                  <Text style={styles.explorerTooltipText}>Toggle explorer</Text>
+                  <Text style={styles.explorerTooltipText}>
+                    {translateNow("ui.toggle.explorer.1hnr33f")}
+                  </Text>
                   <Shortcut keys={EXPLORER_TOGGLE_KEYS} style={styles.explorerTooltipShortcut} />
                 </View>
               </TooltipContent>
@@ -3142,7 +3223,7 @@ function WorkspaceScreenContent({
           <HeaderToggleButton
             testID="workspace-explorer-toggle"
             onPress={handleToggleExplorer}
-            tooltipLabel="Toggle explorer"
+            tooltipLabel={translateNow("ui.toggle.explorer.1hnr33f")}
             tooltipKeys={EXPLORER_TOGGLE_KEYS}
             tooltipSide="left"
             style={styles.compactHeaderActionButton}
@@ -3162,7 +3243,7 @@ function WorkspaceScreenContent({
           <HeaderToggleButton
             testID="workspace-explorer-toggle"
             onPress={handleToggleExplorer}
-            tooltipLabel="Toggle explorer"
+            tooltipLabel={translateNow("ui.toggle.explorer.1hnr33f")}
             tooltipKeys={EXPLORER_TOGGLE_KEYS}
             tooltipSide="left"
             style={styles.headerActionButton}
@@ -3350,6 +3431,13 @@ function WorkspaceScreenContent({
         />
       )}
 
+      {accountSessionForWorkspace ? (
+        <AccountWorkspaceStatusBar
+          session={accountSessionForWorkspace}
+          project={accountProjectForWorkspace}
+        />
+      ) : null}
+
       {isMobile ? (
         <MobileWorkspaceTabSwitcher
           tabs={tabs}
@@ -3458,6 +3546,34 @@ function WorkspaceScreenContent({
         </RenderProfile>
       </WorkspaceFocusProvider>
     )
+  );
+}
+
+function AccountWorkspaceStatusBar({
+  session,
+  project,
+}: {
+  session: AccountBootstrapSession;
+  project: AccountProjectRecord | null;
+}) {
+  const { t } = useI18n();
+  const executionTarget = project?.displayName ?? session.workspace.displayName;
+  return (
+    <View style={styles.accountStatusBar}>
+      <View style={styles.accountStatusLeft}>
+        <Bot size={14} color={styles.accountStatusIcon.color} />
+        <View style={styles.accountStatusTextGroup}>
+          <Text style={styles.accountStatusTitle}>{t("workspace.account.statusTitle")}</Text>
+          <Text style={styles.accountStatusDescription} numberOfLines={1}>
+            {t("workspace.account.executionDescription", {
+              email: session.user.email,
+              target: executionTarget,
+            })}
+          </Text>
+        </View>
+      </View>
+      <StatusBadge label={t("workspace.account.assigned")} variant="success" />
+    </View>
   );
 }
 
@@ -3697,6 +3813,45 @@ const styles = StyleSheet.create((theme) => ({
   centerContent: {
     flex: 1,
     minHeight: 0,
+  },
+  accountStatusBar: {
+    minHeight: 42,
+    borderBottomWidth: theme.borderWidth[1],
+    borderBottomColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+    paddingHorizontal: theme.spacing[4],
+    paddingVertical: theme.spacing[2],
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing[3],
+  },
+  accountStatusLeft: {
+    minWidth: 0,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  accountStatusIcon: {
+    color: theme.colors.foregroundMuted,
+    flexShrink: 0,
+  },
+  accountStatusTextGroup: {
+    minWidth: 0,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  accountStatusTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.xs,
+  },
+  accountStatusDescription: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    flexShrink: 1,
   },
   tab: {
     paddingHorizontal: theme.spacing[3],

@@ -10,6 +10,7 @@ import { useProjects, type ProjectHostError } from "@/hooks/use-projects";
 import { settingsStyles } from "@/styles/settings";
 import { buildProjectSettingsRoute } from "@/utils/host-routes";
 import type { ProjectHostEntry, ProjectSummary } from "@/utils/projects";
+import { translateNow } from "@/i18n/i18n";
 
 interface ProjectsScreenProps {
   view: { kind: "projects" } | { kind: "project"; projectKey: string };
@@ -30,7 +31,7 @@ export default function ProjectsScreen({ view }: ProjectsScreenProps) {
   if (projects.length === 0) {
     return (
       <View style={styles.centered} testID="projects-list">
-        <Text style={styles.emptyText}>No projects yet</Text>
+        <Text style={styles.emptyText}>{translateNow("ui.no.projects.yet.osio0x")}</Text>
       </View>
     );
   }

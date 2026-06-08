@@ -24,6 +24,7 @@ import {
 } from "@/desktop/host";
 import { isDev } from "@/constants/platform";
 import { useBrowserStore, normalizeWorkspaceBrowserUrl } from "@/stores/browser-store";
+import { translateNow } from "@/i18n/i18n";
 
 type ElectronWebview = HTMLElement & {
   canGoBack?: () => boolean;
@@ -929,9 +930,9 @@ export function BrowserPane({
   if (!isElectronRuntime()) {
     return (
       <View style={styles.unavailableState}>
-        <Text style={titleStyle}>Browser is desktop-only</Text>
+        <Text style={titleStyle}>{translateNow("ui.browser.is.desktop.only.159qhnf")}</Text>
         <Text style={subtitleStyle}>
-          Open this workspace in Electron to use the built-in browser.
+          {translateNow("ui.open.this.workspace.in.electron.to.use.1vnii67")}
         </Text>
       </View>
     );
@@ -943,7 +944,7 @@ export function BrowserPane({
         <View style={styles.chromeLeft}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={translateNow("ui.back.187if")}
             disabled={!browser?.canGoBack}
             onPress={handleBack}
             style={backIconButtonStyle}
@@ -952,7 +953,7 @@ export function BrowserPane({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Forward"
+            accessibilityLabel={translateNow("ui.forward.gbxpk5")}
             disabled={!browser?.canGoForward}
             onPress={handleForward}
             style={forwardIconButtonStyle}
@@ -970,13 +971,13 @@ export function BrowserPane({
         </View>
         <View style={styles.urlBarWrap}>
           <TextInput
-            accessibilityLabel="Browser URL"
+            accessibilityLabel={translateNow("ui.browser.url.eqls8n")}
             autoCapitalize="none"
             autoCorrect={false}
             onChangeText={setDraftUrl}
             onFocus={handleUrlBarFocus}
             onSubmitEditing={handleNavigateDraftUrl}
-            placeholder="Enter URL"
+            placeholder={translateNow("ui.enter.url.ixbz6v")}
             placeholderTextColor={theme.colors.foregroundMuted}
             ref={urlInputRef}
             style={urlInputStyle}
@@ -988,7 +989,7 @@ export function BrowserPane({
             <>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Open browser dev tools"
+                accessibilityLabel={translateNow("ui.open.browser.dev.tools.cn1zvm")}
                 onPress={handleOpenDevTools}
                 style={baseIconButtonStyle}
               >

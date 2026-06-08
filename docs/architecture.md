@@ -39,6 +39,15 @@ Your code never leaves your machine. Paseo is local-first.
 - **Desktop app:** Electron wrapper around the web app that bundles and auto-manages its own daemon.
 - **Relay:** Optional encrypted bridge for remote access without opening ports directly.
 
+## Account Workspaces
+
+The daemon includes a lightweight account/workspace control plane for local
+multi-user flows. Registration creates a user record and an assigned workspace
+directory under `$PASEO_HOME/accounts/workspaces/{workspaceId}`. Creating a
+project from the app creates a subdirectory inside that workspace, then opens it
+through the normal project/workspace and agent lifecycle. See
+[multi-tenant](multi-tenant/README.md) for the current model.
+
 ## Packages
 
 ### `packages/server` — The daemon

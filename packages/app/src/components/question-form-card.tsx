@@ -23,6 +23,7 @@ import {
   type QuestionFormQuestion,
   type QuestionOption,
 } from "./question-form-card-core";
+import { translateNow } from "@/i18n/i18n";
 
 interface QuestionFormCardProps {
   permission: PendingPermission;
@@ -244,7 +245,7 @@ export function QuestionFormCard({ permission, onRespond, isResponding }: Questi
     }
     onRespond({
       behavior: "deny",
-      message: "Dismissed by user",
+      message: translateNow("ui.dismissed.by.user.1yntj6l"),
     });
   }, [questions, onRespond, otherTexts, permission.request.input, selections]);
 
@@ -377,7 +378,7 @@ export function QuestionFormCard({ permission, onRespond, isResponding }: Questi
           ) : (
             <View style={styles.actionContent}>
               <Check size={14} color={submitActionTextColor} />
-              <Text style={submitActionTextStyle}>Submit</Text>
+              <Text style={submitActionTextStyle}>{translateNow("ui.submit.154vgag")}</Text>
             </View>
           )}
         </Pressable>

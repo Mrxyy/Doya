@@ -26,6 +26,7 @@ import {
   resolveProvidersToFetch,
   sumFilteredAlreadyImportedCount,
 } from "@/components/import-session-sheet-view-model";
+import { translateNow } from "@/i18n/i18n";
 
 const IMPORT_SHEET_SNAP_POINTS = ["70%", "92%"];
 const DISABLED_ACCESSIBILITY_STATE = { disabled: true };
@@ -104,32 +105,49 @@ function SheetStatusMessages({
 }: SheetStatusMessagesProps) {
   const { theme } = useUnistyles();
   if (!isClientReady) {
-    return <Text style={styles.statusText}>Connect to a host to import sessions</Text>;
+    return (
+      <Text style={styles.statusText}>
+        {translateNow("ui.connect.to.a.host.to.import.sessions.2lfth9")}
+      </Text>
+    );
   }
   if (isSnapshotUnsupported) {
-    return <Text style={styles.statusText}>Update the host to import sessions.</Text>;
+    return (
+      <Text style={styles.statusText}>
+        {translateNow("ui.update.the.host.to.import.sessions.1uwgxih")}
+      </Text>
+    );
   }
   return (
     <>
       {hasNoImportableProviders ? (
-        <Text style={styles.statusText}>No importable providers are enabled.</Text>
+        <Text style={styles.statusText}>
+          {translateNow("ui.no.importable.providers.are.enabled.1g2v5nd")}
+        </Text>
       ) : null}
       {isLoadingSessions ? (
         <View style={styles.statusRow}>
           <LoadingSpinner color={theme.colors.foregroundMuted} />
-          <Text style={styles.statusText}>Loading recent sessions...</Text>
+          <Text style={styles.statusText}>
+            {translateNow("ui.loading.recent.sessions.1votl2o")}
+          </Text>
         </View>
       ) : null}
       {allQueriesErrored ? (
-        <Text style={styles.statusText}>Could not load recent sessions.</Text>
+        <Text style={styles.statusText}>
+          {translateNow("ui.could.not.load.recent.sessions.1e5powq")}
+        </Text>
       ) : null}
       {!allQueriesErrored && erroredProviderLabels.length > 0 ? (
         <Text style={styles.statusText}>
-          Could not load sessions for {erroredProviderLabels.join(", ")}.
+          {translateNow("ui.could.not.load.sessions.for.1ef3p84")}
+          {erroredProviderLabels.join(", ")}.
         </Text>
       ) : null}
       {importErrored ? (
-        <Text style={styles.statusText}>Could not import selected session.</Text>
+        <Text style={styles.statusText}>
+          {translateNow("ui.could.not.import.selected.session.1tln3v2")}
+        </Text>
       ) : null}
     </>
   );
@@ -148,7 +166,7 @@ function RefreshAction({ isRefreshing, onPress }: { isRefreshing: boolean; onPre
     <Pressable
       onPress={onPress}
       disabled={isRefreshing}
-      accessibilityLabel="Refresh sessions"
+      accessibilityLabel={translateNow("ui.refresh.sessions.1uayvz6")}
       accessibilityRole="button"
       testID="import-session-refresh"
       style={pressableStyle}
@@ -181,7 +199,11 @@ function buildProviderFilterOptions(
   providerLabelById: ReadonlyMap<string, string>,
 ): SegmentedControlOption<string>[] {
   const options: SegmentedControlOption<string>[] = [
-    { value: ALL_FILTER_VALUE, label: "All", testID: "import-session-filter-all" },
+    {
+      value: ALL_FILTER_VALUE,
+      label: translateNow("ui.all.1ev5"),
+      testID: "import-session-filter-all",
+    },
   ];
   for (const provider of providers) {
     const ProviderIcon = getProviderIcon(provider);
@@ -384,7 +406,7 @@ export function ImportSessionSheet({
 
   const header = useMemo<SheetHeader>(
     () => ({
-      title: "Import session",
+      title: translateNow("ui.import.session.le0x17"),
       actions: <RefreshAction isRefreshing={isRefreshing} onPress={handleRefresh} />,
     }),
     [isRefreshing, handleRefresh],
