@@ -1,14 +1,16 @@
 import { Buffer } from "buffer";
+import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
 import {
   ArrowUp,
+  Copy,
   Download,
   ImagePlus,
   Mic,
-  MoreHorizontal,
   Paperclip,
   Redo2,
-  Share2,
   Sparkles,
   Undo2,
   WandSparkles,
@@ -39,6 +41,7 @@ import {
 import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
 import { useAccountWorkspaceMetadata } from "@/account/use-account-workspace-metadata";
 import {
+  encodeAttachmentsForSend,
   persistAttachmentFromBlob,
   persistAttachmentFromDataUrl,
   persistAttachmentFromFileUri,
@@ -57,6 +60,7 @@ import { useToast } from "@/contexts/toast-context";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { takeAiCreationEditSource } from "@/stores/ai-creation-edit-source-store";
+import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
 import { useLastWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import {
   normalizeWorkspaceDescriptor,
@@ -227,6 +231,8 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   const [redoSelectionStrokes, setRedoSelectionStrokes] = useState<SelectionStroke[]>([]);
   const [selectionBrushSize, setSelectionBrushSize] = useState(SELECTION_BRUSH_SIZE_DEFAULT);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCopyingImage, setIsCopyingImage] = useState(false);
+  const [isDownloadingImage, setIsDownloadingImage] = useState(false);
   const editImage = mode === "edit" ? (references[0] ?? null) : null;
   const editTargetAgentId =
     mode === "edit" && initialEditState.sourceServerId === serverId
@@ -354,6 +360,74 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     }
     router.back();
   }, [editTargetAgentId, router, serverId]);
+  const handleCopyEditImage = useCallback(async () => {
+    if (!editImage) {
+      toast.error("No image to copy.");
+      return;
+    }
+    setIsCopyingImage(true);
+    try {
+      const encoded = await encodeAttachmentsForSend([editImage]);
+      const imageData = encoded?.[0]?.data;
+      if (!imageData) {
+        throw new Error("Image data is not available.");
+      }
+      await Clipboard.setImageAsync(imageData);
+      toast.show("图片已复制", { variant: "success" });
+    } catch (error) {
+      console.error("[AiCreation] Failed to copy image", error);
+      toast.error(error instanceof Error ? error.message : "Failed to copy image.");
+    } finally {
+      setIsCopyingImage(false);
+    }
+  }, [editImage, toast]);
+  const handleDownloadEditImage = useCallback(async () => {
+    if (!editImage) {
+      toast.error("No image to download.");
+      return;
+    }
+    setIsDownloadingImage(true);
+    try {
+      const encoded = await encodeAttachmentsForSend([editImage]);
+      const imageData = encoded?.[0]?.data;
+      if (!imageData) {
+        throw new Error("Image data is not available.");
+      }
+      const fileName = resolveDownloadFileName(editImage);
+      if (isWeb) {
+        triggerImageDownload({
+          data: imageData,
+          mimeType: editImage.mimeType,
+          fileName,
+        });
+      } else {
+        if (!FileSystem.cacheDirectory) {
+          throw new Error("Download cache directory is unavailable.");
+        }
+        const targetUri = `${FileSystem.cacheDirectory}${fileName}`;
+        await FileSystem.writeAsStringAsync(targetUri, imageData, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        if (!(await Sharing.isAvailableAsync())) {
+          throw new Error("Sharing is not available on this device.");
+        }
+        const shareOptions = {
+          mimeType: editImage.mimeType,
+          dialogTitle: "保存图片",
+          ...(editImage.mimeType === "image/png" ? { UTI: "public.png" } : {}),
+        };
+        await Sharing.shareAsync(targetUri, {
+          ...shareOptions,
+        });
+      }
+      toast.show("图片已下载", { variant: "success" });
+    } catch (error) {
+      console.error("[AiCreation] Failed to download image", error);
+      toast.error(error instanceof Error ? error.message : "Failed to download image.");
+    } finally {
+      setIsDownloadingImage(false);
+    }
+  }, [editImage, toast]);
 
   const canSubmit =
     prompt.trim().length > 0 &&
@@ -395,15 +469,39 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
       });
 
       if (editTargetAgentId) {
+        const userMessageText = buildAiCreationUserMessageText({ mode, prompt: trimmedPrompt });
+        const hasSelectionReference = Boolean(selectionPreviewUri && submittedEditImage);
+        const optimisticImages = buildEditOptimisticImages({
+          image: submittedEditImage,
+          extraImages: conversationEditImages,
+          excludeSourceImage: hasSelectionReference,
+        });
+        await saveAiCreationMessageDisplayMetadata({
+          serverId,
+          agentId: editTargetAgentId,
+          messageId: clientMessageId,
+          text: userMessageText,
+          metadata: {
+            images: optimisticImages,
+            ...(selectionPreviewUri && submittedEditImage
+              ? { selectionPreviewUri, selectionImage: submittedEditImage }
+              : {}),
+          },
+        }).catch((error) => {
+          console.warn("[AiCreation] Failed to persist message display metadata", error);
+        });
         appendOptimisticUserMessageToAgentStream(
           serverId,
           editTargetAgentId,
           buildOptimisticUserMessage({
             id: clientMessageId,
-            text: buildAiCreationUserMessageText({ mode, prompt: trimmedPrompt }),
+            text: userMessageText,
             timestamp: new Date(),
-            images: conversationEditImages,
+            images: optimisticImages,
             selectionPreviewUri,
+            ...(selectionPreviewUri && submittedEditImage
+              ? { selectionImage: submittedEditImage }
+              : {}),
           }),
           { placement: "active-head" },
         );
@@ -448,17 +546,43 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         ...(images && images.length > 0 ? { images } : {}),
         labels: { surface: "ai_creation", intent: mode === "edit" ? "image_edit" : "imagegen" },
       });
+      const hasSelectionReference =
+        mode === "edit" && Boolean(selectionPreviewUri && submittedEditImage);
       const optimisticImages =
-        mode === "edit" ? buildEditOptimisticImages(submittedEditImage, []) : submittedReferences;
+        mode === "edit"
+          ? buildEditOptimisticImages({
+              image: submittedEditImage,
+              extraImages: [],
+              excludeSourceImage: hasSelectionReference,
+            })
+          : submittedReferences;
+      const userMessageText = buildAiCreationUserMessageText({ mode, prompt: trimmedPrompt });
+      await saveAiCreationMessageDisplayMetadata({
+        serverId,
+        agentId: result.id,
+        messageId: clientMessageId,
+        text: userMessageText,
+        metadata: {
+          images: optimisticImages,
+          ...(mode === "edit" && selectionPreviewUri && submittedEditImage
+            ? { selectionPreviewUri, selectionImage: submittedEditImage }
+            : {}),
+        },
+      }).catch((error) => {
+        console.warn("[AiCreation] Failed to persist message display metadata", error);
+      });
       appendOptimisticUserMessageToAgentStream(
         serverId,
         result.id,
         buildOptimisticUserMessage({
           id: clientMessageId,
-          text: buildAiCreationUserMessageText({ mode, prompt: trimmedPrompt }),
+          text: userMessageText,
           timestamp: new Date(),
           images: optimisticImages,
           selectionPreviewUri: mode === "edit" ? selectionPreviewUri : undefined,
+          ...(mode === "edit" && selectionPreviewUri && submittedEditImage
+            ? { selectionImage: submittedEditImage }
+            : {}),
         }),
         { placement: "tail" },
       );
@@ -554,22 +678,23 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               onChange={setRatio}
             />
             <View style={styles.conversationEditDivider} />
-            <Button variant="default" size="sm" leftIcon={Share2}>
-              Share
+            <Button
+              variant="default"
+              size="sm"
+              leftIcon={Copy}
+              onPress={handleCopyEditImage}
+              disabled={!editImage || isCopyingImage}
+            >
+              {isCopyingImage ? "复制中" : "复制图片"}
             </Button>
             <Pressable
               style={styles.conversationEditIconButton}
               accessibilityRole="button"
               accessibilityLabel="Download image"
+              onPress={handleDownloadEditImage}
+              disabled={!editImage || isDownloadingImage}
             >
               <Download size={theme.iconSize.md} color={theme.colors.foreground} />
-            </Pressable>
-            <Pressable
-              style={styles.conversationEditIconButton}
-              accessibilityRole="button"
-              accessibilityLabel="More image actions"
-            >
-              <MoreHorizontal size={theme.iconSize.md} color={theme.colors.foreground} />
             </Pressable>
           </View>
         </View>
@@ -1089,6 +1214,25 @@ function getAttachmentExtension(attachment: AttachmentMetadata): string {
   return extension || "png";
 }
 
+function resolveDownloadFileName(attachment: AttachmentMetadata): string {
+  const fallback = `paseo-image.${getAttachmentExtension(attachment)}`;
+  const fileName = attachment.fileName?.trim() || fallback;
+  return fileName.replace(/[\\/:*?"<>|]+/g, "-");
+}
+
+function triggerImageDownload(input: { data: string; mimeType: string; fileName: string }): void {
+  if (!isWeb || typeof document === "undefined") {
+    throw new Error("Browser download is unavailable.");
+  }
+  const link = document.createElement("a");
+  link.href = `data:${input.mimeType};base64,${input.data}`;
+  link.download = input.fileName;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 function takeInitialAiCreationEditState(): InitialAiCreationEditState {
   const source = takeAiCreationEditSource();
   if (!source) {
@@ -1261,11 +1405,14 @@ function buildAiCreationUserMessageText(input: { mode: CreationMode; prompt: str
   return input.mode === "edit" ? `编辑图片：${input.prompt}` : input.prompt;
 }
 
-function buildEditOptimisticImages(
-  image: AttachmentMetadata | null,
-  extraImages: AttachmentMetadata[],
-): AttachmentMetadata[] {
-  return image ? [image, ...extraImages] : extraImages;
+function buildEditOptimisticImages(input: {
+  image: AttachmentMetadata | null;
+  extraImages: AttachmentMetadata[];
+  excludeSourceImage?: boolean;
+}): AttachmentMetadata[] {
+  return input.image && !input.excludeSourceImage
+    ? [input.image, ...input.extraImages]
+    : input.extraImages;
 }
 
 function SelectionBrushToolbar({

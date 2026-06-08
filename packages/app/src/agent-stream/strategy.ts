@@ -260,6 +260,15 @@ export function getStreamNeighborItem(params: {
   return params.strategy.getNeighborItem(params.items, params.index, params.relation);
 }
 
+export function getStreamItemRenderKey(item: StreamItem): string {
+  if (item.kind !== "user_message") {
+    return item.id;
+  }
+  const selectionImageId = item.selectionImage?.id ?? "";
+  const imageIds = item.images?.map((image) => image.id).join(",") ?? "";
+  return `${item.id}:selection=${selectionImageId}:images=${imageIds}`;
+}
+
 export function collectAssistantTurnContentForStreamRenderStrategy(params: {
   strategy: StreamStrategy;
   items: StreamItem[];

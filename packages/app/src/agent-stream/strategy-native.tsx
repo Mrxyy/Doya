@@ -23,6 +23,7 @@ import { useBottomAnchorController } from "./bottom-anchor-controller";
 import type { StreamRenderInput, StreamStrategy, StreamViewportHandle } from "./strategy";
 import {
   createStreamStrategy,
+  getStreamItemRenderKey,
   isNearBottomForStreamRenderStrategy,
   resolveBottomAnchorTransportBehavior,
 } from "./strategy";
@@ -33,8 +34,8 @@ const DEFAULT_MAINTAIN_VISIBLE_CONTENT_POSITION = Object.freeze({
 });
 const HISTORY_START_THRESHOLD_PX = 96;
 
-function keyExtractor(item: { id: string }): string {
-  return item.id;
+function keyExtractor(item: StreamItem): string {
+  return getStreamItemRenderKey(item);
 }
 
 function NativeStreamViewport(props: StreamRenderInput & { strategy: StreamStrategy }) {
@@ -314,7 +315,9 @@ function NativeStreamViewport(props: StreamRenderInput & { strategy: StreamStrat
 
   const liveHeaderContent = useMemo(() => {
     const liveHeadRows = segments.liveHead.map((item, index) => (
-      <Fragment key={item.id}>{renderLiveHeadRow(item, index, segments.liveHead)}</Fragment>
+      <Fragment key={getStreamItemRenderKey(item)}>
+        {renderLiveHeadRow(item, index, segments.liveHead)}
+      </Fragment>
     ));
     const liveAuxiliary = renderLiveAuxiliary();
     if (

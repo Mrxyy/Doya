@@ -12,7 +12,7 @@ import { ActivityIndicator } from "react-native";
 import { measureElement as measureVirtualElement, useVirtualizer } from "@tanstack/react-virtual";
 import { estimateStreamItemHeight } from "./web-virtualization";
 import type { StreamRenderInput, StreamStrategy, StreamViewportHandle } from "./strategy";
-import { createStreamStrategy } from "./strategy";
+import { createStreamStrategy, getStreamItemRenderKey } from "./strategy";
 
 interface CreateWebStreamStrategyInput {
   isMobileBreakpoint: boolean;
@@ -151,7 +151,10 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
   const rowVirtualizer = useVirtualizer({
     count: segments.historyVirtualized.length,
     getScrollElement: () => scrollContainerRef.current,
-    getItemKey: (index: number) => segments.historyVirtualized[index]?.id ?? index,
+    getItemKey: (index: number) => {
+      const item = segments.historyVirtualized[index];
+      return item ? getStreamItemRenderKey(item) : index;
+    },
     estimateSize: (index: number) => {
       const row = segments.historyVirtualized[index];
       return row ? estimateStreamItemHeight(row) : 120;
@@ -520,14 +523,16 @@ function WebStreamViewport(props: StreamRenderInput & { isMobileBreakpoint: bool
   );
   const mountedHistoryRows = useMemo(() => {
     return segments.historyMounted.map((item, index) => (
-      <Fragment key={item.id}>
+      <Fragment key={getStreamItemRenderKey(item)}>
         {renderHistoryMountedRow(item, index, segments.historyMounted)}
       </Fragment>
     ));
   }, [renderHistoryMountedRow, segments.historyMounted]);
   const liveHeadRows = useMemo(() => {
     return segments.liveHead.map((item, index) => (
-      <Fragment key={item.id}>{renderLiveHeadRow(item, index, segments.liveHead)}</Fragment>
+      <Fragment key={getStreamItemRenderKey(item)}>
+        {renderLiveHeadRow(item, index, segments.liveHead)}
+      </Fragment>
     ));
   }, [renderLiveHeadRow, segments.liveHead]);
   const liveAuxiliary = useMemo(() => {

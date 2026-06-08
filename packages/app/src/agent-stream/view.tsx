@@ -77,14 +77,23 @@ import {
 import { resolveWorkspaceIdByExecutionDirectory } from "@/utils/workspace-execution";
 import { navigateToPreparedWorkspaceTab } from "@/utils/workspace-navigation";
 import { useStableEvent } from "@/hooks/use-stable-event";
-import { isDev, isWeb } from "@/constants/platform";
+import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
 import { translateNow } from "@/i18n/i18n";
-import { extractAssistantImageSources } from "@/utils/assistant-image-metadata";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { setAiCreationEditSource } from "@/stores/ai-creation-edit-source-store";
 import { buildHostAiCreationRoute } from "@/utils/host-routes";
+import {
+  AI_CREATION_PLACEHOLDER_ID,
+  applyAiCreationMessageDisplayMetadata,
+  isAiCreationLabels,
+  normalizeAiCreationStream,
+} from "./ai-creation";
+import {
+  loadAiCreationServerMessageDisplayMetadata,
+  type AiCreationMessageDisplayEntry,
+} from "@/stores/ai-creation-message-display-store";
 
 function renderLiveAuxiliaryNode(input: {
   pendingPermissions: ReactNode;
@@ -237,113 +246,7 @@ const AGENT_CAPABILITY_FLAG_KEYS: (keyof AgentCapabilityFlags)[] = [
 ];
 
 const EMPTY_STREAM_HEAD: StreamItem[] = [];
-const AI_CREATION_PLACEHOLDER_ID = "ai-creation-placeholder";
 const AI_CREATION_PLACEHOLDER_DOT_KEYS = Array.from({ length: 220 }, (_, index) => `dot-${index}`);
-const AI_CREATION_IMAGE_PATH_PATTERN =
-  /(?:^|[\s"'`(（：:])((?:(?:[A-Za-z]:[\\/]|\/|\.{1,2}[\\/])?[\w.@~+-]+[\\/])+[^"'`\s)）]+?\.(?:png|jpe?g|webp|gif|avif|bmp|tiff?))(?:$|[\s"'`)）.,;，。])/gi;
-
-function isAiCreationLabels(labels: Record<string, string> | undefined): boolean {
-  return (
-    labels?.surface === "ai_creation" ||
-    labels?.intent === "imagegen" ||
-    labels?.intent === "image_edit"
-  );
-}
-
-function isAiCreationProcessMessage(item: StreamItem): boolean {
-  return item.kind === "thought" || item.kind === "tool_call" || item.kind === "activity_log";
-}
-
-function stripAiCreationImagePathToken(source: string): string | null {
-  const trimmed = source
-    .trim()
-    .replace(/^`+|`+$/g, "")
-    .replace(/[，。.,;；:：]+$/g, "");
-  return trimmed || null;
-}
-
-function extractAiCreationImagePathSources(text: string): string[] {
-  const sources: string[] = [];
-  for (const match of text.matchAll(AI_CREATION_IMAGE_PATH_PATTERN)) {
-    const source = stripAiCreationImagePathToken(match[1] ?? "");
-    if (source) {
-      sources.push(source);
-    }
-  }
-  return sources;
-}
-
-function formatAiCreationImageMarkdownSource(source: string): string {
-  if (/[\s()]/.test(source)) {
-    return `<${source.replace(/>/g, "%3E")}>`;
-  }
-  return source;
-}
-
-function extractAiCreationResultSources(text: string): string[] {
-  return [...extractAssistantImageSources(text), ...extractAiCreationImagePathSources(text)];
-}
-
-function extractAiCreationFinalImageMarkdown(text: string): string | null {
-  const sources = [...new Set(extractAiCreationResultSources(text))];
-  if (sources.length === 0) {
-    return null;
-  }
-  const finalSource = sources[sources.length - 1];
-  return `![](${formatAiCreationImageMarkdownSource(finalSource)})`;
-}
-
-function findLastAiCreationAssistantResultItemId(items: StreamItem[]): string | null {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const item = items[index];
-    if (
-      item?.kind === "assistant_message" &&
-      extractAiCreationResultSources(item.text).length > 0
-    ) {
-      return item.id;
-    }
-  }
-  return null;
-}
-
-function normalizeAiCreationStreamItems(
-  items: StreamItem[],
-  finalResultItemId: string | null,
-): StreamItem[] {
-  const normalized: StreamItem[] = [];
-  for (const item of items) {
-    if (isAiCreationProcessMessage(item)) {
-      continue;
-    }
-    if (item.kind !== "assistant_message") {
-      normalized.push(item);
-      continue;
-    }
-    if (item.id !== finalResultItemId) {
-      continue;
-    }
-    const imageMarkdown = extractAiCreationFinalImageMarkdown(item.text);
-    if (!imageMarkdown) continue;
-    normalized.push({ ...item, text: imageMarkdown });
-  }
-  return normalized;
-}
-
-function hasAssistantImage(items: StreamItem[]): boolean {
-  return items.some(
-    (item) =>
-      item.kind === "assistant_message" && extractAiCreationResultSources(item.text).length > 0,
-  );
-}
-
-function buildAiCreationPlaceholderItem(): StreamItem {
-  return {
-    kind: "assistant_message",
-    id: AI_CREATION_PLACEHOLDER_ID,
-    text: "",
-    timestamp: new Date(0),
-  };
-}
 
 const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamViewProps>(
   function AgentStreamView(
@@ -388,6 +291,9 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const agentLabels = useSessionStore(
       (state) => state.sessions[resolvedServerId]?.agents.get(agentId)?.labels,
     );
+    const [aiCreationMessageDisplayMetadata, setAiCreationMessageDisplayMetadata] = useState<
+      AiCreationMessageDisplayEntry[]
+    >([]);
 
     const workspaceRoot = agent.cwd?.trim() || "";
     const workspaceId = resolveWorkspaceIdByExecutionDirectory({
@@ -493,45 +399,51 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
     );
 
-    const shouldNormalizeAiCreationStream = !isDev && isAiCreationLabels(agentLabels);
-    const aiCreationFinalResultItemId = useMemo(() => {
-      if (!shouldNormalizeAiCreationStream) {
-        return null;
-      }
-      return findLastAiCreationAssistantResultItemId([
-        ...streamItems,
-        ...(streamHead ?? EMPTY_STREAM_HEAD),
-      ]);
-    }, [shouldNormalizeAiCreationStream, streamHead, streamItems]);
-    const visibleStreamItems = useMemo(() => {
-      if (!shouldNormalizeAiCreationStream) {
-        return streamItems;
-      }
-      return normalizeAiCreationStreamItems(streamItems, aiCreationFinalResultItemId);
-    }, [aiCreationFinalResultItemId, shouldNormalizeAiCreationStream, streamItems]);
-    const visibleStreamHead = useMemo(() => {
-      if (!shouldNormalizeAiCreationStream) {
-        return streamHead ?? EMPTY_STREAM_HEAD;
-      }
-      const normalizedHead = normalizeAiCreationStreamItems(
-        streamHead ?? EMPTY_STREAM_HEAD,
-        aiCreationFinalResultItemId,
+    const shouldNormalizeAiCreationStream = isAiCreationLabels(agentLabels);
+    useEffect(() => {
+      let canceled = false;
+      void loadAiCreationServerMessageDisplayMetadata({
+        serverId: resolvedServerId,
+        preferredAgentId: agentId,
+      }).then((metadata) => {
+        if (!canceled) {
+          setAiCreationMessageDisplayMetadata(metadata);
+        }
+      });
+      return () => {
+        canceled = true;
+      };
+    }, [agentId, resolvedServerId]);
+
+    const visibleAiCreationStream = useMemo(() => {
+      const tail = applyAiCreationMessageDisplayMetadata(
+        streamItems,
+        aiCreationMessageDisplayMetadata,
       );
-      if (
-        agent.status === "running" &&
-        !hasAssistantImage(visibleStreamItems) &&
-        !hasAssistantImage(normalizedHead)
-      ) {
-        return [...normalizedHead, buildAiCreationPlaceholderItem()];
+      const head = applyAiCreationMessageDisplayMetadata(
+        streamHead ?? EMPTY_STREAM_HEAD,
+        aiCreationMessageDisplayMetadata,
+      );
+      if (!shouldNormalizeAiCreationStream) {
+        if (tail === streamItems && head === (streamHead ?? EMPTY_STREAM_HEAD)) {
+          return null;
+        }
+        return { tail, head };
       }
-      return normalizedHead;
+      return normalizeAiCreationStream({
+        agentStatus: agent.status,
+        tail,
+        head,
+      });
     }, [
       agent.status,
-      aiCreationFinalResultItemId,
+      aiCreationMessageDisplayMetadata,
       shouldNormalizeAiCreationStream,
       streamHead,
-      visibleStreamItems,
+      streamItems,
     ]);
+    const visibleStreamItems = visibleAiCreationStream?.tail ?? streamItems;
+    const visibleStreamHead = visibleAiCreationStream?.head ?? streamHead ?? EMPTY_STREAM_HEAD;
 
     const baseRenderModel = useMemo(() => {
       return buildAgentStreamRenderModel({
@@ -605,6 +517,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             images={item.images}
             attachments={item.attachments}
             selectionPreviewUri={item.selectionPreviewUri}
+            selectionImage={item.selectionImage}
             timestamp={item.timestamp.getTime()}
             capabilities={agent.capabilities}
             client={client}

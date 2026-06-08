@@ -65,6 +65,7 @@ export interface UserMessageItem {
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
   selectionPreviewUri?: string;
+  selectionImage?: UserMessageImageAttachment;
 }
 
 export interface OptimisticUserMessageInput {
@@ -74,6 +75,7 @@ export interface OptimisticUserMessageInput {
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
   selectionPreviewUri?: string;
+  selectionImage?: UserMessageImageAttachment;
 }
 
 export type OptimisticUserMessagePlacement = "tail" | "active-head";
@@ -220,6 +222,9 @@ function buildUserMessageItem(input: {
       ...(input.optimistic.selectionPreviewUri
         ? { selectionPreviewUri: input.optimistic.selectionPreviewUri }
         : {}),
+      ...(input.optimistic.selectionImage
+        ? { selectionImage: input.optimistic.selectionImage }
+        : {}),
     };
   }
 
@@ -298,6 +303,7 @@ export function buildOptimisticUserMessage(input: OptimisticUserMessageInput): U
       ? { attachments: input.attachments }
       : {}),
     ...(input.selectionPreviewUri ? { selectionPreviewUri: input.selectionPreviewUri } : {}),
+    ...(input.selectionImage ? { selectionImage: input.selectionImage } : {}),
   };
 }
 

@@ -124,6 +124,7 @@ interface UserMessageProps {
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
   selectionPreviewUri?: string;
+  selectionImage?: UserMessageImageAttachment;
   timestamp: number;
   capabilities?: AgentCapabilityFlags;
   client?: DaemonClient | null;
@@ -473,16 +474,31 @@ function UserMessageAttachmentThumbnail({ image }: { image: UserMessageImageAtta
   return <Image source={imageSource} style={userMessageStylesheet.imageThumbnail} />;
 }
 
-function UserMessageSelectionReference({ previewUri }: { previewUri: string }) {
-  const imageSource = useMemo(() => ({ uri: previewUri }), [previewUri]);
+function UserMessageSelectionReference({
+  previewUri,
+  image,
+}: {
+  previewUri?: string;
+  image?: UserMessageImageAttachment;
+}) {
+  const imagePreviewUri = useAttachmentPreviewUrl(image);
+  const resolvedPreviewUri = previewUri ?? imagePreviewUri;
+  const imageSource = useMemo(() => ({ uri: resolvedPreviewUri ?? "" }), [resolvedPreviewUri]);
+  if (!resolvedPreviewUri && !image) {
+    return null;
+  }
   return (
     <View style={userMessageStylesheet.selectionReferenceRow}>
       <Text style={userMessageStylesheet.selectionReferenceArrow}>↳</Text>
-      <Image
-        source={imageSource}
-        style={userMessageStylesheet.selectionReferenceThumb}
-        resizeMode="cover"
-      />
+      {resolvedPreviewUri ? (
+        <Image
+          source={imageSource}
+          style={userMessageStylesheet.selectionReferenceThumb}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={userMessageStylesheet.selectionReferenceThumb} />
+      )}
       <Text style={userMessageStylesheet.selectionReferenceText}>Selection</Text>
     </View>
   );
@@ -513,6 +529,7 @@ export const UserMessage = memo(function UserMessage({
   images = [],
   attachments = [],
   selectionPreviewUri,
+  selectionImage,
   timestamp,
   capabilities,
   client,
@@ -586,8 +603,11 @@ export const UserMessage = memo(function UserMessage({
         onPointerLeave={handlePointerLeave}
       >
         <View style={userMessageStylesheet.bubble}>
-          {selectionPreviewUri ? (
-            <UserMessageSelectionReference previewUri={selectionPreviewUri} />
+          {selectionPreviewUri || selectionImage ? (
+            <UserMessageSelectionReference
+              previewUri={selectionPreviewUri}
+              image={selectionImage}
+            />
           ) : null}
           {hasImages ? (
             <View style={imagePreviewContainerStyle}>
