@@ -1,3 +1,5 @@
+import { translateNow } from "@/i18n/i18n";
+
 const IMAGEGEN_PROMPT_PREFIX = "Use the Codex imagegen skill for this request.";
 
 export function extractAiCreationDisplayText(text: string): string | null {
@@ -22,14 +24,21 @@ export function extractAiCreationDisplayText(text: string): string | null {
   if (!prompt) {
     return null;
   }
-  return `${marker === editMarker ? "编辑图片" : "生成图片"}： ${prompt}`;
+  const prefix =
+    marker === editMarker
+      ? translateNow("aiCreation.display.editPrefix")
+      : translateNow("aiCreation.display.createPrefix");
+  return `${prefix}: ${prompt}`;
 }
 
 export function buildAiCreationTitle(input: { mode: "image" | "edit"; prompt: string }): string {
   const prompt = input.prompt.trim();
+  const prefix =
+    input.mode === "edit"
+      ? translateNow("aiCreation.display.editPrefix")
+      : translateNow("aiCreation.display.createPrefix");
   if (!prompt) {
-    return input.mode === "edit" ? "编辑图片" : "生成图片";
+    return prefix;
   }
-  const prefix = input.mode === "edit" ? "编辑图片" : "生成图片";
-  return `${prefix}：${prompt}`.slice(0, 80);
+  return `${prefix}: ${prompt}`.slice(0, 80);
 }

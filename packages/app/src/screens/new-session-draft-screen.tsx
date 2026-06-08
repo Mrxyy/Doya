@@ -19,6 +19,7 @@ import { SidebarMenuToggle } from "@/components/headers/menu-header";
 import { useIsCompactFormFactor, MAX_CONTENT_WIDTH } from "@/constants/layout";
 import { useToast } from "@/contexts/toast-context";
 import { useI18n } from "@/i18n/i18n";
+import type { TranslationKey, TranslationParams } from "@/i18n/translations";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
@@ -80,7 +81,7 @@ export function NewSessionDraftScreen({
       }
       const provider = composerState.selectedProvider;
       if (!provider) {
-        toast.error("Select a model");
+        toast.error(t("openProject.error.selectModel"));
         return;
       }
       const text = payload.text.trim();
@@ -93,6 +94,7 @@ export function NewSessionDraftScreen({
           text,
           attachments: payload.attachments,
           fallback: t("account.project.defaultName"),
+          t,
         });
         const project = await createAccountProject({
           userId: accountSession.user.userId,
@@ -200,6 +202,7 @@ function buildNewSessionTitle(input: {
   text: string;
   attachments: ComposerAttachment[];
   fallback: string;
+  t: (key: TranslationKey, params?: TranslationParams) => string;
 }): string {
   const firstLine = input.text
     .split(/\r?\n/)
@@ -210,20 +213,31 @@ function buildNewSessionTitle(input: {
     return clampSessionTitle(normalizedText);
   }
 
-  const attachmentTitle = buildAttachmentSessionTitle(input.attachments);
+  const attachmentTitle = buildAttachmentSessionTitle(input.attachments, input.t);
   return attachmentTitle ?? input.fallback;
 }
 
-function buildAttachmentSessionTitle(attachments: ComposerAttachment[]): string | null {
+function buildAttachmentSessionTitle(
+  attachments: ComposerAttachment[],
+  t: (key: TranslationKey, params?: TranslationParams) => string,
+): string | null {
   const firstAttachment = attachments[0];
   if (!firstAttachment) {
     return null;
   }
   if (firstAttachment.kind === "image") {
-    return clampSessionTitle(`图片：${firstAttachment.metadata.fileName ?? "图片内容"}`);
+    return clampSessionTitle(
+      t("openProject.attachmentTitle.image", {
+        name: firstAttachment.metadata.fileName ?? t("openProject.attachmentTitle.imageFallback"),
+      }),
+    );
   }
   if (firstAttachment.kind === "file") {
-    return clampSessionTitle(`文件：${firstAttachment.metadata.fileName ?? "文件内容"}`);
+    return clampSessionTitle(
+      t("openProject.attachmentTitle.file", {
+        name: firstAttachment.metadata.fileName ?? t("openProject.attachmentTitle.fileFallback"),
+      }),
+    );
   }
   if (firstAttachment.kind === "github_issue") {
     return clampSessionTitle(`Issue：${firstAttachment.item.title}`);
@@ -232,7 +246,11 @@ function buildAttachmentSessionTitle(attachments: ComposerAttachment[]): string 
     return clampSessionTitle(`PR：${firstAttachment.item.title}`);
   }
   if (firstAttachment.kind === "browser_element") {
-    return clampSessionTitle(`网页内容：${firstAttachment.attachment.text}`);
+    return clampSessionTitle(
+      t("openProject.attachmentTitle.browserElement", {
+        text: firstAttachment.attachment.text,
+      }),
+    );
   }
   return null;
 }

@@ -4,7 +4,11 @@ import type { WorkspaceDescriptor } from "@/stores/session-store";
 
 const ACCOUNT_WORKSPACE_PATH_PATTERN =
   /(?:^|[/\\])accounts[/\\]workspaces[/\\]ws_[^/\\]+(?:[/\\].*)?$/;
-const LEGACY_DEFAULT_ACCOUNT_PROJECT_NAMES = new Set(["New project", "新项目"]);
+const LEGACY_ZH_DEFAULT_ACCOUNT_PROJECT_NAME = "\u65b0\u9879\u76ee";
+const LEGACY_DEFAULT_ACCOUNT_PROJECT_NAMES = new Set([
+  "New project",
+  LEGACY_ZH_DEFAULT_ACCOUNT_PROJECT_NAME,
+]);
 
 export function isAccountWorkspaceDirectory(path: string | null | undefined): boolean {
   return ACCOUNT_WORKSPACE_PATH_PATTERN.test(path?.trim() ?? "");

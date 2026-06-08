@@ -1,10 +1,8 @@
 import type { StreamItem } from "@/types/stream";
-import type {
-  AiCreationMessageDisplayEntry,
-  AiCreationMessageDisplayMetadata,
-} from "@/stores/ai-creation-message-display-store";
+import type { AiCreationMessageDisplayEntry } from "@/stores/ai-creation-message-display-store";
 
 export const AI_CREATION_PLACEHOLDER_ID = "ai-creation-placeholder";
+const LEGACY_ZH_AI_CREATION_EDIT_PREFIX = "\u7f16\u8f91\u56fe\u7247\uff1a";
 
 const AI_CREATION_IMAGE_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:(?:[A-Za-z]:[\\/]|\/|\.{1,2}[\\/])?[\w.@~+-]+[\\/])+[^"'`\s)）]+?\.(?:png|jpe?g|webp|gif|avif|bmp|tiff?))(?:$|[\s"'`)）.,;，。])/gi;
@@ -134,7 +132,10 @@ function normalizeAiCreationDisplayText(text: string | undefined): string {
 }
 
 function isAiCreationEditDisplayText(text: string | undefined): boolean {
-  return normalizeAiCreationDisplayText(text).startsWith("编辑图片：");
+  const normalized = normalizeAiCreationDisplayText(text).toLowerCase();
+  return (
+    normalized.startsWith(LEGACY_ZH_AI_CREATION_EDIT_PREFIX) || normalized.startsWith("editimage:")
+  );
 }
 
 function isAiCreationDisplayTextMatch(

@@ -58,6 +58,8 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { translateNow, useI18n } from "@/i18n/i18n";
+import type { TranslationKey } from "@/i18n/translations";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { takeAiCreationEditSource } from "@/stores/ai-creation-edit-source-store";
 import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
@@ -123,27 +125,27 @@ interface CreateAiCreationWorkspaceInput {
 const FEATURE_CARDS = [
   {
     id: "draw",
-    title: "AI 抠图",
+    titleKey: "aiCreation.feature.cutout",
     image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=320&h=220&fit=crop",
   },
   {
     id: "erase",
-    title: "擦除",
+    titleKey: "aiCreation.feature.erase",
     image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=320&h=220&fit=crop",
   },
   {
     id: "region",
-    title: "区域重绘",
+    titleKey: "aiCreation.feature.region",
     image: "https://images.unsplash.com/photo-1496449903678-68ddcb189a24?w=320&h=220&fit=crop",
   },
   {
     id: "expand",
-    title: "扩图",
+    titleKey: "aiCreation.feature.expand",
     image: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=320&h=220&fit=crop",
   },
   {
     id: "enhance",
-    title: "变清晰",
+    titleKey: "aiCreation.feature.enhance",
     image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=320&h=220&fit=crop",
   },
 ] as const;
@@ -159,23 +161,26 @@ const GALLERY_ITEMS = [
   "https://images.unsplash.com/photo-1481349518771-20055b2a7b24?w=720&h=720&fit=crop",
 ] as const;
 
-const MODE_OPTIONS = [
-  { value: "image" as const, label: "图像" },
-  { value: "edit" as const, label: "编辑" },
-];
-
 const RATIO_OPTIONS: AspectRatio[] = ["1:1", "3:4", "4:3", "16:9", "9:16"];
 const MASK_VIEWBOX_SIZE = 1000;
 const SELECTION_BRUSH_SIZE_MIN = 18;
 const SELECTION_BRUSH_SIZE_MAX = 110;
 const SELECTION_BRUSH_SIZE_DEFAULT = 58;
 
-const STYLE_LABELS: Record<VisualStyle, string> = {
-  auto: "自动",
-  photo: "写实",
-  illustration: "插画",
-  poster: "海报",
-  product: "产品",
+const STYLE_LABEL_KEYS: Record<VisualStyle, TranslationKey> = {
+  auto: "aiCreation.style.auto",
+  photo: "aiCreation.style.photo",
+  illustration: "aiCreation.style.illustration",
+  poster: "aiCreation.style.poster",
+  product: "aiCreation.style.product",
+};
+
+const STYLE_PROMPT_LABELS: Record<VisualStyle, string> = {
+  auto: "auto",
+  photo: "photo-realistic",
+  illustration: "illustration",
+  poster: "poster",
+  product: "product",
 };
 
 const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
@@ -193,6 +198,7 @@ const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
 export function AiCreationScreen({ serverId }: { serverId: string }) {
   const router = useRouter();
   const { theme } = useUnistyles();
+  const { t } = useI18n();
   const toast = useToast();
   const isCompact = useIsCompactFormFactor();
   const client = useHostRuntimeClient(serverId);
@@ -255,6 +261,13 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   const selectedModel = composerState?.selectedModel ?? "";
   const conversationEditTitle = getConversationEditTitle(initialEditState.references[0]);
   const selectionPreviewUri = initialEditState.previewUri ?? undefined;
+  const modeOptions = useMemo(
+    () => [
+      { value: "image" as const, label: t("aiCreation.mode.image") },
+      { value: "edit" as const, label: t("aiCreation.mode.edit") },
+    ],
+    [t],
+  );
 
   const handleSelectModel = useCallback(
     (provider: AgentProvider, modelId: string) => {
@@ -362,7 +375,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   }, [editTargetAgentId, router, serverId]);
   const handleCopyEditImage = useCallback(async () => {
     if (!editImage) {
-      toast.error("No image to copy.");
+      toast.error(t("aiCreation.error.noImageToCopy"));
       return;
     }
     setIsCopyingImage(true);
@@ -370,20 +383,20 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
       const encoded = await encodeAttachmentsForSend([editImage]);
       const imageData = encoded?.[0]?.data;
       if (!imageData) {
-        throw new Error("Image data is not available.");
+        throw new Error(t("aiCreation.error.imageDataUnavailable"));
       }
       await Clipboard.setImageAsync(imageData);
-      toast.show("图片已复制", { variant: "success" });
+      toast.show(t("aiCreation.toast.imageCopied"), { variant: "success" });
     } catch (error) {
       console.error("[AiCreation] Failed to copy image", error);
-      toast.error(error instanceof Error ? error.message : "Failed to copy image.");
+      toast.error(error instanceof Error ? error.message : t("aiCreation.error.copyImage"));
     } finally {
       setIsCopyingImage(false);
     }
-  }, [editImage, toast]);
+  }, [editImage, t, toast]);
   const handleDownloadEditImage = useCallback(async () => {
     if (!editImage) {
-      toast.error("No image to download.");
+      toast.error(t("aiCreation.error.noImageToDownload"));
       return;
     }
     setIsDownloadingImage(true);
@@ -391,7 +404,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
       const encoded = await encodeAttachmentsForSend([editImage]);
       const imageData = encoded?.[0]?.data;
       if (!imageData) {
-        throw new Error("Image data is not available.");
+        throw new Error(t("aiCreation.error.imageDataUnavailable"));
       }
       const fileName = resolveDownloadFileName(editImage);
       if (isWeb) {
@@ -402,32 +415,32 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         });
       } else {
         if (!FileSystem.cacheDirectory) {
-          throw new Error("Download cache directory is unavailable.");
+          throw new Error(t("aiCreation.error.downloadCacheUnavailable"));
         }
         const targetUri = `${FileSystem.cacheDirectory}${fileName}`;
         await FileSystem.writeAsStringAsync(targetUri, imageData, {
           encoding: FileSystem.EncodingType.Base64,
         });
         if (!(await Sharing.isAvailableAsync())) {
-          throw new Error("Sharing is not available on this device.");
+          throw new Error(t("aiCreation.error.sharingUnavailable"));
         }
         const shareOptions = {
           mimeType: editImage.mimeType,
-          dialogTitle: "保存图片",
+          dialogTitle: t("aiCreation.share.saveImage"),
           ...(editImage.mimeType === "image/png" ? { UTI: "public.png" } : {}),
         };
         await Sharing.shareAsync(targetUri, {
           ...shareOptions,
         });
       }
-      toast.show("图片已下载", { variant: "success" });
+      toast.show(t("aiCreation.toast.imageDownloaded"), { variant: "success" });
     } catch (error) {
       console.error("[AiCreation] Failed to download image", error);
-      toast.error(error instanceof Error ? error.message : "Failed to download image.");
+      toast.error(error instanceof Error ? error.message : t("aiCreation.error.downloadImage"));
     } finally {
       setIsDownloadingImage(false);
     }
-  }, [editImage, toast]);
+  }, [editImage, t, toast]);
 
   const canSubmit =
     prompt.trim().length > 0 &&
@@ -440,7 +453,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     if (!client || !composerState) return;
     const provider = composerState.selectedProvider;
     if (!provider && !editTargetAgentId) {
-      toast.error("Select a Codex model first.");
+      toast.error(t("aiCreation.error.selectCodexModel"));
       return;
     }
     const trimmedPrompt = prompt.trim();
@@ -595,7 +608,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
       setSelectionMode(false);
       router.push(buildHostAgentDetailRoute(serverId, result.id));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to start AI creation.");
+      toast.error(error instanceof Error ? error.message : t("aiCreation.error.start"));
     } finally {
       setIsSubmitting(false);
     }
@@ -616,6 +629,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     serverId,
     setHasHydratedWorkspaces,
     style,
+    t,
     toast,
     mode,
     selectionStrokes,
@@ -653,7 +667,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               style={styles.conversationEditIconButton}
               onPress={handleCloseConversationEdit}
               accessibilityRole="button"
-              accessibilityLabel="Close image editor"
+              accessibilityLabel={t("aiCreation.action.closeEditor")}
             >
               <X size={theme.iconSize.md} color={theme.colors.foreground} />
             </Pressable>
@@ -669,10 +683,10 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               onPress={handleToggleSelectionMode}
               disabled={!editImage}
             >
-              Select
+              {t("aiCreation.action.select")}
             </Button>
             <ChoiceStrip
-              label="Aspect ratio"
+              label={t("aiCreation.aspectRatio")}
               value={ratio}
               options={RATIO_OPTIONS}
               onChange={setRatio}
@@ -685,12 +699,14 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               onPress={handleCopyEditImage}
               disabled={!editImage || isCopyingImage}
             >
-              {isCopyingImage ? "复制中" : "复制图片"}
+              {isCopyingImage
+                ? t("aiCreation.action.copyingImage")
+                : t("aiCreation.action.copyImage")}
             </Button>
             <Pressable
               style={styles.conversationEditIconButton}
               accessibilityRole="button"
-              accessibilityLabel="Download image"
+              accessibilityLabel={t("aiCreation.action.downloadImage")}
               onPress={handleDownloadEditImage}
               disabled={!editImage || isDownloadingImage}
             >
@@ -727,7 +743,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               nativeID="ai-creation-prompt"
               value={prompt}
               onChangeText={setPrompt}
-              placeholder="Describe edits"
+              placeholder={t("aiCreation.prompt.editPlaceholder")}
               placeholderTextColor={theme.colors.foregroundMuted}
               multiline
               style={styles.conversationEditPromptInput}
@@ -749,7 +765,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
                 style={styles.conversationEditAddButton}
                 onPress={handlePickConversationEditImage}
                 accessibilityRole="button"
-                accessibilityLabel="Upload image"
+                accessibilityLabel={t("aiCreation.action.uploadImage")}
               >
                 <Text style={styles.conversationEditAddText}>+</Text>
               </Pressable>
@@ -758,7 +774,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               <Pressable
                 style={styles.micButton}
                 accessibilityRole="button"
-                accessibilityLabel="Voice prompt"
+                accessibilityLabel={t("aiCreation.action.voicePrompt")}
               >
                 <Mic size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
               </Pressable>
@@ -781,11 +797,11 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
 
   return (
     <View style={styles.root}>
-      {isCompact ? <MenuHeader title="AI 创作" /> : null}
+      {isCompact ? <MenuHeader title={t("aiCreation.title")} /> : null}
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
-          <Text style={styles.title}>AI 创作</Text>
-          <Text style={styles.subtitle}>让创作随灵感而生</Text>
+          <Text style={styles.title}>{t("aiCreation.title")}</Text>
+          <Text style={styles.subtitle}>{t("aiCreation.subtitle")}</Text>
 
           {mode === "edit" ? (
             <EditCanvas
@@ -803,7 +819,11 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               nativeID="ai-creation-prompt"
               value={prompt}
               onChangeText={setPrompt}
-              placeholder={mode === "edit" ? "Describe edits" : "描述你想要的图片"}
+              placeholder={
+                mode === "edit"
+                  ? t("aiCreation.prompt.editPlaceholder")
+                  : t("aiCreation.prompt.imagePlaceholder")
+              }
               placeholderTextColor={theme.colors.foregroundMuted}
               multiline
               style={styles.promptInput}
@@ -820,7 +840,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               <SegmentedControl
                 value={mode}
                 onValueChange={handleChangeMode}
-                options={MODE_OPTIONS}
+                options={modeOptions}
                 size="sm"
                 testID="ai-creation-mode"
               />
@@ -830,7 +850,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
                 onPress={mode === "edit" ? handlePickEditImage : handlePickReference}
                 leftIcon={mode === "edit" ? ImagePlus : Paperclip}
               >
-                {mode === "edit" ? "原图" : "参考图"}
+                {mode === "edit"
+                  ? t("aiCreation.source.original")
+                  : t("aiCreation.source.reference")}
               </Button>
               {mode === "edit" ? (
                 <Button
@@ -840,26 +862,26 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
                   onPress={handleToggleSelectionMode}
                   disabled={!editImage}
                 >
-                  Select
+                  {t("aiCreation.action.select")}
                 </Button>
               ) : null}
               {mode === "edit" && selectionStrokes.length > 0 ? (
                 <Button variant="ghost" size="sm" onPress={handleClearSelection}>
-                  Clear
+                  {t("aiCreation.action.clear")}
                 </Button>
               ) : null}
               <ChoiceStrip
-                label={mode === "edit" ? "Aspect ratio" : "比例"}
+                label={t("aiCreation.aspectRatio")}
                 value={ratio}
                 options={RATIO_OPTIONS}
                 onChange={setRatio}
               />
               {mode === "image" ? (
                 <ChoiceStrip
-                  label="风格"
-                  value={STYLE_LABELS[style]}
-                  options={Object.keys(STYLE_LABELS) as VisualStyle[]}
-                  getLabel={(value) => STYLE_LABELS[value]}
+                  label={t("aiCreation.style")}
+                  value={t(STYLE_LABEL_KEYS[style])}
+                  options={Object.keys(STYLE_LABEL_KEYS) as VisualStyle[]}
+                  getLabel={(value) => t(STYLE_LABEL_KEYS[value])}
                   onChange={(nextStyle) => setStyle(nextStyle)}
                 />
               ) : null}
@@ -868,7 +890,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               <Pressable
                 style={styles.micButton}
                 accessibilityRole="button"
-                accessibilityLabel="Voice prompt"
+                accessibilityLabel={t("aiCreation.action.voicePrompt")}
               >
                 <Mic size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
               </Pressable>
@@ -884,7 +906,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
             leftIcon={WandSparkles}
             testID="ai-creation-submit"
           >
-            {mode === "edit" ? "开始编辑" : "开始创作"}
+            {mode === "edit"
+              ? t("aiCreation.action.startEdit")
+              : t("aiCreation.action.startCreate")}
           </Button>
         </View>
 
@@ -899,7 +923,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
                 }}
                 accessibilityRole="button"
               >
-                <Text style={styles.featureTitle}>{card.title}</Text>
+                <Text style={styles.featureTitle}>{t(card.titleKey)}</Text>
                 <Image source={{ uri: card.image }} style={styles.featureImage} />
               </Pressable>
             ))}
@@ -939,6 +963,7 @@ function EditCanvas({
   onPickImage: () => void;
   variant?: "default" | "conversation";
 }) {
+  const { t } = useI18n();
   const uri = useAttachmentPreviewUrl(image);
   const [containerLayout, setContainerLayout] = useState<CanvasLayout>({ width: 0, height: 0 });
   const [canvasLayout, setCanvasLayout] = useState<CanvasLayout>({ width: 0, height: 0 });
@@ -1071,7 +1096,7 @@ function EditCanvas({
       ) : (
         <Pressable style={styles.editUploadTarget} onPress={onPickImage} accessibilityRole="button">
           <ImagePlus size={28} color={styles.editUploadIcon.color} />
-          <Text style={styles.editUploadText}>上传一张图片开始编辑</Text>
+          <Text style={styles.editUploadText}>{t("aiCreation.uploadToEdit")}</Text>
         </Pressable>
       )}
     </View>
@@ -1256,16 +1281,16 @@ function takeInitialAiCreationEditState(): InitialAiCreationEditState {
 function getConversationEditTitle(image: AttachmentMetadata | undefined): string {
   const fileName = image?.fileName?.trim();
   if (!fileName) {
-    return "编辑图片";
+    return translateNow("aiCreation.display.editPrefix");
   }
-  return fileName.replace(/\.[A-Za-z0-9]+$/, "") || "编辑图片";
+  return fileName.replace(/\.[A-Za-z0-9]+$/, "") || translateNow("aiCreation.display.editPrefix");
 }
 
 async function createAiCreationWorkspace(
   input: CreateAiCreationWorkspaceInput,
 ): Promise<AiCreationWorkspace> {
   if (!input.accountSession) {
-    throw new Error("请先登录 Paseo 账号后再使用 AI 创作。");
+    throw new Error(translateNow("aiCreation.error.loginRequired"));
   }
   const project = await createAccountProject({
     userId: input.accountSession.user.userId,
@@ -1284,7 +1309,7 @@ async function createAiCreationWorkspace(
 
   const payload = await input.client.openProject(project.cwd);
   if (payload.error || !payload.workspace) {
-    throw new Error(payload.error ?? "创建 AI 创作工作区失败。");
+    throw new Error(payload.error ?? translateNow("aiCreation.error.createWorkspace"));
   }
 
   const workspace = applyAccountProjectDisplay({
@@ -1297,7 +1322,7 @@ async function createAiCreationWorkspace(
 
   const cwd = workspace.workspaceDirectory.trim();
   if (!cwd) {
-    throw new Error("AI 创作工作区缺少可用目录。");
+    throw new Error(translateNow("aiCreation.error.missingWorkspaceDirectory"));
   }
   return { cwd, workspaceId: workspace.id };
 }
@@ -1343,7 +1368,7 @@ function buildImagegenPrompt(input: {
     input.prompt,
     "",
     `Aspect ratio: ${input.ratio}`,
-    `Style: ${STYLE_LABELS[input.style]}`,
+    `Style: ${STYLE_PROMPT_LABELS[input.style]}`,
     "Save the final image into the current workspace if a workspace-bound asset is produced.",
     "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](assets/generated-image.png)",
   ];
@@ -1371,7 +1396,7 @@ function buildImageEditPrompt(input: {
     input.prompt,
     "",
     `Aspect ratio: ${input.ratio}`,
-    `Style guidance: ${STYLE_LABELS[input.style]}`,
+    `Style guidance: ${STYLE_PROMPT_LABELS[input.style]}`,
     "Use only the image attached in this turn as `ai-edit-source.*` as the source image. It is the exact latest image to edit.",
     "Do not inspect the temp attachment directory to choose a different image. Do not use any earlier image from the conversation as the edit source.",
     "Preserve all unrelated parts of the original image.",
@@ -1402,7 +1427,9 @@ function buildImageEditPrompt(input: {
 }
 
 function buildAiCreationUserMessageText(input: { mode: CreationMode; prompt: string }): string {
-  return input.mode === "edit" ? `编辑图片：${input.prompt}` : input.prompt;
+  return input.mode === "edit"
+    ? translateNow("aiCreation.display.editMessage", { prompt: input.prompt })
+    : input.prompt;
 }
 
 function buildEditOptimisticImages(input: {
@@ -1434,6 +1461,7 @@ function SelectionBrushToolbar({
   onRedo: () => void;
   onClear: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <View style={styles.selectionToolbar}>
       <View style={styles.selectionBrushPreviewSmall} />
@@ -1453,13 +1481,13 @@ function SelectionBrushToolbar({
         icon={Undo2}
         disabled={!canUndo}
         onPress={onUndo}
-        accessibilityLabel="Undo selection stroke"
+        accessibilityLabel={t("aiCreation.action.undoSelection")}
       />
       <SelectionToolButton
         icon={Redo2}
         disabled={!canRedo}
         onPress={onRedo}
-        accessibilityLabel="Redo selection stroke"
+        accessibilityLabel={t("aiCreation.action.redoSelection")}
       />
       <View style={styles.selectionToolbarDivider} />
       <Pressable
@@ -1467,10 +1495,10 @@ function SelectionBrushToolbar({
         disabled={!canClear}
         onPress={onClear}
         accessibilityRole="button"
-        accessibilityLabel="Clear selection"
+        accessibilityLabel={t("aiCreation.action.clearSelection")}
       >
         <Text style={[styles.selectionClearText, !canClear ? styles.selectionToolDisabled : null]}>
-          清空
+          {t("aiCreation.action.clear")}
         </Text>
       </Pressable>
     </View>
@@ -1484,6 +1512,7 @@ function BrushSizeControl({
   value: number;
   onChange: (size: number) => void;
 }) {
+  const { t } = useI18n();
   const [trackWidth, setTrackWidth] = useState(0);
   const progress =
     (value - SELECTION_BRUSH_SIZE_MIN) / (SELECTION_BRUSH_SIZE_MAX - SELECTION_BRUSH_SIZE_MIN);
@@ -1522,7 +1551,7 @@ function BrushSizeControl({
       style={styles.selectionBrushSlider}
       onLayout={handleLayout}
       accessibilityRole="adjustable"
-      accessibilityLabel="Brush size"
+      accessibilityLabel={t("aiCreation.action.brushSize")}
       {...panResponder.panHandlers}
     >
       <View style={styles.selectionBrushTrack} />
