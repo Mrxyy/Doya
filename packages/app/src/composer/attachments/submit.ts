@@ -1,5 +1,6 @@
 import type { ComposerAttachment } from "@/attachments/types";
 import type { ImageAttachment } from "@/composer/types";
+import { encodeFilesAsTextAttachments } from "@/attachments/text-file";
 import {
   isWorkspaceAttachment,
   workspaceAttachmentToSubmitAttachment,
@@ -7,12 +8,15 @@ import {
 import type { AgentAttachment } from "@getpaseo/protocol/messages";
 import { buildGitHubAttachmentFromSearchItem } from "@/utils/review-attachments";
 
-export function splitComposerAttachmentsForSubmit(attachments: ComposerAttachment[]): {
+export async function splitComposerAttachmentsForSubmit(
+  attachments: ComposerAttachment[],
+): Promise<{
   images: ImageAttachment[];
   attachments: AgentAttachment[];
-} {
+}> {
   const images: ImageAttachment[] = [];
-  const reviewAttachments: AgentAttachment[] = [];
+  const files: ImageAttachment[] = [];
+  const agentAttachments: AgentAttachment[] = [];
 
   for (const attachment of attachments) {
     if (attachment.kind === "image") {
@@ -20,22 +24,28 @@ export function splitComposerAttachmentsForSubmit(attachments: ComposerAttachmen
       continue;
     }
 
+    if (attachment.kind === "file") {
+      files.push(attachment.metadata);
+      continue;
+    }
+
     if (isWorkspaceAttachment(attachment)) {
       const workspaceAttachment = workspaceAttachmentToSubmitAttachment(attachment);
       if (workspaceAttachment) {
-        reviewAttachments.push(workspaceAttachment);
+        agentAttachments.push(workspaceAttachment);
       }
       continue;
     }
 
     const reviewAttachment = buildGitHubAttachmentFromSearchItem(attachment.item);
     if (reviewAttachment) {
-      reviewAttachments.push(reviewAttachment);
+      agentAttachments.push(reviewAttachment);
     }
   }
 
+  const textFileAttachments = await encodeFilesAsTextAttachments(files);
   return {
     images,
-    attachments: reviewAttachments,
+    attachments: [...agentAttachments, ...textFileAttachments],
   };
 }

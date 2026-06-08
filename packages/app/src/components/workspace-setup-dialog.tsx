@@ -291,7 +291,7 @@ export function WorkspaceSetupDialog() {
           throw new Error("Select a model");
         }
 
-        const wirePayload = splitComposerAttachmentsForSubmit(attachments);
+        const wirePayload = await splitComposerAttachmentsForSubmit(attachments);
         const encodedImages = await encodeImages(wirePayload.images);
         const workspaceDirectory = requireWorkspaceExecutionAuthority({
           workspace: ensuredWorkspace,

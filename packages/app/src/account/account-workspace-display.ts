@@ -4,6 +4,7 @@ import type { WorkspaceDescriptor } from "@/stores/session-store";
 
 const ACCOUNT_WORKSPACE_PATH_PATTERN =
   /(?:^|[/\\])accounts[/\\]workspaces[/\\]ws_[^/\\]+(?:[/\\].*)?$/;
+const LEGACY_DEFAULT_ACCOUNT_PROJECT_NAMES = new Set(["New project", "新项目"]);
 
 export function isAccountWorkspaceDirectory(path: string | null | undefined): boolean {
   return ACCOUNT_WORKSPACE_PATH_PATTERN.test(path?.trim() ?? "");
@@ -45,13 +46,21 @@ export function applyAccountProjectDisplay(input: {
   session: AccountBootstrapSession;
   project: AccountProjectRecord;
 }): WorkspaceDescriptor {
-  const projectName = input.project.displayName.trim() || input.workspace.name;
+  const projectName =
+    accountProjectDisplayName(input.project.displayName).trim() || input.workspace.name;
   return {
     ...input.workspace,
     name: projectName,
     projectDisplayName: projectName,
     projectCustomName: projectName,
   };
+}
+
+export function accountProjectDisplayName(displayName: string): string {
+  const trimmed = displayName.trim();
+  return LEGACY_DEFAULT_ACCOUNT_PROJECT_NAMES.has(trimmed)
+    ? translateNow("account.project.defaultName")
+    : displayName;
 }
 
 export function findAccountProjectForWorkspaceDirectory(input: {

@@ -1,4 +1,4 @@
-import type { GitHubSearchItem } from "@getpaseo/protocol/messages";
+import type { AgentAttachment, GitHubSearchItem } from "@getpaseo/protocol/messages";
 import type {
   AttachmentMetadata,
   ComposerAttachment,
@@ -45,7 +45,7 @@ export interface ComposerSendClient {
     options: {
       messageId: string;
       images: Array<{ data: string; mimeType: string }>;
-      attachments: ReturnType<typeof splitComposerAttachmentsForSubmit>["attachments"];
+      attachments: AgentAttachment[];
     },
   ) => Promise<void>;
 }
@@ -100,7 +100,7 @@ export function removeComposerAttachmentAtIndex<T extends ComposerAttachment>(in
   deleteAttachments: AttachmentPersister["deleteAttachments"];
 }): T[] {
   const removed = input.attachments[input.index];
-  if (removed?.kind === "image") {
+  if (removed?.kind === "image" || removed?.kind === "file") {
     void input.deleteAttachments([removed.metadata]);
   }
   return input.attachments.filter((_, i) => i !== input.index);
@@ -135,7 +135,7 @@ export interface DispatchComposerAgentMessageInput {
 export async function dispatchComposerAgentMessage(
   input: DispatchComposerAgentMessageInput,
 ): Promise<void> {
-  const wirePayload = splitComposerAttachmentsForSubmit(input.attachments);
+  const wirePayload = await splitComposerAttachmentsForSubmit(input.attachments);
   const messageId = generateMessageId();
   const userMessage = buildOptimisticUserMessage({
     id: messageId,
@@ -285,11 +285,17 @@ export interface OpenComposerAttachmentInput {
   setLightboxMetadata: (metadata: AttachmentMetadata) => void;
   openWorkspaceAttachment: (input: { attachment: ComposerAttachment }) => boolean;
   openExternalUrl: (url: string) => void;
+  resolveAttachmentPreviewUrl: (metadata: AttachmentMetadata) => Promise<string>;
 }
 
-export function openComposerAttachment(input: OpenComposerAttachmentInput): void {
+export async function openComposerAttachment(input: OpenComposerAttachmentInput): Promise<void> {
   if (input.attachment.kind === "image") {
     input.setLightboxMetadata(input.attachment.metadata);
+    return;
+  }
+  if (input.attachment.kind === "file") {
+    const url = await input.resolveAttachmentPreviewUrl(input.attachment.metadata);
+    input.openExternalUrl(url);
     return;
   }
   if (isWorkspaceAttachment(input.attachment)) {
@@ -308,7 +314,7 @@ export function toggleGithubAttachment(
   item: GitHubSearchItem,
 ): UserComposerAttachment[] {
   const matches = (attachment: UserComposerAttachment) =>
-    attachment.kind !== "image" &&
+    (attachment.kind === "github_issue" || attachment.kind === "github_pr") &&
     attachment.item.kind === item.kind &&
     attachment.item.number === item.number;
   if (current.some(matches)) {
@@ -330,7 +336,7 @@ export function toggleGithubAttachmentFromPicker({
 }: ToggleGithubAttachmentFromPickerInput): UserComposerAttachment[] {
   const existingAttachment = current.find(
     (attachment) =>
-      attachment.kind !== "image" &&
+      (attachment.kind === "github_issue" || attachment.kind === "github_pr") &&
       attachment.item.kind === item.kind &&
       attachment.item.number === item.number,
   );
@@ -353,7 +359,7 @@ export function isAttachmentSelectedForGithubItem(
 ): boolean {
   return userAttachmentsOnly(current).some(
     (attachment) =>
-      attachment.kind !== "image" &&
+      (attachment.kind === "github_issue" || attachment.kind === "github_pr") &&
       attachment.item.kind === item.kind &&
       attachment.item.number === item.number,
   );

@@ -360,13 +360,13 @@ async function runCreateChatAgent(input: CreateChatAgentInput): Promise<void> {
   if (!provider) {
     throw new Error("Select a model");
   }
-  const { attachments: reviewAttachments } = splitComposerAttachmentsForSubmit(attachments);
+  const { attachments: reviewAttachments } = await splitComposerAttachmentsForSubmit(attachments);
   const ensuredWorkspace = await ensureWorkspace({
     cwd,
     prompt: text,
     attachments: reviewAttachments,
   });
-  submitWorkspaceDraft({
+  await submitWorkspaceDraft({
     serverId,
     draftKey,
     workspaceId: ensuredWorkspace.id,
@@ -452,7 +452,7 @@ function useCheckoutHintDismissals(attachments: ReadonlyArray<UserComposerAttach
   return [dismissedPrNumbers, setDismissedPrNumbers] as const;
 }
 
-function submitWorkspaceDraft(input: SubmitDraftInput): void {
+async function submitWorkspaceDraft(input: SubmitDraftInput): Promise<void> {
   const {
     serverId,
     draftKey,
@@ -466,7 +466,7 @@ function submitWorkspaceDraft(input: SubmitDraftInput): void {
   const draftId = generateDraftId();
   const clientMessageId = generateMessageId();
   const timestamp = Date.now();
-  const wirePayload = splitComposerAttachmentsForSubmit(attachments);
+  const wirePayload = await splitComposerAttachmentsForSubmit(attachments);
   useCreateFlowStore.getState().setPending({
     serverId,
     draftId,

@@ -7,6 +7,7 @@ import {
 } from "@/stores/session-store";
 import type { AccountBootstrapSession, AccountProjectRecord } from "@/account/account-api";
 import {
+  accountProjectDisplayName,
   doesAccountSessionOwnWorkspace,
   findAccountProjectForWorkspaceDirectory,
 } from "@/account/account-workspace-display";
@@ -102,27 +103,44 @@ function mergeAccountProjectsIntoSidebar(input: {
   return input.accountProjects.map((accountProject) => {
     const workspaceProject = workspaceProjectByAccountProjectId.get(accountProject.projectId);
     if (workspaceProject) {
+      const primaryWorkspace = selectPrimaryAccountProjectWorkspace({
+        accountProject,
+        workspaces: workspaceProject.workspaces,
+      });
       return {
         ...workspaceProject,
         projectKey: accountProject.projectId,
-        projectName: accountProject.displayName,
+        projectName: accountProjectDisplayName(accountProject.displayName),
+        projectKind: "directory",
         iconWorkingDir: accountProject.cwd,
-        workspaces: workspaceProject.workspaces.map((workspace) =>
-          mapWorkspaceToAccountProject({
-            workspace,
-            accountProject,
-          }),
-        ),
+        workspaces: primaryWorkspace
+          ? [
+              mapWorkspaceToAccountProject({
+                workspace: primaryWorkspace,
+                accountProject,
+              }),
+            ]
+          : [],
       };
     }
     return {
       projectKey: accountProject.projectId,
-      projectName: accountProject.displayName,
+      projectName: accountProjectDisplayName(accountProject.displayName),
       projectKind: "directory",
       iconWorkingDir: accountProject.cwd,
       workspaces: [],
     };
   });
+}
+
+function selectPrimaryAccountProjectWorkspace(input: {
+  accountProject: AccountProjectRecord;
+  workspaces: SidebarWorkspaceEntry[];
+}): SidebarWorkspaceEntry | null {
+  const exactWorkspace = input.workspaces.find(
+    (workspace) => workspace.workspaceDirectory === input.accountProject.cwd,
+  );
+  return exactWorkspace ?? input.workspaces[0] ?? null;
 }
 
 function mapWorkspaceToAccountProject(input: {

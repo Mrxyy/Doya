@@ -17,6 +17,7 @@ import { ProjectIconView } from "@/components/project-icon-view";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
 import {
   deleteAccountProject,
+  renameAccountProject,
   saveAccountBootstrapSession,
   type AccountBootstrapSession,
 } from "@/account/account-api";
@@ -54,7 +55,11 @@ import {
   FolderGit2,
   GitPullRequest,
   Globe,
+  Flag,
+  MessagesSquare,
+  Pin,
   Settings,
+  Share2,
   SquareTerminal,
   Monitor,
   MoreVertical,
@@ -147,7 +152,11 @@ const ThemedSyncedLoader = withUnistyles(SyncedLoader);
 const ThemedMonitor = withUnistyles(Monitor);
 const ThemedFolderGit2 = withUnistyles(FolderGit2);
 const ThemedFolderPlus = withUnistyles(FolderPlus);
+const ThemedFlag = withUnistyles(Flag);
 const ThemedGlobe = withUnistyles(Globe);
+const ThemedMessagesSquare = withUnistyles(MessagesSquare);
+const ThemedPin = withUnistyles(Pin);
+const ThemedShare2 = withUnistyles(Share2);
 const ThemedSquareTerminal = withUnistyles(SquareTerminal);
 const ThemedMoreVertical = withUnistyles(MoreVertical);
 const ThemedTrash2 = withUnistyles(Trash2);
@@ -252,6 +261,7 @@ interface ProjectHeaderRowProps {
   displayName: string;
   iconDataUri: string | null;
   workspace: SidebarWorkspaceEntry | null;
+  conversationVisual?: boolean;
   selected?: boolean;
   chevron: "expand" | "collapse" | null;
   onPress: () => void;
@@ -260,6 +270,8 @@ interface ProjectHeaderRowProps {
   isProjectActive?: boolean;
   onWorkspacePress?: () => void;
   onWorktreeCreated?: (workspaceId: string) => void;
+  onPinProject?: () => void;
+  onRenameProject?: () => void;
   shortcutNumber?: number | null;
   showShortcutBadge?: boolean;
   drag: () => void;
@@ -291,6 +303,38 @@ interface WorkspaceRowInnerProps {
   onCopyPath?: () => void;
   onRename?: () => void;
   archiveShortcutKeys?: ShortcutKey[][] | null;
+}
+
+function getProjectRowBaseStyle({
+  isDragging,
+  selected,
+  isHovered,
+}: {
+  isDragging: boolean;
+  selected: boolean;
+  isHovered: boolean;
+}) {
+  return [
+    styles.projectRow,
+    isDragging && styles.projectRowDragging,
+    selected && styles.sidebarRowSelected,
+    isHovered && styles.projectRowHovered,
+  ];
+}
+
+function ProjectShortcutBadge({
+  show,
+  shortcutNumber,
+}: {
+  show: boolean;
+  shortcutNumber: number | null;
+}) {
+  if (!show || shortcutNumber === null) return null;
+  return (
+    <View style={styles.shortcutBadge}>
+      <Text style={styles.shortcutBadgeText}>{shortcutNumber}</Text>
+    </View>
+  );
 }
 
 function getWorkspaceArchiveStatus(
@@ -524,6 +568,7 @@ function ProjectLeadingVisual({
   iconDataUri,
   workspace,
   projectKey,
+  conversationVisual = false,
   chevron = null,
   showChevron = false,
   isArchiving = false,
@@ -532,6 +577,7 @@ function ProjectLeadingVisual({
   iconDataUri: string | null;
   workspace: SidebarWorkspaceEntry | null;
   projectKey: string;
+  conversationVisual?: boolean;
   chevron?: "expand" | "collapse" | null;
   showChevron?: boolean;
   isArchiving?: boolean;
@@ -560,6 +606,7 @@ function ProjectLeadingVisual({
           iconDataUri={iconDataUri}
           placeholderInitial={placeholderInitial}
           projectKey={projectKey}
+          conversationVisual={conversationVisual}
         />
       </View>
     );
@@ -570,6 +617,7 @@ function ProjectLeadingVisual({
       iconDataUri={iconDataUri}
       placeholderInitial={placeholderInitial}
       projectKey={projectKey}
+      conversationVisual={conversationVisual}
       isArchiving={isArchiving}
       shouldShowSyncedLoader={shouldShowSyncedLoader}
       activeWorkspace={activeWorkspace}
@@ -584,7 +632,10 @@ function ProjectRowTrailingActions({
   isHovered,
   isMobileBreakpoint,
   isProjectActive,
+  conversationMenu,
   onBeginWorkspaceSetup,
+  onPinProject,
+  onRenameProject,
   onRemoveProject,
   removeProjectStatus,
 }: {
@@ -594,7 +645,10 @@ function ProjectRowTrailingActions({
   isHovered: boolean;
   isMobileBreakpoint: boolean;
   isProjectActive: boolean;
+  conversationMenu: boolean;
   onBeginWorkspaceSetup: () => void;
+  onPinProject?: () => void;
+  onRenameProject?: () => void;
   onRemoveProject?: () => void;
   removeProjectStatus: "idle" | "pending" | "success";
 }) {
@@ -617,6 +671,9 @@ function ProjectRowTrailingActions({
         >
           <ProjectKebabMenu
             projectKey={project.projectKey}
+            conversationMenu={conversationMenu}
+            onPinProject={onPinProject}
+            onRenameProject={onRenameProject}
             onRemoveProject={onRemoveProject}
             removeProjectStatus={removeProjectStatus}
           />
@@ -631,6 +688,11 @@ const settingsLeadingIcon = <ThemedSettings size={14} uniProps={foregroundMutedC
 const copyLeadingIcon = <ThemedCopy size={14} uniProps={foregroundMutedColorMapping} />;
 const archiveLeadingIcon = <ThemedArchive size={14} uniProps={foregroundMutedColorMapping} />;
 const renameLeadingIcon = <ThemedPencil size={14} uniProps={foregroundMutedColorMapping} />;
+const pinLeadingIcon = <ThemedPin size={14} uniProps={foregroundMutedColorMapping} />;
+const shareLeadingIcon = <ThemedShare2 size={14} uniProps={foregroundMutedColorMapping} />;
+const reportLeadingIcon = <ThemedFlag size={14} uniProps={foregroundMutedColorMapping} />;
+const CONVERSATION_MENU_WIDTH = 220;
+const CONVERSATION_MENU_RIGHT_SHIFT = CONVERSATION_MENU_WIDTH * 0.4;
 
 function renderKebabTriggerIcon({ hovered }: { hovered?: boolean }) {
   return (
@@ -643,10 +705,16 @@ function renderKebabTriggerIcon({ hovered }: { hovered?: boolean }) {
 
 function ProjectKebabMenu({
   projectKey,
+  conversationMenu = false,
+  onPinProject,
+  onRenameProject,
   onRemoveProject,
   removeProjectStatus,
 }: {
   projectKey: string;
+  conversationMenu?: boolean;
+  onPinProject?: () => void;
+  onRenameProject?: () => void;
   onRemoveProject: () => void;
   removeProjectStatus: "idle" | "pending" | "success";
 }) {
@@ -666,8 +734,46 @@ function ProjectKebabMenu({
       >
         {renderKebabTriggerIcon}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" width={220}>
-        {canOpenProjectSettings ? (
+      <DropdownMenuContent
+        align="end"
+        width={CONVERSATION_MENU_WIDTH}
+        crossAxisOffset={conversationMenu ? CONVERSATION_MENU_RIGHT_SHIFT : 0}
+      >
+        {conversationMenu ? (
+          <>
+            <DropdownMenuItem
+              testID={`sidebar-project-menu-pin-${projectKey}`}
+              leading={pinLeadingIcon}
+              onSelect={onPinProject}
+              disabled={!onPinProject}
+            >
+              {translateNow("ui.pin.to.top.1lvrdqa")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              testID={`sidebar-project-menu-share-${projectKey}`}
+              leading={shareLeadingIcon}
+              disabled
+            >
+              {translateNow("ui.share.54gkh")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              testID={`sidebar-project-menu-rename-${projectKey}`}
+              leading={renameLeadingIcon}
+              onSelect={onRenameProject}
+              disabled={!onRenameProject}
+            >
+              {translateNow("ui.rename.14f8jfi")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              testID={`sidebar-project-menu-report-${projectKey}`}
+              leading={reportLeadingIcon}
+              disabled
+            >
+              {translateNow("ui.report.1tw6c3")}
+            </DropdownMenuItem>
+          </>
+        ) : null}
+        {!conversationMenu && canOpenProjectSettings ? (
           <DropdownMenuItem
             testID={`sidebar-project-menu-open-settings-${projectKey}`}
             leading={settingsLeadingIcon}
@@ -682,8 +788,11 @@ function ProjectKebabMenu({
           status={removeProjectStatus}
           pendingLabel={translateNow("ui.removing.oue8vh")}
           onSelect={onRemoveProject}
+          destructive={conversationMenu}
         >
-          {translateNow("ui.remove.project.ku4j31")}
+          {conversationMenu
+            ? translateNow("ui.delete.1ok3b5")
+            : translateNow("ui.remove.project.ku4j31")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -854,11 +963,21 @@ function ProjectIcon({
   iconDataUri,
   placeholderInitial,
   projectKey,
+  conversationVisual = false,
 }: {
   iconDataUri: string | null;
   placeholderInitial: string;
   projectKey: string;
+  conversationVisual?: boolean;
 }) {
+  if (conversationVisual) {
+    return (
+      <View style={styles.projectIconFallback}>
+        <ThemedMessagesSquare size={15} uniProps={foregroundMutedColorMapping} />
+      </View>
+    );
+  }
+
   return (
     <ProjectIconView
       iconDataUri={iconDataUri}
@@ -875,6 +994,7 @@ function ProjectLeadingVisualStatus({
   iconDataUri,
   placeholderInitial,
   projectKey,
+  conversationVisual = false,
   isArchiving,
   shouldShowSyncedLoader,
   activeWorkspace,
@@ -882,6 +1002,7 @@ function ProjectLeadingVisualStatus({
   iconDataUri: string | null;
   placeholderInitial: string;
   projectKey: string;
+  conversationVisual?: boolean;
   isArchiving: boolean;
   shouldShowSyncedLoader: boolean;
   activeWorkspace: SidebarWorkspaceEntry;
@@ -925,6 +1046,7 @@ function ProjectLeadingVisualStatus({
         iconDataUri={iconDataUri}
         placeholderInitial={placeholderInitial}
         projectKey={projectKey}
+        conversationVisual={conversationVisual}
       />
       {dotColorStyle ? (
         <StatusDotOverlay
@@ -1244,6 +1366,7 @@ function ProjectHeaderRow({
   displayName,
   iconDataUri,
   workspace,
+  conversationVisual = false,
   selected = false,
   chevron,
   onPress,
@@ -1252,6 +1375,8 @@ function ProjectHeaderRow({
   isProjectActive = false,
   onWorkspacePress,
   onWorktreeCreated: _onWorktreeCreated,
+  onPinProject,
+  onRenameProject,
   shortcutNumber = null,
   showShortcutBadge = false,
   drag,
@@ -1312,43 +1437,87 @@ function ProjectHeaderRow({
     [isDragging, selected, isHovered],
   );
 
+  const projectRowBaseStyle = useMemo(
+    () => getProjectRowBaseStyle({ isDragging, selected, isHovered }),
+    [isDragging, selected, isHovered],
+  );
+
+  const projectRowLeftContent = (
+    <View style={styles.projectRowLeft}>
+      <ProjectLeadingVisual
+        displayName={displayName}
+        iconDataUri={iconDataUri}
+        workspace={workspace}
+        projectKey={project.projectKey}
+        conversationVisual={conversationVisual}
+        chevron={chevron}
+        showChevron={isHovered && chevron !== null}
+        isArchiving={isArchiving}
+      />
+
+      <View style={styles.projectTitleGroup}>
+        <Text style={styles.projectTitle} numberOfLines={1}>
+          {displayName}
+        </Text>
+      </View>
+    </View>
+  );
+
+  const projectRowTrailingActions = (
+    <ProjectRowTrailingActions
+      project={project}
+      displayName={displayName}
+      canCreateWorktree={canCreateWorktree}
+      isHovered={isHovered}
+      isMobileBreakpoint={isMobileBreakpoint}
+      isProjectActive={isProjectActive}
+      conversationMenu={conversationVisual}
+      onBeginWorkspaceSetup={handleBeginWorkspaceSetup}
+      onPinProject={onPinProject}
+      onRenameProject={onRenameProject}
+      onRemoveProject={onRemoveProject}
+      removeProjectStatus={removeProjectStatus}
+    />
+  );
+
+  const shortcutBadge = (
+    <ProjectShortcutBadge show={showShortcutBadge} shortcutNumber={shortcutNumber} />
+  );
+
   const rowChildren = (
     <>
-      <View style={styles.projectRowLeft}>
-        <ProjectLeadingVisual
-          displayName={displayName}
-          iconDataUri={iconDataUri}
-          workspace={workspace}
-          projectKey={project.projectKey}
-          chevron={chevron}
-          showChevron={isHovered && chevron !== null}
-          isArchiving={isArchiving}
-        />
-
-        <View style={styles.projectTitleGroup}>
-          <Text style={styles.projectTitle} numberOfLines={1}>
-            {displayName}
-          </Text>
-        </View>
-      </View>
-      <ProjectRowTrailingActions
-        project={project}
-        displayName={displayName}
-        canCreateWorktree={canCreateWorktree}
-        isHovered={isHovered}
-        isMobileBreakpoint={isMobileBreakpoint}
-        isProjectActive={isProjectActive}
-        onBeginWorkspaceSetup={handleBeginWorkspaceSetup}
-        onRemoveProject={onRemoveProject}
-        removeProjectStatus={removeProjectStatus}
-      />
-      {showShortcutBadge && shortcutNumber !== null ? (
-        <View style={styles.shortcutBadge}>
-          <Text style={styles.shortcutBadgeText}>{shortcutNumber}</Text>
-        </View>
-      ) : null}
+      {projectRowLeftContent}
+      {projectRowTrailingActions}
+      {shortcutBadge}
     </>
   );
+
+  if (conversationVisual) {
+    return (
+      <View
+        {...dragAttributes}
+        {...dragHandleProps?.listeners}
+        ref={dragHandleProps?.setActivatorNodeRef as unknown as Ref<View>}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        style={projectRowBaseStyle}
+      >
+        <Pressable
+          accessibilityRole="button"
+          style={styles.conversationProjectPressable}
+          onPressIn={interaction.handlePressIn}
+          onTouchMove={interaction.handleTouchMove}
+          onPressOut={interaction.handlePressOut}
+          onPress={handlePress}
+          testID={`sidebar-project-row-${project.projectKey}`}
+        >
+          {projectRowLeftContent}
+        </Pressable>
+        {projectRowTrailingActions}
+        {shortcutBadge}
+      </View>
+    );
+  }
 
   if (menuController) {
     return (
@@ -1798,6 +1967,7 @@ function NonGitProjectRowWithMenuContent({
   displayName,
   iconDataUri,
   workspace,
+  conversationVisual,
   selected,
   onPress,
   shortcutNumber,
@@ -1805,11 +1975,14 @@ function NonGitProjectRowWithMenuContent({
   drag,
   isDragging,
   dragHandleProps,
+  onPinProject,
+  onRenameProject,
 }: {
   project: SidebarProjectEntry;
   displayName: string;
   iconDataUri: string | null;
   workspace: SidebarWorkspaceEntry;
+  conversationVisual: boolean;
   selected: boolean;
   onPress: () => void;
   shortcutNumber: number | null;
@@ -1817,6 +1990,8 @@ function NonGitProjectRowWithMenuContent({
   drag: () => void;
   isDragging: boolean;
   dragHandleProps?: DraggableListDragHandleProps;
+  onPinProject?: () => void;
+  onRenameProject?: () => void;
 }) {
   const toast = useToast();
   const contextMenu = useContextMenu();
@@ -1876,6 +2051,7 @@ function NonGitProjectRowWithMenuContent({
         displayName={displayName}
         iconDataUri={iconDataUri}
         workspace={workspace}
+        conversationVisual={conversationVisual}
         selected={selected}
         chevron={null}
         onPress={onPress}
@@ -1887,6 +2063,8 @@ function NonGitProjectRowWithMenuContent({
         isDragging={isDragging}
         isArchiving={isArchivingWorkspace}
         menuController={contextMenu}
+        onPinProject={onPinProject}
+        onRenameProject={onRenameProject}
         dragHandleProps={dragHandleProps}
       />
       <ContextMenuContent
@@ -1914,6 +2092,7 @@ function NonGitProjectRowWithMenu(props: {
   displayName: string;
   iconDataUri: string | null;
   workspace: SidebarWorkspaceEntry;
+  conversationVisual: boolean;
   selected: boolean;
   onPress: () => void;
   shortcutNumber: number | null;
@@ -1921,6 +2100,8 @@ function NonGitProjectRowWithMenu(props: {
   drag: () => void;
   isDragging: boolean;
   dragHandleProps?: DraggableListDragHandleProps;
+  onPinProject?: () => void;
+  onRenameProject?: () => void;
 }) {
   return (
     <ContextMenu>
@@ -1933,11 +2114,14 @@ function FlattenedProjectRow({
   project,
   displayName,
   iconDataUri,
+  conversationVisual,
   rowModel,
   onPress,
   serverId,
   onWorkspacePress,
   onWorktreeCreated,
+  onPinProject,
+  onRenameProject,
   shortcutNumber,
   showShortcutBadge,
   drag,
@@ -1952,11 +2136,14 @@ function FlattenedProjectRow({
   project: SidebarProjectEntry;
   displayName: string;
   iconDataUri: string | null;
+  conversationVisual: boolean;
   rowModel: Extract<ReturnType<typeof buildSidebarProjectRowModel>, { kind: "workspace_link" }>;
   onPress: () => void;
   serverId: string | null;
   onWorkspacePress?: () => void;
   onWorktreeCreated?: (workspaceId: string) => void;
+  onPinProject?: () => void;
+  onRenameProject?: () => void;
   shortcutNumber: number | null;
   showShortcutBadge: boolean;
   drag: () => void;
@@ -1980,13 +2167,14 @@ function FlattenedProjectRow({
     return null;
   }
 
-  if (project.projectKind === "directory") {
+  if (project.projectKind === "directory" && !conversationVisual) {
     return (
       <NonGitProjectRowWithMenu
         project={project}
         displayName={displayName}
         iconDataUri={iconDataUri}
         workspace={workspace}
+        conversationVisual={conversationVisual}
         selected={selected}
         onPress={onPress}
         shortcutNumber={shortcutNumber}
@@ -1994,6 +2182,8 @@ function FlattenedProjectRow({
         drag={drag}
         isDragging={isDragging}
         dragHandleProps={dragHandleProps}
+        onPinProject={onPinProject}
+        onRenameProject={onRenameProject}
       />
     );
   }
@@ -2004,6 +2194,7 @@ function FlattenedProjectRow({
       displayName={displayName}
       iconDataUri={iconDataUri}
       workspace={workspace}
+      conversationVisual={conversationVisual}
       selected={selected}
       chevron={rowModel.chevron}
       onPress={onPress}
@@ -2012,6 +2203,8 @@ function FlattenedProjectRow({
       isProjectActive={isProjectActive}
       onWorkspacePress={onWorkspacePress}
       onWorktreeCreated={onWorktreeCreated}
+      onPinProject={onPinProject}
+      onRenameProject={onRenameProject}
       shortcutNumber={shortcutNumber}
       showShortcutBadge={showShortcutBadge}
       drag={drag}
@@ -2174,6 +2367,7 @@ function ProjectBlock({
   onToggleCollapsed,
   onWorkspacePress,
   onWorkspaceReorder,
+  onPinProject,
   onWorktreeCreated,
   drag,
   isDragging,
@@ -2195,6 +2389,7 @@ function ProjectBlock({
   onToggleCollapsed: (projectKey: string) => void;
   onWorkspacePress?: () => void;
   onWorkspaceReorder: (projectKey: string, workspaces: SidebarWorkspaceEntry[]) => void;
+  onPinProject: (projectKey: string) => void;
   onWorktreeCreated?: (workspaceId: string) => void;
   drag: () => void;
   isDragging: boolean;
@@ -2211,6 +2406,7 @@ function ProjectBlock({
       }),
     [collapsed, project],
   );
+  const conversationVisual = accountSession !== null;
 
   const active = isProjectSelectedByRoute({
     selection: activeWorkspaceSelection,
@@ -2282,6 +2478,7 @@ function ProjectBlock({
 
   const toast = useToast();
   const [isRemovingProject, setIsRemovingProject] = useState(false);
+  const [isRenameOpen, setIsRenameOpen] = useState(false);
 
   const handleRemoveProject = useCallback(() => {
     if (isRemovingProject || !serverId) {
@@ -2335,13 +2532,55 @@ function ProjectBlock({
             }
           }
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Failed to remove project");
+          toast.error(error instanceof Error ? error.message : "Failed to remove session");
         } finally {
           setIsRemovingProject(false);
         }
       })();
     })();
   }, [accountSession, isRemovingProject, serverId, displayName, toast, project]);
+
+  const handlePinProject = useCallback(() => {
+    onPinProject(project.projectKey);
+  }, [onPinProject, project.projectKey]);
+
+  const handleOpenRename = useCallback(() => {
+    setIsRenameOpen(true);
+  }, []);
+
+  const handleCloseRename = useCallback(() => {
+    setIsRenameOpen(false);
+  }, []);
+
+  const handleSubmitRename = useCallback(
+    async (value: string) => {
+      if (!accountSession) {
+        toast.error("Please log in first");
+        return;
+      }
+      const nextDisplayName = value.trim();
+      if (!nextDisplayName) {
+        throw new Error(translateNow("ui.session.name.required.42zqz7"));
+      }
+      const projects = await renameAccountProject({
+        userId: accountSession.user.userId,
+        workspaceId: accountSession.workspace.workspaceId,
+        projectId: project.projectKey,
+        accessToken: accountSession.accessToken,
+        displayName: nextDisplayName,
+      });
+      await saveAccountBootstrapSession({
+        ...accountSession,
+        projects,
+      });
+      toast.show(translateNow("ui.project.renamed.1rzcbzz"), { variant: "success" });
+    },
+    [accountSession, project.projectKey, toast],
+  );
+
+  const validateConversationName = useCallback((value: string): string | null => {
+    return value.trim() ? null : translateNow("ui.session.name.required.42zqz7");
+  }, []);
 
   const flattenedRowWorkspaceId =
     rowModel.kind === "workspace_link" ? rowModel.workspace.workspaceId : null;
@@ -2364,6 +2603,7 @@ function ProjectBlock({
           project={project}
           displayName={displayName}
           iconDataUri={iconDataUri}
+          conversationVisual={conversationVisual}
           rowModel={rowModel}
           onPress={handleFlattenedRowPress}
           serverId={serverId}
@@ -2375,6 +2615,8 @@ function ProjectBlock({
           isDragging={isDragging}
           dragHandleProps={dragHandleProps}
           isProjectActive={active}
+          onPinProject={handlePinProject}
+          onRenameProject={handleOpenRename}
           onRemoveProject={handleRemoveProject}
           removeProjectStatus={isRemovingProject ? "pending" : "idle"}
           selectionEnabled={selectionEnabled}
@@ -2387,6 +2629,7 @@ function ProjectBlock({
             displayName={displayName}
             iconDataUri={iconDataUri}
             workspace={null}
+            conversationVisual={conversationVisual}
             selected={false}
             chevron={rowModel.chevron}
             onPress={handleToggleCollapsed}
@@ -2399,6 +2642,8 @@ function ProjectBlock({
             isDragging={isDragging}
             isArchiving={isRemovingProject}
             menuController={null}
+            onPinProject={handlePinProject}
+            onRenameProject={handleOpenRename}
             onRemoveProject={handleRemoveProject}
             removeProjectStatus={isRemovingProject ? "pending" : "idle"}
             dragHandleProps={dragHandleProps}
@@ -2420,6 +2665,18 @@ function ProjectBlock({
           ) : null}
         </>
       )}
+      <AdaptiveRenameModal
+        visible={isRenameOpen}
+        title={translateNow("ui.rename.project.163b8t3")}
+        initialValue={displayName}
+        placeholder={translateNow("account.project.defaultName")}
+        submitLabel={translateNow("ui.rename.14f8jfi")}
+        validate={validateConversationName}
+        maxLength={80}
+        onClose={handleCloseRename}
+        onSubmit={handleSubmitRename}
+        testID={`sidebar-project-rename-modal-${project.projectKey}`}
+      />
     </View>
   );
 }
@@ -2500,9 +2757,10 @@ export function SidebarWorkspaceList({
   );
   const selectionEnabled = isWorkspaceRoute;
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
+  const useConversationSidebar = accountSession !== null;
 
   const projectIconRequests = useMemo(() => {
-    if (!serverId) {
+    if (!serverId || useConversationSidebar) {
       return [];
     }
     const unique = new Map<string, { serverId: string; cwd: string }>();
@@ -2514,7 +2772,7 @@ export function SidebarWorkspaceList({
       unique.set(`${serverId}:${cwd}`, { serverId, cwd });
     }
     return Array.from(unique.values());
-  }, [projects, serverId]);
+  }, [projects, serverId, useConversationSidebar]);
 
   const projectIconQueries = useQueries({
     queries: projectIconRequests.map((request) => ({
@@ -2559,6 +2817,10 @@ export function SidebarWorkspaceList({
 
     const byProject = new Map<string, string | null>();
     for (const project of projects) {
+      if (useConversationSidebar) {
+        byProject.set(project.projectKey, null);
+        continue;
+      }
       const cwd = project.iconWorkingDir.trim();
       if (!cwd || !serverId) {
         byProject.set(project.projectKey, null);
@@ -2568,7 +2830,7 @@ export function SidebarWorkspaceList({
     }
 
     return byProject;
-  }, [projectIconData, projectIconRequests, projects, serverId]);
+  }, [projectIconData, projectIconRequests, projects, serverId, useConversationSidebar]);
 
   useEffect(() => {
     const timeouts = creatingWorkspaceTimeoutsRef.current;
@@ -2644,6 +2906,27 @@ export function SidebarWorkspaceList({
     [getProjectOrder, serverId, setProjectOrder],
   );
 
+  const handlePinProject = useCallback(
+    (projectKey: string) => {
+      if (!serverId) {
+        return;
+      }
+      const visibleProjectKeys = projects.map((project) => project.projectKey);
+      const reorderedProjectKeys = [
+        projectKey,
+        ...visibleProjectKeys.filter((visibleProjectKey) => visibleProjectKey !== projectKey),
+      ];
+      setProjectOrder(
+        serverId,
+        mergeWithRemainder({
+          currentOrder: getProjectOrder(serverId),
+          reorderedVisibleKeys: reorderedProjectKeys,
+        }),
+      );
+    },
+    [getProjectOrder, projects, serverId, setProjectOrder],
+  );
+
   const handleWorkspaceReorder = useCallback(
     (projectKey: string, reorderedWorkspaces: SidebarWorkspaceEntry[]) => {
       if (!serverId) {
@@ -2716,6 +2999,7 @@ export function SidebarWorkspaceList({
           onToggleCollapsed={onToggleProjectCollapsed}
           onWorkspacePress={onWorkspacePress}
           onWorkspaceReorder={handleWorkspaceReorder}
+          onPinProject={handlePinProject}
           onWorktreeCreated={handleWorktreeCreated}
           drag={drag}
           isDragging={isActive}
@@ -2731,6 +3015,7 @@ export function SidebarWorkspaceList({
       accountSession,
       activeWorkspaceSelection,
       handleWorktreeCreated,
+      handlePinProject,
       handleWorkspaceReorder,
       onWorkspacePress,
       onToggleProjectCollapsed,
@@ -2746,13 +3031,29 @@ export function SidebarWorkspaceList({
 
   const content = (
     <>
+      {useConversationSidebar ? (
+        <View style={styles.conversationSidebarHeader}>
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={MessagesSquare}
+            onPress={onAddProject}
+            style={styles.newConversationButton}
+          >
+            {addProjectLabel}
+          </Button>
+          <Text style={styles.historySectionLabel}>{t("sidebar.historyConversations")}</Text>
+        </View>
+      ) : null}
       {projects.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>{t("account.project.empty")}</Text>
           <Text style={styles.emptyText}>{emptyProjectHint}</Text>
-          <Button variant="ghost" size="sm" leftIcon={Plus} onPress={onAddProject}>
-            {addProjectLabel}
-          </Button>
+          {useConversationSidebar ? null : (
+            <Button variant="ghost" size="sm" leftIcon={Plus} onPress={onAddProject}>
+              {addProjectLabel}
+            </Button>
+          )}
         </View>
       ) : (
         <DraggableList
@@ -2808,6 +3109,22 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[2],
     paddingTop: theme.spacing[2],
     paddingBottom: theme.spacing[4],
+  },
+  conversationSidebarHeader: {
+    gap: theme.spacing[4],
+    paddingHorizontal: theme.spacing[1],
+    paddingTop: theme.spacing[1],
+    paddingBottom: theme.spacing[2],
+  },
+  newConversationButton: {
+    width: "100%",
+    justifyContent: "flex-start",
+  },
+  historySectionLabel: {
+    paddingHorizontal: theme.spacing[2],
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.medium,
   },
   projectListContainer: {
     width: "100%",
@@ -2868,6 +3185,10 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
+    flex: 1,
+    minWidth: 0,
+  },
+  conversationProjectPressable: {
     flex: 1,
     minWidth: 0,
   },

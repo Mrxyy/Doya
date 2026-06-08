@@ -662,12 +662,13 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
         if (queue && queue.length > 0) {
           const [next, ...rest] = queue;
           if (sendAgentMessageRef.current) {
-            const wirePayload = splitComposerAttachmentsForSubmit(next.attachments);
-            void sendAgentMessageRef.current(
-              agent.id,
-              next.text,
-              wirePayload.images,
-              wirePayload.attachments,
+            void splitComposerAttachmentsForSubmit(next.attachments).then((wirePayload) =>
+              sendAgentMessageRef.current?.(
+                agent.id,
+                next.text,
+                wirePayload.images,
+                wirePayload.attachments,
+              ),
             );
           }
           setQueuedMessages(serverId, (prev) => {

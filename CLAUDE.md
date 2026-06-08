@@ -51,8 +51,8 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 npm run dev                          # Start daemon + Expo in Tmux
 npm run cli -- ls -a -g              # List all agents
 npm run cli -- daemon status         # Check daemon status
-npm run typecheck                    # Always run after changes
-npm run lint                         # Always run after changes
+npm run typecheck                    # Manual verification when requested or high-risk
+npm run lint                         # Manual verification when requested or high-risk
 npm run format                       # Auto-format with Biome
 npm run format:check                 # Check formatting without writing
 ```
@@ -70,7 +70,7 @@ See [docs/development.md](docs/development.md) for full setup, build sync requir
   - If you must run a broad suite, pipe output to a file and read it afterward: `npx vitest run <file> --bail=1 > /tmp/test-output.txt 2>&1` then read the file.
   - Never re-run a test suite that another agent already ran and reported green — trust the result.
   - For full suite verification, push to CI and check GitHub Actions instead.
-- **Always run typecheck and lint after every change.**
+- **Do not run `npm run typecheck` or `npm run lint` by default during agent tasks.** Run them only when explicitly requested, when preparing a release/commit that requires them, or when the change is high-risk enough that targeted verification is worth the machine cost. If you do run them, batch related edits first and report the result.
 - **Build workspace packages before diagnosing cross-package type errors.** This repo consumes generated declarations across workspaces. If typecheck fails in a package that depends on another workspace, rebuild the owning stack first so `dist` declarations are current:
   - `npm run build:client` — rebuild protocol and client declarations.
   - `npm run build:server` — rebuild highlight, relay, protocol, client, server, and CLI when server/CLI types may be stale.

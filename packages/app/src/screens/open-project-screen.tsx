@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType } from "r
 import { View, Text, Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
-import { Bot, FolderOpen, Plug, Smartphone } from "lucide-react-native";
+import { MessagesSquare, Plug, Smartphone } from "lucide-react-native";
 import { AdaptiveModalSheet, AdaptiveTextInput } from "@/components/adaptive-modal-sheet";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { MenuHeader } from "@/components/headers/menu-header";
@@ -28,7 +28,10 @@ import {
   type AccountBootstrapSession,
   type AccountProjectRecord,
 } from "@/account/account-api";
-import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
+import {
+  accountProjectDisplayName,
+  applyAccountProjectDisplay,
+} from "@/account/account-workspace-display";
 import { useOpenProject } from "@/hooks/use-open-project";
 import { useI18n, translateNow } from "@/i18n/i18n";
 
@@ -45,9 +48,7 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const [isAccountProjectOpen, setIsAccountProjectOpen] = useState(false);
   const [hasLoadedAccount, setHasLoadedAccount] = useState(false);
   const [accountEmail, setAccountEmail] = useState("");
-  const [accountWorkspaceName, setAccountWorkspaceName] = useState(() =>
-    t("account.workspace.defaultName"),
-  );
+  const accountWorkspaceName = t("account.workspace.defaultName");
   const [accountProjectName, setAccountProjectName] = useState(() =>
     t("account.project.defaultName"),
   );
@@ -265,15 +266,6 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
                 keyboardType="email-address"
                 style={styles.sheetInput}
               />
-              <Text style={styles.fieldLabel}>{t("openProject.accountAuth.workspaceName")}</Text>
-              <AdaptiveTextInput
-                testID="workspace-auth-workspace-name"
-                accessibilityLabel={t("openProject.accountAuth.workspaceName")}
-                value={accountWorkspaceName}
-                onChangeText={setAccountWorkspaceName}
-                placeholder={t("account.workspace.defaultName")}
-                style={styles.sheetInput}
-              />
               {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
               <View style={styles.sheetActions}>
                 <Button
@@ -288,7 +280,7 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
                 <Button
                   style={FULL_WIDTH_STYLE}
                   loading={accountBusy}
-                  disabled={accountBusy || !accountEmail.trim() || !accountWorkspaceName.trim()}
+                  disabled={accountBusy || !accountEmail.trim()}
                   onPress={handleRegisterAccount}
                 >
                   {t("openProject.accountAuth.register")}
@@ -311,7 +303,7 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
         </View>
         <View style={styles.tiles}>
           <HomeTile
-            icon={Bot}
+            icon={MessagesSquare}
             title={t("openProject.newProject.title")}
             description={t("openProject.newProject.description")}
             status={accountError ?? accountSession.user.email}
@@ -377,9 +369,6 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
             placeholder={t("account.project.defaultName")}
             style={styles.sheetInput}
           />
-          {accountSession ? (
-            <Text style={styles.sheetHint}>{accountSession.workspace.displayName}</Text>
-          ) : null}
           {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
           <View style={styles.sheetActions}>
             <Button
@@ -420,8 +409,8 @@ function AccountProjectTile({
 
   return (
     <HomeTile
-      icon={FolderOpen}
-      title={project.displayName}
+      icon={MessagesSquare}
+      title={accountProjectDisplayName(project.displayName)}
       description={t("account.project.description")}
       onPress={handlePress}
       disabled={disabled}

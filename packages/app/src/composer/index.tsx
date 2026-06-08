@@ -28,6 +28,7 @@ import {
   GitPullRequest,
   Github,
   Paperclip,
+  FileText,
 } from "lucide-react-native";
 import Animated from "react-native-reanimated";
 import { FOOTER_HEIGHT, MAX_CONTENT_WIDTH } from "@/constants/layout";
@@ -38,6 +39,7 @@ import {
 } from "@/composer/agent-controls";
 import { ContextWindowMeter } from "@/components/context-window-meter";
 import { useImageAttachmentPicker } from "@/hooks/use-image-attachment-picker";
+import { useFileAttachmentPicker } from "@/hooks/use-file-attachment-picker";
 import { useSessionStore } from "@/stores/session-store";
 import { MessageInput, type MessageInputRef, type AttachmentMenuItem } from "./input/input";
 import type { ImageAttachment, MessagePayload } from "./types";
@@ -77,6 +79,7 @@ import {
   deleteAttachments,
   persistAttachmentFromBlob,
   persistAttachmentFromFileUri,
+  resolveAttachmentPreviewUrl,
 } from "@/attachments/service";
 import { resolveAgentControlsMode } from "@/composer/agent-controls/mode";
 import { useKeyboardShiftStyle } from "@/hooks/use-keyboard-shift-style";
@@ -322,6 +325,18 @@ function renderComposerAttachmentPill(args: RenderComposerAttachmentPillArgs): R
       />
     );
   }
+  if (attachment.kind === "file") {
+    return (
+      <FileAttachmentPill
+        key={attachment.metadata.id}
+        attachment={attachment}
+        index={index}
+        disabled={disabled}
+        onOpen={onOpen}
+        onRemove={onRemove}
+      />
+    );
+  }
   if (composerWorkspaceAttachment.is(attachment)) {
     return composerWorkspaceAttachment.renderPill({
       attachment,
@@ -545,6 +560,47 @@ interface GithubAttachmentPillProps {
   disabled: boolean;
   onOpen: (attachment: ComposerAttachment) => void;
   onRemove: (index: number) => void;
+}
+
+interface FileAttachmentPillProps {
+  attachment: Extract<ComposerAttachment, { kind: "file" }>;
+  index: number;
+  disabled: boolean;
+  onOpen: (attachment: ComposerAttachment) => void;
+  onRemove: (index: number) => void;
+}
+
+function FileAttachmentPill({
+  attachment,
+  index,
+  disabled,
+  onOpen,
+  onRemove,
+}: FileAttachmentPillProps) {
+  const fileName = attachment.metadata.fileName ?? "File";
+  const handleOpen = useCallback(() => {
+    onOpen(attachment);
+  }, [onOpen, attachment]);
+  const handleRemove = useCallback(() => {
+    onRemove(index);
+  }, [onRemove, index]);
+  return (
+    <AttachmentPill
+      testID="composer-file-attachment-pill"
+      onOpen={handleOpen}
+      onRemove={handleRemove}
+      openAccessibilityLabel={`Open file attachment ${fileName}`}
+      removeAccessibilityLabel={`Remove file attachment ${fileName}`}
+      disabled={disabled}
+    >
+      <View style={styles.filePillBody}>
+        <ThemedFileText size={ICON_SIZE.sm} uniProps={iconForegroundMutedMapping} />
+        <Text style={styles.filePillText} numberOfLines={1} ellipsizeMode="middle">
+          {fileName}
+        </Text>
+      </View>
+    </AttachmentPill>
+  );
 }
 
 function GithubAttachmentPill({
@@ -1008,6 +1064,7 @@ export function Composer({
   }, [userInput.length]);
 
   const { pickImages } = useImageAttachmentPicker();
+  const { pickFiles } = useFileAttachmentPicker();
   const agentIdRef = useRef(agentId);
   const sendAgentMessageRef = useRef<
     ((agentId: string, text: string, attachments: ComposerAttachment[]) => Promise<void>) | null
@@ -1020,6 +1077,16 @@ export function Composer({
       setSelectedAttachments((prev) => [
         ...prev,
         ...images.map((metadata) => ({ kind: "image" as const, metadata })),
+      ]);
+    },
+    [setSelectedAttachments],
+  );
+
+  const addFiles = useCallback(
+    (files: AttachmentMetadata[]) => {
+      setSelectedAttachments((prev) => [
+        ...prev,
+        ...files.map((metadata) => ({ kind: "file" as const, metadata })),
       ]);
     },
     [setSelectedAttachments],
@@ -1222,6 +1289,12 @@ export function Composer({
     addImages(newImages);
   }, [addImages, pickImages]);
 
+  const handlePickFile = useCallback(async () => {
+    const newFiles = await pickFiles();
+    if (newFiles.length === 0) return;
+    addFiles(newFiles);
+  }, [addFiles, pickFiles]);
+
   const handleRemoveAttachment = useCallback(
     (index: number) => {
       githubAutoAttach.markGithubAttachmentRemoved(selectedAttachments[index]);
@@ -1245,9 +1318,12 @@ export function Composer({
         attachment,
         setLightboxMetadata,
         openWorkspaceAttachment: openAttachment,
+        resolveAttachmentPreviewUrl,
         openExternalUrl: (url) => {
           void openExternalUrl(url);
         },
+      }).catch((error) => {
+        console.error("[Composer] Failed to open attachment:", error);
       });
     },
     [openAttachment],
@@ -1517,6 +1593,14 @@ export function Composer({
         },
       },
       {
+        id: "file",
+        label: "Add file",
+        icon: <ThemedFileText size={ICON_SIZE.md} uniProps={iconForegroundMutedMapping} />,
+        onSelect: () => {
+          void handlePickFile();
+        },
+      },
+      {
         id: "github",
         label: translateNow("ui.add.issue.or.pr.c6uuyh"),
         icon: <ThemedGithub size={ICON_SIZE.md} uniProps={iconForegroundMutedMapping} />,
@@ -1525,7 +1609,7 @@ export function Composer({
         },
       },
     ],
-    [handlePickImage],
+    [handlePickFile, handlePickImage],
   );
 
   const handleToggleGithubItem = useCallback(
@@ -1852,6 +1936,22 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: 32,
     backgroundColor: theme.colors.surface2,
   },
+  filePillBody: {
+    minHeight: 32,
+    maxWidth: 260,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[2],
+    backgroundColor: theme.colors.surface1,
+  },
+  filePillText: {
+    minWidth: 0,
+    flexShrink: 1,
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foreground,
+  },
   githubPillBody: {
     minHeight: 32,
     maxWidth: 260,
@@ -1937,6 +2037,7 @@ const ThemedCircleDot = withUnistyles(CircleDot);
 const ThemedAudioLines = withUnistyles(AudioLines);
 const ThemedPaperclip = withUnistyles(Paperclip);
 const ThemedGithub = withUnistyles(Github);
+const ThemedFileText = withUnistyles(FileText);
 
 const iconForegroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });

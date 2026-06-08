@@ -208,6 +208,46 @@ export class AccountControlPlane {
     return this.listWorkspaceProjects(input.userId, workspace.workspaceId);
   }
 
+  async renameProject(input: {
+    userId: string;
+    workspaceId: string;
+    projectId: string;
+    accessToken: string;
+    displayName: string;
+  }): Promise<AccountProjectRecord[]> {
+    const workspace = await this.requireWorkspaceAccess(input);
+    const displayName = input.displayName.trim();
+    if (!displayName) {
+      throw new AccountControlPlaneError("项目名称不能为空");
+    }
+
+    await this.load();
+    const project = this.snapshot.projects.find(
+      (record) => record.projectId === input.projectId && record.deletedAt === null,
+    );
+    if (!project) {
+      throw new AccountControlPlaneError("项目不存在", 404);
+    }
+    if (
+      project.ownerUserId !== input.userId ||
+      project.workspaceId !== workspace.workspaceId ||
+      !isSameOrChildPath(project.cwd, workspace.cwd)
+    ) {
+      throw new AccountControlPlaneError("无权访问该项目", 403);
+    }
+
+    this.snapshot.projects = upsertById(
+      this.snapshot.projects,
+      {
+        ...project,
+        displayName,
+      },
+      (record) => record.projectId,
+    );
+    await this.enqueuePersist();
+    return this.listWorkspaceProjects(input.userId, workspace.workspaceId);
+  }
+
   private async createAuthResult(user: AccountUserRecord): Promise<AccountAuthResult> {
     const workspace = await this.getDefaultWorkspaceForUser(user.userId);
     return {

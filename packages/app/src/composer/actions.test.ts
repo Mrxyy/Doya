@@ -66,6 +66,16 @@ function imageWithId(id: string): AttachmentMetadata {
   return { ...imageMetadata, id, storageKey: id, fileName: `${id}.png` };
 }
 
+function fileWithId(id: string): AttachmentMetadata {
+  return {
+    ...imageMetadata,
+    id,
+    mimeType: "text/markdown",
+    storageKey: id,
+    fileName: `${id}.md`,
+  };
+}
+
 function reviewWorkspaceAttachment(body: string): WorkspaceComposerAttachment {
   const attachment: Extract<AgentAttachment, { type: "review" }> = {
     type: "review",
@@ -599,6 +609,18 @@ describe("removeComposerAttachmentAtIndex", () => {
     expect(persister.deletedBatches).toEqual([[image]]);
   });
 
+  it("removes a file attachment and asks the persister to delete the underlying metadata", () => {
+    const file = fileWithId("file-remove");
+    const persister = createFakePersister();
+    const next = removeComposerAttachmentAtIndex({
+      attachments: [{ kind: "file", metadata: file }] satisfies UserComposerAttachment[],
+      index: 0,
+      deleteAttachments: persister.deleteAttachments,
+    });
+    expect(next).toEqual([]);
+    expect(persister.deletedBatches).toEqual([[file]]);
+  });
+
   it("removes a github attachment without scheduling any storage deletes", () => {
     const persister = createFakePersister();
     const next = removeComposerAttachmentAtIndex({
@@ -615,11 +637,11 @@ describe("removeComposerAttachmentAtIndex", () => {
 });
 
 describe("openComposerAttachment", () => {
-  it("opens the lightbox for image attachments", () => {
+  it("opens the lightbox for image attachments", async () => {
     const image = imageWithId("img-body");
     const lightboxCalls: AttachmentMetadata[] = [];
     const externalUrlCalls: string[] = [];
-    openComposerAttachment({
+    await openComposerAttachment({
       attachment: { kind: "image", metadata: image },
       setLightboxMetadata: (metadata) => {
         lightboxCalls.push(metadata);
@@ -628,15 +650,35 @@ describe("openComposerAttachment", () => {
       openExternalUrl: (url) => {
         externalUrlCalls.push(url);
       },
+      resolveAttachmentPreviewUrl: async () => {
+        throw new Error("unexpected preview url resolution");
+      },
     });
     expect(lightboxCalls).toEqual([image]);
     expect(externalUrlCalls).toEqual([]);
   });
 
-  it("delegates workspace review attachments to the workspace opener", () => {
+  it("opens file attachments through their preview URL", async () => {
+    const file = fileWithId("file-open");
+    const externalUrlCalls: string[] = [];
+    await openComposerAttachment({
+      attachment: { kind: "file", metadata: file },
+      setLightboxMetadata: () => {
+        throw new Error("unexpected lightbox call");
+      },
+      openWorkspaceAttachment: () => false,
+      openExternalUrl: (url) => {
+        externalUrlCalls.push(url);
+      },
+      resolveAttachmentPreviewUrl: async (metadata) => `preview:${metadata.id}`,
+    });
+    expect(externalUrlCalls).toEqual(["preview:file-open"]);
+  });
+
+  it("delegates workspace review attachments to the workspace opener", async () => {
     const review = reviewWorkspaceAttachment("Open me.");
     const workspaceCalls: ComposerAttachment[] = [];
-    openComposerAttachment({
+    await openComposerAttachment({
       attachment: review,
       setLightboxMetadata: () => {
         throw new Error("unexpected lightbox call");
@@ -648,13 +690,16 @@ describe("openComposerAttachment", () => {
       openExternalUrl: () => {
         throw new Error("unexpected external url call");
       },
+      resolveAttachmentPreviewUrl: async () => {
+        throw new Error("unexpected preview url resolution");
+      },
     });
     expect(workspaceCalls).toEqual([review]);
   });
 
-  it("opens GitHub item URLs through the external url opener", () => {
+  it("opens GitHub item URLs through the external url opener", async () => {
     const externalUrlCalls: string[] = [];
-    openComposerAttachment({
+    await openComposerAttachment({
       attachment: { kind: "github_issue", item: issueItem },
       setLightboxMetadata: () => {
         throw new Error("unexpected lightbox call");
@@ -662,6 +707,9 @@ describe("openComposerAttachment", () => {
       openWorkspaceAttachment: () => false,
       openExternalUrl: (url) => {
         externalUrlCalls.push(url);
+      },
+      resolveAttachmentPreviewUrl: async () => {
+        throw new Error("unexpected preview url resolution");
       },
     });
     expect(externalUrlCalls).toEqual([issueItem.url]);
@@ -695,6 +743,16 @@ describe("toggleGithubAttachment", () => {
       { kind: "github_issue", item: issueItem },
       { kind: "github_pr", item: prItem },
       { kind: "github_issue", item: otherIssue },
+    ]);
+  });
+
+  it("does not affect file attachments", () => {
+    const file = fileWithId("file-github");
+    const start: UserComposerAttachment[] = [{ kind: "file", metadata: file }];
+    const next = toggleGithubAttachment(start, issueItem);
+    expect(next).toEqual([
+      { kind: "file", metadata: file },
+      { kind: "github_issue", item: issueItem },
     ]);
   });
 });

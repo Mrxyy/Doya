@@ -286,7 +286,8 @@ Diagnoses version mismatches and native module issues.
 
 ## Typecheck
 
-Always run typecheck after changes:
+Run typecheck manually when requested, during release/commit verification that
+requires it, or when a high-risk change needs broader validation:
 
 ```bash
 npm run typecheck

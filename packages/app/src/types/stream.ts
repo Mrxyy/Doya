@@ -217,12 +217,66 @@ function buildUserMessageItem(input: {
     };
   }
 
+  const parsed = extractFileAttachmentBlocks(input.text);
   return {
     kind: "user_message",
     id: input.id,
-    text: input.text,
+    text: parsed.text,
     timestamp: input.timestamp,
+    ...(parsed.attachments.length > 0 ? { attachments: parsed.attachments } : {}),
   };
+}
+
+function extractFileAttachmentBlocks(text: string): {
+  text: string;
+  attachments: AgentAttachment[];
+} {
+  const fileBlockStart = findFileAttachmentBlockStart(text);
+  if (fileBlockStart === null) {
+    return { text, attachments: [] };
+  }
+
+  const visibleText = text.slice(0, fileBlockStart).trimEnd();
+  const attachmentText = text.slice(fileBlockStart).trim();
+  const attachments = parseFileAttachmentBlocks(attachmentText);
+  if (attachments.length === 0) {
+    return { text, attachments: [] };
+  }
+  return { text: visibleText, attachments };
+}
+
+function findFileAttachmentBlockStart(text: string): number | null {
+  const matches = text.matchAll(/^File: .+$/gm);
+  for (const match of matches) {
+    const index = match.index;
+    if (index === undefined) {
+      continue;
+    }
+    const afterLine = text.slice(index + match[0].length);
+    if (afterLine.startsWith("\n\n")) {
+      return index;
+    }
+  }
+  return null;
+}
+
+function parseFileAttachmentBlocks(text: string): AgentAttachment[] {
+  const attachments: AgentAttachment[] = [];
+  const pattern = /(?:^|\n\n)File: ([^\n]+)\n\n([\s\S]*?)(?=\n\nFile: [^\n]+\n\n|$)/g;
+  for (const match of text.matchAll(pattern)) {
+    const title = match[1]?.trim();
+    const body = match[2]?.trimEnd();
+    if (!title || !body) {
+      continue;
+    }
+    attachments.push({
+      type: "text",
+      mimeType: "text/plain",
+      title,
+      text: `File: ${title}\n\n${body}`,
+    });
+  }
+  return attachments;
 }
 
 export function buildOptimisticUserMessage(input: OptimisticUserMessageInput): UserMessageItem {

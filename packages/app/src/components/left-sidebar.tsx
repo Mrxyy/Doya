@@ -1,13 +1,5 @@
 import { router, usePathname } from "expo-router";
-import {
-  FolderPlus,
-  Home,
-  LogOut,
-  MessagesSquare,
-  Settings,
-  UserRound,
-  X,
-} from "lucide-react-native";
+import { Home, LogOut, MessagesSquare, Settings, UserRound, X } from "lucide-react-native";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
@@ -284,7 +276,7 @@ function FooterIconButton({
   onPress: () => void;
   testID: string;
   accessibilityLabel: string;
-  icon: typeof FolderPlus;
+  icon: typeof MessagesSquare;
   theme: SidebarTheme;
 }) {
   return (
@@ -423,20 +415,22 @@ function SidebarFooter({
         />
       </View>
       <View style={styles.footerIconRow}>
-        <Tooltip delayDuration={300}>
-          <TooltipTrigger asChild>
-            <FooterIconButton
-              onPress={handleOpenProject}
-              testID="sidebar-add-project"
-              accessibilityLabel={addProjectLabel}
-              icon={FolderPlus}
-              theme={theme}
-            />
-          </TooltipTrigger>
-          <TooltipContent side="top" align="center" offset={8}>
-            <AddProjectTooltipContent label={addProjectLabel} newAgentKeys={newAgentKeys} />
-          </TooltipContent>
-        </Tooltip>
+        {accountSession ? null : (
+          <Tooltip delayDuration={300}>
+            <TooltipTrigger asChild>
+              <FooterIconButton
+                onPress={handleOpenProject}
+                testID="sidebar-add-project"
+                accessibilityLabel={addProjectLabel}
+                icon={MessagesSquare}
+                theme={theme}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="top" align="center" offset={8}>
+              <AddProjectTooltipContent label={addProjectLabel} newAgentKeys={newAgentKeys} />
+            </TooltipContent>
+          </Tooltip>
+        )}
         <FooterIconButton
           onPress={handleHome}
           testID="sidebar-home"

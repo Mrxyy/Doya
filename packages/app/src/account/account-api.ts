@@ -48,6 +48,10 @@ interface AccountDeleteProjectResponse {
   projects: AccountProjectRecord[];
 }
 
+interface AccountRenameProjectResponse {
+  projects: AccountProjectRecord[];
+}
+
 interface AccountErrorPayload {
   error?: string;
 }
@@ -186,6 +190,20 @@ export async function deleteAccountProject(input: {
 }): Promise<AccountProjectRecord[]> {
   const payload = await postAccountApi<AccountDeleteProjectResponse>(
     "/api/account/projects/delete",
+    input,
+  );
+  return payload.projects ?? [];
+}
+
+export async function renameAccountProject(input: {
+  userId: string;
+  workspaceId: string;
+  projectId: string;
+  accessToken: string;
+  displayName: string;
+}): Promise<AccountProjectRecord[]> {
+  const payload = await postAccountApi<AccountRenameProjectResponse>(
+    "/api/account/projects/rename",
     input,
   );
   return payload.projects ?? [];

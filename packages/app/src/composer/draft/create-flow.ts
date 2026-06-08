@@ -233,7 +233,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
       }
 
       dispatch({ type: "DRAFT_SET_ERROR", message: "" });
-      const wirePayload = splitComposerAttachmentsForSubmit(attachments);
+      const wirePayload = await splitComposerAttachmentsForSubmit(attachments);
       const images = wirePayload.images;
 
       const trimmedPrompt = text.trim();

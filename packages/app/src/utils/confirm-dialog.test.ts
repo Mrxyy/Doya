@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const desktopHostState = {
@@ -30,6 +32,9 @@ async function loadModuleForPlatform(platform: MockPlatform): Promise<{
   vi.doMock("@/desktop/host", () => ({
     getDesktopHost: () => desktopHostState.api,
   }));
+  vi.doMock("@/constants/platform", () => ({
+    isNative: platform !== "web",
+  }));
 
   const module = await import("./confirm-dialog");
   return { confirmDialog: module.confirmDialog, alertMock };
@@ -38,6 +43,7 @@ async function loadModuleForPlatform(platform: MockPlatform): Promise<{
 function clearDialogGlobals(): void {
   desktopHostState.api = null;
   delete (globalThis as { confirm?: unknown }).confirm;
+  document.body.innerHTML = "";
 }
 
 describe("confirmDialog", () => {
@@ -50,10 +56,9 @@ describe("confirmDialog", () => {
 
   it("uses the desktop dialog bridge on web when available", async () => {
     const askMock = vi.fn(async () => true);
-    const blurMock = vi.fn();
-    (globalThis as { document?: unknown }).document = {
-      activeElement: { blur: blurMock },
-    } as unknown as Document;
+    document.body.innerHTML = `<button id="active-button">Active</button>`;
+    document.getElementById("active-button")?.focus();
+    const blurMock = vi.spyOn(HTMLElement.prototype, "blur");
     desktopHostState.api = {
       dialog: { ask: askMock },
     };
@@ -78,26 +83,41 @@ describe("confirmDialog", () => {
     });
   });
 
-  it("falls back to browser confirm on web when desktop APIs are unavailable", async () => {
+  it("renders a custom web confirmation dialog when desktop APIs are unavailable", async () => {
     const browserConfirm = vi.fn(() => true);
-    const blurMock = vi.fn();
-    (globalThis as { document?: unknown }).document = {
-      activeElement: { blur: blurMock },
-    } as unknown as Document;
+    document.body.innerHTML = `<button id="active-button">Active</button>`;
+    document.getElementById("active-button")?.focus();
+    const blurMock = vi.spyOn(HTMLElement.prototype, "blur");
     (globalThis as { confirm?: unknown }).confirm = browserConfirm;
 
     const { confirmDialog } = await loadModuleForPlatform("web");
-    const confirmed = await confirmDialog({
+    const confirmedPromise = confirmDialog({
       title: "Restart host",
       message: "This will restart the daemon.",
+      confirmLabel: "Restart",
+      cancelLabel: "Cancel",
     });
+    await Promise.resolve();
 
+    const dialog = document.querySelector('[role="alertdialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain("Restart host");
+    expect(dialog?.textContent).toContain("This will restart the daemon.");
+    expect(browserConfirm).not.toHaveBeenCalled();
+
+    const confirmButton = Array.from(document.querySelectorAll("button")).find(
+      (button) => button.textContent === "Restart",
+    );
+    confirmButton?.click();
+
+    const confirmed = await confirmedPromise;
     expect(confirmed).toBe(true);
     expect(blurMock).toHaveBeenCalledTimes(1);
-    expect(browserConfirm).toHaveBeenCalledWith("Restart host\n\nThis will restart the daemon.");
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull();
   });
 
   it("throws on web when no confirm backend exists", async () => {
+    vi.stubGlobal("document", undefined);
     const { confirmDialog } = await loadModuleForPlatform("web");
 
     await expect(
@@ -106,6 +126,7 @@ describe("confirmDialog", () => {
         message: "This will restart the daemon.",
       }),
     ).rejects.toThrow("[ConfirmDialog] No web confirmation backend is available.");
+    vi.unstubAllGlobals();
   });
 
   it("uses native Alert on iOS/Android", async () => {

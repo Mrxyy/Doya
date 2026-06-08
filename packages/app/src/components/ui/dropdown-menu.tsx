@@ -420,6 +420,7 @@ export function DropdownMenuContent({
   side = "bottom",
   align = "start",
   offset = 4,
+  crossAxisOffset = 0,
   width,
   minWidth = 180,
   maxWidth,
@@ -432,6 +433,7 @@ export function DropdownMenuContent({
   side?: Placement;
   align?: Alignment;
   offset?: number;
+  crossAxisOffset?: number;
   width?: number;
   minWidth?: number;
   maxWidth?: number;
@@ -551,10 +553,22 @@ export function DropdownMenuContent({
     });
 
     // For fullWidth, x is simply the horizontal padding to center on screen
-    const x = fullWidth ? horizontalPadding : result.x;
+    const shiftedX = result.x + crossAxisOffset;
+    const x = fullWidth
+      ? horizontalPadding
+      : Math.max(8, Math.min(displayArea.width - visibleContentSize.width - 8, shiftedX));
     setPosition({ x, y: result.y });
     setActualPlacement(result.actualPlacement);
-  }, [triggerRect, visibleContentSize, side, align, offset, fullWidth, horizontalPadding]);
+  }, [
+    triggerRect,
+    visibleContentSize,
+    side,
+    align,
+    offset,
+    crossAxisOffset,
+    fullWidth,
+    horizontalPadding,
+  ]);
 
   const handleMeasuredContentLayout = useCallback(
     (event: { nativeEvent: { layout: { width: number; height: number } } }) => {
@@ -883,12 +897,13 @@ const styles = StyleSheet.create((theme) => ({
     left: 0,
   },
   content: {
-    backgroundColor: theme.colors.surface1,
+    backgroundColor: theme.colors.popover,
     borderWidth: 1,
-    borderColor: theme.colors.borderAccent,
-    borderRadius: theme.borderRadius.lg,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.xl,
     overflow: "hidden",
-    ...theme.shadow.md,
+    paddingVertical: 6,
+    ...theme.shadow.lg,
   },
   labelContainer: {
     paddingHorizontal: theme.spacing[3],
@@ -904,6 +919,8 @@ const styles = StyleSheet.create((theme) => ({
   separator: {
     height: 1,
     backgroundColor: theme.colors.border,
+    marginVertical: 4,
+    marginHorizontal: theme.spacing[2],
   },
   hintContainer: {
     paddingHorizontal: theme.spacing[3],
@@ -920,10 +937,12 @@ const styles = StyleSheet.create((theme) => ({
   item: {
     flexDirection: "row",
     alignItems: "center",
-    minHeight: 36,
+    minHeight: 38,
     gap: theme.spacing[2],
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[2],
+    marginHorizontal: 6,
+    borderRadius: theme.borderRadius.md,
     borderWidth: theme.borderWidth[1],
     borderColor: "transparent",
   },

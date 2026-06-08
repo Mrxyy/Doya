@@ -536,6 +536,30 @@ export async function createPaseoDaemon(
     })();
   });
 
+  app.post("/api/account/projects/rename", (req, res) => {
+    void (async () => {
+      try {
+        const projects = await accountControlPlane.renameProject({
+          userId: typeof req.body?.userId === "string" ? req.body.userId : "",
+          workspaceId: typeof req.body?.workspaceId === "string" ? req.body.workspaceId : "",
+          projectId: typeof req.body?.projectId === "string" ? req.body.projectId : "",
+          accessToken: typeof req.body?.accessToken === "string" ? req.body.accessToken : "",
+          displayName: typeof req.body?.displayName === "string" ? req.body.displayName : "",
+        });
+        res.json({
+          projects: projects.map((project) => ({
+            projectId: project.projectId,
+            workspaceId: project.workspaceId,
+            displayName: project.displayName,
+            cwd: project.cwd,
+          })),
+        });
+      } catch (error) {
+        sendAccountError(res, error);
+      }
+    })();
+  });
+
   // Health check endpoint
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });

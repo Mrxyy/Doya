@@ -75,7 +75,7 @@ export function isUserComposerAttachment(value: unknown): value is UserComposerA
     return false;
   }
   const record = value as Record<string, unknown>;
-  if (record.kind === "image") {
+  if (record.kind === "image" || record.kind === "file") {
     const metadata = record.metadata;
     return isAttachmentMetadata(metadata);
   }
@@ -88,9 +88,9 @@ export function isUserComposerAttachment(value: unknown): value is UserComposerA
 export function normalizeComposerAttachment(
   attachment: UserComposerAttachment,
 ): UserComposerAttachment {
-  if (attachment.kind === "image") {
+  if (attachment.kind === "image" || attachment.kind === "file") {
     return {
-      kind: "image",
+      kind: attachment.kind,
       metadata: normalizeAttachmentMetadata(attachment.metadata),
     };
   }

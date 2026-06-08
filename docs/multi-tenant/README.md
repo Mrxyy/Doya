@@ -4,10 +4,10 @@
 
 ## 产品语义
 
-- 用户必须先登录或注册，才能进入原来的项目/会话界面。
-- 每个用户注册后自动分配一个工作区目录。
-- “新建项目”不再让用户输入任意本机目录，而是在该用户工作区里创建一个项目子目录。
-- agent 的执行目录就是项目目录。对话、会话、tab、provider、权限和运行状态继续使用原来的 Paseo app + daemon 代码。
+- 用户必须先登录或注册，才能进入原来的会话界面。
+- 每个用户注册后自动分配一个内部工作区目录；UI 不向用户暴露“工作区”概念。
+- “新建会话”不让用户输入任意本机目录，而是在该用户内部工作区里创建一个项目子目录。
+- agent 的执行目录就是该会话对应的项目目录。对话、会话、tab、provider、权限和运行状态继续使用原来的 Paseo app + daemon 代码。
 
 ## 存储位置
 
@@ -22,7 +22,7 @@ $PASEO_HOME/accounts/
             └── project-name-xxxx/
 ```
 
-`accounts.json` 记录 users、workspaces、projects。项目目录创建完成后，App 调用原来的 open project 流程打开目录，daemon 后续仍按普通 workspace 管理 agent。
+`accounts.json` 记录 users、workspaces、projects。项目目录创建完成后，App 调用原来的 open project 流程打开目录，daemon 后续仍按普通 workspace 管理 agent；这些 project/workspace 名称是内部实现语义，产品 UI 对用户呈现为“会话/对话”。
 
 ## HTTP 接口
 

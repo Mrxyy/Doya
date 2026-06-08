@@ -446,7 +446,15 @@ These live in React Native `AsyncStorage` or browser `IndexedDB`, not on the dae
 ```typescript
 {
   drafts: Record<draftKey, {
-    input: { text: string, images: AttachmentMetadata[] },
+    input: {
+      text: string,
+      attachments: Array<
+        | { kind: "image", metadata: AttachmentMetadata }
+        | { kind: "file", metadata: AttachmentMetadata }
+        | { kind: "github_issue", item: GitHubSearchItem }
+        | { kind: "github_pr", item: GitHubSearchItem }
+      >
+    },
     lifecycle: "active" | "abandoned" | "sent",
     updatedAt: number,     // epoch ms
     version: number        // optimistic concurrency
@@ -460,6 +468,10 @@ These live in React Native `AsyncStorage` or browser `IndexedDB`, not on the dae
 **IndexedDB database:** `paseo-attachment-bytes`, object store: `attachments`
 
 Stores binary attachment blobs keyed by attachment ID.
+
+Image and file composer attachments share `AttachmentMetadata` storage. Images are sent through the
+agent image channel; files are rendered as text attachments at submit time. Text-like files include
+their decoded contents, while binary files include filename, MIME type, and size metadata only.
 
 ### AttachmentMetadata
 

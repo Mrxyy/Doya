@@ -43,6 +43,7 @@ export interface BrowserElementAttachment {
 
 export type ComposerAttachment =
   | { kind: "image"; metadata: AttachmentMetadata }
+  | { kind: "file"; metadata: AttachmentMetadata }
   | { kind: "github_issue"; item: GitHubSearchItem }
   | { kind: "github_pr"; item: GitHubSearchItem }
   | {

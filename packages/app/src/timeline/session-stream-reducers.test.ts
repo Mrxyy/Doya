@@ -346,6 +346,65 @@ describe("processTimelineResponse", () => {
     expect(userMessages[0]?.optimistic).toBeUndefined();
   });
 
+  it("moves file attachment blocks from canonical user message text into attachments", () => {
+    const result = processTimelineResponse({
+      ...baseTimelineInput,
+      payload: {
+        ...baseTimelineInput.payload,
+        reset: true,
+        startCursor: { seq: 1 },
+        endCursor: { seq: 1 },
+        entries: [
+          {
+            ...makeTimelineEntry(
+              1,
+              [
+                "这是什么文件",
+                "File: 1-大作业说明文档(9).docx",
+                "",
+                "MIME type: application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "Size: 3950642 bytes",
+                "Content was not included because this file is not a readable text file.",
+              ].join("\n"),
+              "user_message",
+            ),
+            item: {
+              type: "user_message",
+              text: [
+                "这是什么文件",
+                "File: 1-大作业说明文档(9).docx",
+                "",
+                "MIME type: application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "Size: 3950642 bytes",
+                "Content was not included because this file is not a readable text file.",
+              ].join("\n"),
+              messageId: "canonical-file-user",
+            },
+          },
+        ],
+      },
+    });
+
+    const userMessage = result.tail.find(
+      (item): item is Extract<StreamItem, { kind: "user_message" }> => item.kind === "user_message",
+    );
+    expect(userMessage?.text).toBe("这是什么文件");
+    expect(userMessage?.attachments).toEqual([
+      {
+        type: "text",
+        mimeType: "text/plain",
+        title: "1-大作业说明文档(9).docx",
+        text: [
+          "File: 1-大作业说明文档(9).docx",
+          "",
+          "MIME type: application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Size: 3950642 bytes",
+          "Content was not included because this file is not a readable text file.",
+        ].join("\n"),
+      },
+    ]);
+  });
+
   it("keeps an unmatched optimistic user message during tail replacement", () => {
     const optimistic = makeOptimisticUserMessage("still sending", "optimistic-unmatched");
 
