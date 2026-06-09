@@ -300,6 +300,9 @@ function getFallbackTabOptionLabel(tab: WorkspaceTabDescriptor): string {
   if (tab.target.kind === "browser") {
     return "Browser";
   }
+  if (tab.target.kind === "pptPreview") {
+    return tab.target.projectName;
+  }
   if (tab.target.kind === "file") {
     return tab.target.path.split("/").findLast(Boolean) ?? tab.target.path;
   }
@@ -322,7 +325,13 @@ function getFallbackTabOptionDescription(tab: WorkspaceTabDescriptor): string {
   if (tab.target.kind === "browser") {
     return "Browser";
   }
-  return tab.target.path;
+  if (tab.target.kind === "pptPreview") {
+    return "Slides preview";
+  }
+  if (tab.target.kind === "file") {
+    return tab.target.path;
+  }
+  return "Agent";
 }
 
 interface MobileWorkspaceTabSwitcherProps {

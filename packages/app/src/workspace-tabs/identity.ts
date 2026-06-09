@@ -1,5 +1,9 @@
 import type { WorkspaceTabTarget } from "@/stores/workspace-tabs-store";
 import { normalizeWorkspaceFileLocation, workspaceFileLocationsEqual } from "@/workspace/file-open";
+import {
+  normalizeWorkspacePptPreviewTabTarget,
+  workspacePptPreviewTabTargetsEqual,
+} from "@/workspace/ppt-preview";
 
 type WorkspaceDraftTabSetup = NonNullable<Extract<WorkspaceTabTarget, { kind: "draft" }>["setup"]>;
 
@@ -28,6 +32,9 @@ export function normalizeWorkspaceTabTarget(
   if (value.kind === "browser") {
     const browserId = trimNonEmpty(value.browserId);
     return browserId ? { kind: "browser", browserId } : null;
+  }
+  if (value.kind === "pptPreview") {
+    return normalizeWorkspacePptPreviewTabTarget(value);
   }
   if (value.kind === "file") {
     return normalizeFileTabTarget(value);
@@ -81,6 +88,9 @@ export function workspaceTabTargetsEqual(
   }
   if (left.kind === "browser" && right.kind === "browser") {
     return left.browserId === right.browserId;
+  }
+  if (left.kind === "pptPreview" && right.kind === "pptPreview") {
+    return workspacePptPreviewTabTargetsEqual(left, right);
   }
   if (left.kind === "file" && right.kind === "file") {
     return workspaceFileLocationsEqual(left, right);
@@ -136,6 +146,9 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   }
   if (target.kind === "browser") {
     return `browser_${target.browserId}`;
+  }
+  if (target.kind === "pptPreview") {
+    return `ppt_preview_${target.agentId}_${target.projectName}`;
   }
   if (target.kind === "setup") {
     return `setup_${target.workspaceId}`;

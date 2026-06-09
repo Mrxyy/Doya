@@ -334,6 +334,28 @@ describe("workspace-tabs-store reducers", () => {
     expect(result.state.focusedTabIdByWorkspace[WORKSPACE_KEY]).toBe(result.tabId);
   });
 
+  it("opens PPT preview tabs by agent and project identity", () => {
+    let state = emptyState();
+    const first = applyOpenOrFocusTab(state, {
+      serverId: SERVER_ID,
+      workspaceId: WORKSPACE_ID,
+      target: { kind: "pptPreview", agentId: "agent-1", projectName: "breakfast_ppt" },
+      now: NOW,
+    });
+    state = first.state;
+    const second = applyOpenOrFocusTab(state, {
+      serverId: SERVER_ID,
+      workspaceId: WORKSPACE_ID,
+      target: { kind: "pptPreview", agentId: "agent-1", projectName: "breakfast_ppt" },
+      now: NOW,
+    });
+
+    expect(first.tabId).toBe("ppt_preview_agent-1_breakfast_ppt");
+    expect(second.tabId).toBe(first.tabId);
+    expect(second.state.uiTabsByWorkspace[WORKSPACE_KEY]).toHaveLength(1);
+    expect(second.state.focusedTabIdByWorkspace[WORKSPACE_KEY]).toBe(first.tabId);
+  });
+
   it("closeTab focuses the most-recent remaining tab when the focused tab is removed", () => {
     let state = emptyState();
     const first = applyOpenOrFocusTab(state, {

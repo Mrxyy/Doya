@@ -6,6 +6,7 @@ import {
   workspaceTabTargetsEqual,
 } from "@/workspace-tabs/identity";
 import type { WorkspaceFileTabTarget } from "@/workspace/file-open";
+import type { WorkspacePptPreviewTabTarget } from "@/workspace/ppt-preview";
 
 export interface WorkspaceDraftTabSetup {
   provider: AgentProvider;
@@ -21,6 +22,7 @@ export type WorkspaceTabTarget =
   | { kind: "agent"; agentId: string }
   | { kind: "terminal"; terminalId: string }
   | { kind: "browser"; browserId: string }
+  | WorkspacePptPreviewTabTarget
   | WorkspaceFileTabTarget
   | { kind: "setup"; workspaceId: string };
 
@@ -512,6 +514,17 @@ function coerceWorkspaceTabTarget(raw: Record<string, unknown>): WorkspaceTabTar
   }
   if (kind === "browser" && typeof raw.browserId === "string") {
     return normalizeWorkspaceTabTarget({ kind: "browser", browserId: raw.browserId });
+  }
+  if (
+    kind === "pptPreview" &&
+    typeof raw.agentId === "string" &&
+    typeof raw.projectName === "string"
+  ) {
+    return normalizeWorkspaceTabTarget({
+      kind: "pptPreview",
+      agentId: raw.agentId,
+      projectName: raw.projectName,
+    });
   }
   if (kind === "file" && typeof raw.path === "string") {
     return normalizeWorkspaceTabTarget({

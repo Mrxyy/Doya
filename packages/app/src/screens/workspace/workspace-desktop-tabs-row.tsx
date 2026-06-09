@@ -185,6 +185,12 @@ function getFallbackTabLabel(tab: WorkspaceTabDescriptor): string {
   if (tab.target.kind === "terminal") {
     return "Terminal";
   }
+  if (tab.target.kind === "browser") {
+    return "Browser";
+  }
+  if (tab.target.kind === "pptPreview") {
+    return tab.target.projectName;
+  }
   if (tab.target.kind === "file") {
     return tab.target.path.split("/").findLast(Boolean) ?? tab.target.path;
   }
