@@ -7,13 +7,35 @@ const LEGACY_ZH_AI_CREATION_EDIT_PREFIX = "\u7f16\u8f91\u56fe\u7247\uff1a";
 const AI_CREATION_IMAGE_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:(?:[A-Za-z]:[\\/]|\/|\.{1,2}[\\/])?[\w.@~+-]+[\\/])+[^"'`\s)）]+?\.(?:png|jpe?g|webp|gif|avif|bmp|tiff?))(?:$|[\s"'`)）.,;，。])/gi;
 const MARKDOWN_IMAGE_PATTERN = /!\[[^\]]*]\((<[^>]+>|[^)\n]+)\)/g;
+const PPTX_PATH_PATTERN =
+  /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/exports\/[^"'`\s)）]+?\.pptx)(?:$|[\s"'`)）.,;，。])/gi;
+const PPT_PREVIEW_PATH_PATTERN =
+  /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/svg_output\/?)(?:$|[\s"'`)）.,;，。])/gi;
 
 export function isAiCreationLabels(labels: Record<string, string> | undefined): boolean {
   return (
     labels?.surface === "ai_creation" ||
     labels?.intent === "imagegen" ||
-    labels?.intent === "image_edit"
+    labels?.intent === "image_edit" ||
+    labels?.intent === "ppt_creation"
   );
+}
+
+export type AiCreationIntent = "image" | "image_edit" | "ppt_creation";
+
+export function getAiCreationIntent(
+  labels: Record<string, string> | undefined,
+): AiCreationIntent | null {
+  if (labels?.intent === "ppt_creation") {
+    return "ppt_creation";
+  }
+  if (labels?.intent === "image_edit") {
+    return "image_edit";
+  }
+  if (labels?.surface === "ai_creation" || labels?.intent === "imagegen") {
+    return "image";
+  }
+  return null;
 }
 
 function stripAiCreationImagePathToken(source: string): string | null {
@@ -79,6 +101,65 @@ function extractAiCreationFinalImageMarkdown(text: string): string | null {
   return `![](${formatAiCreationImageMarkdownSource(finalSource)})`;
 }
 
+function normalizeAiCreationPptxPathToken(source: string): string | null {
+  const trimmed = source
+    .trim()
+    .replace(/^`+|`+$/g, "")
+    .replace(/^[.]\//, "")
+    .replace(/[，。.,;；:：]+$/g, "");
+  return trimmed || null;
+}
+
+function extractAiCreationPptxSources(text: string): string[] {
+  const sources: string[] = [];
+  for (const match of text.matchAll(PPTX_PATH_PATTERN)) {
+    const source = normalizeAiCreationPptxPathToken(match[1] ?? "");
+    if (source) {
+      sources.push(source);
+    }
+  }
+  return sources;
+}
+
+function extractAiCreationFinalPptxMarkdown(text: string): string | null {
+  const sources = [...new Set(extractAiCreationPptxSources(text))];
+  const finalSource = sources[sources.length - 1];
+  if (!finalSource) {
+    return null;
+  }
+  return `[${finalSource}](${finalSource})`;
+}
+
+export function extractAiCreationFinalPptxPath(text: string): string | null {
+  const sources = [...new Set(extractAiCreationPptxSources(text))];
+  return sources[sources.length - 1] ?? null;
+}
+
+function normalizeAiCreationPptPreviewPathToken(source: string): string | null {
+  const trimmed = source
+    .trim()
+    .replace(/^`+|`+$/g, "")
+    .replace(/^[.]\//, "")
+    .replace(/[，。.,;；:：]+$/g, "");
+  return trimmed || null;
+}
+
+function extractAiCreationPptPreviewSources(text: string): string[] {
+  const sources: string[] = [];
+  for (const match of text.matchAll(PPT_PREVIEW_PATH_PATTERN)) {
+    const source = normalizeAiCreationPptPreviewPathToken(match[1] ?? "");
+    if (source) {
+      sources.push(source);
+    }
+  }
+  return sources;
+}
+
+export function extractAiCreationPptPreviewPath(text: string): string | null {
+  const sources = [...new Set(extractAiCreationPptPreviewSources(text))];
+  return sources[sources.length - 1] ?? null;
+}
+
 type StreamSource = "tail" | "head";
 
 interface TaggedStreamItem {
@@ -94,6 +175,17 @@ function findLastAiCreationAssistantResultItem(items: TaggedStreamItem[]): Tagge
       item?.kind === "assistant_message" &&
       extractAiCreationResultSources(item.text).length > 0
     ) {
+      return tagged;
+    }
+  }
+  return null;
+}
+
+function findLastAiCreationPptxResultItem(items: TaggedStreamItem[]): TaggedStreamItem | null {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const tagged = items[index];
+    const item = tagged?.item;
+    if (item?.kind === "assistant_message" && extractAiCreationPptxSources(item.text).length > 0) {
       return tagged;
     }
   }
@@ -183,16 +275,20 @@ function normalizeAiCreationTurn(input: {
   }
 
   const finalResult = findLastAiCreationAssistantResultItem(input.turn);
-  if (!finalResult || finalResult.item.kind !== "assistant_message") {
+  const finalPptxResult = findLastAiCreationPptxResultItem(input.turn);
+  const finalTaggedResult = finalPptxResult ?? finalResult;
+  if (!finalTaggedResult || finalTaggedResult.item.kind !== "assistant_message") {
     return normalized;
   }
-  const imageMarkdown = extractAiCreationFinalImageMarkdown(finalResult.item.text);
-  if (!imageMarkdown) {
+  const imageMarkdown = extractAiCreationFinalImageMarkdown(finalTaggedResult.item.text);
+  const pptxMarkdown = extractAiCreationFinalPptxMarkdown(finalTaggedResult.item.text);
+  const resultMarkdown = pptxMarkdown ?? imageMarkdown;
+  if (!resultMarkdown) {
     return normalized;
   }
   normalized.push({
-    source: finalResult.source,
-    item: { ...finalResult.item, text: imageMarkdown },
+    source: finalTaggedResult.source,
+    item: { ...finalTaggedResult.item, text: resultMarkdown },
   });
   return normalized;
 }
@@ -201,7 +297,15 @@ export function normalizeAiCreationStream(params: {
   agentStatus: string;
   tail: StreamItem[];
   head: StreamItem[];
+  intent?: AiCreationIntent | null;
 }): { tail: StreamItem[]; head: StreamItem[] } {
+  if (params.intent === "ppt_creation") {
+    return normalizePptCreationStream({
+      tail: params.tail,
+      head: params.head,
+    });
+  }
+
   const taggedItems: TaggedStreamItem[] = [
     ...params.tail.map((item) => ({ item, source: "tail" as const })),
     ...params.head.map((item) => ({ item, source: "head" as const })),
@@ -221,6 +325,24 @@ export function normalizeAiCreationStream(params: {
     }
   });
   return normalized;
+}
+
+function normalizePptCreationStream(params: { tail: StreamItem[]; head: StreamItem[] }): {
+  tail: StreamItem[];
+  head: StreamItem[];
+} {
+  const normalizeItems = (items: StreamItem[]) =>
+    items.map((item) => {
+      if (item.kind !== "assistant_message") {
+        return item;
+      }
+      const pptxMarkdown = extractAiCreationFinalPptxMarkdown(item.text);
+      return pptxMarkdown ? { ...item, text: pptxMarkdown } : item;
+    });
+  return {
+    tail: normalizeItems(params.tail),
+    head: normalizeItems(params.head),
+  };
 }
 
 export function applyAiCreationMessageDisplayMetadata(

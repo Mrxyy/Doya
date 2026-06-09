@@ -809,6 +809,13 @@ export const TextAttachmentSchema = z.object({
   text: z.string(),
 });
 
+export const FileAttachmentSchema = z.object({
+  type: z.literal("file"),
+  mimeType: z.string(),
+  title: z.string().nullable().optional(),
+  data: z.string(),
+});
+
 export const ReviewAttachmentContextLineSchema = z.object({
   oldLineNumber: z.number().int().positive().nullable(),
   newLineNumber: z.number().int().positive().nullable(),
@@ -841,6 +848,7 @@ export const AgentAttachmentSchema = z.discriminatedUnion("type", [
   GitHubPrAttachmentSchema,
   GitHubIssueAttachmentSchema,
   TextAttachmentSchema,
+  FileAttachmentSchema,
   ReviewAttachmentSchema,
 ]);
 

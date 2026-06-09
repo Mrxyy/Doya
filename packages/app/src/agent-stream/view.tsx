@@ -17,15 +17,17 @@ import {
   Pressable,
   Platform,
   ActivityIndicator,
+  type GestureResponderEvent,
   type PressableStateCallbackType,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { SvgXml } from "react-native-svg";
 import { MAX_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
 import { useMutation } from "@tanstack/react-query";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { Check, ChevronDown, X } from "lucide-react-native";
+import { Check, ChevronDown, Download, Eye, X } from "lucide-react-native";
 import { usePanelStore } from "@/stores/panel-store";
 import {
   AssistantMessage,
@@ -67,6 +69,7 @@ import {
 import {
   AssistantFileLinkResolverProvider,
   normalizeInlinePathTarget,
+  useAssistantFileLinkActions,
 } from "@/assistant-file-links";
 import {
   createWorkspaceFileTabTarget,
@@ -84,9 +87,15 @@ import { translateNow } from "@/i18n/i18n";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { setAiCreationEditSource } from "@/stores/ai-creation-edit-source-store";
 import { buildHostAiCreationRoute } from "@/utils/host-routes";
+import { createWorkspacePptPreviewTabTarget } from "@/workspace/ppt-preview";
+import { useDownloadStore } from "@/stores/download-store";
+import { useHosts } from "@/runtime/host-runtime";
 import {
   AI_CREATION_PLACEHOLDER_ID,
   applyAiCreationMessageDisplayMetadata,
+  extractAiCreationFinalPptxPath,
+  extractAiCreationPptPreviewPath,
+  getAiCreationIntent,
   isAiCreationLabels,
   normalizeAiCreationStream,
 } from "./ai-creation";
@@ -247,6 +256,8 @@ const AGENT_CAPABILITY_FLAG_KEYS: (keyof AgentCapabilityFlags)[] = [
 
 const EMPTY_STREAM_HEAD: StreamItem[] = [];
 const AI_CREATION_PLACEHOLDER_DOT_KEYS = Array.from({ length: 220 }, (_, index) => `dot-${index}`);
+const PDF_FILE_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#ef5350" d="M13 9h5.5L13 3.5zM6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2m4.93 10.44c.41.9.93 1.64 1.53 2.15l.41.32c-.87.16-2.07.44-3.34.93l-.11.04.5-1.04c.45-.87.78-1.66 1.01-2.4m6.48 3.81c.18-.18.27-.41.28-.66.03-.2-.02-.39-.12-.55-.29-.47-1.04-.69-2.28-.69l-1.29.07-.87-.58c-.63-.52-1.2-1.43-1.6-2.56l.04-.14c.33-1.33.64-2.94-.02-3.6a.85.85 0 0 0-.61-.24h-.24c-.37 0-.7.39-.79.77-.37 1.33-.15 2.06.22 3.27v.01c-.25.88-.57 1.9-1.08 2.93l-.96 1.8-.89.49c-1.2.75-1.77 1.59-1.88 2.12-.04.19-.02.36.05.54l.03.05.48.31.44.11c.81 0 1.73-.95 2.97-3.07l.18-.07c1.03-.33 2.31-.56 4.03-.75 1.03.51 2.24.74 3 .74.44 0 .74-.11.91-.3m-.41-.71.09.11c-.01.1-.04.11-.09.13h-.04l-.19.02c-.46 0-1.17-.19-1.9-.51.09-.1.13-.1.23-.1 1.4 0 1.8.25 1.9.35M7.83 17c-.65 1.19-1.24 1.85-1.69 2 .05-.38.5-1.04 1.21-1.69zm3.02-6.91c-.23-.9-.24-1.63-.07-2.05l.07-.12.15.05c.17.24.19.56.09 1.1l-.03.16-.16.82z"/></svg>';
 
 const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamViewProps>(
   function AgentStreamView(
@@ -300,11 +311,17 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       workspaces: useSessionStore.getState().sessions[resolvedServerId]?.workspaces?.values(),
       workspaceDirectory: workspaceRoot,
     });
-    const { requestDirectoryListing } = useFileExplorerActions({
+    const { requestDirectoryListing, requestFileDownloadToken } = useFileExplorerActions({
       serverId: resolvedServerId,
       workspaceId: workspaceId ?? undefined,
       workspaceRoot,
     });
+    const daemons = useHosts();
+    const daemonProfile = useMemo(
+      () => daemons.find((daemon) => daemon.serverId === resolvedServerId),
+      [daemons, resolvedServerId],
+    );
+    const startDownload = useDownloadStore((state) => state.startDownload);
     const { isLoadingOlder, hasOlder, loadOlder } = useLoadOlderAgentHistory({
       serverId: resolvedServerId,
       agentId,
@@ -399,7 +416,34 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
     );
 
+    const handleOpenPptPreview = useStableEvent((projectName: string) => {
+      if (!workspaceId) {
+        return;
+      }
+      navigateToPreparedWorkspaceTab({
+        serverId: resolvedServerId,
+        workspaceId,
+        target: createWorkspacePptPreviewTabTarget({ agentId, projectName }),
+      });
+    });
+
+    const handleDownloadPptx = useStableEvent((path: string) => {
+      const workspaceScopeId = workspaceId?.trim() || workspaceRoot;
+      if (!workspaceScopeId) {
+        return;
+      }
+      startDownload({
+        serverId: resolvedServerId,
+        scopeId: workspaceScopeId,
+        fileName: path.split(/[\\/]/).pop() || "presentation.pptx",
+        path,
+        daemonProfile,
+        requestFileDownloadToken: (targetPath) => requestFileDownloadToken(targetPath),
+      });
+    });
+
     const shouldNormalizeAiCreationStream = isAiCreationLabels(agentLabels);
+    const aiCreationIntent = getAiCreationIntent(agentLabels);
     useEffect(() => {
       let canceled = false;
       void loadAiCreationServerMessageDisplayMetadata({
@@ -409,6 +453,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         if (!canceled) {
           setAiCreationMessageDisplayMetadata(metadata);
         }
+        return undefined;
       });
       return () => {
         canceled = true;
@@ -432,12 +477,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       }
       return normalizeAiCreationStream({
         agentStatus: agent.status,
+        intent: aiCreationIntent,
         tail,
         head,
       });
     }, [
       agent.status,
       aiCreationMessageDisplayMetadata,
+      aiCreationIntent,
       shouldNormalizeAiCreationStream,
       streamHead,
       streamItems,
@@ -532,16 +579,32 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const renderAssistantMessageItem = useCallback(
       (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "assistant_message" }>) => {
         if (item.id === AI_CREATION_PLACEHOLDER_ID) {
-          return <AiCreationPlaceholder />;
+          return <AiCreationPlaceholder intent={aiCreationIntent} />;
         }
-        return (
-          <AssistantFileLinkResolverProvider
-            client={client}
-            serverId={resolvedServerId}
-            workspaceRoot={workspaceRoot}
-            onOpenWorkspaceFile={handleInlinePathPress}
-            toast={toast}
-          >
+        const pptxPath =
+          aiCreationIntent === "ppt_creation" ? extractAiCreationFinalPptxPath(item.text) : null;
+        const pptPreviewPath =
+          aiCreationIntent === "ppt_creation" ? extractAiCreationPptPreviewPath(item.text) : null;
+        let messageContent: ReactNode;
+        if (pptxPath) {
+          messageContent = (
+            <AiCreationSlidesResultCard
+              canOpenPreview={Boolean(workspaceId)}
+              path={pptxPath}
+              onDownload={handleDownloadPptx}
+              onOpenPreview={handleOpenPptPreview}
+            />
+          );
+        } else if (pptPreviewPath) {
+          messageContent = (
+            <AiCreationSlidesPreviewCard
+              canOpenPreview={Boolean(workspaceId)}
+              path={pptPreviewPath}
+              onOpenPreview={handleOpenPptPreview}
+            />
+          );
+        } else {
+          messageContent = (
             <AssistantMessage
               message={item.text}
               timestamp={item.timestamp.getTime()}
@@ -551,16 +614,31 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               spacing={layoutItem.assistantSpacing}
               onEditImage={isAiCreationLabels(agentLabels) ? handleEditAiCreationImage : undefined}
             />
+          );
+        }
+        return (
+          <AssistantFileLinkResolverProvider
+            client={client}
+            serverId={resolvedServerId}
+            workspaceRoot={workspaceRoot}
+            onOpenWorkspaceFile={handleInlinePathPress}
+            toast={toast}
+          >
+            {messageContent}
           </AssistantFileLinkResolverProvider>
         );
       },
       [
+        aiCreationIntent,
         agentLabels,
         client,
         handleEditAiCreationImage,
         handleInlinePathPress,
+        handleDownloadPptx,
+        handleOpenPptPreview,
         resolvedServerId,
         toast,
+        workspaceId,
         workspaceRoot,
       ],
     );
@@ -941,10 +1019,11 @@ function ToolCallSlot({
   return <ToolCall {...rest} onInlineDetailsExpandedChange={handleExpandedChange} />;
 }
 
-function AiCreationPlaceholder() {
+function AiCreationPlaceholder({ intent }: { intent: ReturnType<typeof getAiCreationIntent> }) {
+  const title = intent === "ppt_creation" ? "Creating slides" : "Creating image";
   return (
     <View style={stylesheet.aiCreationPlaceholder}>
-      <Text style={stylesheet.aiCreationPlaceholderTitle}>Creating image</Text>
+      <Text style={stylesheet.aiCreationPlaceholderTitle}>{title}</Text>
       <View style={stylesheet.aiCreationDotField}>
         {AI_CREATION_PLACEHOLDER_DOT_KEYS.map((dotKey) => (
           <View key={dotKey} style={stylesheet.aiCreationDot} />
@@ -952,6 +1031,180 @@ function AiCreationPlaceholder() {
       </View>
     </View>
   );
+}
+
+function aiCreationSlidesCardStyle({ hovered, pressed }: PressableStateCallbackType) {
+  return [
+    stylesheet.aiCreationSlidesCard,
+    hovered && stylesheet.aiCreationSlidesCardHovered,
+    pressed && stylesheet.aiCreationSlidesCardPressed,
+  ];
+}
+
+function aiCreationSlidesPreviewButtonStyle({ hovered, pressed }: PressableStateCallbackType) {
+  return [
+    stylesheet.aiCreationSlidesSecondaryButton,
+    hovered && stylesheet.aiCreationSlidesSecondaryButtonHovered,
+    pressed && stylesheet.aiCreationSlidesButtonPressed,
+  ];
+}
+
+function aiCreationSlidesPrimaryButtonStyle({ hovered, pressed }: PressableStateCallbackType) {
+  return [
+    stylesheet.aiCreationSlidesPrimaryButton,
+    hovered && stylesheet.aiCreationSlidesPrimaryButtonHovered,
+    pressed && stylesheet.aiCreationSlidesButtonPressed,
+  ];
+}
+
+function AiCreationSlidesResultCard({
+  canOpenPreview,
+  onDownload,
+  onOpenPreview,
+  path,
+}: {
+  canOpenPreview: boolean;
+  onDownload: (path: string) => void;
+  onOpenPreview: (projectName: string) => void;
+  path: string;
+}) {
+  const fileLinkActions = useAssistantFileLinkActions();
+  const fileName = path.split(/[\\/]/).pop() || "presentation.pptx";
+  const projectName = extractPptProjectName(path);
+  const canPreview = canOpenPreview && Boolean(projectName);
+  const handlePress = useCallback(() => {
+    fileLinkActions.open({ href: path, text: path }, "main");
+  }, [fileLinkActions, path]);
+  const handleDownloadPress = useCallback(
+    (event: GestureResponderEvent) => {
+      event.stopPropagation();
+      onDownload(path);
+    },
+    [onDownload, path],
+  );
+  const handlePreviewPress = useCallback(() => {
+    if (!projectName) return;
+    onOpenPreview(projectName);
+  }, [onOpenPreview, projectName]);
+  const handlePreviewButtonPress = useCallback(
+    (event: GestureResponderEvent) => {
+      event.stopPropagation();
+      handlePreviewPress();
+    },
+    [handlePreviewPress],
+  );
+
+  return (
+    <Pressable accessibilityRole="button" onPress={handlePress} style={aiCreationSlidesCardStyle}>
+      <View style={stylesheet.aiCreationSlidesIconWrap}>
+        <SvgXml xml={PDF_FILE_ICON_SVG} width={34} height={34} />
+      </View>
+      <View style={stylesheet.aiCreationSlidesBody}>
+        <View style={stylesheet.aiCreationSlidesHeader}>
+          <Text style={stylesheet.aiCreationSlidesTitle}>
+            {translateNow("aiCreation.result.slidesReady")}
+          </Text>
+          <View style={stylesheet.aiCreationSlidesTypeBadge}>
+            <Text style={stylesheet.aiCreationSlidesTypeBadgeText}>PPTX</Text>
+          </View>
+        </View>
+        <Text style={stylesheet.aiCreationSlidesFileName} numberOfLines={1}>
+          {fileName}
+        </Text>
+        <Text style={stylesheet.aiCreationSlidesPath} numberOfLines={1}>
+          {path}
+        </Text>
+        <View style={stylesheet.aiCreationSlidesActions}>
+          {canPreview ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={handlePreviewButtonPress}
+              style={aiCreationSlidesPrimaryButtonStyle}
+            >
+              <View style={stylesheet.aiCreationSlidesButtonContent}>
+                <Eye size={15} color={stylesheet.aiCreationSlidesPrimaryButtonText.color} />
+                <Text style={stylesheet.aiCreationSlidesPrimaryButtonText}>
+                  {translateNow("aiCreation.action.openSlidesPreview")}
+                </Text>
+              </View>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleDownloadPress}
+            style={aiCreationSlidesPreviewButtonStyle}
+          >
+            <View style={stylesheet.aiCreationSlidesButtonContent}>
+              <Download size={15} color={stylesheet.aiCreationSlidesSecondaryButtonText.color} />
+              <Text style={stylesheet.aiCreationSlidesSecondaryButtonText}>
+                {translateNow("ui.download.ooknmw")}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function AiCreationSlidesPreviewCard({
+  canOpenPreview,
+  onOpenPreview,
+  path,
+}: {
+  canOpenPreview: boolean;
+  onOpenPreview: (projectName: string) => void;
+  path: string;
+}) {
+  const projectName = extractPptPreviewProjectName(path);
+  const canPreview = canOpenPreview && Boolean(projectName);
+  const handlePreviewPress = useCallback(() => {
+    if (!projectName) return;
+    onOpenPreview(projectName);
+  }, [onOpenPreview, projectName]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={!canPreview}
+      onPress={handlePreviewPress}
+      style={aiCreationSlidesCardStyle}
+    >
+      <View style={stylesheet.aiCreationSlidesIconWrap}>
+        <SvgXml xml={PDF_FILE_ICON_SVG} width={34} height={34} />
+      </View>
+      <View style={stylesheet.aiCreationSlidesBody}>
+        <Text style={stylesheet.aiCreationSlidesTitle}>
+          {translateNow("aiCreation.result.slidesPreviewReady")}
+        </Text>
+        <Text style={stylesheet.aiCreationSlidesPath} numberOfLines={1}>
+          {path}
+        </Text>
+        {canPreview ? (
+          <View style={stylesheet.aiCreationSlidesPrimaryButton}>
+            <View style={stylesheet.aiCreationSlidesButtonContent}>
+              <Eye size={15} color={stylesheet.aiCreationSlidesPrimaryButtonText.color} />
+              <Text style={stylesheet.aiCreationSlidesPrimaryButtonText}>
+                {translateNow("aiCreation.action.openSlidesPreview")}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function extractPptProjectName(pptxPath: string): string | null {
+  const normalized = pptxPath.replace(/\\/g, "/");
+  const match = /(?:^|\/)projects\/([^/]+)\/exports\/[^/]+\.pptx$/i.exec(normalized);
+  return match?.[1] ?? null;
+}
+
+function extractPptPreviewProjectName(previewPath: string): string | null {
+  const normalized = previewPath.replace(/\\/g, "/");
+  const match = /(?:^|\/)projects\/([^/]+)\/svg_output\/?$/i.exec(normalized);
+  return match?.[1] ?? null;
 }
 
 const ThemedActivityIndicator = withUnistyles(ActivityIndicator);
@@ -1339,6 +1592,125 @@ const stylesheet = StyleSheet.create((theme) => ({
     height: 2,
     borderRadius: 1,
     backgroundColor: theme.colors.foregroundMuted,
+  },
+  aiCreationSlidesCard: {
+    width: "100%",
+    maxWidth: 680,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface1,
+    padding: theme.spacing[4],
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: theme.spacing[4],
+    ...theme.shadow.sm,
+  },
+  aiCreationSlidesCardHovered: {
+    backgroundColor: theme.colors.surface2,
+  },
+  aiCreationSlidesCardPressed: {
+    opacity: 0.82,
+  },
+  aiCreationSlidesIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: theme.borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fee2e2",
+  },
+  aiCreationSlidesBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: theme.spacing[1],
+  },
+  aiCreationSlidesHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: theme.spacing[2],
+    rowGap: theme.spacing[1],
+  },
+  aiCreationSlidesTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.lg,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  aiCreationSlidesTypeBadge: {
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing[1],
+    paddingVertical: 1,
+    backgroundColor: theme.colors.surface2,
+  },
+  aiCreationSlidesTypeBadgeText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: 10,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  aiCreationSlidesFileName: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+  },
+  aiCreationSlidesPath: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+  },
+  aiCreationSlidesActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: theme.spacing[2],
+    marginTop: theme.spacing[2],
+  },
+  aiCreationSlidesPrimaryButton: {
+    minHeight: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: theme.borderWidth[1],
+    borderColor: "#1d4ed8",
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[1],
+    backgroundColor: "#2563eb",
+  },
+  aiCreationSlidesPrimaryButtonHovered: {
+    backgroundColor: "#1d4ed8",
+  },
+  aiCreationSlidesSecondaryButton: {
+    minHeight: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[1],
+    backgroundColor: theme.colors.surface2,
+  },
+  aiCreationSlidesSecondaryButtonHovered: {
+    backgroundColor: theme.colors.surface3,
+  },
+  aiCreationSlidesButtonPressed: {
+    opacity: 0.76,
+  },
+  aiCreationSlidesButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+  },
+  aiCreationSlidesPrimaryButtonText: {
+    color: "#ffffff",
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  aiCreationSlidesSecondaryButtonText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
   },
 }));
 

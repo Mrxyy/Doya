@@ -117,6 +117,10 @@ import {
   toAgentPayload,
 } from "./agent/agent-projections.js";
 import {
+  isPptCreationLabels,
+  preparePptCreationWorkspace,
+} from "./ai-creation/ppt-master-skill.js";
+import {
   appendTimelineItemIfAgentKnown,
   emitLiveTimelineItemIfAgentKnown,
 } from "./agent/timeline-append.js";
@@ -3117,6 +3121,13 @@ export class Session {
       const createAgentConfig: AgentSessionConfig = createdWorktree
         ? { ...config, cwd: createdWorktree.worktree.worktreePath }
         : config;
+      let createAttachments = attachments;
+      if (isPptCreationLabels(labels)) {
+        createAttachments = await preparePptCreationWorkspace({
+          cwd: createAgentConfig.cwd,
+          attachments,
+        });
+      }
 
       const { snapshot, liveSnapshot } = await createAgentCommand(
         {
@@ -3138,7 +3149,7 @@ export class Session {
           clientMessageId,
           outputSchema,
           images,
-          attachments,
+          attachments: createAttachments,
           git,
           labels,
           env,

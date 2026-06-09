@@ -4,6 +4,8 @@ import type { StreamItem } from "@/types/stream";
 import {
   AI_CREATION_PLACEHOLDER_ID,
   applyAiCreationMessageDisplayMetadata,
+  extractAiCreationFinalPptxPath,
+  extractAiCreationPptPreviewPath,
   normalizeAiCreationStream,
 } from "./ai-creation";
 
@@ -98,6 +100,57 @@ describe("normalizeAiCreationStream", () => {
       text: "![](/repo/assets/final.png)",
     });
     expect(result.head).toEqual([]);
+  });
+
+  it("shows the final pptx result after the slides agent finishes", () => {
+    const result = normalizeAiCreationStream({
+      agentStatus: "idle",
+      intent: "ppt_creation",
+      tail: [
+        userMessage("u1", 1),
+        assistantMessage("status", "I am creating slides.", 2),
+        toolCall("shell-1", 3),
+        assistantMessage(
+          "final",
+          "projects/harvard-campus/exports/harvard-campus-introduction.pptx",
+          4,
+        ),
+      ],
+      head: [],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", "status", "shell-1", "final"]);
+    expect(result.tail[3]).toMatchObject({
+      kind: "assistant_message",
+      text: "[projects/harvard-campus/exports/harvard-campus-introduction.pptx](projects/harvard-campus/exports/harvard-campus-introduction.pptx)",
+    });
+    expect(extractAiCreationFinalPptxPath(result.tail[3]?.text ?? "")).toBe(
+      "projects/harvard-campus/exports/harvard-campus-introduction.pptx",
+    );
+  });
+
+  it("preserves normal work progress while the slides agent is running", () => {
+    const result = normalizeAiCreationStream({
+      agentStatus: "running",
+      intent: "ppt_creation",
+      tail: [
+        userMessage("u1", 1),
+        assistantMessage("status", "Reading PPT Master skill.", 2),
+        toolCall("shell-1", 3),
+      ],
+      head: [assistantMessage("progress", "Generating SVG page 1.", 4)],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", "status", "shell-1"]);
+    expect(result.head.map((item) => item.id)).toEqual(["progress"]);
+  });
+
+  it("extracts the slides preview path while the slides agent is running", () => {
+    expect(
+      extractAiCreationPptPreviewPath(
+        "Preview: `projects/seasonal_best_cities_ppt169_20260609/svg_output/`",
+      ),
+    ).toBe("projects/seasonal_best_cities_ppt169_20260609/svg_output/");
   });
 
   it("preserves each completed turn result while the latest turn is loading", () => {

@@ -27,6 +27,14 @@ export function renderPromptAttachmentAsText(attachment: AgentAttachment): strin
     case "text": {
       return attachment.text;
     }
+    case "file": {
+      const title = attachment.title?.trim() || "Attached file";
+      return [
+        `File attachment: ${title}`,
+        `MIME type: ${attachment.mimeType}`,
+        "Content is available to compatible Paseo workflows as a workspace file.",
+      ].join("\n");
+    }
     case "review": {
       const lines = [`Paseo review attachment (${attachment.mode})`, `CWD: ${attachment.cwd}`];
       if (attachment.baseRef) {

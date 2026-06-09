@@ -7,6 +7,31 @@ import {
 } from "./messages.js";
 
 describe("shared messages attachments", () => {
+  it("keeps valid file attachments for workspace-materialized workflows", () => {
+    const parsed = CreateAgentRequestMessageSchema.parse({
+      type: "create_agent_request",
+      requestId: "req-file",
+      config: { provider: "codex", cwd: "/tmp/repo" },
+      attachments: [
+        {
+          type: "file",
+          mimeType: "application/pdf",
+          title: "report.pdf",
+          data: "SGVsbG8=",
+        },
+      ],
+    });
+
+    expect(parsed.attachments).toEqual([
+      {
+        type: "file",
+        mimeType: "application/pdf",
+        title: "report.pdf",
+        data: "SGVsbG8=",
+      },
+    ]);
+  });
+
   it("keeps valid review attachments", () => {
     const parsed = SendAgentMessageRequestSchema.parse({
       type: "send_agent_message_request",

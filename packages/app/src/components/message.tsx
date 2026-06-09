@@ -499,7 +499,9 @@ function UserMessageSelectionReference({
       ) : (
         <View style={userMessageStylesheet.selectionReferenceThumb} />
       )}
-      <Text style={userMessageStylesheet.selectionReferenceText}>Selection</Text>
+      <Text style={userMessageStylesheet.selectionReferenceText}>
+        {translateNow("aiCreation.display.selectionReference")}
+      </Text>
     </View>
   );
 }
@@ -516,6 +518,8 @@ function getUserMessageAttachmentLabel(attachment: AgentAttachment): string {
       return `Issue #${attachment.number}`;
     case "text":
       return attachment.title ?? "Text attachment";
+    case "file":
+      return attachment.title ?? "File attachment";
     default:
       return "";
   }

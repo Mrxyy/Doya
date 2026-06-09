@@ -33,6 +33,7 @@ import Svg, { Path } from "react-native-svg";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
+import type { AgentAttachment } from "@getpaseo/protocol/messages";
 import {
   createAccountProject,
   saveAccountBootstrapSession,
@@ -74,9 +75,10 @@ import { buildAiCreationTitle } from "@/utils/ai-creation-display";
 import { encodeImages } from "@/utils/encode-images";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { useImageAttachmentPicker } from "@/hooks/use-image-attachment-picker";
+import { useFileAttachmentPicker } from "@/hooks/use-file-attachment-picker";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
 
-type CreationMode = "image" | "edit";
+type CreationMode = "image" | "slides" | "edit";
 type AspectRatio = "1:1" | "3:4" | "4:3" | "16:9" | "9:16";
 type VisualStyle = "auto" | "photo" | "illustration" | "poster" | "product";
 
@@ -122,34 +124,6 @@ interface CreateAiCreationWorkspaceInput {
   setHasHydratedWorkspaces: (serverId: string, hydrated: boolean) => void;
 }
 
-const FEATURE_CARDS = [
-  {
-    id: "draw",
-    titleKey: "aiCreation.feature.cutout",
-    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=320&h=220&fit=crop",
-  },
-  {
-    id: "erase",
-    titleKey: "aiCreation.feature.erase",
-    image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=320&h=220&fit=crop",
-  },
-  {
-    id: "region",
-    titleKey: "aiCreation.feature.region",
-    image: "https://images.unsplash.com/photo-1496449903678-68ddcb189a24?w=320&h=220&fit=crop",
-  },
-  {
-    id: "expand",
-    titleKey: "aiCreation.feature.expand",
-    image: "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=320&h=220&fit=crop",
-  },
-  {
-    id: "enhance",
-    titleKey: "aiCreation.feature.enhance",
-    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=320&h=220&fit=crop",
-  },
-] as const;
-
 const GALLERY_ITEMS = [
   "https://images.unsplash.com/photo-1494526585095-c41746248156?w=720&h=920&fit=crop",
   "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=720&h=920&fit=crop",
@@ -162,6 +136,7 @@ const GALLERY_ITEMS = [
 ] as const;
 
 const RATIO_OPTIONS: AspectRatio[] = ["1:1", "3:4", "4:3", "16:9", "9:16"];
+const SLIDE_RATIO_OPTIONS: AspectRatio[] = ["16:9", "4:3"];
 const MASK_VIEWBOX_SIZE = 1000;
 const SELECTION_BRUSH_SIZE_MIN = 18;
 const SELECTION_BRUSH_SIZE_MAX = 110;
@@ -210,6 +185,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     (state) => state.appendOptimisticUserMessageToAgentStream,
   );
   const { pickImages } = useImageAttachmentPicker();
+  const { pickFiles } = useFileAttachmentPicker();
   const lastWorkspaceSelection = useLastWorkspaceSelection();
   const selectedWorkspaceId =
     lastWorkspaceSelection?.serverId === serverId ? lastWorkspaceSelection.workspaceId : null;
@@ -264,7 +240,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   const modeOptions = useMemo(
     () => [
       { value: "image" as const, label: t("aiCreation.mode.image") },
-      { value: "edit" as const, label: t("aiCreation.mode.edit") },
+      { value: "slides" as const, label: t("aiCreation.mode.slides") },
     ],
     [t],
   );
@@ -277,6 +253,13 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   );
 
   const handlePickReference = useCallback(async () => {
+    if (mode === "slides") {
+      const files = await pickFiles();
+      if (files.length === 0) return;
+      setReferences((current) => [...current, ...files]);
+      return;
+    }
+
     const images = await pickAndPersistImages({
       pickImages,
       persister: {
@@ -288,7 +271,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     });
     if (images.length === 0) return;
     setReferences((current) => [...current, ...images]);
-  }, [pickImages]);
+  }, [mode, pickFiles, pickImages]);
 
   const handlePickEditImage = useCallback(async () => {
     const images = await pickAndPersistImages({
@@ -331,6 +314,17 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   }, []);
 
   const handleChangeMode = useCallback((nextMode: CreationMode) => {
+    if (nextMode === "slides") {
+      setRatio("16:9");
+      setSelectionMode(false);
+      setSelectionStrokes([]);
+      setRedoSelectionStrokes([]);
+    }
+    if (nextMode === "image") {
+      setReferences((current) =>
+        current.filter((attachment) => attachment.mimeType.toLowerCase().startsWith("image/")),
+      );
+    }
     setMode(nextMode);
   }, []);
 
@@ -447,7 +441,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     Boolean(client) &&
     isConnected &&
     Boolean(composerState) &&
-    (mode === "image" || Boolean(editImage));
+    (mode === "image" || mode === "slides" || Boolean(editImage));
 
   const handleCreate = useCallback(async () => {
     if (!client || !composerState) return;
@@ -480,6 +474,8 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         extraImageCount: editTargetAgentId ? conversationEditImages.length : 0,
         hasSelectionMask,
       });
+      const fileAttachments =
+        mode === "slides" ? await encodeAiCreationFilesForSubmit(references) : undefined;
 
       if (editTargetAgentId) {
         const userMessageText = buildAiCreationUserMessageText({ mode, prompt: trimmedPrompt });
@@ -557,7 +553,11 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         initialPrompt,
         clientMessageId,
         ...(images && images.length > 0 ? { images } : {}),
-        labels: { surface: "ai_creation", intent: mode === "edit" ? "image_edit" : "imagegen" },
+        ...(fileAttachments && fileAttachments.length > 0 ? { attachments: fileAttachments } : {}),
+        labels: {
+          surface: "ai_creation",
+          intent: mode === "slides" ? "ppt_creation" : mode === "edit" ? "image_edit" : "imagegen",
+        },
       });
       const hasSelectionReference =
         mode === "edit" && Boolean(selectionPreviewUri && submittedEditImage);
@@ -568,7 +568,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               extraImages: [],
               excludeSourceImage: hasSelectionReference,
             })
-          : submittedReferences;
+          : mode === "image"
+            ? submittedReferences
+            : [];
       const userMessageText = buildAiCreationUserMessageText({ mode, prompt: trimmedPrompt });
       await saveAiCreationMessageDisplayMetadata({
         serverId,
@@ -822,7 +824,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               placeholder={
                 mode === "edit"
                   ? t("aiCreation.prompt.editPlaceholder")
-                  : t("aiCreation.prompt.imagePlaceholder")
+                  : mode === "slides"
+                    ? t("aiCreation.prompt.slidesPlaceholder")
+                    : t("aiCreation.prompt.imagePlaceholder")
               }
               placeholderTextColor={theme.colors.foregroundMuted}
               multiline
@@ -852,7 +856,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               >
                 {mode === "edit"
                   ? t("aiCreation.source.original")
-                  : t("aiCreation.source.reference")}
+                  : mode === "slides"
+                    ? t("aiCreation.source.material")
+                    : t("aiCreation.source.reference")}
               </Button>
               {mode === "edit" ? (
                 <Button
@@ -873,7 +879,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               <ChoiceStrip
                 label={t("aiCreation.aspectRatio")}
                 value={ratio}
-                options={RATIO_OPTIONS}
+                options={mode === "slides" ? SLIDE_RATIO_OPTIONS : RATIO_OPTIONS}
                 onChange={setRatio}
               />
               {mode === "image" ? (
@@ -908,27 +914,11 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
           >
             {mode === "edit"
               ? t("aiCreation.action.startEdit")
-              : t("aiCreation.action.startCreate")}
+              : mode === "slides"
+                ? t("aiCreation.action.startCreate")
+                : t("aiCreation.action.startCreate")}
           </Button>
         </View>
-
-        {mode === "image" ? (
-          <View style={styles.featureGrid}>
-            {FEATURE_CARDS.map((card) => (
-              <Pressable
-                key={card.id}
-                style={featureCardStyle}
-                onPress={() => {
-                  setMode("edit");
-                }}
-                accessibilityRole="button"
-              >
-                <Text style={styles.featureTitle}>{t(card.titleKey)}</Text>
-                <Image source={{ uri: card.image }} style={styles.featureImage} />
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
 
         {mode === "image" ? (
           <View style={styles.gallery}>
@@ -1183,6 +1173,10 @@ async function encodeAiCreationImagesForSubmit(input: {
   conversationEditImages: AttachmentMetadata[];
   selectionStrokes: SelectionStroke[];
 }): Promise<EncodedAiCreationImages> {
+  if (input.mode === "slides") {
+    return { hasSelectionMask: false };
+  }
+
   const selectionMask =
     input.mode === "edit" && input.selectionStrokes.length > 0
       ? await createSelectionMaskAttachment(input.selectionStrokes)
@@ -1197,6 +1191,26 @@ async function encodeAiCreationImagesForSubmit(input: {
     images: await encodeImages(imageInputs),
     hasSelectionMask: selectionMask !== null,
   };
+}
+
+async function encodeAiCreationFilesForSubmit(
+  files: readonly AttachmentMetadata[],
+): Promise<AgentAttachment[] | undefined> {
+  if (files.length === 0) {
+    return undefined;
+  }
+
+  const encoded = await encodeAttachmentsForSend(files);
+  if (!encoded || encoded.length === 0) {
+    return undefined;
+  }
+
+  return encoded.map((file, index) => ({
+    type: "file",
+    mimeType: file.mimeType,
+    title: file.fileName ?? files[index]?.fileName ?? `source-${index + 1}`,
+    data: file.data,
+  }));
 }
 
 function buildImageEditInputs(
@@ -1345,12 +1359,56 @@ function buildAiCreationPrompt(input: {
       hasSelectionMask: input.hasSelectionMask,
     });
   }
+  if (input.mode === "slides") {
+    return buildSlidesPrompt({
+      prompt: input.prompt,
+      ratio: input.ratio,
+      sourceFileCount: input.referenceCount,
+    });
+  }
   return buildImagegenPrompt({
     prompt: input.prompt,
     ratio: input.ratio,
     style: input.style,
     referenceCount: input.referenceCount,
   });
+}
+
+function buildSlidesPrompt(input: {
+  prompt: string;
+  ratio: AspectRatio;
+  sourceFileCount: number;
+}): string {
+  const format = input.ratio === "4:3" ? "ppt43" : "ppt169";
+  const lines = [
+    "You are creating a PowerPoint deck for the Paseo AI Creation slides surface.",
+    "Paseo has already prepared the bundled PPT Master skill link at `.paseo/skills/ppt-master` before this agent starts.",
+    "Do not search for PPT Master in other directories.",
+    "Do not use web search for PPT Master.",
+    "Do not git clone, fetch, or download PPT Master.",
+    'If `.paseo/skills/ppt-master/SKILL.md` is missing, stop immediately and reply exactly: "PPT Master skill link missing: .paseo/skills/ppt-master/SKILL.md".',
+    "Read `.paseo/skills/ppt-master/SKILL.md` and follow that workflow exactly.",
+    "Paseo provides its own built-in slide preview service. Do not run PPT Master's `scripts/svg_editor/server.py`, do not start Flask, and do not open localhost preview ports yourself.",
+    "Continue writing all generated SVG pages into `projects/<project>/svg_output/`; Paseo will preview that directory through the daemon.",
+    "Immediately after project initialization creates `projects/<project>/svg_output/`, send one short progress message exactly like: `Preview: projects/<project>/svg_output/`. Then continue the PPT Master workflow without waiting for the user.",
+    "Only after the skill link exists, install Python requirements if needed: `pip install -r .paseo/skills/ppt-master/requirements.txt`.",
+    "",
+    "User request:",
+    input.prompt,
+    "",
+    `Canvas format: ${format}`,
+    `Source file count: ${input.sourceFileCount}`,
+    "If source files are attached, the daemon writes them into `attachments/` and includes their paths in the structured attachment text. Use those workspace paths as PPT Master source files.",
+    "",
+    "Run the PPT Master pipeline end to end:",
+    "source_to_md -> project_manager init/import-sources -> Strategist design_spec/spec_lock -> sequential SVG pages -> svg_quality_checker -> total_md_split -> finalize_svg -> svg_to_pptx.",
+    "",
+    "The output must be a native editable PPTX in `projects/<project>/exports/`.",
+    "Do not create a screenshot-only deck.",
+    "Do not explain internal commands in the final reply unless a blocking error occurs.",
+    "Final reply: only provide the PPTX path and optional preview path.",
+  ];
+  return lines.join("\n");
 }
 
 function buildImagegenPrompt(input: {
@@ -1651,6 +1709,16 @@ function ReferenceThumb({
 }) {
   const uri = useAttachmentPreviewUrl(image);
   const handleRemove = useCallback(() => onRemove(image.id), [image.id, onRemove]);
+  if (!image.mimeType.toLowerCase().startsWith("image/")) {
+    return (
+      <Pressable onPress={handleRemove} style={styles.fileReferenceChip} accessibilityRole="button">
+        <Paperclip size={14} color="#6b7280" />
+        <Text style={styles.fileReferenceText} numberOfLines={1}>
+          {image.fileName || "Attachment"}
+        </Text>
+      </Pressable>
+    );
+  }
   if (!uri) {
     return <View style={styles.referenceThumbPlaceholder} />;
   }
@@ -1663,17 +1731,6 @@ function ReferenceThumb({
 
 function chipStyle({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) {
   return [styles.chip, Boolean(hovered) && styles.chipHovered, pressed && styles.chipPressed];
-}
-
-function featureCardStyle({
-  hovered,
-  pressed,
-}: PressableStateCallbackType & { hovered?: boolean }) {
-  return [
-    styles.featureCard,
-    Boolean(hovered) && styles.featureCardHovered,
-    pressed && styles.chipPressed,
-  ];
 }
 
 const styles = StyleSheet.create((theme) => ({
@@ -1989,6 +2046,23 @@ const styles = StyleSheet.create((theme) => ({
     width: "100%",
     height: "100%",
   },
+  fileReferenceChip: {
+    maxWidth: 220,
+    minHeight: 40,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[2],
+  },
+  fileReferenceText: {
+    flexShrink: 1,
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundMuted,
+  },
   referenceThumbPlaceholder: {
     width: 48,
     height: 48,
@@ -2061,39 +2135,6 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 1,
     fontSize: theme.fontSize.sm,
     color: theme.colors.foreground,
-  },
-  featureGrid: {
-    width: "100%",
-    maxWidth: 960,
-    marginTop: theme.spacing[8],
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing[3],
-  },
-  featureCard: {
-    flexGrow: 1,
-    flexBasis: 160,
-    minHeight: 70,
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface1,
-    overflow: "hidden",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingLeft: theme.spacing[4],
-  },
-  featureCardHovered: {
-    backgroundColor: theme.colors.surface2,
-  },
-  featureTitle: {
-    fontSize: theme.fontSize.sm,
-    color: theme.colors.foreground,
-  },
-  featureImage: {
-    width: 70,
-    height: 70,
   },
   gallery: {
     width: "100%",

@@ -141,6 +141,7 @@ import {
   AccountControlPlaneError,
   type AccountAuthResult,
 } from "./account-control-plane.js";
+import { createPptPreviewRouter } from "./ai-creation/ppt-preview-service.js";
 
 type AgentMcpTransportMap = Map<string, StreamableHTTPServerTransport>;
 
@@ -683,6 +684,7 @@ export async function createPaseoDaemon(
     appendSystemPrompt: config.appendSystemPrompt,
     logger,
   });
+  app.use("/ppt-preview", createPptPreviewRouter({ agentManager, logger }));
 
   const detachAgentStoragePersistence = attachAgentStoragePersistence(
     logger,
