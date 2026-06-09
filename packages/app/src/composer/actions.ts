@@ -4,6 +4,7 @@ import type {
   ComposerAttachment,
   UserComposerAttachment,
 } from "@/attachments/types";
+import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
 import {
   isWorkspaceAttachment,
   userAttachmentsOnly,
@@ -39,6 +40,28 @@ export interface AttachmentPersister {
 }
 
 export interface ComposerSendClient {
+  materializeWorkspaceAttachments: (input: {
+    cwd?: string;
+    agentId?: string;
+    files: Array<{
+      fileName?: string | null;
+      mimeType: string;
+      data?: string;
+      sourcePath?: string;
+    }>;
+  }) => Promise<{
+    files: Array<{ title: string; mimeType: string; path: string }>;
+    error: string | null;
+  }>;
+  uploadWorkspaceAttachment?: (input: {
+    cwd?: string;
+    agentId?: string;
+    fileName?: string | null;
+    mimeType: string;
+    body: Blob;
+  }) => Promise<{
+    file: { title: string; mimeType: string; path: string };
+  }>;
   sendAgentMessage: (
     agentId: string,
     text: string,
@@ -135,7 +158,14 @@ export interface DispatchComposerAgentMessageInput {
 export async function dispatchComposerAgentMessage(
   input: DispatchComposerAgentMessageInput,
 ): Promise<void> {
-  const wirePayload = await splitComposerAttachmentsForSubmit(input.attachments);
+  const wirePayload = await splitComposerAttachmentsForSubmit(input.attachments, {
+    materializeFiles: (files) =>
+      materializeWorkspaceFileAttachments({
+        client: input.client,
+        agentId: input.agentId,
+        files,
+      }),
+  });
   const messageId = generateMessageId();
   const userMessage = buildOptimisticUserMessage({
     id: messageId,
@@ -143,6 +173,7 @@ export async function dispatchComposerAgentMessage(
     timestamp: new Date(),
     images: wirePayload.images,
     attachments: wirePayload.attachments,
+    displayAttachments: wirePayload.displayAttachments,
   });
   appendUserMessageToStream(input.agentId, userMessage, input.stream);
   const imagesData = await input.encodeImages(wirePayload.images);

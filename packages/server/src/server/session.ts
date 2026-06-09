@@ -3,8 +3,9 @@ import { v4 as uuidv4 } from "uuid";
 import { TTLCache } from "@isaacs/ttlcache";
 import pMemoize from "p-memoize";
 import { realpathSync } from "node:fs";
+import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import type { FSWatcher } from "node:fs";
-import { basename, resolve, sep } from "path";
+import { basename, join, relative, resolve, sep } from "path";
 import { homedir } from "node:os";
 import { z } from "zod";
 import type { ToolSet } from "ai";
@@ -2150,6 +2151,8 @@ export class Session {
         return this.handleProjectIconRequest(msg);
       case "file_download_token_request":
         return this.handleFileDownloadTokenRequest(msg);
+      case "workspace.attachments.materialize.request":
+        return this.handleWorkspaceAttachmentsMaterializeRequest(msg);
       default:
         return undefined;
     }
@@ -5980,6 +5983,73 @@ export class Session {
     }
   }
 
+  private async handleWorkspaceAttachmentsMaterializeRequest(
+    request: Extract<SessionInboundMessage, { type: "workspace.attachments.materialize.request" }>,
+  ): Promise<void> {
+    const requestCwd = request.cwd?.trim();
+    const agentCwd = request.agentId ? this.agentManager.getAgent(request.agentId)?.cwd : undefined;
+    const cwd = (requestCwd || agentCwd || "").trim();
+    if (!cwd) {
+      this.emit({
+        type: "workspace.attachments.materialize.response",
+        payload: {
+          requestId: request.requestId,
+          cwd: request.cwd ?? "",
+          files: [],
+          error: "cwd or a valid agentId is required",
+        },
+      });
+      return;
+    }
+
+    try {
+      const cwdStats = await stat(cwd);
+      if (!cwdStats.isDirectory()) {
+        throw new Error(`Attachment workspace is not a directory: ${cwd}`);
+      }
+      const attachmentDir = join(cwd, "attachments");
+      await mkdir(attachmentDir, { recursive: true });
+      const files: Array<{ title: string; mimeType: string; path: string }> = [];
+      for (const file of request.files) {
+        const title = file.fileName?.trim() || "attached-file";
+        const filePath = join(attachmentDir, buildWorkspaceAttachmentFileName(title));
+        if (file.sourcePath?.trim()) {
+          await copyFile(file.sourcePath.trim(), filePath);
+        } else if (file.data) {
+          await writeFile(filePath, Buffer.from(file.data, "base64"));
+        } else {
+          throw new Error(`Attachment ${title} did not include data or sourcePath.`);
+        }
+        files.push({
+          title,
+          mimeType: file.mimeType,
+          path: normalizeWorkspaceRelativePath(relative(cwd, filePath)),
+        });
+      }
+
+      this.emit({
+        type: "workspace.attachments.materialize.response",
+        payload: {
+          requestId: request.requestId,
+          cwd,
+          files,
+          error: null,
+        },
+      });
+    } catch (error) {
+      this.sessionLogger.error({ err: error, cwd }, "Failed to materialize workspace attachments");
+      this.emit({
+        type: "workspace.attachments.materialize.response",
+        payload: {
+          requestId: request.requestId,
+          cwd,
+          files: [],
+          error: getErrorMessage(error),
+        },
+      });
+    }
+  }
+
   /**
    * Build the current agent list payload (live + persisted), optionally filtered by labels.
    */
@@ -9136,6 +9206,20 @@ function isValidPullRequestTimelineIdentity(options: {
     return false;
   }
   return isValidGitHubRepoSegment(options.repoOwner) && isValidGitHubRepoSegment(options.repoName);
+}
+
+function buildWorkspaceAttachmentFileName(fileName: string): string {
+  const rawName = basename(fileName);
+  const safeName = rawName
+    .replace(/[<>:"/\\|?*]+/gu, "-")
+    .replaceAll(/[\p{Cc}]/gu, "-")
+    .replace(/^\.+/u, "")
+    .replace(/^-+|-+$/gu, "");
+  return `${uuidv4()}-${safeName || "attached-file"}`;
+}
+
+function normalizeWorkspaceRelativePath(path: string): string {
+  return path.split(sep).join("/");
 }
 
 function isValidGitHubRepoSegment(value: string): boolean {

@@ -974,6 +974,67 @@ describe("Codex app-server provider", () => {
     }
   });
 
+  test("materializes file prompt attachments into the Codex workspace", async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), "paseo-codex-file-attachment-"));
+    try {
+      const input = await codexAppServerTurnInputFromPrompt(
+        [
+          {
+            type: "file",
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            title: "项目介绍.docx",
+            data: Buffer.from("docx bytes", "utf8").toString("base64"),
+          },
+        ],
+        logger,
+        { cwd },
+      );
+
+      const textInput = input[0] as { type: "text"; text: string; text_elements: [] };
+      expect(textInput.text).toContain("File attachment: 项目介绍.docx");
+      expect(textInput.text).toContain("Workspace path: attachments/");
+      expect(textInput.text).toContain("项目介绍.docx");
+
+      const relativePath = textInput.text.match(/Workspace path: (.+)/)?.[1]?.trim();
+      expect(relativePath).toBeTruthy();
+      expect(readFileSync(path.join(cwd, relativePath!), "utf8")).toBe("docx bytes");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  test("materializes source-path file prompt attachments into the Codex workspace", async () => {
+    const cwd = await mkdtemp(path.join(tmpdir(), "paseo-codex-file-source-"));
+    const sourceDir = await mkdtemp(path.join(tmpdir(), "paseo-codex-file-source-input-"));
+    const sourcePath = path.join(sourceDir, "report.pdf");
+    writeFileSync(sourcePath, "pdf bytes");
+    try {
+      const input = await codexAppServerTurnInputFromPrompt(
+        [
+          {
+            type: "file",
+            mimeType: "application/pdf",
+            title: "report.pdf",
+            sourcePath,
+          },
+        ],
+        logger,
+        { cwd },
+      );
+
+      const textInput = input[0] as { type: "text"; text: string; text_elements: [] };
+      expect(textInput.text).toContain("File attachment: report.pdf");
+      expect(textInput.text).toContain("Workspace path: attachments/");
+
+      const relativePath = textInput.text.match(/Workspace path: (.+)/)?.[1]?.trim();
+      expect(relativePath).toBeTruthy();
+      expect(readFileSync(path.join(cwd, relativePath!), "utf8")).toBe("pdf bytes");
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+      rmSync(sourceDir, { recursive: true, force: true });
+    }
+  });
+
   test("maps github_pr prompt attachments to Codex text input", async () => {
     const input = await codexAppServerTurnInputFromPrompt(
       [

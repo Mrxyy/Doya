@@ -22,6 +22,7 @@ import type {
   CreateAgentRequestMessage,
   CreatePaseoWorktreeRequest,
   FileDownloadTokenResponse,
+  WorkspaceAttachmentsMaterializeResponse,
   FileExplorerResponse,
   FetchAgentTimelineResponseMessage,
   GitSetupOptions,
@@ -244,6 +245,34 @@ export interface SendMessageOptions {
   messageId?: string;
   images?: Array<{ data: string; mimeType: string; fileName?: string }>;
   attachments?: SendAgentMessageRequest["attachments"];
+}
+
+export interface WorkspaceAttachmentMaterializeInput {
+  cwd?: string;
+  agentId?: string;
+  files: Array<{
+    fileName?: string | null;
+    mimeType: string;
+    data?: string;
+    sourcePath?: string;
+  }>;
+}
+
+export interface WorkspaceAttachmentUploadInput {
+  cwd?: string;
+  agentId?: string;
+  fileName?: string | null;
+  mimeType: string;
+  body: Blob;
+}
+
+export interface WorkspaceAttachmentUploadResponse {
+  cwd: string;
+  file: {
+    title: string;
+    mimeType: string;
+    path: string;
+  };
 }
 
 type AgentConfigOverrides = Partial<Omit<AgentSessionConfig, "provider" | "cwd">>;
@@ -2235,6 +2264,86 @@ export class DaemonClient {
 
   async sendMessage(agentId: string, text: string, options?: SendMessageOptions): Promise<void> {
     await this.sendAgentMessage(agentId, text, options);
+  }
+
+  async materializeWorkspaceAttachments(
+    input: WorkspaceAttachmentMaterializeInput,
+  ): Promise<WorkspaceAttachmentsMaterializeResponse["payload"]> {
+    const requestId = this.createRequestId();
+    const message = SessionInboundMessageSchema.parse({
+      type: "workspace.attachments.materialize.request",
+      requestId,
+      ...(input.cwd ? { cwd: input.cwd } : {}),
+      ...(input.agentId ? { agentId: input.agentId } : {}),
+      files: input.files,
+    });
+    const payload = await this.sendRequest({
+      requestId,
+      message,
+      timeout: 30000,
+      options: { skipQueue: true },
+      select: (msg) => {
+        if (msg.type !== "workspace.attachments.materialize.response") {
+          return null;
+        }
+        if (msg.payload.requestId !== requestId) {
+          return null;
+        }
+        return msg.payload;
+      },
+    });
+    if (payload.error) {
+      throw new Error(payload.error);
+    }
+    return payload;
+  }
+
+  async uploadWorkspaceAttachment(
+    input: WorkspaceAttachmentUploadInput,
+  ): Promise<WorkspaceAttachmentUploadResponse> {
+    const url = this.buildHttpUrl("/api/workspace-attachments/upload");
+    if (input.cwd) {
+      url.searchParams.set("cwd", input.cwd);
+    }
+    if (input.agentId) {
+      url.searchParams.set("agentId", input.agentId);
+    }
+    if (input.fileName) {
+      url.searchParams.set("fileName", input.fileName);
+    }
+    const form = new FormData();
+    const fileName = input.fileName || "attached-file";
+    const body =
+      input.body.type === input.mimeType
+        ? input.body
+        : input.body.slice(0, input.body.size, input.mimeType || "application/octet-stream");
+    form.append("file", body, fileName);
+    form.append("mimeType", input.mimeType || "application/octet-stream");
+
+    const headers: Record<string, string> = {};
+    const authHeader = this.resolveHttpAuthHeader();
+    if (authHeader) {
+      headers.Authorization = authHeader;
+    }
+
+    const response = await fetch(url.toString(), {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | WorkspaceAttachmentUploadResponse
+      | { error?: string }
+      | null;
+    if (!response.ok) {
+      throw new Error(
+        payload && "error" in payload && payload.error ? payload.error : "Upload failed",
+      );
+    }
+    if (!payload || !("file" in payload)) {
+      throw new Error("Upload response was malformed");
+    }
+    return payload;
   }
 
   async rewindAgent(
@@ -4251,6 +4360,27 @@ export class DaemonClient {
 
   private createRequestId(requestId?: string): string {
     return requestId ?? crypto.randomUUID();
+  }
+
+  private buildHttpUrl(pathname: string): URL {
+    const url = new URL(this.config.url);
+    if (url.protocol === "ws:") {
+      url.protocol = "http:";
+    } else if (url.protocol === "wss:") {
+      url.protocol = "https:";
+    }
+    url.pathname = pathname;
+    url.search = "";
+    url.hash = "";
+    return url;
+  }
+
+  private resolveHttpAuthHeader(): string | null {
+    const password = normalizePassword(this.config.password);
+    if (password) {
+      return `Bearer ${password}`;
+    }
+    return this.config.authHeader ?? null;
   }
 
   getLastServerInfoMessage(): ServerInfoStatusPayload | null {

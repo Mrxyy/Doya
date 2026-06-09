@@ -16,6 +16,12 @@ function normalizePickedMimeType(mimeType: string | undefined): string {
   return trimmed && trimmed.length > 0 ? trimmed : "application/octet-stream";
 }
 
+function getFileNameFromPath(path: string): string | null {
+  const normalized = path.replaceAll("\\", "/");
+  const name = normalized.slice(normalized.lastIndexOf("/") + 1).trim();
+  return name || null;
+}
+
 async function persistDocumentPickerAsset(
   asset: DocumentPicker.DocumentPickerAsset,
 ): Promise<AttachmentMetadata> {
@@ -40,13 +46,18 @@ async function pickDesktopFiles(): Promise<AttachmentMetadata[]> {
     title: "Add file",
     multiple: true,
   });
-  const paths = Array.isArray(selected) ? selected : selected ? [String(selected)] : [];
+  let paths: string[] = [];
+  if (Array.isArray(selected)) {
+    paths = selected;
+  } else if (selected) {
+    paths = [String(selected)];
+  }
   return await Promise.all(
     paths.map((path) =>
       persistAttachmentFromFileUri({
         uri: path,
         mimeType: "application/octet-stream",
-        fileName: null,
+        fileName: getFileNameFromPath(path),
       }),
     ),
   );

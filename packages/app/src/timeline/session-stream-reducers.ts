@@ -320,6 +320,9 @@ function mergeCanonicalUserWithOptimistic(
     ...(optimistic.selectionPreviewUri
       ? { selectionPreviewUri: optimistic.selectionPreviewUri }
       : {}),
+    ...(optimistic.selectionImageSource
+      ? { selectionImageSource: optimistic.selectionImageSource }
+      : {}),
     ...(optimistic.selectionImage ? { selectionImage: optimistic.selectionImage } : {}),
   };
 }

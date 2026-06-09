@@ -1,4 +1,4 @@
-import type { ComposerAttachment } from "@/attachments/types";
+import type { AttachmentMetadata, ComposerAttachment } from "@/attachments/types";
 import type { ImageAttachment } from "@/composer/types";
 import { encodeFilesAsTextAttachments } from "@/attachments/text-file";
 import {
@@ -10,13 +10,18 @@ import { buildGitHubAttachmentFromSearchItem } from "@/utils/review-attachments"
 
 export async function splitComposerAttachmentsForSubmit(
   attachments: ComposerAttachment[],
+  options: {
+    materializeFiles?: (files: readonly AttachmentMetadata[]) => Promise<AgentAttachment[]>;
+  } = {},
 ): Promise<{
   images: ImageAttachment[];
   attachments: AgentAttachment[];
+  displayAttachments: AgentAttachment[];
 }> {
   const images: ImageAttachment[] = [];
-  const files: ImageAttachment[] = [];
+  const files: AttachmentMetadata[] = [];
   const agentAttachments: AgentAttachment[] = [];
+  const displayAttachments: AgentAttachment[] = [];
 
   for (const attachment of attachments) {
     if (attachment.kind === "image") {
@@ -26,6 +31,11 @@ export async function splitComposerAttachmentsForSubmit(
 
     if (attachment.kind === "file") {
       files.push(attachment.metadata);
+      displayAttachments.push({
+        type: "file",
+        mimeType: attachment.metadata.mimeType,
+        title: attachment.metadata.fileName ?? "File attachment",
+      });
       continue;
     }
 
@@ -33,6 +43,7 @@ export async function splitComposerAttachmentsForSubmit(
       const workspaceAttachment = workspaceAttachmentToSubmitAttachment(attachment);
       if (workspaceAttachment) {
         agentAttachments.push(workspaceAttachment);
+        displayAttachments.push(workspaceAttachment);
       }
       continue;
     }
@@ -40,12 +51,17 @@ export async function splitComposerAttachmentsForSubmit(
     const reviewAttachment = buildGitHubAttachmentFromSearchItem(attachment.item);
     if (reviewAttachment) {
       agentAttachments.push(reviewAttachment);
+      displayAttachments.push(reviewAttachment);
     }
   }
 
-  const textFileAttachments = await encodeFilesAsTextAttachments(files);
+  const textFileAttachments =
+    files.length > 0 && options.materializeFiles
+      ? await options.materializeFiles(files)
+      : await encodeFilesAsTextAttachments(files);
   return {
     images,
     attachments: [...agentAttachments, ...textFileAttachments],
+    displayAttachments,
   };
 }

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useReducer } from "react";
-import type { ComposerAttachment } from "@/attachments/types";
+import type { AttachmentMetadata, ComposerAttachment } from "@/attachments/types";
 import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
 import { useCreateFlowStore } from "@/stores/create-flow-store";
 import { useSessionStore } from "@/stores/session-store";
@@ -19,6 +19,7 @@ interface CreateAttempt {
   timestamp: Date;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  displayAttachments?: AgentAttachment[];
 }
 
 type DraftAgentMachineState =
@@ -84,6 +85,10 @@ interface UseDraftAgentCreateFlowOptions<TDraftAgent, TCreateResult> {
   initialAttempt?: CreateAttempt | null;
   allowEmptyText?: boolean;
   validateBeforeSubmit?: (ctx: SubmitContext) => string | null;
+  materializeFiles?: (
+    files: readonly AttachmentMetadata[],
+    cwd: string,
+  ) => Promise<AgentAttachment[]>;
   onBeforeSubmit?: (ctx: CreateRequestContext) => void;
   onCreateStart?: () => void;
   createRequest: (ctx: CreateRequestContext) => Promise<CreateRequestResult<TCreateResult>>;
@@ -98,6 +103,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
   initialAttempt = null,
   allowEmptyText = false,
   validateBeforeSubmit,
+  materializeFiles,
   onBeforeSubmit,
   onCreateStart,
   createRequest,
@@ -148,6 +154,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         timestamp: machine.attempt.timestamp,
         images: machine.attempt.images,
         attachments: machine.attempt.attachments,
+        displayAttachments: machine.attempt.displayAttachments,
       }),
     ];
   }, [machine]);
@@ -196,6 +203,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
               timestamp: attempt.timestamp,
               images: attempt.images,
               attachments: attempt.attachments,
+              displayAttachments: attempt.displayAttachments,
             }),
             { placement: "tail", skipIfUserMessageExists: true },
           );
@@ -233,9 +241,6 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
       }
 
       dispatch({ type: "DRAFT_SET_ERROR", message: "" });
-      const wirePayload = await splitComposerAttachmentsForSubmit(attachments);
-      const images = wirePayload.images;
-
       const trimmedPrompt = text.trim();
       if (!trimmedPrompt && !allowEmptyText) {
         const error = new Error("Initial prompt is required");
@@ -261,12 +266,23 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         throw error;
       }
 
+      const wirePayload = await splitComposerAttachmentsForSubmit(
+        attachments,
+        materializeFiles
+          ? { materializeFiles: (files) => materializeFiles(files, cwd) }
+          : undefined,
+      );
+      const images = wirePayload.images;
+
       const attempt: CreateAttempt = {
         clientMessageId: generateMessageId(),
         text: trimmedPrompt,
         timestamp: new Date(),
         ...(images && images.length > 0 ? { images } : {}),
         ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
+        ...(wirePayload.displayAttachments.length > 0
+          ? { displayAttachments: wirePayload.displayAttachments }
+          : {}),
       };
 
       setPendingCreateAttempt({
@@ -280,6 +296,9 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         ...(attempt.attachments && attempt.attachments.length > 0
           ? { attachments: attempt.attachments }
           : {}),
+        ...(attempt.displayAttachments && attempt.displayAttachments.length > 0
+          ? { displayAttachments: attempt.displayAttachments }
+          : {}),
       });
 
       dispatch({ type: "SUBMIT", attempt });
@@ -291,6 +310,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
       draftId,
       getPendingServerId,
       isSubmitting,
+      materializeFiles,
       onCreateStart,
       runCreateAttempt,
       setPendingCreateAttempt,

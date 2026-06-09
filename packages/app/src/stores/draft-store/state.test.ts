@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyClearDraftRecord, pruneFinalizedDraftRecords } from "./state";
+import {
+  applyClearDraftRecord,
+  collectReferencedAttachmentIdsFromState,
+  pruneFinalizedDraftRecords,
+} from "./state";
 
 describe("draft-store lifecycle", () => {
   it("prunes finalized tombstones after TTL", () => {
@@ -67,5 +71,54 @@ describe("draft-store lifecycle", () => {
       updatedAt: 2,
       version: 2,
     });
+  });
+
+  it("keeps active file attachment blobs referenced for garbage collection", () => {
+    const referencedIds = collectReferencedAttachmentIdsFromState({
+      drafts: {
+        active: {
+          input: {
+            text: "read this",
+            attachments: [
+              {
+                kind: "file",
+                metadata: {
+                  id: "att-file",
+                  mimeType: "application/pdf",
+                  storageType: "web-indexeddb",
+                  storageKey: "att-file",
+                  createdAt: 1,
+                },
+              },
+            ],
+          },
+          lifecycle: "active",
+          updatedAt: 1,
+          version: 1,
+        },
+      },
+      createModalDraft: {
+        input: {
+          text: "create from file",
+          attachments: [
+            {
+              kind: "file",
+              metadata: {
+                id: "att-modal-file",
+                mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                storageType: "web-indexeddb",
+                storageKey: "att-modal-file",
+                createdAt: 1,
+              },
+            },
+          ],
+        },
+        lifecycle: "active",
+        updatedAt: 1,
+        version: 1,
+      },
+    });
+
+    expect(Array.from(referencedIds).sort()).toEqual(["att-file", "att-modal-file"]);
   });
 });

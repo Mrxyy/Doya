@@ -1,10 +1,12 @@
 import express from "express";
 import { createServer as createHTTPServer, type IncomingMessage, type ServerResponse } from "http";
-import { constants, existsSync, unlinkSync } from "fs";
-import { open } from "fs/promises";
+import { constants, createWriteStream, existsSync, unlinkSync } from "fs";
+import { mkdir, open, stat } from "fs/promises";
 import { randomUUID } from "node:crypto";
 import { hostname as getHostname } from "node:os";
 import path from "node:path";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { Logger } from "pino";
@@ -420,7 +422,10 @@ export async function createPaseoDaemon(
     if (origin && (allowedOrigins.has("*") || allowedOrigins.has(origin))) {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, X-Paseo-File-Mime-Type",
+      );
       res.setHeader("Access-Control-Allow-Credentials", "true");
     }
     if (req.method === "OPTIONS") {
@@ -684,6 +689,70 @@ export async function createPaseoDaemon(
     appendSystemPrompt: config.appendSystemPrompt,
     logger,
   });
+  const handleWorkspaceAttachmentUpload = async (
+    req: express.Request,
+    res: express.Response,
+  ): Promise<void> => {
+    const requestCwd = typeof req.query.cwd === "string" ? req.query.cwd.trim() : "";
+    const agentId = typeof req.query.agentId === "string" ? req.query.agentId.trim() : "";
+    const agentCwd = agentId ? agentManager.getAgent(agentId)?.cwd : undefined;
+    const cwd = requestCwd || agentCwd || "";
+    if (!cwd) {
+      res.status(400).json({ error: "cwd or a valid agentId is required" });
+      return;
+    }
+
+    try {
+      const cwdStats = await stat(cwd);
+      if (!cwdStats.isDirectory()) {
+        res.status(400).json({ error: `Attachment workspace is not a directory: ${cwd}` });
+        return;
+      }
+
+      const form = await parseMultipartFormData(req);
+      const file = form.get("file");
+      if (!(file instanceof Blob)) {
+        res.status(400).json({ error: "Multipart field 'file' is required" });
+        return;
+      }
+      const uploadedFile = file as Blob & { name?: string };
+      const formFileName = typeof uploadedFile.name === "string" ? uploadedFile.name.trim() : "";
+      const rawFileName =
+        typeof req.query.fileName === "string" && req.query.fileName.trim().length > 0
+          ? req.query.fileName.trim()
+          : formFileName || "attached-file";
+      const formMimeType = form.get("mimeType");
+      const mimeType =
+        typeof formMimeType === "string" && formMimeType.trim()
+          ? formMimeType.trim()
+          : uploadedFile.type || "application/octet-stream";
+
+      const attachmentDir = path.join(cwd, "attachments");
+      await mkdir(attachmentDir, { recursive: true });
+      const filePath = path.join(attachmentDir, buildWorkspaceAttachmentFileName(rawFileName));
+      await pipeline(
+        Readable.fromWeb(uploadedFile.stream()),
+        createWriteStream(filePath, { flags: "wx" }),
+      );
+
+      res.json({
+        cwd,
+        file: {
+          title: rawFileName,
+          mimeType,
+          path: normalizeWorkspaceRelativePath(path.relative(cwd, filePath)),
+        },
+      });
+    } catch (error) {
+      logger.error({ err: error, cwd }, "Failed to upload workspace attachment");
+      res.status(500).json({ error: "Failed to upload attachment to workspace" });
+    }
+  };
+
+  app.post("/api/workspace-attachments/upload", (req, res) => {
+    void handleWorkspaceAttachmentUpload(req, res);
+  });
+
   app.use("/ppt-preview", createPptPreviewRouter({ agentManager, logger }));
 
   const detachAgentStoragePersistence = attachAgentStoragePersistence(
@@ -1230,4 +1299,38 @@ async function closeAllAgents(logger: Logger, agentManager: AgentManager): Promi
       }
     }),
   );
+}
+
+function buildWorkspaceAttachmentFileName(fileName: string): string {
+  const rawName = path.basename(fileName);
+  const safeName = rawName
+    .replace(/[<>:"/\\|?*]+/gu, "-")
+    .replaceAll(/[\p{Cc}]/gu, "-")
+    .replace(/^\.+/u, "")
+    .replace(/^-+|-+$/gu, "");
+  return `${randomUUID()}-${safeName || "attached-file"}`;
+}
+
+function normalizeWorkspaceRelativePath(value: string): string {
+  return value.split(path.sep).join("/");
+}
+
+async function parseMultipartFormData(req: express.Request): Promise<FormData> {
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(req.headers)) {
+    if (typeof value === "string") {
+      headers.set(name, value);
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        headers.append(name, item);
+      }
+    }
+  }
+  const request = new Request("http://paseo.local/workspace-attachment-upload", {
+    method: "POST",
+    headers,
+    body: Readable.toWeb(req),
+    duplex: "half",
+  } as RequestInit & { duplex: "half" });
+  return await request.formData();
 }

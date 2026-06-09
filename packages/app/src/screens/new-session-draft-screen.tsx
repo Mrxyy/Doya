@@ -10,6 +10,7 @@ import {
 } from "@/account/account-api";
 import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
 import type { ComposerAttachment } from "@/attachments/types";
+import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
 import { Composer } from "@/composer";
 import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
 import { useAgentInputDraft } from "@/composer/draft/input-draft";
@@ -123,7 +124,14 @@ export function NewSessionDraftScreen({
         mergeWorkspaces(serverId, [workspace]);
         setHasHydratedWorkspaces(serverId, true);
 
-        const wirePayload = await splitComposerAttachmentsForSubmit(payload.attachments);
+        const wirePayload = await splitComposerAttachmentsForSubmit(payload.attachments, {
+          materializeFiles: (files) =>
+            materializeWorkspaceFileAttachments({
+              client,
+              cwd: workspace.workspaceDirectory,
+              files,
+            }),
+        });
         const images = await encodeImages(wirePayload.images);
         const config = buildWorkspaceDraftAgentConfig({
           provider: provider as AgentProvider,

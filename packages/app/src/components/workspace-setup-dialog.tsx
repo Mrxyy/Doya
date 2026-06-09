@@ -25,6 +25,7 @@ import { requireWorkspaceExecutionAuthority } from "@/utils/workspace-execution"
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { navigateToPreparedWorkspaceTab } from "@/utils/workspace-navigation";
 import type { ImageAttachment, MessagePayload } from "@/composer/types";
+import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
 import { translateNow } from "@/i18n/i18n";
 
 function toProjectIconDataUri(icon: { mimeType: string; data: string } | null): string | null {
@@ -291,11 +292,18 @@ export function WorkspaceSetupDialog() {
           throw new Error("Select a model");
         }
 
-        const wirePayload = await splitComposerAttachmentsForSubmit(attachments);
-        const encodedImages = await encodeImages(wirePayload.images);
         const workspaceDirectory = requireWorkspaceExecutionAuthority({
           workspace: ensuredWorkspace,
         }).workspaceDirectory;
+        const wirePayload = await splitComposerAttachmentsForSubmit(attachments, {
+          materializeFiles: (files) =>
+            materializeWorkspaceFileAttachments({
+              client: connectedClient,
+              cwd: workspaceDirectory,
+              files,
+            }),
+        });
+        const encodedImages = await encodeImages(wirePayload.images);
         const agent = await connectedClient.createAgent(
           buildCreateAgentOptions({
             composerState,

@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import invariant from "tiny-invariant";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/i18n/i18n", () => ({
+  translateNow: (key: string, values?: { prompt?: string }) => {
+    if (key === "aiCreation.display.createMessage") {
+      return `生成图片： ${values?.prompt ?? ""}`;
+    }
+    if (key === "aiCreation.display.editMessage") {
+      return `编辑图片： ${values?.prompt ?? ""}`;
+    }
+    if (key === "aiCreation.display.slidesMessage") {
+      return `创建幻灯片： ${values?.prompt ?? ""}`;
+    }
+    return key;
+  },
+}));
 
 import {
   applyStreamEvent,
@@ -1052,12 +1067,18 @@ describe("turn lifecycle events", () => {
       text: "context",
       title: "context.txt",
     };
+    const displayAttachment = {
+      type: "file" as const,
+      mimeType: "text/plain" as const,
+      title: "context.txt",
+    };
     const optimistic = buildOptimisticUserMessage({
       id: "msg_optimistic_canonical",
       text: "Analyze this",
       timestamp: optimisticTimestamp,
       images: [image],
       attachments: [attachment],
+      displayAttachments: [displayAttachment],
       selectionPreviewUri: "blob:http://localhost/source-preview",
     });
 
@@ -1086,6 +1107,7 @@ describe("turn lifecycle events", () => {
     assert.strictEqual(userMessage.optimistic, undefined);
     assert.deepStrictEqual(userMessage.images, [image]);
     assert.deepStrictEqual(userMessage.attachments, [attachment]);
+    assert.deepStrictEqual(userMessage.displayAttachments, [displayAttachment]);
     assert.strictEqual(userMessage.selectionPreviewUri, "blob:http://localhost/source-preview");
   });
 

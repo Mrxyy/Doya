@@ -4,6 +4,7 @@ export interface AiCreationEditSource {
   entry: "result-edit";
   image: AttachmentMetadata;
   previewUri: string;
+  imageSource: string;
   sourceAgentId: string;
   sourceServerId: string;
 }

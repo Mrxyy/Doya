@@ -6,6 +6,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useCreateFlowStore } from "@/stores/create-flow-store";
 import type { UserMessageImageAttachment } from "@/types/stream";
 import type { AgentAttachment } from "@getpaseo/protocol/messages";
+
+vi.mock("@/i18n/i18n", () => ({
+  translateNow: (key: string) => key,
+}));
+
+vi.mock("@/composer/attachments/submit", () => ({
+  splitComposerAttachmentsForSubmit: vi.fn(async () => ({ images: [], attachments: [] })),
+}));
+
 import { useDraftAgentCreateFlow, type DraftCreateAttempt } from "./create-flow";
 
 describe("useDraftAgentCreateFlow", () => {

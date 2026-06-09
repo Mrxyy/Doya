@@ -51,8 +51,8 @@ At the start of non-trivial work, list `docs/` and skim anything relevant to the
 npm run dev                          # Start daemon + Expo in Tmux
 npm run cli -- ls -a -g              # List all agents
 npm run cli -- daemon status         # Check daemon status
-npm run typecheck                    # Manual verification when requested or high-risk
-npm run lint                         # Manual verification when requested or high-risk
+npm run typecheck                    # Verification only when requested or high-risk
+npm run lint                         # Verification only when requested or high-risk
 npm run format                       # Auto-format with Biome
 npm run format:check                 # Check formatting without writing
 ```
@@ -64,8 +64,9 @@ See [docs/development.md](docs/development.md) for full setup, build sync requir
 - **NEVER restart the main Paseo daemon on port 6767 without permission** — it manages all running agents. If you're an agent, restarting it kills your own process.
 - **NEVER assume a timeout means the service needs restarting** — timeouts can be transient.
 - **NEVER add auth checks to tests** — agent providers handle their own auth.
+- **Do not run tests by default during agent tasks.** Tests are expensive in this repo. Run them only when explicitly requested, when preparing a release/commit that requires them, or when the change is high-risk enough that targeted verification is worth the machine cost. If you skip tests, say so in the final response.
 - **NEVER run the full test suite locally.** The test suites are heavy and will freeze the machine, especially if multiple agents run them in parallel. Rules:
-  - Run only the specific test file you changed: `npx vitest run <file> --bail=1`
+  - When testing is warranted, run only the specific test file you changed: `npx vitest run <file> --bail=1`
   - Never run `npm run test` for an entire workspace unless explicitly asked.
   - If you must run a broad suite, pipe output to a file and read it afterward: `npx vitest run <file> --bail=1 > /tmp/test-output.txt 2>&1` then read the file.
   - Never re-run a test suite that another agent already ran and reported green — trust the result.

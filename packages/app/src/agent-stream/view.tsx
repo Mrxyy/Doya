@@ -404,11 +404,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     });
 
     const handleEditAiCreationImage = useStableEvent(
-      (image: AttachmentMetadata, previewUri: string) => {
+      (image: AttachmentMetadata, previewUri: string, source: string) => {
         setAiCreationEditSource({
           entry: "result-edit",
           image,
           previewUri,
+          imageSource: source,
           sourceAgentId: agentId,
           sourceServerId: resolvedServerId,
         });
@@ -560,10 +561,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             serverId={resolvedServerId}
             agentId={agentId}
             messageId={item.id}
+            workspaceRoot={workspaceRoot}
             message={item.text}
             images={item.images}
-            attachments={item.attachments}
+            attachments={item.displayAttachments ?? item.attachments}
             selectionPreviewUri={item.selectionPreviewUri}
+            selectionImageSource={item.selectionImageSource}
             selectionImage={item.selectionImage}
             timestamp={item.timestamp.getTime()}
             capabilities={agent.capabilities}
@@ -573,7 +576,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           />
         );
       },
-      [agent.capabilities, agentId, client, resolvedServerId],
+      [agent.capabilities, agentId, client, resolvedServerId, workspaceRoot],
     );
 
     const renderAssistantMessageItem = useCallback(
@@ -612,7 +615,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               serverId={resolvedServerId}
               client={client}
               spacing={layoutItem.assistantSpacing}
-              onEditImage={isAiCreationLabels(agentLabels) ? handleEditAiCreationImage : undefined}
+              onEditImage={handleEditAiCreationImage}
             />
           );
         }
@@ -630,7 +633,6 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       },
       [
         aiCreationIntent,
-        agentLabels,
         client,
         handleEditAiCreationImage,
         handleInlinePathPress,

@@ -4,6 +4,8 @@ import {
   CreateAgentRequestMessageSchema,
   CreatePaseoWorktreeRequestSchema,
   SendAgentMessageRequestSchema,
+  SessionInboundMessageSchema,
+  SessionOutboundMessageSchema,
 } from "./messages.js";
 
 describe("shared messages attachments", () => {
@@ -30,6 +32,77 @@ describe("shared messages attachments", () => {
         data: "SGVsbG8=",
       },
     ]);
+  });
+
+  it("keeps valid source-path file attachments for daemon-materialized workflows", () => {
+    const parsed = CreateAgentRequestMessageSchema.parse({
+      type: "create_agent_request",
+      requestId: "req-file-path",
+      config: { provider: "codex", cwd: "/tmp/repo" },
+      attachments: [
+        {
+          type: "file",
+          mimeType: "application/pdf",
+          title: "report.pdf",
+          sourcePath: "/tmp/paseo-attachments/report.pdf",
+        },
+      ],
+    });
+
+    expect(parsed.attachments).toEqual([
+      {
+        type: "file",
+        mimeType: "application/pdf",
+        title: "report.pdf",
+        sourcePath: "/tmp/paseo-attachments/report.pdf",
+      },
+    ]);
+  });
+
+  it("parses workspace attachment materialization requests and responses", () => {
+    const request = SessionInboundMessageSchema.parse({
+      type: "workspace.attachments.materialize.request",
+      requestId: "req-materialize",
+      agentId: "agent-1",
+      files: [
+        {
+          fileName: "report.docx",
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          data: "SGVsbG8=",
+        },
+      ],
+    });
+
+    expect(request).toEqual({
+      type: "workspace.attachments.materialize.request",
+      requestId: "req-materialize",
+      agentId: "agent-1",
+      files: [
+        {
+          fileName: "report.docx",
+          mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          data: "SGVsbG8=",
+        },
+      ],
+    });
+
+    const response = SessionOutboundMessageSchema.parse({
+      type: "workspace.attachments.materialize.response",
+      payload: {
+        requestId: "req-materialize",
+        cwd: "/tmp/repo",
+        files: [
+          {
+            title: "report.docx",
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            path: "attachments/123-report.docx",
+          },
+        ],
+        error: null,
+      },
+    });
+
+    expect(response.payload.files[0]?.path).toBe("attachments/123-report.docx");
   });
 
   it("keeps valid review attachments", () => {

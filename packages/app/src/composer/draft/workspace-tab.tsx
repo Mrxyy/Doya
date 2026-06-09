@@ -31,6 +31,7 @@ import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
 import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
+import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
 import {
   useWorkspaceAttachments,
   useWorkspaceAttachmentScopeKey,
@@ -433,6 +434,16 @@ export function WorkspaceDraftAgentTab({
         workspaceDirectory: draftWorkingDirectory,
         hasClient: Boolean(client),
       }),
+    materializeFiles: (files, cwd) => {
+      if (!client) {
+        return Promise.reject(new Error("Host is not connected"));
+      }
+      return materializeWorkspaceFileAttachments({
+        client,
+        cwd,
+        files,
+      });
+    },
     onBeforeSubmit: () => {
       void composerState.persistFormPreferences();
       if (isWeb) {

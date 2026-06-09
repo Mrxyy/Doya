@@ -7,6 +7,36 @@ import type {
   WorkspaceComposerAttachment,
 } from "@/attachments/types";
 import type { StreamItem } from "@/types/stream";
+
+vi.mock("@/i18n/i18n", () => ({
+  translateNow: (key: string) => key,
+}));
+
+vi.mock("@/attachments/workspace-materialize", () => ({
+  materializeWorkspaceFileAttachments: vi.fn(async ({ client, agentId, cwd, files }) => {
+    const response = await client.materializeWorkspaceAttachments({
+      agentId,
+      cwd,
+      files: files.map((file) => ({
+        fileName: file.fileName ?? "attached-file",
+        mimeType: file.mimeType,
+        sourcePath: file.storageKey,
+      })),
+    });
+    return response.files.map((file) => ({
+      type: "text",
+      mimeType: "text/plain",
+      title: file.title,
+      text: [
+        `Uploaded file: ${file.title}`,
+        `MIME type: ${file.mimeType}`,
+        `Workspace path: ${file.path}`,
+        "Use the workspace path above when the user asks about this file.",
+      ].join("\n"),
+    }));
+  }),
+}));
+
 import {
   cancelComposerAgent,
   dispatchComposerAgentMessage,
@@ -181,6 +211,15 @@ function createFakeSendClient(
   const calls: FakeSendCall[] = [];
   return {
     calls,
+    materializeWorkspaceAttachments: async (input) => ({
+      cwd: "/repo",
+      files: input.files.map((file, index) => ({
+        title: file.fileName ?? `file-${index + 1}`,
+        mimeType: file.mimeType,
+        path: `attachments/${index + 1}-${file.fileName ?? "file"}`,
+      })),
+      error: null,
+    }),
     sendAgentMessage: async (agentId, text, opts) => {
       calls.push({ agentId, text, options: opts });
       if (options.rejection) {
@@ -447,6 +486,55 @@ describe("dispatchComposerAgentMessage", () => {
         mimeType: "text/plain",
         title: "Browser element · button",
         text: browserElement.attachment.formatted,
+      },
+    ]);
+  });
+
+  it("materializes file attachments into the agent workspace before sending", async () => {
+    const client = createFakeSendClient();
+    const stream = createFakeStream();
+
+    await dispatchComposerAgentMessage({
+      client,
+      agentId: "agent",
+      text: "what is inside?",
+      attachments: [
+        {
+          kind: "file",
+          metadata: {
+            ...fileWithId("report"),
+            storageType: "desktop-file",
+            storageKey: "/Users/me/report.md",
+          },
+        },
+      ],
+      encodeImages: passthroughEncodeImages,
+      stream,
+    });
+
+    expect(client.calls[0]?.options.attachments).toEqual([
+      {
+        type: "text",
+        mimeType: "text/plain",
+        title: "report.md",
+        text: [
+          "Uploaded file: report.md",
+          "MIME type: text/markdown",
+          "Workspace path: attachments/1-report.md",
+          "Use the workspace path above when the user asks about this file.",
+        ].join("\n"),
+      },
+    ]);
+    const userMessage = stream.tail.get("agent")?.[0] as Extract<
+      StreamItem,
+      { kind: "user_message" }
+    >;
+    expect(userMessage.attachments).toEqual(client.calls[0]?.options.attachments);
+    expect(userMessage.displayAttachments).toEqual([
+      {
+        type: "file",
+        mimeType: "text/markdown",
+        title: "report.md",
       },
     ]);
   });

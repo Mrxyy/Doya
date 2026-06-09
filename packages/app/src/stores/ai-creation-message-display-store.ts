@@ -6,6 +6,7 @@ const STORAGE_KEY = "paseo:ai-creation-message-display:v1";
 export interface AiCreationMessageDisplayMetadata {
   images?: AttachmentMetadata[];
   selectionPreviewUri?: string;
+  selectionImageSource?: string;
   selectionImage?: AttachmentMetadata;
 }
 
@@ -35,6 +36,7 @@ function normalizeMetadata(
   return {
     ...(images && images.length > 0 ? { images } : {}),
     ...(value.selectionPreviewUri ? { selectionPreviewUri: value.selectionPreviewUri } : {}),
+    ...(value.selectionImageSource ? { selectionImageSource: value.selectionImageSource } : {}),
     ...(value.selectionImage ? { selectionImage: value.selectionImage } : {}),
   };
 }
@@ -67,7 +69,12 @@ export async function saveAiCreationMessageDisplayMetadata(input: {
   metadata: AiCreationMessageDisplayMetadata;
 }): Promise<void> {
   const metadata = normalizeMetadata(input.metadata);
-  if (!metadata.images && !metadata.selectionPreviewUri && !metadata.selectionImage) {
+  if (
+    !metadata.images &&
+    !metadata.selectionPreviewUri &&
+    !metadata.selectionImageSource &&
+    !metadata.selectionImage
+  ) {
     return;
   }
   const all = await readAll();

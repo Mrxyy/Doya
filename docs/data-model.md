@@ -470,8 +470,12 @@ These live in React Native `AsyncStorage` or browser `IndexedDB`, not on the dae
 Stores binary attachment blobs keyed by attachment ID.
 
 Image and file composer attachments share `AttachmentMetadata` storage. Images are sent through the
-agent image channel; files are rendered as text attachments at submit time. Text-like files include
-their decoded contents, while binary files include filename, MIME type, and size metadata only.
+agent image channel. File attachments are materialized by the daemon into the current conversation
+workspace under `attachments/` before the message is sent; browser/native attachments are uploaded to
+the daemon as a `multipart/form-data` HTTP request with a `file` field, while desktop path-backed
+attachments are copied server-side.
+The prompt attachment gives the agent the workspace-relative path to read. Text-file inline encoding
+remains only as a compatibility fallback for paths that do not yet provide a workspace materializer.
 
 ### AttachmentMetadata
 

@@ -124,7 +124,8 @@ Live provider smoke tests belong in `*.real.e2e.test.ts`, not `*.test.ts`, even 
 
 Test suites in this repo are heavy. Running them in bulk freezes the machine, especially with multiple agents in parallel.
 
-- Run only the file you changed: `npx vitest run <path> --bail=1`
+- Agents should not run tests by default. Run tests only when explicitly requested, when preparing a release/commit that requires them, or when the change is high-risk enough that targeted verification is worth the machine cost. If tests are skipped, say so in the final response.
+- When testing is warranted, run only the file you changed: `npx vitest run <path> --bail=1`
 - Never run `npm run test` for a whole workspace unless asked.
 - For a broad sweep, redirect to a file and read it after: `npx vitest run <path> --bail=1 > /tmp/test-output.txt 2>&1`
 - Never re-run a suite another agent already reported green.

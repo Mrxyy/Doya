@@ -155,7 +155,7 @@ function collectQueuedMessageAttachmentIds(
   for (const queue of session.queuedMessages.values()) {
     for (const queuedMessage of queue) {
       for (const attachment of queuedMessage.attachments) {
-        if (attachment.kind === "image") {
+        if (attachment.kind === "image" || attachment.kind === "file") {
           referencedIds.add(attachment.metadata.id);
         }
       }

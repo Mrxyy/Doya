@@ -813,7 +813,8 @@ export const FileAttachmentSchema = z.object({
   type: z.literal("file"),
   mimeType: z.string(),
   title: z.string().nullable().optional(),
-  data: z.string(),
+  data: z.string().optional(),
+  sourcePath: z.string().optional(),
 });
 
 export const ReviewAttachmentContextLineSchema = z.object({
@@ -1710,6 +1711,21 @@ export const FileDownloadTokenRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const WorkspaceAttachmentMaterializeFileSchema = z.object({
+  fileName: z.string().nullable().optional(),
+  mimeType: z.string(),
+  data: z.string().optional(),
+  sourcePath: z.string().optional(),
+});
+
+export const WorkspaceAttachmentsMaterializeRequestSchema = z.object({
+  type: z.literal("workspace.attachments.materialize.request"),
+  requestId: z.string(),
+  cwd: z.string().optional(),
+  agentId: z.string().optional(),
+  files: z.array(WorkspaceAttachmentMaterializeFileSchema),
+});
+
 export const ClearAgentAttentionMessageSchema = z.object({
   type: z.literal("clear_agent_attention"),
   agentId: z.union([z.string(), z.array(z.string())]),
@@ -1940,6 +1956,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   FileExplorerRequestSchema,
   ProjectIconRequestSchema,
   FileDownloadTokenRequestSchema,
+  WorkspaceAttachmentsMaterializeRequestSchema,
   ClearAgentAttentionMessageSchema,
   ClientHeartbeatMessageSchema,
   PingMessageSchema,
@@ -3430,6 +3447,22 @@ export const FileDownloadTokenResponseSchema = z.object({
   }),
 });
 
+export const WorkspaceAttachmentsMaterializeResponseSchema = z.object({
+  type: z.literal("workspace.attachments.materialize.response"),
+  payload: z.object({
+    requestId: z.string(),
+    cwd: z.string(),
+    files: z.array(
+      z.object({
+        title: z.string(),
+        mimeType: z.string(),
+        path: z.string(),
+      }),
+    ),
+    error: z.string().nullable(),
+  }),
+});
+
 export const ListProviderModelsResponseMessageSchema = z.object({
   type: z.literal("list_provider_models_response"),
   payload: z.object({
@@ -3749,6 +3782,7 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   FileExplorerResponseSchema,
   ProjectIconResponseSchema,
   FileDownloadTokenResponseSchema,
+  WorkspaceAttachmentsMaterializeResponseSchema,
   ListProviderModelsResponseMessageSchema,
   ListProviderModesResponseMessageSchema,
   ListProviderFeaturesResponseMessageSchema,
@@ -4048,6 +4082,9 @@ export type ProjectIconResponse = z.infer<typeof ProjectIconResponseSchema>;
 export type ProjectIcon = z.infer<typeof ProjectIconSchema>;
 export type FileDownloadTokenRequest = z.infer<typeof FileDownloadTokenRequestSchema>;
 export type FileDownloadTokenResponse = z.infer<typeof FileDownloadTokenResponseSchema>;
+export type WorkspaceAttachmentsMaterializeResponse = z.infer<
+  typeof WorkspaceAttachmentsMaterializeResponseSchema
+>;
 export type RestartServerRequestMessage = z.infer<typeof RestartServerRequestMessageSchema>;
 export type ShutdownServerRequestMessage = z.infer<typeof ShutdownServerRequestMessageSchema>;
 export type ClearAgentAttentionMessage = z.infer<typeof ClearAgentAttentionMessageSchema>;

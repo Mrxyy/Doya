@@ -197,6 +197,7 @@ describe("normalizeAiCreationStream", () => {
           messageId: "message-1",
           images: [selectionImage, referenceImage],
           selectionPreviewUri: "blob:http://localhost/source-image",
+          selectionImageSource: "/tmp/source-image.png",
           selectionImage,
         },
       ],
@@ -206,6 +207,7 @@ describe("normalizeAiCreationStream", () => {
       kind: "user_message",
       images: [referenceImage],
       selectionPreviewUri: "blob:http://localhost/source-image",
+      selectionImageSource: "/tmp/source-image.png",
       selectionImage,
     });
   });

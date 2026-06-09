@@ -246,6 +246,34 @@ function isAiCreationDisplayTextMatch(
   );
 }
 
+function applyAiCreationDisplayMetadataToUserMessage(
+  item: Extract<StreamItem, { kind: "user_message" }>,
+  metadata: AiCreationMessageDisplayEntry,
+): Extract<StreamItem, { kind: "user_message" }> {
+  const metadataSelectionImage = isAiCreationEditDisplayText(item.text)
+    ? metadata.selectionImage
+    : undefined;
+  const metadataImages = metadata.selectionImage
+    ? metadata.images?.filter((image) => image.id !== metadata.selectionImage?.id)
+    : metadata.images;
+
+  return {
+    ...item,
+    ...(item.images || !metadataImages || metadataImages.length === 0
+      ? {}
+      : { images: metadataImages }),
+    ...(item.selectionPreviewUri || !metadata.selectionPreviewUri
+      ? {}
+      : { selectionPreviewUri: metadata.selectionPreviewUri }),
+    ...(item.selectionImageSource || !metadata.selectionImageSource
+      ? {}
+      : { selectionImageSource: metadata.selectionImageSource }),
+    ...(item.selectionImage || !metadataSelectionImage
+      ? {}
+      : { selectionImage: metadataSelectionImage }),
+  };
+}
+
 export function buildAiCreationPlaceholderItem(): StreamItem {
   return {
     kind: "assistant_message",
@@ -401,24 +429,7 @@ export function applyAiCreationMessageDisplayMetadata(
     if (!metadata) {
       return item;
     }
-    const metadataSelectionImage = isAiCreationEditDisplayText(item.text)
-      ? metadata.selectionImage
-      : undefined;
-    const metadataImages = metadata.selectionImage
-      ? metadata.images?.filter((image) => image.id !== metadata.selectionImage?.id)
-      : metadata.images;
-    const updated = {
-      ...item,
-      ...(item.images || !metadataImages || metadataImages.length === 0
-        ? {}
-        : { images: metadataImages }),
-      ...(item.selectionPreviewUri || !metadata.selectionPreviewUri
-        ? {}
-        : { selectionPreviewUri: metadata.selectionPreviewUri }),
-      ...(item.selectionImage || !metadataSelectionImage
-        ? {}
-        : { selectionImage: metadataSelectionImage }),
-    };
+    const updated = applyAiCreationDisplayMetadataToUserMessage(item, metadata);
     if (updated !== item) {
       changed = true;
     }

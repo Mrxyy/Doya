@@ -119,6 +119,7 @@ const clients: DaemonClient[] = [];
 afterEach(async () => {
   await Promise.all(clients.map((client) => client.close()));
   clients.length = 0;
+  vi.unstubAllGlobals();
 });
 
 test("dedupes in-flight checkout status requests per agentId", async () => {
@@ -228,6 +229,76 @@ test("passes password as HTTP bearer header and WebSocket subprotocol", async ()
     headers: { Authorization: "Bearer shared-secret" },
     protocols: ["paseo.bearer.shared-secret"],
   });
+});
+
+test("uploads workspace attachments as multipart file fields", async () => {
+  const logger = createMockLogger();
+  const mock = createMockTransport();
+  const body = new Blob(["docx-bytes"], {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+  const fetchMock = vi.fn(async () => ({
+    ok: true,
+    json: async () => ({
+      cwd: "/tmp/workspace",
+      file: {
+        title: "项目介绍.docx",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        path: "attachments/uuid-项目介绍.docx",
+      },
+    }),
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+
+  const client = new DaemonClient({
+    url: "wss://host.example/ws?serverId=srv_test",
+    clientId: "clsk_unit_test",
+    password: "shared-secret",
+    logger,
+    reconnect: { enabled: false },
+    transportFactory: () => mock.transport,
+  });
+  clients.push(client);
+
+  await expect(
+    client.uploadWorkspaceAttachment({
+      agentId: "agent-1",
+      fileName: "项目介绍.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      body,
+    }),
+  ).resolves.toEqual({
+    cwd: "/tmp/workspace",
+    file: {
+      title: "项目介绍.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      path: "attachments/uuid-项目介绍.docx",
+    },
+  });
+
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  const [requestUrl, requestInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+  const url = new URL(requestUrl);
+  expect(url.protocol).toBe("https:");
+  expect(url.host).toBe("host.example");
+  expect(url.pathname).toBe("/api/workspace-attachments/upload");
+  expect(url.searchParams.get("agentId")).toBe("agent-1");
+  expect(url.searchParams.get("fileName")).toBe("项目介绍.docx");
+  expect(requestInit).toMatchObject({
+    method: "POST",
+    headers: {
+      Authorization: "Bearer shared-secret",
+    },
+  });
+  expect(requestInit.body).toBeInstanceOf(FormData);
+  const form = requestInit.body as FormData;
+  expect(form.get("mimeType")).toBe(
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  );
+  const file = form.get("file");
+  expect(file).toBeInstanceOf(Blob);
+  expect((file as Blob & { name?: string }).name).toBe("项目介绍.docx");
+  expect(await (file as Blob).text()).toBe("docx-bytes");
 });
 
 test("advertises client capabilities in hello", async () => {

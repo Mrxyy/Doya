@@ -139,7 +139,7 @@ export function collectReferencedAttachmentIdsFromState(state: DraftStoreState):
       continue;
     }
     for (const attachment of draftRecord.input.attachments) {
-      if (attachment.kind === "image") {
+      if (attachment.kind === "image" || attachment.kind === "file") {
         referencedIds.add(attachment.metadata.id);
       }
     }
@@ -148,7 +148,7 @@ export function collectReferencedAttachmentIdsFromState(state: DraftStoreState):
   const modalRecord = state.createModalDraft;
   if (modalRecord?.lifecycle === "active" && isCanonicalDraftInput(modalRecord.input)) {
     for (const attachment of modalRecord.input.attachments) {
-      if (attachment.kind === "image") {
+      if (attachment.kind === "image" || attachment.kind === "file") {
         referencedIds.add(attachment.metadata.id);
       }
     }

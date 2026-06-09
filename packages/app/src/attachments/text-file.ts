@@ -2,7 +2,10 @@ import { Buffer } from "buffer";
 import type { AgentAttachment } from "@getpaseo/protocol/messages";
 import type { AttachmentMetadata } from "@/attachments/types";
 
-type EncodedAttachment = { data: string; mimeType: string };
+interface EncodedAttachment {
+  data: string;
+  mimeType: string;
+}
 type EncodeAttachments = (
   attachments: readonly AttachmentMetadata[] | undefined,
 ) => Promise<EncodedAttachment[] | undefined>;
@@ -85,18 +88,48 @@ export async function encodeFilesAsTextAttachments(
   const attachments = await Promise.all(
     files.map(async (file) => {
       const title = file.fileName ?? "Attached file";
-      const text = isTextFileAttachment(file)
-        ? await readTextFileAttachment(file, encodeAttachments)
-        : describeBinaryFileAttachment(file);
+      if (isTextFileAttachment(file)) {
+        const text = await readTextFileAttachment(file, encodeAttachments);
+        return {
+          type: "text",
+          mimeType: "text/plain",
+          title,
+          text: [`File: ${title}`, "", text].join("\n"),
+        } satisfies AgentAttachment;
+      }
+
+      if (canUseWorkspaceSourcePath(file)) {
+        return {
+          type: "file",
+          mimeType: file.mimeType,
+          title,
+          sourcePath: file.storageKey,
+        } satisfies AgentAttachment;
+      }
+
+      const encodedFiles = await encodeAttachments([file]);
+      const encoded = encodedFiles?.[0];
+      if (!encoded) {
+        return {
+          type: "text",
+          mimeType: "text/plain",
+          title,
+          text: [`File: ${title}`, "", describeUnavailableFileAttachment(file)].join("\n"),
+        } satisfies AgentAttachment;
+      }
       return {
-        type: "text",
-        mimeType: "text/plain",
+        type: "file",
+        mimeType: encoded.mimeType,
         title,
-        text: [`File: ${title}`, "", text].join("\n"),
+        data: encoded.data,
       } satisfies AgentAttachment;
     }),
   );
   return attachments;
+}
+
+function canUseWorkspaceSourcePath(file: AttachmentMetadata): boolean {
+  return file.storageType === "desktop-file" && file.storageKey.trim().length > 0;
 }
 
 async function defaultEncodeAttachmentsForSend(
@@ -118,11 +151,15 @@ async function readTextFileAttachment(
   return Buffer.from(encoded.data, "base64").toString("utf8");
 }
 
-function describeBinaryFileAttachment(file: AttachmentMetadata): string {
-  const details = [`MIME type: ${file.mimeType}`];
+function describeUnavailableFileAttachment(file: AttachmentMetadata): string {
+  const details = [
+    `MIME type: ${file.mimeType}`,
+    `Attachment ID: ${file.id}`,
+    `Storage type: ${file.storageType}`,
+  ];
   if (typeof file.byteSize === "number") {
     details.push(`Size: ${file.byteSize} bytes`);
   }
-  details.push("Content was not included because this file is not a readable text file.");
+  details.push("Content could not be encoded for this message.");
   return details.join("\n");
 }

@@ -14,6 +14,7 @@ export interface PendingCreateAttempt {
   lifecycle: CreateFlowLifecycleState;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
+  displayAttachments?: AgentAttachment[];
 }
 
 interface CreateFlowState {

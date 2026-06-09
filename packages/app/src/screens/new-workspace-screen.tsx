@@ -9,6 +9,7 @@ import { Check, ChevronDown, GitBranch, GitPullRequest, X } from "lucide-react-n
 import { Composer } from "@/composer";
 import { DraftAgentModeControl } from "@/composer/agent-controls/mode-control";
 import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
+import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
 import { FileDropZone } from "@/components/file-drop-zone";
 import { Combobox, ComboboxItem } from "@/components/ui/combobox";
 import type { ComboboxOption as ComboboxOptionType } from "@/components/ui/combobox";
@@ -308,6 +309,7 @@ function normalizeBranchDetails(
 }
 
 interface SubmitDraftInput {
+  client: NonNullable<ReturnType<typeof useHostRuntimeClient>>;
   serverId: string;
   draftKey: string;
   workspaceId: string;
@@ -339,6 +341,7 @@ async function createAndMergeWorkspace(input: {
 }
 
 interface CreateChatAgentInput {
+  client: NonNullable<ReturnType<typeof useHostRuntimeClient>>;
   payload: MessagePayload;
   composerState: ReturnType<typeof useAgentInputDraft>["composerState"];
   ensureWorkspace: (input: {
@@ -351,7 +354,7 @@ interface CreateChatAgentInput {
 }
 
 async function runCreateChatAgent(input: CreateChatAgentInput): Promise<void> {
-  const { payload, composerState, ensureWorkspace, serverId, draftKey } = input;
+  const { client, payload, composerState, ensureWorkspace, serverId, draftKey } = input;
   const { text, attachments, cwd } = payload;
   if (!composerState) {
     throw new Error("Composer state is required");
@@ -360,13 +363,16 @@ async function runCreateChatAgent(input: CreateChatAgentInput): Promise<void> {
   if (!provider) {
     throw new Error("Select a model");
   }
-  const { attachments: reviewAttachments } = await splitComposerAttachmentsForSubmit(attachments);
+  const { attachments: reviewAttachments } = await splitComposerAttachmentsForSubmit(
+    attachments.filter((attachment) => attachment.kind !== "file" && attachment.kind !== "image"),
+  );
   const ensuredWorkspace = await ensureWorkspace({
     cwd,
     prompt: text,
     attachments: reviewAttachments,
   });
   await submitWorkspaceDraft({
+    client,
     serverId,
     draftKey,
     workspaceId: ensuredWorkspace.id,
@@ -454,6 +460,7 @@ function useCheckoutHintDismissals(attachments: ReadonlyArray<UserComposerAttach
 
 async function submitWorkspaceDraft(input: SubmitDraftInput): Promise<void> {
   const {
+    client,
     serverId,
     draftKey,
     workspaceId,
@@ -466,7 +473,14 @@ async function submitWorkspaceDraft(input: SubmitDraftInput): Promise<void> {
   const draftId = generateDraftId();
   const clientMessageId = generateMessageId();
   const timestamp = Date.now();
-  const wirePayload = await splitComposerAttachmentsForSubmit(attachments);
+  const wirePayload = await splitComposerAttachmentsForSubmit(attachments, {
+    materializeFiles: (files) =>
+      materializeWorkspaceFileAttachments({
+        client,
+        cwd: workspaceDirectory,
+        files,
+      }),
+  });
   useCreateFlowStore.getState().setPending({
     serverId,
     draftId,
@@ -476,6 +490,9 @@ async function submitWorkspaceDraft(input: SubmitDraftInput): Promise<void> {
     timestamp,
     ...(wirePayload.images.length > 0 ? { images: wirePayload.images } : {}),
     ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
+    ...(wirePayload.displayAttachments.length > 0
+      ? { displayAttachments: wirePayload.displayAttachments }
+      : {}),
   });
   useWorkspaceDraftSubmissionStore.getState().setPending({
     serverId,
@@ -771,6 +788,7 @@ export function NewWorkspaceScreen({
 
         setPendingAction("chat");
         await runCreateChatAgent({
+          client: withConnectedClient(),
           payload,
           composerState,
           ensureWorkspace,
@@ -784,7 +802,7 @@ export function NewWorkspaceScreen({
         toast.error(message);
       }
     },
-    [composerState, draftKey, ensureWorkspace, serverId, toast],
+    [composerState, draftKey, ensureWorkspace, serverId, toast, withConnectedClient],
   );
 
   const workspaceTitle = computeWorkspaceTitle(workspace, displayName, sourceDirectory);

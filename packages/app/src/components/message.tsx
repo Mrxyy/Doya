@@ -120,10 +120,12 @@ interface UserMessageProps {
   serverId?: string;
   agentId?: string;
   messageId?: string;
+  workspaceRoot?: string;
   message: string;
   images?: UserMessageImageAttachment[];
   attachments?: AgentAttachment[];
   selectionPreviewUri?: string;
+  selectionImageSource?: string;
   selectionImage?: UserMessageImageAttachment;
   timestamp: number;
   capabilities?: AgentCapabilityFlags;
@@ -465,6 +467,90 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
   },
 }));
 
+function useAssistantResolvedImage(input: {
+  source?: string | null;
+  client?: DaemonClient | null;
+  workspaceRoot?: string;
+  serverId?: string;
+}): {
+  uri: string | null;
+  editableImage: AttachmentMetadata | null;
+  isLoading: boolean;
+  errorText: string;
+} {
+  const source = input.source?.trim() || "";
+  const resolution = useMemo(
+    () =>
+      source ? resolveAssistantImageSource({ source, workspaceRoot: input.workspaceRoot }) : null,
+    [source, input.workspaceRoot],
+  );
+  const dataImage = useMemo(() => (source ? parseImageDataUrl(source) : null), [source]);
+
+  const query = useQuery({
+    queryKey: [
+      "assistantMarkdownImage",
+      input.serverId ?? "unknown-server",
+      resolution?.kind === "file_rpc" ? resolution.cwd : null,
+      resolution?.kind === "file_rpc" ? resolution.path : null,
+    ],
+    enabled: Boolean(input.client && resolution?.kind === "file_rpc"),
+    staleTime: 30_000,
+    queryFn: async () => {
+      if (!input.client || !resolution || resolution.kind !== "file_rpc") {
+        return null;
+      }
+
+      const file = await input.client.readFile(resolution.cwd, resolution.path);
+      if (file.kind !== "image") {
+        throw new Error("Image preview unavailable.");
+      }
+
+      return await persistAttachmentFromBytes({
+        id: createPreviewAttachmentId({
+          mimeType: file.mime,
+          path: file.path || resolution.path,
+          size: file.size,
+          modifiedAt: file.modifiedAt,
+          contentLength: file.bytes.byteLength,
+        }),
+        bytes: file.bytes,
+        mimeType: file.mime,
+        fileName: getFileNameFromPath(file.path || resolution.path),
+      });
+    },
+  });
+  const dataImageQuery = useQuery({
+    queryKey: ["assistantMarkdownDataImage", dataImage?.cacheKey ?? null],
+    enabled: dataImage !== null,
+    staleTime: 30_000,
+    queryFn: async () => {
+      if (!dataImage) {
+        return null;
+      }
+
+      return await persistAttachmentFromDataUrl({
+        id: createPreviewAttachmentId({
+          mimeType: dataImage.mimeType,
+          contentLength: dataImage.base64.length,
+        }),
+        dataUrl: source,
+        mimeType: dataImage.mimeType,
+      });
+    },
+  });
+
+  const fileAssetUri = useAttachmentPreviewUrl(query.data);
+  const dataImageAssetUri = useAttachmentPreviewUrl(dataImageQuery.data);
+  const directUri = resolution?.kind === "direct" && !dataImage ? resolution.uri : null;
+
+  return {
+    uri: directUri ?? dataImageAssetUri ?? fileAssetUri ?? null,
+    editableImage: resolveEditableAssistantImage(query.data, dataImageQuery.data),
+    isLoading: query.isLoading || dataImageQuery.isLoading,
+    errorText: resolveAssistantImageErrorText(query.error, dataImageQuery.error),
+  };
+}
+
 function UserMessageAttachmentThumbnail({ image }: { image: UserMessageImageAttachment }) {
   const uri = useAttachmentPreviewUrl(image);
   const imageSource = useMemo(() => ({ uri: uri ?? "" }), [uri]);
@@ -476,15 +562,24 @@ function UserMessageAttachmentThumbnail({ image }: { image: UserMessageImageAtta
 
 function UserMessageSelectionReference({
   previewUri,
+  source,
   image,
+  client,
+  workspaceRoot,
+  serverId,
 }: {
   previewUri?: string;
+  source?: string;
   image?: UserMessageImageAttachment;
+  client?: DaemonClient | null;
+  workspaceRoot?: string;
+  serverId?: string;
 }) {
+  const sourceImage = useAssistantResolvedImage({ source, client, workspaceRoot, serverId });
   const imagePreviewUri = useAttachmentPreviewUrl(image);
-  const resolvedPreviewUri = previewUri ?? imagePreviewUri;
+  const resolvedPreviewUri = sourceImage.uri ?? imagePreviewUri ?? previewUri;
   const imageSource = useMemo(() => ({ uri: resolvedPreviewUri ?? "" }), [resolvedPreviewUri]);
-  if (!resolvedPreviewUri && !image) {
+  if (!source && !resolvedPreviewUri && !image && !previewUri) {
     return null;
   }
   return (
@@ -529,10 +624,12 @@ export const UserMessage = memo(function UserMessage({
   serverId,
   agentId,
   messageId,
+  workspaceRoot,
   message,
   images = [],
   attachments = [],
   selectionPreviewUri,
+  selectionImageSource,
   selectionImage,
   timestamp,
   capabilities,
@@ -607,10 +704,14 @@ export const UserMessage = memo(function UserMessage({
         onPointerLeave={handlePointerLeave}
       >
         <View style={userMessageStylesheet.bubble}>
-          {selectionPreviewUri || selectionImage ? (
+          {selectionPreviewUri || selectionImageSource || selectionImage ? (
             <UserMessageSelectionReference
               previewUri={selectionPreviewUri}
+              source={selectionImageSource}
               image={selectionImage}
+              client={client}
+              workspaceRoot={workspaceRoot}
+              serverId={serverId}
             />
           ) : null}
           {hasImages ? (
@@ -823,7 +924,7 @@ interface AssistantMessageProps {
   serverId?: string;
   client?: DaemonClient | null;
   spacing?: "default" | "compactTop" | "compactBottom" | "compactBoth";
-  onEditImage?: (image: AttachmentMetadata, previewUri: string) => void;
+  onEditImage?: (image: AttachmentMetadata, previewUri: string, source: string) => void;
 }
 
 export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
@@ -890,7 +991,7 @@ const AssistantMarkdownResolvedImage = memo(function AssistantMarkdownResolvedIm
   workspaceRoot?: string;
   serverId?: string;
   editableImage?: AttachmentMetadata | null;
-  onEditImage?: (image: AttachmentMetadata, previewUri: string) => void;
+  onEditImage?: (image: AttachmentMetadata, previewUri: string, source: string) => void;
 }) {
   const cachedMetadata = useMemo(
     () => getAssistantImageMetadata({ source, workspaceRoot, serverId }),
@@ -962,9 +1063,9 @@ const AssistantMarkdownResolvedImage = memo(function AssistantMarkdownResolvedIm
   const imageSource = useMemo(() => ({ uri }), [uri]);
   const handleEditImage = useCallback(() => {
     if (editableImage) {
-      onEditImage?.(editableImage, uri);
+      onEditImage?.(editableImage, uri, source);
     }
-  }, [editableImage, onEditImage, uri]);
+  }, [editableImage, onEditImage, source, uri]);
 
   if (loadState.status !== "ready") {
     return (
@@ -1024,13 +1125,8 @@ function AssistantMarkdownImage({
   client?: DaemonClient | null;
   workspaceRoot?: string;
   serverId?: string;
-  onEditImage?: (image: AttachmentMetadata, previewUri: string) => void;
+  onEditImage?: (image: AttachmentMetadata, previewUri: string, source: string) => void;
 }) {
-  const resolution = useMemo(
-    () => resolveAssistantImageSource({ source, workspaceRoot }),
-    [source, workspaceRoot],
-  );
-  const dataImage = useMemo(() => parseImageDataUrl(source), [source]);
   const containerStyle = useMemo<StyleProp<ViewStyle>>(
     () => ({
       marginTop: hasLeadingContent ? 16 : 0,
@@ -1038,65 +1134,7 @@ function AssistantMarkdownImage({
     }),
     [hasLeadingContent],
   );
-
-  const query = useQuery({
-    queryKey: [
-      "assistantMarkdownImage",
-      serverId ?? "unknown-server",
-      resolution?.kind === "file_rpc" ? resolution.cwd : null,
-      resolution?.kind === "file_rpc" ? resolution.path : null,
-    ],
-    enabled: Boolean(client && resolution?.kind === "file_rpc"),
-    staleTime: 30_000,
-    queryFn: async () => {
-      if (!client || !resolution || resolution.kind !== "file_rpc") {
-        return null;
-      }
-
-      const file = await client.readFile(resolution.cwd, resolution.path);
-      if (file.kind !== "image") {
-        throw new Error("Image preview unavailable.");
-      }
-
-      return await persistAttachmentFromBytes({
-        id: createPreviewAttachmentId({
-          mimeType: file.mime,
-          path: file.path || resolution.path,
-          size: file.size,
-          modifiedAt: file.modifiedAt,
-          contentLength: file.bytes.byteLength,
-        }),
-        bytes: file.bytes,
-        mimeType: file.mime,
-        fileName: getFileNameFromPath(file.path || resolution.path),
-      });
-    },
-  });
-  const dataImageQuery = useQuery({
-    queryKey: ["assistantMarkdownDataImage", dataImage?.cacheKey ?? null],
-    enabled: dataImage !== null,
-    staleTime: 30_000,
-    queryFn: async () => {
-      if (!dataImage) {
-        return null;
-      }
-
-      return await persistAttachmentFromDataUrl({
-        id: createPreviewAttachmentId({
-          mimeType: dataImage.mimeType,
-          contentLength: dataImage.base64.length,
-        }),
-        dataUrl: source,
-        mimeType: dataImage.mimeType,
-      });
-    },
-  });
-
-  const fileAssetUri = useAttachmentPreviewUrl(query.data);
-  const dataImageAssetUri = useAttachmentPreviewUrl(dataImageQuery.data);
-  const directUri = resolution?.kind === "direct" && !dataImage ? resolution.uri : null;
-  const resolvedUri = directUri ?? dataImageAssetUri ?? fileAssetUri ?? null;
-  const editableImage = resolveEditableAssistantImage(query.data, dataImageQuery.data);
+  const resolvedImage = useAssistantResolvedImage({ source, client, workspaceRoot, serverId });
 
   const stateFrameStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
@@ -1108,22 +1146,22 @@ function AssistantMarkdownImage({
     [containerStyle],
   );
 
-  if (resolvedUri) {
+  if (resolvedImage.uri) {
     return (
       <AssistantMarkdownResolvedImage
-        uri={resolvedUri}
+        uri={resolvedImage.uri}
         alt={alt}
         containerStyle={containerStyle}
         source={source}
         workspaceRoot={workspaceRoot}
         serverId={serverId}
-        editableImage={editableImage}
+        editableImage={resolvedImage.editableImage}
         onEditImage={onEditImage}
       />
     );
   }
 
-  if (query.isLoading || dataImageQuery.isLoading) {
+  if (resolvedImage.isLoading) {
     return (
       <View style={stateFrameStyle}>
         <ActivityIndicator size="small" />
@@ -1131,11 +1169,9 @@ function AssistantMarkdownImage({
     );
   }
 
-  const errorText = resolveAssistantImageErrorText(query.error, dataImageQuery.error);
-
   return (
     <View style={stateFrameStyle}>
-      <Text style={assistantMessageStylesheet.imageErrorText}>{errorText}</Text>
+      <Text style={assistantMessageStylesheet.imageErrorText}>{resolvedImage.errorText}</Text>
     </View>
   );
 }

@@ -2683,6 +2683,37 @@ async function writeImageAttachment(
   return filePath;
 }
 
+async function writeFileAttachmentToWorkspace(input: {
+  cwd: string;
+  data?: string | null;
+  sourcePath?: string | null;
+  fileName?: string | null;
+}): Promise<string> {
+  const attachmentDir = path.join(input.cwd, "attachments");
+  await fs.mkdir(attachmentDir, { recursive: true });
+  const fileName = buildFileAttachmentFileName(input.fileName);
+  const filePath = path.join(attachmentDir, fileName);
+  const sourcePath = input.sourcePath?.trim();
+  if (sourcePath) {
+    await fs.copyFile(sourcePath, filePath);
+  } else if (input.data) {
+    await fs.writeFile(filePath, Buffer.from(input.data, "base64"));
+  } else {
+    throw new Error("File attachment did not include data or a source path.");
+  }
+  return path.relative(input.cwd, filePath);
+}
+
+function buildFileAttachmentFileName(fileName?: string | null): string {
+  const rawName = fileName ? path.basename(fileName) : "attached-file";
+  const safeName = rawName
+    .replace(/[<>:"/\\|?*]+/gu, "-")
+    .replaceAll(/[\p{Cc}]/gu, "-")
+    .replace(/^\.+/u, "")
+    .replace(/^-+|-+$/gu, "");
+  return `${randomUUID()}-${safeName || "attached-file"}`;
+}
+
 function buildImageAttachmentFileName(extension: string, fileName?: string): string {
   const rawBaseName = fileName ? path.basename(fileName, path.extname(fileName)) : "image";
   const safeBaseName = rawBaseName.replace(/[^A-Za-z0-9._-]+/gu, "-").replace(/^-+|-+$/gu, "");
@@ -2762,6 +2793,7 @@ type CodexAppServerUserInput =
 export async function codexAppServerTurnInputFromPrompt(
   prompt: CodexPromptInput,
   logger: Logger,
+  options: { cwd?: string | null } = {},
 ): Promise<CodexAppServerUserInput[]> {
   if (typeof prompt === "string") {
     return [toCodexTextInput(prompt)];
@@ -2792,6 +2824,41 @@ export async function codexAppServerTurnInputFromPrompt(
         });
       }
       previousTextBlock = false;
+      continue;
+    }
+    if (block.type === "file" && options.cwd) {
+      try {
+        const relativePath = await writeFileAttachmentToWorkspace({
+          cwd: options.cwd,
+          data: block.data,
+          sourcePath: block.sourcePath,
+          fileName: block.title,
+        });
+        const title = block.title?.trim() || "Attached file";
+        output.push(
+          toCodexTextInput(
+            [
+              `File attachment: ${title}`,
+              `MIME type: ${block.mimeType}`,
+              `Workspace path: ${relativePath}`,
+              "Read this file from the workspace path above when the user asks about its contents.",
+            ].join("\n"),
+          ),
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.warn({ message }, "Failed to write Codex file attachment");
+        output.push(
+          toCodexTextInput(
+            [
+              `File attachment failed to materialize: ${block.title?.trim() || "Attached file"}`,
+              `MIME type: ${block.mimeType}`,
+              `Error: ${message}`,
+            ].join("\n"),
+          ),
+        );
+      }
+      previousTextBlock = true;
       continue;
     }
     const attachmentText = renderPromptAttachmentAsText(block);
@@ -4215,7 +4282,9 @@ export class CodexAppServerAgentSession implements AgentSession {
     if (typeof prompt === "string") {
       return [toCodexTextInput(prompt)];
     }
-    return await codexAppServerTurnInputFromPrompt(prompt, this.logger);
+    return await codexAppServerTurnInputFromPrompt(prompt, this.logger, {
+      cwd: this.config.cwd ?? null,
+    });
   }
 
   private emitEvent(event: AgentStreamEvent): void {

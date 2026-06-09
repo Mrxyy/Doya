@@ -265,8 +265,9 @@ export function getStreamItemRenderKey(item: StreamItem): string {
     return item.id;
   }
   const selectionImageId = item.selectionImage?.id ?? "";
+  const selectionImageSource = item.selectionImageSource ?? "";
   const imageIds = item.images?.map((image) => image.id).join(",") ?? "";
-  return `${item.id}:selection=${selectionImageId}:images=${imageIds}`;
+  return `${item.id}:selection=${selectionImageId}:source=${selectionImageSource}:images=${imageIds}`;
 }
 
 export function collectAssistantTurnContentForStreamRenderStrategy(params: {
