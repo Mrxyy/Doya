@@ -23,6 +23,8 @@ import { useCreateFlowStore } from "@/stores/create-flow-store";
 import type { Agent } from "@/stores/session-store";
 import { useWorkspaceExecutionAuthority } from "@/stores/session-store-hooks";
 import { useWorkspaceDraftSubmissionStore } from "@/stores/workspace-draft-submission-store";
+import type { AttachmentMetadata } from "@/attachments/types";
+import type { UserMessageImageAttachment } from "@/types/stream";
 import { encodeImages } from "@/utils/encode-images";
 import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
 import { shouldAutoFocusWorkspaceDraftComposer } from "@/screens/workspace/workspace-draft-pane-focus";
@@ -36,7 +38,6 @@ import {
   useWorkspaceAttachments,
   useWorkspaceAttachmentScopeKey,
 } from "@/attachments/workspace-attachments-store";
-import type { UserMessageImageAttachment } from "@/types/stream";
 import { MAX_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import type { WorkspaceDraftTabSetup } from "@/stores/workspace-tabs-store";
@@ -165,7 +166,7 @@ async function submitDraftCreateRequest(input: {
     featureValues: autoSubmitConfig?.featureValues ?? composerState.featureValues,
   });
 
-  const imagesData = await encodeImages(images);
+  const imagesData = await encodeImages(images?.filter(isAttachmentMetadata));
   const attachmentsArray = Array.isArray(attachments) ? attachments : undefined;
   const result = await client.createAgent({
     config,
@@ -180,6 +181,10 @@ async function submitDraftCreateRequest(input: {
     agentId: result.id,
     result,
   };
+}
+
+function isAttachmentMetadata(image: UserMessageImageAttachment): image is AttachmentMetadata {
+  return !("kind" in image);
 }
 
 function buildDraftAgentSnapshot(input: {

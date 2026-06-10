@@ -239,6 +239,61 @@ describe("normalizeAiCreationStream", () => {
     expect(result[0]).not.toHaveProperty("images");
   });
 
+  it("replaces the internal image edit prompt with display text by message id", () => {
+    const canonical = {
+      ...userMessage("message-1", 1),
+      text: [
+        "Use the Codex imagegen skill for this guided image edit.",
+        "Edit the uploaded workspace source image with this instruction:",
+        "改成蓝色眼睛",
+        "Uploaded file: ai-edit-source.png",
+      ].join("\n"),
+    };
+
+    const result = applyAiCreationMessageDisplayMetadata(
+      [canonical],
+      [
+        {
+          messageId: "message-1",
+          text: "编辑图片：改成蓝色眼睛",
+          allowOrderFallback: false,
+        },
+      ],
+    );
+
+    expect(result[0]).toMatchObject({
+      kind: "user_message",
+      text: "编辑图片：改成蓝色眼睛",
+    });
+  });
+
+  it("replaces the internal image edit prompt by order when the provider rewrites the message id", () => {
+    const canonical = {
+      ...userMessage("provider-owned-id", 1),
+      text: [
+        "Use the Codex imagegen skill for this guided image edit.",
+        "Edit the uploaded workspace source image with this instruction:",
+        "改成蓝色眼睛",
+        "Uploaded file: ai-edit-source.png",
+      ].join("\n"),
+    };
+
+    const result = applyAiCreationMessageDisplayMetadata(
+      [canonical],
+      [
+        {
+          messageId: "client-message-id",
+          text: "编辑图片：改成蓝色眼睛",
+        },
+      ],
+    );
+
+    expect(result[0]).toMatchObject({
+      kind: "user_message",
+      text: "编辑图片：改成蓝色眼睛",
+    });
+  });
+
   it("does not use cross-agent text metadata as an order fallback", () => {
     const selectionImage = image("source-image");
     const canonical = userMessage("provider-owned-id", 1);

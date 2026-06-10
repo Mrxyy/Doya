@@ -54,7 +54,17 @@ export type StreamItem =
   | ActivityLogItem
   | CompactionItem;
 
-export type UserMessageImageAttachment = AttachmentMetadata;
+export type UserMessageImageAttachment =
+  | AttachmentMetadata
+  | {
+      kind: "workspace_image";
+      id: string;
+      path: string;
+      mimeType: string;
+      fileName?: string | null;
+      createdAt: number;
+      preview?: AttachmentMetadata;
+    };
 
 export interface UserMessageItem {
   kind: "user_message";
@@ -67,7 +77,7 @@ export interface UserMessageItem {
   displayAttachments?: AgentAttachment[];
   selectionPreviewUri?: string;
   selectionImageSource?: string;
-  selectionImage?: UserMessageImageAttachment;
+  selectionImage?: AttachmentMetadata;
 }
 
 export interface OptimisticUserMessageInput {
@@ -79,7 +89,7 @@ export interface OptimisticUserMessageInput {
   displayAttachments?: AgentAttachment[];
   selectionPreviewUri?: string;
   selectionImageSource?: string;
-  selectionImage?: UserMessageImageAttachment;
+  selectionImage?: AttachmentMetadata;
 }
 
 export type OptimisticUserMessagePlacement = "tail" | "active-head";

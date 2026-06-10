@@ -230,6 +230,14 @@ function isAiCreationEditDisplayText(text: string | undefined): boolean {
   );
 }
 
+function isAiCreationInternalEditPrompt(text: string | undefined): boolean {
+  const normalized = (text ?? "").trim();
+  return (
+    normalized.startsWith("Use the Codex imagegen skill for this guided image edit.") ||
+    normalized.startsWith("Use the Codex imagegen skill for this request.")
+  );
+}
+
 function isAiCreationDisplayTextMatch(
   left: string | undefined,
   right: string | undefined,
@@ -259,6 +267,7 @@ function applyAiCreationDisplayMetadataToUserMessage(
 
   return {
     ...item,
+    ...(metadata.text?.trim() ? { text: metadata.text } : {}),
     ...(item.images || !metadataImages || metadataImages.length === 0
       ? {}
       : { images: metadataImages }),
@@ -416,7 +425,7 @@ export function applyAiCreationMessageDisplayMetadata(
       !metadata &&
       !item.images &&
       !item.selectionImage &&
-      isAiCreationEditDisplayText(item.text)
+      (isAiCreationEditDisplayText(item.text) || isAiCreationInternalEditPrompt(item.text))
     ) {
       const orderedTextMatchIndex = unmatchedByText.findIndex(
         (entry) => entry.allowOrderFallback !== false,

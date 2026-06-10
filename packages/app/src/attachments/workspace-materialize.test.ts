@@ -218,16 +218,12 @@ describe("materializeWorkspaceFileAttachments", () => {
     expect(result[0]?.text).toContain("Workspace path: attachments/abc-ai-edit-source.png");
   });
 
-  it("retries the fallback preview URL when the resolved preview body cannot be read", async () => {
+  it("prefers the fallback preview URL when one is provided", async () => {
     const blob = new Blob(["mask"], { type: "image/png" });
     vi.mocked(resolveAttachmentPreviewUrl).mockResolvedValue("blob:stale-mask");
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (url: string) =>
-        url === "data:image/png;base64,bWFzaw=="
-          ? new Response(blob, { status: 200 })
-          : new Response(null, { status: 404 }),
-      ),
+      vi.fn(async () => new Response(blob, { status: 200 })),
     );
     uploadWorkspaceAttachment.mockResolvedValue({
       cwd: "/repo",
@@ -249,21 +245,15 @@ describe("materializeWorkspaceFileAttachments", () => {
       ],
     });
 
-    expect(fetch).toHaveBeenNthCalledWith(1, "blob:stale-mask");
-    expect(fetch).toHaveBeenNthCalledWith(2, "data:image/png;base64,bWFzaw==");
+    expect(resolveAttachmentPreviewUrl).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith("data:image/png;base64,bWFzaw==");
     expect(uploadWorkspaceAttachment).toHaveBeenCalledWith({
       agentId: "agent-1",
       fileName: "ai-edit-selection-mask.png",
       mimeType: "image/png",
       body: blob,
     });
-    expect(releaseAttachmentPreviewUrl).toHaveBeenCalledWith({
-      attachment: expect.objectContaining({
-        id: "file-1",
-        fileName: "ai-edit-selection-mask.png",
-        fallbackPreviewUrl: "data:image/png;base64,bWFzaw==",
-      }),
-      url: "blob:stale-mask",
-    });
+    expect(releaseAttachmentPreviewUrl).not.toHaveBeenCalled();
   });
 });

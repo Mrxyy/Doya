@@ -124,19 +124,11 @@ async function uploadAttachmentBodyToWorkspace(input: {
   let previewUrl: string | null = null;
   let shouldReleasePreviewUrl = false;
   try {
-    try {
+    if (input.fallbackPreviewUrl) {
+      previewUrl = input.fallbackPreviewUrl;
+    } else {
       previewUrl = await resolveAttachmentPreviewUrl(input.file);
       shouldReleasePreviewUrl = true;
-    } catch (error) {
-      if (!input.fallbackPreviewUrl) {
-        throw error;
-      }
-      console.warn("[attachments] Falling back to provided attachment preview URL", {
-        attachmentId: input.file.id,
-        title: input.title,
-        error,
-      });
-      previewUrl = input.fallbackPreviewUrl;
     }
     const body = await fetchAttachmentBody({
       url: previewUrl,

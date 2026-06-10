@@ -79,7 +79,12 @@ import { encodeImages } from "@/utils/encode-images";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { useImageAttachmentPicker } from "@/hooks/use-image-attachment-picker";
 import { useFileAttachmentPicker } from "@/hooks/use-file-attachment-picker";
-import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
+import type { PickedImageAttachmentInput } from "@/hooks/image-attachment-picker";
+import {
+  buildOptimisticUserMessage,
+  generateMessageId,
+  type UserMessageImageAttachment,
+} from "@/types/stream";
 
 type CreationMode = "image" | "slides" | "edit";
 type AspectRatio = "1:1" | "3:4" | "4:3" | "16:9" | "9:16";
@@ -217,7 +222,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   const [ratio, setRatio] = useState<AspectRatio>("1:1");
   const [style, setStyle] = useState<VisualStyle>("auto");
   const [references, setReferences] = useState<AttachmentMetadata[]>(initialEditState.references);
-  const [conversationEditImages, setConversationEditImages] = useState<AttachmentMetadata[]>([]);
+  const [conversationEditImages, setConversationEditImages] = useState<
+    WorkspaceMaterializeAttachment[]
+  >([]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectionStrokes, setSelectionStrokes] = useState<SelectionStroke[]>([]);
   const [redoSelectionStrokes, setRedoSelectionStrokes] = useState<SelectionStroke[]>([]);
@@ -303,15 +310,8 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   }, [pickImages]);
 
   const handlePickConversationEditImage = useCallback(async () => {
-    const images = await pickAndPersistImages({
-      pickImages,
-      persister: {
-        persistFromBlob: ({ blob, mimeType, fileName }) =>
-          persistAttachmentFromBlob({ blob, mimeType, fileName }),
-        persistFromFileUri: ({ uri, mimeType, fileName }) =>
-          persistAttachmentFromFileUri({ uri, mimeType, fileName }),
-      },
-    });
+    const picked = await pickImages();
+    const images = picked ? await persistPickedImagesWithFallbackPreviewUrl(picked) : [];
     if (images.length === 0) return;
     setConversationEditImages((current) => [...current, ...images]);
   }, [pickImages]);
@@ -475,28 +475,37 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         selectionStrokes,
         selectionPreviewUri,
       });
+      const existingEditSourcePath =
+        mode === "edit" && editTargetAgentId
+          ? resolveWorkspaceRelativeImagePath(selectionImageSource)
+          : null;
       const { images, hasSelectionGuide, selectionGuide } = await encodeAiCreationImagesForSubmit({
         mode,
         references,
         conversationEditImages: editTargetAgentId ? conversationEditImages : [],
+        includeImagePayload: !editTargetAgentId,
         selectionStrokes,
         selectionGuideDimensions,
         selectionPreviewUri,
       });
-      const existingEditSourcePath =
-        mode === "edit" && selectionGuide && editTargetAgentId
-          ? resolveWorkspaceRelativeImagePath(selectionImageSource)
-          : null;
-      const guidedEditFileInputs =
-        mode === "edit" && selectionGuide
-          ? buildGuidedImageEditMaterializeInputs({
-              sourceImage: submittedEditImage,
-              sourceFallbackPreviewUrl: selectionPreviewUri,
-              includeSourceImage: !existingEditSourcePath,
-              selectionGuide,
-              extraImages: editTargetAgentId ? conversationEditImages : [],
-            })
-          : [];
+      let editFileInputs: WorkspaceMaterializeAttachment[] = [];
+      if (mode === "edit" && editTargetAgentId) {
+        editFileInputs = buildConversationImageEditMaterializeInputs({
+          sourceImage: submittedEditImage,
+          sourceFallbackPreviewUrl: selectionPreviewUri,
+          includeSourceImage: !existingEditSourcePath,
+          selectionGuide,
+          extraImages: conversationEditImages,
+        });
+      } else if (mode === "edit" && selectionGuide) {
+        editFileInputs = buildGuidedImageEditMaterializeInputs({
+          sourceImage: submittedEditImage,
+          sourceFallbackPreviewUrl: selectionPreviewUri,
+          includeSourceImage: true,
+          selectionGuide,
+          extraImages: [],
+        });
+      }
       const existingEditSourceAttachment = existingEditSourcePath
         ? buildWorkspacePathAttachment({
             title: "ai-edit-source.png",
@@ -516,10 +525,25 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
       if (editTargetAgentId) {
         const userMessageText = buildAiCreationUserMessageText({ mode, prompt: trimmedPrompt });
         const hasSelectionReference = Boolean(selectionPreviewUri && submittedEditImage);
-        const optimisticImages = buildEditOptimisticImages({
+        const localOptimisticImages = buildEditOptimisticImages({
           image: submittedEditImage,
           extraImages: conversationEditImages,
           excludeSourceImage: hasSelectionReference,
+        });
+        const editFileAttachments =
+          editFileInputs.length > 0
+            ? await materializeWorkspaceFileAttachments({
+                client,
+                agentId: editTargetAgentId,
+                files: editFileInputs,
+              })
+            : [];
+        const editAttachments = existingEditSourceAttachment
+          ? [existingEditSourceAttachment, ...editFileAttachments]
+          : editFileAttachments;
+        const optimisticImages = buildWorkspaceBackedUserImages({
+          images: localOptimisticImages,
+          attachments: editFileAttachments,
         });
         await saveAiCreationMessageDisplayMetadata({
           serverId,
@@ -539,17 +563,6 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         }).catch((error) => {
           console.warn("[AiCreation] Failed to persist message display metadata", error);
         });
-        const editFileAttachments =
-          guidedEditFileInputs.length > 0
-            ? await materializeWorkspaceFileAttachments({
-                client,
-                agentId: editTargetAgentId,
-                files: guidedEditFileInputs,
-              })
-            : [];
-        const editAttachments = existingEditSourceAttachment
-          ? [existingEditSourceAttachment, ...editFileAttachments]
-          : editFileAttachments;
         appendOptimisticUserMessageToAgentStream(
           serverId,
           editTargetAgentId,
@@ -568,7 +581,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         );
         await client.sendAgentMessage(editTargetAgentId, initialPrompt, {
           messageId: clientMessageId,
-          ...(!hasSelectionGuide && images && images.length > 0 ? { images } : {}),
+          ...(!hasSelectionGuide && editAttachments.length === 0 && images && images.length > 0
+            ? { images }
+            : {}),
           ...(editAttachments.length > 0 ? { attachments: editAttachments } : {}),
         });
         await composerState.persistFormPreferences();
@@ -598,11 +613,11 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
           cwd: workspace.cwd,
           files: references,
         });
-      } else if (guidedEditFileInputs.length > 0) {
+      } else if (editFileInputs.length > 0) {
         fileAttachments = await materializeWorkspaceFileAttachments({
           client,
           cwd: workspace.cwd,
-          files: guidedEditFileInputs,
+          files: editFileInputs,
         });
       }
       if (existingEditSourceAttachment) {
@@ -1227,7 +1242,9 @@ async function resolveSelectionGuideDimensions(input: {
     return null;
   }
   if (!input.selectionPreviewUri) {
-    throw new Error("Unable to create selection guide because the source image preview is missing.");
+    throw new Error(
+      "Unable to create selection guide because the source image preview is missing.",
+    );
   }
   return await getImageDimensions(input.selectionPreviewUri);
 }
@@ -1241,7 +1258,9 @@ async function createSelectionGuideAttachment(
     return null;
   }
   if (!sourcePreviewUri) {
-    throw new Error("Unable to create selection guide because the source image preview is missing.");
+    throw new Error(
+      "Unable to create selection guide because the source image preview is missing.",
+    );
   }
   if (!dimensions) {
     throw new Error("Unable to create selection guide because the source image size is unknown.");
@@ -1333,10 +1352,46 @@ async function getImageDimensions(uri: string): Promise<ImageDimensions> {
   });
 }
 
+async function persistPickedImagesWithFallbackPreviewUrl(
+  pickedImages: readonly PickedImageAttachmentInput[],
+): Promise<WorkspaceMaterializeAttachment[]> {
+  return await Promise.all(
+    pickedImages.map(async (picked) => {
+      const fileName = picked.fileName ?? null;
+      const mimeType = picked.mimeType || "image/jpeg";
+      if (picked.source.kind === "blob") {
+        const attachment = await persistAttachmentFromBlob({
+          blob: picked.source.blob,
+          mimeType,
+          fileName,
+        });
+        const fallbackPreviewUrl =
+          typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+            ? URL.createObjectURL(picked.source.blob)
+            : null;
+        return {
+          ...attachment,
+          fallbackPreviewUrl,
+        };
+      }
+      const attachment = await persistAttachmentFromFileUri({
+        uri: picked.source.uri,
+        mimeType,
+        fileName,
+      });
+      return {
+        ...attachment,
+        fallbackPreviewUrl: picked.source.uri,
+      };
+    }),
+  );
+}
+
 async function encodeAiCreationImagesForSubmit(input: {
   mode: CreationMode;
   references: AttachmentMetadata[];
   conversationEditImages: AttachmentMetadata[];
+  includeImagePayload: boolean;
   selectionStrokes: SelectionStroke[];
   selectionGuideDimensions: ImageDimensions | null;
   selectionPreviewUri?: string;
@@ -1361,7 +1416,8 @@ async function encodeAiCreationImagesForSubmit(input: {
         );
   const hasSelectionGuide = selectionGuide !== null;
   return {
-    images: hasSelectionGuide ? undefined : await encodeImages(imageInputs),
+    images:
+      hasSelectionGuide || !input.includeImagePayload ? undefined : await encodeImages(imageInputs),
     hasSelectionGuide,
     selectionGuide,
   };
@@ -1405,6 +1461,34 @@ function buildGuidedImageEditMaterializeInputs(input: {
     ...withAttachmentFileName(input.selectionGuide, "ai-edit-selection-guide"),
     fallbackPreviewUrl: input.selectionGuide.fallbackPreviewUrl,
   });
+  inputs.push(
+    ...input.extraImages.map((image, index) =>
+      withAttachmentFileName(image, `ai-edit-reference-${index + 1}`),
+    ),
+  );
+  return inputs;
+}
+
+function buildConversationImageEditMaterializeInputs(input: {
+  sourceImage: AttachmentMetadata | null | undefined;
+  sourceFallbackPreviewUrl?: string | null;
+  includeSourceImage: boolean;
+  selectionGuide: WorkspaceMaterializeAttachment | null;
+  extraImages: AttachmentMetadata[];
+}): WorkspaceMaterializeAttachment[] {
+  const inputs: WorkspaceMaterializeAttachment[] = [];
+  if (input.includeSourceImage && input.sourceImage) {
+    inputs.push({
+      ...withAttachmentFileName(input.sourceImage, "ai-edit-source"),
+      fallbackPreviewUrl: input.sourceFallbackPreviewUrl,
+    });
+  }
+  if (input.selectionGuide) {
+    inputs.push({
+      ...withAttachmentFileName(input.selectionGuide, "ai-edit-selection-guide"),
+      fallbackPreviewUrl: input.selectionGuide.fallbackPreviewUrl,
+    });
+  }
   inputs.push(
     ...input.extraImages.map((image, index) =>
       withAttachmentFileName(image, `ai-edit-reference-${index + 1}`),
@@ -1697,7 +1781,8 @@ function buildImageEditPrompt(input: {
     "",
     `Aspect ratio: ${input.ratio}`,
     `Style guidance: ${STYLE_PROMPT_LABELS[input.style]}`,
-    "Use only the image attached in this turn as `ai-edit-source.*` as the source image. It is the exact latest image to edit.",
+    "Use the structured uploaded-file attachment text to find workspace paths when files are attached as workspace paths.",
+    "`ai-edit-source.*` is the exact latest source image to edit.",
     "Do not inspect the temp attachment directory to choose a different image. Do not use any earlier image from the conversation as the edit source.",
     "Preserve all unrelated parts of the original image.",
     "Save the final image into the current workspace if a workspace-bound asset is produced.",
@@ -1710,9 +1795,9 @@ function buildImageEditPrompt(input: {
   );
   if (input.extraImageCount > 0) {
     lines.splice(
-      12,
+      13,
       0,
-      `Additional images attached as \`ai-edit-reference-*.png\` are message attachments/reference images only. Do not replace the edit source with them; use them only if the user asks to reference, match, compare, or borrow details from the uploaded image. Reference image count: ${input.extraImageCount}.`,
+      `Additional files named \`ai-edit-reference-*.*\` are reference images only. Do not replace the edit source with them; use them only if the user asks to reference, match, compare, or borrow details from the uploaded image. Reference image count: ${input.extraImageCount}.`,
     );
   }
   return lines.join("\n");
@@ -1732,6 +1817,50 @@ function buildEditOptimisticImages(input: {
   return input.image && !input.excludeSourceImage
     ? [input.image, ...input.extraImages]
     : input.extraImages;
+}
+
+function buildWorkspaceBackedUserImages(input: {
+  images: AttachmentMetadata[];
+  attachments: AgentAttachment[];
+}): UserMessageImageAttachment[] {
+  if (input.images.length === 0 || input.attachments.length === 0) {
+    return input.images;
+  }
+
+  const pathsByTitle = new Map<string, string>();
+  for (const attachment of input.attachments) {
+    if (attachment.type !== "text") continue;
+    const title = attachment.title?.trim();
+    const path = extractWorkspacePathFromAttachmentText(attachment.text);
+    if (title && path) {
+      pathsByTitle.set(title, path);
+    }
+  }
+
+  return input.images.map((image, index) => {
+    const extension = getAttachmentExtension(image);
+    const path =
+      (image.fileName ? pathsByTitle.get(image.fileName) : undefined) ??
+      pathsByTitle.get(`ai-edit-reference-${index + 1}.${extension}`);
+    if (!path) {
+      return image;
+    }
+
+    return {
+      kind: "workspace_image",
+      id: image.id,
+      path,
+      mimeType: image.mimeType,
+      fileName: image.fileName,
+      createdAt: image.createdAt,
+      preview: image,
+    };
+  });
+}
+
+function extractWorkspacePathFromAttachmentText(text: string | undefined): string | null {
+  const match = text?.match(/^Workspace path:\s*(.+)$/m);
+  return match?.[1]?.trim() || null;
 }
 
 function SelectionBrushToolbar({

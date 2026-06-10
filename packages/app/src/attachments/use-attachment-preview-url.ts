@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { releaseAttachmentPreviewUrl, resolveAttachmentPreviewUrl } from "@/attachments/service";
 
+type PreviewableAttachment = AttachmentMetadata & {
+  fallbackPreviewUrl?: string | null;
+};
+
 export function useAttachmentPreviewUrl(
-  attachment: AttachmentMetadata | null | undefined,
+  attachment: PreviewableAttachment | null | undefined,
 ): string | null {
   const [url, setUrl] = useState<string | null>(null);
-  const activeAttachmentRef = useRef<AttachmentMetadata | null>(null);
+  const activeAttachmentRef = useRef<PreviewableAttachment | null>(null);
   const attachmentRef = useRef(attachment);
   attachmentRef.current = attachment;
 
@@ -14,10 +18,13 @@ export function useAttachmentPreviewUrl(
   const storageType = attachment?.storageType;
   const storageKey = attachment?.storageKey;
   const mimeType = attachment?.mimeType;
+  const fallbackPreviewUrl = attachment?.fallbackPreviewUrl ?? null;
+  const directFallbackPreviewUrl = getDirectFallbackPreviewUrl(fallbackPreviewUrl);
 
   useEffect(() => {
     let disposed = false;
     let currentUrl: string | null = null;
+    let shouldReleaseCurrentUrl = false;
     const current = attachmentRef.current;
 
     activeAttachmentRef.current = current ?? null;
@@ -28,12 +35,15 @@ export function useAttachmentPreviewUrl(
 
     void (async () => {
       try {
-        const resolved = await resolveAttachmentPreviewUrl(current);
+        const resolved = directFallbackPreviewUrl ?? (await resolveAttachmentPreviewUrl(current));
         if (disposed) {
-          await releaseAttachmentPreviewUrl({ attachment: current, url: resolved });
+          if (!directFallbackPreviewUrl) {
+            await releaseAttachmentPreviewUrl({ attachment: current, url: resolved });
+          }
           return;
         }
         currentUrl = resolved;
+        shouldReleaseCurrentUrl = !directFallbackPreviewUrl;
         setUrl(resolved);
       } catch (error) {
         console.error("[attachments] Failed to resolve preview URL", {
@@ -49,7 +59,7 @@ export function useAttachmentPreviewUrl(
     return () => {
       disposed = true;
       const activeAttachment = activeAttachmentRef.current;
-      if (!currentUrl || !activeAttachment) {
+      if (!currentUrl || !activeAttachment || !shouldReleaseCurrentUrl) {
         return;
       }
       void releaseAttachmentPreviewUrl({
@@ -57,7 +67,15 @@ export function useAttachmentPreviewUrl(
         url: currentUrl,
       });
     };
-  }, [id, storageType, storageKey, mimeType]);
+  }, [id, storageType, storageKey, mimeType, directFallbackPreviewUrl]);
 
   return url;
+}
+
+function getDirectFallbackPreviewUrl(value: string | null): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return /^(blob:|data:|https?:)/i.test(trimmed) ? trimmed : null;
 }

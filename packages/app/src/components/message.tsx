@@ -126,7 +126,7 @@ interface UserMessageProps {
   attachments?: AgentAttachment[];
   selectionPreviewUri?: string;
   selectionImageSource?: string;
-  selectionImage?: UserMessageImageAttachment;
+  selectionImage?: AttachmentMetadata;
   timestamp: number;
   capabilities?: AgentCapabilityFlags;
   client?: DaemonClient | null;
@@ -551,13 +551,37 @@ function useAssistantResolvedImage(input: {
   };
 }
 
-function UserMessageAttachmentThumbnail({ image }: { image: UserMessageImageAttachment }) {
-  const uri = useAttachmentPreviewUrl(image);
+function UserMessageAttachmentThumbnail({
+  image,
+  client,
+  workspaceRoot,
+  serverId,
+}: {
+  image: UserMessageImageAttachment;
+  client?: DaemonClient | null;
+  workspaceRoot?: string;
+  serverId?: string;
+}) {
+  const isWorkspaceImage = isWorkspaceUserMessageImage(image);
+  const workspaceImage = useAssistantResolvedImage({
+    source: isWorkspaceImage ? image.path : undefined,
+    client,
+    workspaceRoot,
+    serverId,
+  });
+  const attachmentUri = useAttachmentPreviewUrl(isWorkspaceImage ? image.preview : image);
+  const uri = workspaceImage.uri ?? attachmentUri;
   const imageSource = useMemo(() => ({ uri: uri ?? "" }), [uri]);
   if (!uri) {
     return <View style={userMessageStylesheet.imageThumbnailPlaceholder} />;
   }
   return <Image source={imageSource} style={userMessageStylesheet.imageThumbnail} />;
+}
+
+function isWorkspaceUserMessageImage(
+  image: UserMessageImageAttachment,
+): image is Extract<UserMessageImageAttachment, { kind: "workspace_image" }> {
+  return "kind" in image && image.kind === "workspace_image";
 }
 
 function UserMessageSelectionReference({
@@ -570,7 +594,7 @@ function UserMessageSelectionReference({
 }: {
   previewUri?: string;
   source?: string;
-  image?: UserMessageImageAttachment;
+  image?: Extract<UserMessageImageAttachment, AttachmentMetadata>;
   client?: DaemonClient | null;
   workspaceRoot?: string;
   serverId?: string;
@@ -718,7 +742,12 @@ export const UserMessage = memo(function UserMessage({
             <View style={imagePreviewContainerStyle}>
               {images.map((image) => (
                 <View key={image.id} style={userMessageStylesheet.imagePill}>
-                  <UserMessageAttachmentThumbnail image={image} />
+                  <UserMessageAttachmentThumbnail
+                    image={image}
+                    client={client}
+                    workspaceRoot={workspaceRoot}
+                    serverId={serverId}
+                  />
                 </View>
               ))}
             </View>
