@@ -11,17 +11,34 @@ const PPTX_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/exports\/[^"'`\s)）]+?\.pptx)(?:$|[\s"'`)）.,;，。])/gi;
 const PPT_PREVIEW_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/svg_output\/?)(?:$|[\s"'`)）.,;，。])/gi;
+const DOCUMENT_PATH_PATTERN =
+  /(?:^|[\s"'`(（：:])((?:\.\/)?(?:(?:[\w.@~+-]+[\\/])+)?[^"'`\s)）]+?\.(?:pdf|docx|xlsx|csv))(?:$|[\s"'`)）.,;，。])/gi;
 
 export function isAiCreationLabels(labels: Record<string, string> | undefined): boolean {
   return (
     labels?.surface === "ai_creation" ||
     labels?.intent === "imagegen" ||
     labels?.intent === "image_edit" ||
-    labels?.intent === "ppt_creation"
+    labels?.intent === "ppt_creation" ||
+    labels?.intent === "pdf_creation" ||
+    labels?.intent === "word_creation" ||
+    labels?.intent === "spreadsheet_creation"
   );
 }
 
-export type AiCreationIntent = "image" | "image_edit" | "ppt_creation";
+export type AiCreationIntent =
+  | "image"
+  | "image_edit"
+  | "ppt_creation"
+  | "pdf_creation"
+  | "word_creation"
+  | "spreadsheet_creation";
+
+function isDocumentCreationIntent(intent: AiCreationIntent | null | undefined): boolean {
+  return (
+    intent === "pdf_creation" || intent === "word_creation" || intent === "spreadsheet_creation"
+  );
+}
 
 export function getAiCreationIntent(
   labels: Record<string, string> | undefined,
@@ -31,6 +48,15 @@ export function getAiCreationIntent(
   }
   if (labels?.intent === "image_edit") {
     return "image_edit";
+  }
+  if (labels?.intent === "pdf_creation") {
+    return "pdf_creation";
+  }
+  if (labels?.intent === "word_creation") {
+    return "word_creation";
+  }
+  if (labels?.intent === "spreadsheet_creation") {
+    return "spreadsheet_creation";
   }
   if (labels?.surface === "ai_creation" || labels?.intent === "imagegen") {
     return "image";
@@ -157,6 +183,42 @@ function extractAiCreationPptPreviewSources(text: string): string[] {
 
 export function extractAiCreationPptPreviewPath(text: string): string | null {
   const sources = [...new Set(extractAiCreationPptPreviewSources(text))];
+  return sources[sources.length - 1] ?? null;
+}
+
+function normalizeAiCreationDocumentPathToken(source: string): string | null {
+  const markdownHrefIndex = source.lastIndexOf("](");
+  const sourceValue = markdownHrefIndex >= 0 ? source.slice(markdownHrefIndex + 2) : source;
+  const trimmed = sourceValue
+    .trim()
+    .replace(/^`+|`+$/g, "")
+    .replace(/^[.]\//, "")
+    .replace(/[，。.,;；:：]+$/g, "");
+  return trimmed || null;
+}
+
+function extractAiCreationDocumentSources(text: string): string[] {
+  const sources: string[] = [];
+  for (const match of text.matchAll(DOCUMENT_PATH_PATTERN)) {
+    const source = normalizeAiCreationDocumentPathToken(match[1] ?? "");
+    if (source) {
+      sources.push(source);
+    }
+  }
+  return sources;
+}
+
+function extractAiCreationFinalDocumentMarkdown(text: string): string | null {
+  const sources = [...new Set(extractAiCreationDocumentSources(text))];
+  const finalSource = sources[sources.length - 1];
+  if (!finalSource) {
+    return null;
+  }
+  return `[${finalSource}](${finalSource})`;
+}
+
+export function extractAiCreationFinalDocumentPath(text: string): string | null {
+  const sources = [...new Set(extractAiCreationDocumentSources(text))];
   return sources[sources.length - 1] ?? null;
 }
 
@@ -337,9 +399,18 @@ export function normalizeAiCreationStream(params: {
   intent?: AiCreationIntent | null;
 }): { tail: StreamItem[]; head: StreamItem[] } {
   if (params.intent === "ppt_creation") {
-    return normalizePptCreationStream({
+    return normalizeFileCreationStream({
       tail: params.tail,
       head: params.head,
+      extractFinalMarkdown: extractAiCreationFinalPptxMarkdown,
+    });
+  }
+
+  if (isDocumentCreationIntent(params.intent)) {
+    return normalizeFileCreationStream({
+      tail: params.tail,
+      head: params.head,
+      extractFinalMarkdown: extractAiCreationFinalDocumentMarkdown,
     });
   }
 
@@ -364,7 +435,11 @@ export function normalizeAiCreationStream(params: {
   return normalized;
 }
 
-function normalizePptCreationStream(params: { tail: StreamItem[]; head: StreamItem[] }): {
+function normalizeFileCreationStream(params: {
+  tail: StreamItem[];
+  head: StreamItem[];
+  extractFinalMarkdown: (text: string) => string | null;
+}): {
   tail: StreamItem[];
   head: StreamItem[];
 } {
@@ -373,8 +448,8 @@ function normalizePptCreationStream(params: { tail: StreamItem[]; head: StreamIt
       if (item.kind !== "assistant_message") {
         return item;
       }
-      const pptxMarkdown = extractAiCreationFinalPptxMarkdown(item.text);
-      return pptxMarkdown ? { ...item, text: pptxMarkdown } : item;
+      const finalMarkdown = params.extractFinalMarkdown(item.text);
+      return finalMarkdown ? { ...item, text: finalMarkdown } : item;
     });
   return {
     tail: normalizeItems(params.tail),

@@ -4,6 +4,7 @@ import type { StreamItem } from "@/types/stream";
 import {
   AI_CREATION_PLACEHOLDER_ID,
   applyAiCreationMessageDisplayMetadata,
+  extractAiCreationFinalDocumentPath,
   extractAiCreationFinalPptxPath,
   extractAiCreationPptPreviewPath,
   normalizeAiCreationStream,
@@ -51,6 +52,10 @@ function toolCall(id: string, seed: number): Extract<StreamItem, { kind: "tool_c
       },
     },
   };
+}
+
+function streamItemText(item: StreamItem | undefined): string {
+  return item?.kind === "assistant_message" || item?.kind === "user_message" ? item.text : "";
 }
 
 function image(id: string, seed = 1): AttachmentMetadata {
@@ -124,7 +129,7 @@ describe("normalizeAiCreationStream", () => {
       kind: "assistant_message",
       text: "[projects/harvard-campus/exports/harvard-campus-introduction.pptx](projects/harvard-campus/exports/harvard-campus-introduction.pptx)",
     });
-    expect(extractAiCreationFinalPptxPath(result.tail[3]?.text ?? "")).toBe(
+    expect(extractAiCreationFinalPptxPath(streamItemText(result.tail[3]))).toBe(
       "projects/harvard-campus/exports/harvard-campus-introduction.pptx",
     );
   });
@@ -143,6 +148,29 @@ describe("normalizeAiCreationStream", () => {
 
     expect(result.tail.map((item) => item.id)).toEqual(["u1", "status", "shell-1"]);
     expect(result.head.map((item) => item.id)).toEqual(["progress"]);
+  });
+
+  it("shows the final document result after a document agent finishes", () => {
+    const result = normalizeAiCreationStream({
+      agentStatus: "idle",
+      intent: "pdf_creation",
+      tail: [
+        userMessage("u1", 1),
+        assistantMessage("status", "正在生成 PDF。", 2),
+        toolCall("shell-1", 3),
+        assistantMessage("final", "Done: output/documents/product-plan.pdf", 4),
+      ],
+      head: [],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", "status", "shell-1", "final"]);
+    expect(result.tail[3]).toMatchObject({
+      kind: "assistant_message",
+      text: "[output/documents/product-plan.pdf](output/documents/product-plan.pdf)",
+    });
+    expect(extractAiCreationFinalDocumentPath(streamItemText(result.tail[3]))).toBe(
+      "output/documents/product-plan.pdf",
+    );
   });
 
   it("extracts the slides preview path while the slides agent is running", () => {

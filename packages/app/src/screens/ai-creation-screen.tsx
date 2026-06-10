@@ -86,7 +86,7 @@ import {
   type UserMessageImageAttachment,
 } from "@/types/stream";
 
-type CreationMode = "image" | "slides" | "edit";
+type CreationMode = "image" | "slides" | "pdf" | "word" | "spreadsheet" | "edit";
 type AspectRatio = "1:1" | "3:4" | "4:3" | "16:9" | "9:16";
 type VisualStyle = "auto" | "photo" | "illustration" | "poster" | "product";
 
@@ -185,6 +185,57 @@ const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
   "image/svg+xml": "svg",
 };
 
+function usesWorkspaceFileReferences(mode: CreationMode): boolean {
+  return mode === "slides" || mode === "pdf" || mode === "word" || mode === "spreadsheet";
+}
+
+function usesAspectRatio(mode: CreationMode): boolean {
+  return mode === "image" || mode === "edit" || mode === "slides";
+}
+
+function getAiCreationIntentForMode(
+  mode: CreationMode,
+):
+  | "imagegen"
+  | "image_edit"
+  | "ppt_creation"
+  | "pdf_creation"
+  | "word_creation"
+  | "spreadsheet_creation" {
+  if (mode === "slides") {
+    return "ppt_creation";
+  }
+  if (mode === "edit") {
+    return "image_edit";
+  }
+  if (mode === "pdf") {
+    return "pdf_creation";
+  }
+  if (mode === "word") {
+    return "word_creation";
+  }
+  if (mode === "spreadsheet") {
+    return "spreadsheet_creation";
+  }
+  return "imagegen";
+}
+
+function getPromptPlaceholderKey(mode: Exclude<CreationMode, "edit">): TranslationKey {
+  if (mode === "slides") {
+    return "aiCreation.prompt.slidesPlaceholder";
+  }
+  if (mode === "pdf") {
+    return "aiCreation.prompt.pdfPlaceholder";
+  }
+  if (mode === "word") {
+    return "aiCreation.prompt.wordPlaceholder";
+  }
+  if (mode === "spreadsheet") {
+    return "aiCreation.prompt.spreadsheetPlaceholder";
+  }
+  return "aiCreation.prompt.imagePlaceholder";
+}
+
 export function AiCreationScreen({ serverId }: { serverId: string }) {
   const router = useRouter();
   const { theme } = useUnistyles();
@@ -259,6 +310,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     () => [
       { value: "image" as const, label: t("aiCreation.mode.image") },
       { value: "slides" as const, label: t("aiCreation.mode.slides") },
+      { value: "pdf" as const, label: t("aiCreation.mode.pdf") },
+      { value: "word" as const, label: t("aiCreation.mode.word") },
+      { value: "spreadsheet" as const, label: t("aiCreation.mode.spreadsheet") },
     ],
     [t],
   );
@@ -271,7 +325,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   );
 
   const handlePickReference = useCallback(async () => {
-    if (mode === "slides") {
+    if (usesWorkspaceFileReferences(mode)) {
       const files = await pickFiles();
       if (files.length === 0) return;
       setReferences((current) => [...current, ...files]);
@@ -327,6 +381,8 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   const handleChangeMode = useCallback((nextMode: CreationMode) => {
     if (nextMode === "slides") {
       setRatio("16:9");
+    }
+    if (nextMode !== "edit") {
       setSelectionMode(false);
       setSelectionStrokes([]);
       setRedoSelectionStrokes([]);
@@ -452,7 +508,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     Boolean(client) &&
     isConnected &&
     Boolean(composerState) &&
-    (mode === "image" || mode === "slides" || Boolean(editImage));
+    (mode !== "edit" || Boolean(editImage));
 
   const handleCreate = useCallback(async () => {
     if (!client || !composerState) return;
@@ -607,7 +663,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
       let fileAttachments:
         | Awaited<ReturnType<typeof materializeWorkspaceFileAttachments>>
         | undefined;
-      if (mode === "slides") {
+      if (usesWorkspaceFileReferences(mode)) {
         fileAttachments = await materializeWorkspaceFileAttachments({
           client,
           cwd: workspace.cwd,
@@ -643,7 +699,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         ...(fileAttachments && fileAttachments.length > 0 ? { attachments: fileAttachments } : {}),
         labels: {
           surface: "ai_creation",
-          intent: mode === "slides" ? "ppt_creation" : mode === "edit" ? "image_edit" : "imagegen",
+          intent: getAiCreationIntentForMode(mode),
         },
       });
       const hasSelectionReference =
@@ -917,9 +973,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               placeholder={
                 mode === "edit"
                   ? t("aiCreation.prompt.editPlaceholder")
-                  : mode === "slides"
-                    ? t("aiCreation.prompt.slidesPlaceholder")
-                    : t("aiCreation.prompt.imagePlaceholder")
+                  : t(getPromptPlaceholderKey(mode))
               }
               placeholderTextColor={theme.colors.foregroundMuted}
               multiline
@@ -949,7 +1003,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               >
                 {mode === "edit"
                   ? t("aiCreation.source.original")
-                  : mode === "slides"
+                  : usesWorkspaceFileReferences(mode)
                     ? t("aiCreation.source.material")
                     : t("aiCreation.source.reference")}
               </Button>
@@ -969,12 +1023,14 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
                   {t("aiCreation.action.clear")}
                 </Button>
               ) : null}
-              <ChoiceStrip
-                label={t("aiCreation.aspectRatio")}
-                value={ratio}
-                options={mode === "slides" ? SLIDE_RATIO_OPTIONS : RATIO_OPTIONS}
-                onChange={setRatio}
-              />
+              {usesAspectRatio(mode) ? (
+                <ChoiceStrip
+                  label={t("aiCreation.aspectRatio")}
+                  value={ratio}
+                  options={mode === "slides" ? SLIDE_RATIO_OPTIONS : RATIO_OPTIONS}
+                  onChange={setRatio}
+                />
+              ) : null}
               {mode === "image" ? (
                 <ChoiceStrip
                   label={t("aiCreation.style")}
@@ -1396,7 +1452,7 @@ async function encodeAiCreationImagesForSubmit(input: {
   selectionGuideDimensions: ImageDimensions | null;
   selectionPreviewUri?: string;
 }): Promise<EncodedAiCreationImages> {
-  if (input.mode === "slides") {
+  if (usesWorkspaceFileReferences(input.mode)) {
     return { hasSelectionGuide: false, selectionGuide: null };
   }
 
@@ -1662,12 +1718,85 @@ function buildAiCreationPrompt(input: {
       sourceFileCount: input.referenceCount,
     });
   }
+  if (input.mode === "pdf") {
+    return buildDocumentCreationPrompt({
+      kind: "pdf",
+      prompt: input.prompt,
+      sourceFileCount: input.referenceCount,
+    });
+  }
+  if (input.mode === "word") {
+    return buildDocumentCreationPrompt({
+      kind: "word",
+      prompt: input.prompt,
+      sourceFileCount: input.referenceCount,
+    });
+  }
+  if (input.mode === "spreadsheet") {
+    return buildDocumentCreationPrompt({
+      kind: "spreadsheet",
+      prompt: input.prompt,
+      sourceFileCount: input.referenceCount,
+    });
+  }
   return buildImagegenPrompt({
     prompt: input.prompt,
     ratio: input.ratio,
     style: input.style,
     referenceCount: input.referenceCount,
   });
+}
+
+function buildDocumentCreationPrompt(input: {
+  kind: "pdf" | "word" | "spreadsheet";
+  prompt: string;
+  sourceFileCount: number;
+}): string {
+  const config = {
+    pdf: {
+      surface: "PDF document",
+      skill: "PDF/document generation",
+      output: "PDF",
+      directory: "output/documents/",
+      extension: ".pdf",
+      example: "[output/documents/report.pdf](output/documents/report.pdf)",
+    },
+    word: {
+      surface: "Word document",
+      skill: "document generation",
+      output: "DOCX",
+      directory: "output/documents/",
+      extension: ".docx",
+      example: "[output/documents/report.docx](output/documents/report.docx)",
+    },
+    spreadsheet: {
+      surface: "spreadsheet",
+      skill: "spreadsheet generation",
+      output: "XLSX workbook",
+      directory: "output/spreadsheets/",
+      extension: ".xlsx",
+      example: "[output/spreadsheets/workbook.xlsx](output/spreadsheets/workbook.xlsx)",
+    },
+  }[input.kind];
+  const lines = [
+    `You are creating a ${config.surface} for the Paseo AI Creation surface.`,
+    `Use the agent's available built-in ${config.skill} skill or workflow. Codex and Claude Code both have default capabilities for this artifact type; choose the appropriate one for the current provider.`,
+    "This is an AI creation surface. Do not explain your reasoning, workflow, skill usage, shell commands, or implementation steps in the final conversation.",
+    "If you must send progress text while creating, keep it to one short user-facing sentence in Chinese.",
+    "",
+    "User request:",
+    input.prompt,
+    "",
+    `Source file count: ${input.sourceFileCount}`,
+    "If source files are attached, the daemon writes them into `attachments/` and includes their paths in the structured attachment text. Use those workspace paths as source materials.",
+    "",
+    `Create a real ${config.output} file, not a screenshot or placeholder.`,
+    `Write the final file under \`${config.directory}\` with a \`${config.extension}\` extension.`,
+    "Use a clear, filesystem-safe file name based on the user's request.",
+    "When the final file is saved, reply with Markdown file-link syntax only, using the workspace-relative path.",
+    `Example final reply: ${config.example}`,
+  ];
+  return lines.join("\n");
 }
 
 function buildSlidesPrompt(input: {

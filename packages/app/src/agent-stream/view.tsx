@@ -93,6 +93,7 @@ import { useHosts } from "@/runtime/host-runtime";
 import {
   AI_CREATION_PLACEHOLDER_ID,
   applyAiCreationMessageDisplayMetadata,
+  extractAiCreationFinalDocumentPath,
   extractAiCreationFinalPptxPath,
   extractAiCreationPptPreviewPath,
   getAiCreationIntent,
@@ -588,6 +589,12 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           aiCreationIntent === "ppt_creation" ? extractAiCreationFinalPptxPath(item.text) : null;
         const pptPreviewPath =
           aiCreationIntent === "ppt_creation" ? extractAiCreationPptPreviewPath(item.text) : null;
+        const documentPath =
+          aiCreationIntent === "pdf_creation" ||
+          aiCreationIntent === "word_creation" ||
+          aiCreationIntent === "spreadsheet_creation"
+            ? extractAiCreationFinalDocumentPath(item.text)
+            : null;
         let messageContent: ReactNode;
         if (pptxPath) {
           messageContent = (
@@ -596,6 +603,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               path={pptxPath}
               onDownload={handleDownloadPptx}
               onOpenPreview={handleOpenPptPreview}
+            />
+          );
+        } else if (documentPath) {
+          messageContent = (
+            <AiCreationFileResultCard
+              path={documentPath}
+              onDownload={handleDownloadPptx}
+              onOpen={handleToolCallOpenFile}
             />
           );
         } else if (pptPreviewPath) {
@@ -635,6 +650,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         aiCreationIntent,
         client,
         handleEditAiCreationImage,
+        handleToolCallOpenFile,
         handleInlinePathPress,
         handleDownloadPptx,
         handleOpenPptPreview,
@@ -1022,7 +1038,16 @@ function ToolCallSlot({
 }
 
 function AiCreationPlaceholder({ intent }: { intent: ReturnType<typeof getAiCreationIntent> }) {
-  const title = intent === "ppt_creation" ? "Creating slides" : "Creating image";
+  let title = "Creating image";
+  if (intent === "ppt_creation") {
+    title = "Creating slides";
+  } else if (intent === "pdf_creation") {
+    title = "Creating PDF";
+  } else if (intent === "word_creation") {
+    title = "Creating document";
+  } else if (intent === "spreadsheet_creation") {
+    title = "Creating spreadsheet";
+  }
   return (
     <View style={stylesheet.aiCreationPlaceholder}>
       <Text style={stylesheet.aiCreationPlaceholderTitle}>{title}</Text>
@@ -1032,6 +1057,86 @@ function AiCreationPlaceholder({ intent }: { intent: ReturnType<typeof getAiCrea
         ))}
       </View>
     </View>
+  );
+}
+
+function AiCreationFileResultCard({
+  onDownload,
+  onOpen,
+  path,
+}: {
+  onDownload: (path: string) => void;
+  onOpen: (path: string) => void;
+  path: string;
+}) {
+  const fileName = path.split(/[\\/]/).pop() || "document";
+  const extension = fileName.match(/\.([A-Za-z0-9]+)$/)?.[1]?.toUpperCase() || "FILE";
+  const handlePress = useCallback(() => {
+    onOpen(path);
+  }, [onOpen, path]);
+  const handleOpenPress = useCallback(
+    (event: GestureResponderEvent) => {
+      event.stopPropagation();
+      handlePress();
+    },
+    [handlePress],
+  );
+  const handleDownloadPress = useCallback(
+    (event: GestureResponderEvent) => {
+      event.stopPropagation();
+      onDownload(path);
+    },
+    [onDownload, path],
+  );
+
+  return (
+    <Pressable accessibilityRole="button" onPress={handlePress} style={aiCreationSlidesCardStyle}>
+      <View style={stylesheet.aiCreationSlidesIconWrap}>
+        <SvgXml xml={PDF_FILE_ICON_SVG} width={34} height={34} />
+      </View>
+      <View style={stylesheet.aiCreationSlidesBody}>
+        <View style={stylesheet.aiCreationSlidesHeader}>
+          <Text style={stylesheet.aiCreationSlidesTitle}>
+            {translateNow("aiCreation.result.fileReady")}
+          </Text>
+          <View style={stylesheet.aiCreationSlidesTypeBadge}>
+            <Text style={stylesheet.aiCreationSlidesTypeBadgeText}>{extension}</Text>
+          </View>
+        </View>
+        <Text style={stylesheet.aiCreationSlidesFileName} numberOfLines={1}>
+          {fileName}
+        </Text>
+        <Text style={stylesheet.aiCreationSlidesPath} numberOfLines={1}>
+          {path}
+        </Text>
+        <View style={stylesheet.aiCreationSlidesActions}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleOpenPress}
+            style={aiCreationSlidesPrimaryButtonStyle}
+          >
+            <View style={stylesheet.aiCreationSlidesButtonContent}>
+              <Eye size={15} color={stylesheet.aiCreationSlidesPrimaryButtonText.color} />
+              <Text style={stylesheet.aiCreationSlidesPrimaryButtonText}>
+                {translateNow("aiCreation.action.openFilePreview")}
+              </Text>
+            </View>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleDownloadPress}
+            style={aiCreationSlidesPreviewButtonStyle}
+          >
+            <View style={stylesheet.aiCreationSlidesButtonContent}>
+              <Download size={15} color={stylesheet.aiCreationSlidesSecondaryButtonText.color} />
+              <Text style={stylesheet.aiCreationSlidesSecondaryButtonText}>
+                {translateNow("ui.download.ooknmw")}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
