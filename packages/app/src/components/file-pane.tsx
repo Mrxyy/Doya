@@ -26,6 +26,7 @@ import type { AttachmentMetadata } from "@/attachments/types";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
 import { persistAttachmentFromBytes } from "@/attachments/service";
 import { createPreviewAttachmentId, getFileNameFromPath } from "@/attachments/utils";
+import { DocumentViewer, type DocumentViewerKind } from "@/components/document-viewer";
 import { explorerFileFromReadResult } from "@/file-explorer/read-result";
 import { resolveFilePreviewReadTarget } from "@/file-explorer/preview-target";
 import type { WorkspaceFileLocation } from "@/workspace/file-open";
@@ -40,6 +41,8 @@ interface CodeLineProps {
 
 interface FilePreviewBodyProps {
   preview: ExplorerFile | null;
+  documentBytes: Uint8Array | null;
+  documentKind: DocumentViewerKind | null;
   isLoading: boolean;
   showDesktopWebScrollbar: boolean;
   isMobile: boolean;
@@ -73,14 +76,34 @@ function formatFileSize({ size }: { size: number }): string {
 async function createFilePanePreview(file: FileReadResult | null): Promise<{
   file: ExplorerFile | null;
   imageAttachment: AttachmentMetadata | null;
+  documentBytes: Uint8Array | null;
+  documentKind: DocumentViewerKind | null;
 }> {
   if (!file) {
-    return { file: null, imageAttachment: null };
+    return { file: null, imageAttachment: null, documentBytes: null, documentKind: null };
   }
 
   const explorerFile = explorerFileFromReadResult(file);
+  const documentKind = resolveDocumentViewerKind({
+    path: file.path,
+    mimeType: file.mime,
+  });
+  if (documentKind) {
+    return {
+      file: explorerFile,
+      imageAttachment: null,
+      documentBytes: file.bytes,
+      documentKind,
+    };
+  }
+
   if (file.kind !== "image") {
-    return { file: explorerFile, imageAttachment: null };
+    return {
+      file: explorerFile,
+      imageAttachment: null,
+      documentBytes: null,
+      documentKind: null,
+    };
   }
 
   const imageAttachment = await persistAttachmentFromBytes({
@@ -99,7 +122,44 @@ async function createFilePanePreview(file: FileReadResult | null): Promise<{
   return {
     file: explorerFile,
     imageAttachment,
+    documentBytes: null,
+    documentKind: null,
   };
+}
+
+function resolveDocumentViewerKind(input: {
+  path: string;
+  mimeType: string | null | undefined;
+}): DocumentViewerKind | null {
+  const normalizedPath = input.path.toLowerCase();
+  const mimeType = input.mimeType?.toLowerCase() ?? "";
+  if (normalizedPath.endsWith(".pdf") || mimeType === "application/pdf") {
+    return "pdf";
+  }
+  if (
+    normalizedPath.endsWith(".docx") ||
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    return "docx";
+  }
+  if (
+    normalizedPath.endsWith(".pptx") ||
+    mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  ) {
+    return "pptx";
+  }
+  if (normalizedPath.endsWith(".csv") || mimeType === "text/csv") {
+    return "csv";
+  }
+  if (
+    normalizedPath.endsWith(".xlsx") ||
+    normalizedPath.endsWith(".xls") ||
+    mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    mimeType === "application/vnd.ms-excel"
+  ) {
+    return "xlsx";
+  }
+  return null;
 }
 
 function clampLineSelection(input: {
@@ -189,6 +249,8 @@ const codeLineStyles = StyleSheet.create((theme) => ({
 
 function FilePreviewBody({
   preview,
+  documentBytes,
+  documentKind,
   isLoading,
   showDesktopWebScrollbar,
   isMobile,
@@ -264,6 +326,17 @@ function FilePreviewBody({
       <View style={styles.centerState}>
         <Text style={styles.emptyText}>{translateNow("ui.no.preview.available.4gglbm")}</Text>
       </View>
+    );
+  }
+
+  if (documentBytes && documentKind) {
+    return (
+      <DocumentViewer
+        kind={documentKind}
+        bytes={documentBytes}
+        mimeType={preview.mimeType ?? "application/octet-stream"}
+        fileName={filePath.split("/").findLast(Boolean) ?? filePath}
+      />
     );
   }
 
@@ -416,7 +489,13 @@ export function FilePane({
     enabled: Boolean(client && readTarget),
     queryFn: async () => {
       if (!client || !readTarget) {
-        return { file: null as ExplorerFile | null, error: "Host is not connected" };
+        return {
+          file: null as ExplorerFile | null,
+          imageAttachment: null,
+          documentBytes: null,
+          documentKind: null,
+          error: "Host is not connected",
+        };
       }
       try {
         const file = await client.readFile(readTarget.cwd, readTarget.path);
@@ -424,12 +503,16 @@ export function FilePane({
         return {
           file: preview.file,
           imageAttachment: preview.imageAttachment,
+          documentBytes: preview.documentBytes,
+          documentKind: preview.documentKind,
           error: null,
         };
       } catch (error) {
         return {
           file: null,
           imageAttachment: null,
+          documentBytes: null,
+          documentKind: null,
           error: error instanceof Error ? error.message : "Failed to load file",
         };
       }
@@ -449,6 +532,8 @@ export function FilePane({
 
       <FilePreviewBody
         preview={query.data?.file ?? null}
+        documentBytes={query.data?.documentBytes ?? null}
+        documentKind={query.data?.documentKind ?? null}
         isLoading={query.isFetching}
         showDesktopWebScrollbar={showDesktopWebScrollbar}
         isMobile={isMobile}
