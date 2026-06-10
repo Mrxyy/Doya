@@ -4,6 +4,7 @@ import { Text, View } from "react-native";
 import invariant from "tiny-invariant";
 import { StyleSheet } from "react-native-unistyles";
 import { PptPreviewFrame } from "@/components/ppt-preview-frame";
+import { translateNow } from "@/i18n/i18n";
 import { usePaneContext } from "@/panels/pane-context";
 import type { PanelDescriptor, PanelRegistration } from "@/panels/panel-registry";
 import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
@@ -16,7 +17,7 @@ function usePptPreviewPanelDescriptor(target: {
 }): PanelDescriptor {
   return {
     label: target.projectName,
-    subtitle: "Slides preview",
+    subtitle: translateNow("ui.slides.preview"),
     titleState: "ready",
     icon: Presentation,
     statusBucket: null,
@@ -40,14 +41,17 @@ function PptPreviewPanel() {
   if (!previewUrl) {
     return (
       <View style={styles.centered}>
-        <Text>Slides preview is unavailable.</Text>
+        <Text>{translateNow("ui.slides.preview.unavailable")}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <PptPreviewFrame title={`Slides preview: ${target.projectName}`} url={previewUrl} />
+      <PptPreviewFrame
+        title={translateNow("ui.slides.preview.title", { name: target.projectName })}
+        url={previewUrl}
+      />
     </View>
   );
 }

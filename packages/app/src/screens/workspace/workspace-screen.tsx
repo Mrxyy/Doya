@@ -289,16 +289,16 @@ function useSyncWorkspaceActiveBrowser(input: {
 
 function getFallbackTabOptionLabel(tab: WorkspaceTabDescriptor): string {
   if (tab.target.kind === "draft") {
-    return "New Agent";
+    return translateNow("ui.new.agent.1xe0nd1");
   }
   if (tab.target.kind === "setup") {
-    return "Setup";
+    return translateNow("ui.setup.1bhvtp");
   }
   if (tab.target.kind === "terminal") {
-    return "Terminal";
+    return translateNow("ui.terminal");
   }
   if (tab.target.kind === "browser") {
-    return "Browser";
+    return translateNow("ui.browser.session.xyazr2");
   }
   if (tab.target.kind === "pptPreview") {
     return tab.target.projectName;
@@ -306,32 +306,32 @@ function getFallbackTabOptionLabel(tab: WorkspaceTabDescriptor): string {
   if (tab.target.kind === "file") {
     return tab.target.path.split("/").findLast(Boolean) ?? tab.target.path;
   }
-  return "Agent";
+  return translateNow("ui.agent.11mjtx");
 }
 
 function getFallbackTabOptionDescription(tab: WorkspaceTabDescriptor): string {
   if (tab.target.kind === "draft") {
-    return "New Agent";
+    return translateNow("ui.new.agent.1xe0nd1");
   }
   if (tab.target.kind === "setup") {
-    return "Workspace setup";
+    return translateNow("ui.workspace.setup");
   }
   if (tab.target.kind === "agent") {
-    return "Agent";
+    return translateNow("ui.agent.11mjtx");
   }
   if (tab.target.kind === "terminal") {
-    return "Terminal";
+    return translateNow("ui.terminal");
   }
   if (tab.target.kind === "browser") {
-    return "Browser";
+    return translateNow("ui.browser.session.xyazr2");
   }
   if (tab.target.kind === "pptPreview") {
-    return "Slides preview";
+    return translateNow("ui.slides.preview");
   }
   if (tab.target.kind === "file") {
     return tab.target.path;
   }
-  return "Agent";
+  return translateNow("ui.agent.11mjtx");
 }
 
 interface MobileWorkspaceTabSwitcherProps {
@@ -450,7 +450,9 @@ function MobileTabTrailingAccessory({
       <DropdownMenuTrigger
         testID={`${menuTestIDBase}-trigger`}
         accessibilityRole="button"
-        accessibilityLabel={`Open menu for ${presentationLabel}`}
+        accessibilityLabel={translateNow("ui.open.menu.for.accessibility", {
+          name: presentationLabel,
+        })}
         hitSlop={8}
         style={mobileTabMenuTriggerStyle}
       >
@@ -698,7 +700,9 @@ const MobileWorkspaceTabSwitcher = memo(function MobileWorkspaceTabSwitcher({
         ref={anchorRef}
         testID="workspace-tab-switcher-trigger"
         accessibilityRole="button"
-        accessibilityLabel={`Switch tabs (${tabs.length} open)`}
+        accessibilityLabel={translateNow("ui.switch.tabs.accessibility", {
+          count: tabs.length,
+        })}
         style={switcherTriggerStyle}
         onPress={handleOpenSwitcher}
       >
@@ -1496,7 +1500,7 @@ function useWorkspaceTerminalTabActions({
     [openWorkspaceTabFocused, persistenceKey],
   );
   const handleWorkspacePathUnavailable = useCallback(() => {
-    toast.error("Workspace path is not available yet");
+    toast.error(translateNow("ui.workspace.path.not.available.yet"));
   }, [toast]);
   const handleTerminalCreateQueued = useCallback(() => {
     toast.show(translateNow("ui.preparing.workspace.opening.terminal.when.ready.qbtjia"));
@@ -1536,7 +1540,7 @@ function useWorkspaceCheckoutStatus(input: {
     enabled: isCheckoutQueryEnabled,
     queryFn: async () => {
       if (!input.client || !input.workspaceDirectory) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       return await input.client.getCheckoutStatus(input.workspaceDirectory);
     },
@@ -2539,9 +2543,9 @@ function WorkspaceScreenContent({
       if (!agentId) return;
       try {
         await Clipboard.setStringAsync(agentId);
-        toast.copied("Agent ID");
+        toast.copied(translateNow("ui.agent.id"));
       } catch {
-        toast.error("Copy failed");
+        toast.error(translateNow("ui.copy.failed"));
       }
     },
     [toast],
@@ -2555,7 +2559,7 @@ function WorkspaceScreenContent({
       const providerSessionId =
         agent?.runtimeInfo?.sessionId ?? agent?.persistence?.sessionId ?? null;
       if (!agent || !providerSessionId) {
-        toast.error("Resume ID not available");
+        toast.error(translateNow("ui.resume.id.not.available"));
         return;
       }
 
@@ -2566,14 +2570,14 @@ function WorkspaceScreenContent({
           sessionId: providerSessionId,
         }) ?? null;
       if (!command) {
-        toast.error("Resume command not available");
+        toast.error(translateNow("ui.resume.command.not.available"));
         return;
       }
       try {
         await Clipboard.setStringAsync(command);
-        toast.copied("resume command");
+        toast.copied(translateNow("ui.resume.command"));
       } catch {
-        toast.error("Copy failed");
+        toast.error(translateNow("ui.copy.failed"));
       }
     },
     [normalizedServerId, toast],
@@ -2582,7 +2586,7 @@ function WorkspaceScreenContent({
   const handleReloadAgent = useCallback(
     async (agentId: string) => {
       if (!client || !isConnected) {
-        toast.error("Host is not connected");
+        toast.error(translateNow("ui.host.is.not.connected.n90cm6"));
         return;
       }
 
@@ -2604,7 +2608,9 @@ function WorkspaceScreenContent({
         });
         toast.show(translateNow("ui.reloaded.agent.17nazgd"), { variant: "success" });
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to reload agent");
+        toast.error(
+          error instanceof Error ? error.message : translateNow("ui.failed.to.reload.agent"),
+        );
       }
     },
     [client, isConnected, normalizedServerId, toast],
@@ -2612,29 +2618,29 @@ function WorkspaceScreenContent({
 
   const handleCopyWorkspacePath = useCallback(async () => {
     if (!workspaceDirectory) {
-      toast.error("Workspace path not available");
+      toast.error(translateNow("ui.workspace.path.not.available"));
       return;
     }
 
     try {
       await Clipboard.setStringAsync(workspaceDirectory);
-      toast.copied("Workspace path");
+      toast.copied(translateNow("ui.workspace.path"));
     } catch {
-      toast.error("Copy failed");
+      toast.error(translateNow("ui.copy.failed"));
     }
   }, [toast, workspaceDirectory]);
 
   const handleCopyBranchName = useCallback(async () => {
     if (!currentBranchName) {
-      toast.error("Branch name not available");
+      toast.error(translateNow("ui.branch.name.not.available"));
       return;
     }
 
     try {
       await Clipboard.setStringAsync(currentBranchName);
-      toast.copied("Branch name");
+      toast.copied(translateNow("ui.branch.name"));
     } catch {
-      toast.error("Copy failed");
+      toast.error(translateNow("ui.copy.failed"));
     }
   }, [currentBranchName, toast]);
 

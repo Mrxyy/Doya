@@ -48,8 +48,14 @@ import {
   TriangleAlertIcon,
   Scissors,
   MicVocal,
+  File,
+  FileArchive,
+  FileImage,
+  FileSpreadsheet,
   FileSymlink,
   Pencil,
+  Presentation,
+  type LucideIcon,
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { type Theme } from "@/styles/theme";
@@ -387,6 +393,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     flexDirection: "row",
     gap: theme.spacing[2],
     flexWrap: "wrap",
+    maxWidth: "100%",
   },
   imagePreviewSpacing: {
     marginBottom: theme.spacing[2],
@@ -428,18 +435,51 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     height: 48,
     backgroundColor: theme.colors.surface1,
   },
-  structuredAttachmentPill: {
-    maxWidth: 220,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.borderAccent,
-    backgroundColor: theme.colors.surface1,
-    paddingHorizontal: theme.spacing[3],
+  structuredAttachmentCard: {
+    maxWidth: 360,
+    minHeight: 42,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: "rgba(24, 24, 27, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.78)",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[2],
     paddingVertical: theme.spacing[2],
+    shadowColor: "#000000",
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  structuredAttachmentIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   structuredAttachmentText: {
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: 220,
+  },
+  structuredAttachmentBadge: {
+    borderRadius: theme.borderRadius.sm,
+    borderWidth: theme.borderWidth[1],
+    borderColor: "rgba(24, 24, 27, 0.08)",
+    backgroundColor: "rgba(244, 244, 245, 0.86)",
+    paddingHorizontal: theme.spacing[1],
+    paddingVertical: 2,
+  },
+  structuredAttachmentBadgeText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.semibold,
+    lineHeight: 14,
   },
   copyButton: {
     alignSelf: "center",
@@ -644,6 +684,104 @@ function getUserMessageAttachmentLabel(attachment: AgentAttachment): string {
   }
 }
 
+function getAttachmentOriginalMimeType(attachment: AgentAttachment): string {
+  if (attachment.type === "text") {
+    const match = attachment.text.match(/^MIME type:\s*(.+)$/m);
+    return match?.[1]?.trim() || attachment.mimeType;
+  }
+  if (attachment.type === "file") {
+    return attachment.mimeType;
+  }
+  return attachment.mimeType;
+}
+
+function getAttachmentExtension(title: string): string {
+  const cleanTitle = title.trim().replace(/[?#].*$/, "");
+  const extension = cleanTitle.includes(".") ? cleanTitle.split(".").pop()?.trim() : "";
+  return extension ? extension.slice(0, 8).toUpperCase() : "FILE";
+}
+
+function getUserMessageAttachmentVisual(attachment: AgentAttachment): {
+  Icon: LucideIcon;
+  color: string;
+  backgroundColor: string;
+  badge: string;
+} {
+  const title = getUserMessageAttachmentLabel(attachment);
+  const mimeType = getAttachmentOriginalMimeType(attachment).toLowerCase();
+  const extension = getAttachmentExtension(title);
+
+  if (attachment.type === "github_pr" || attachment.type === "github_issue") {
+    return { Icon: FileSymlink, color: "#6366f1", backgroundColor: "#eef2ff", badge: "GH" };
+  }
+  if (attachment.type === "review") {
+    return { Icon: CheckSquare, color: "#7c3aed", backgroundColor: "#f3e8ff", badge: "REVIEW" };
+  }
+  if (mimeType.includes("pdf") || extension === "PDF") {
+    return { Icon: FileText, color: "#ef4444", backgroundColor: "#fee2e2", badge: "PDF" };
+  }
+  if (mimeType.includes("wordprocessingml") || ["DOC", "DOCX"].includes(extension)) {
+    return { Icon: FileText, color: "#2563eb", backgroundColor: "#dbeafe", badge: extension };
+  }
+  if (
+    mimeType.includes("spreadsheet") ||
+    mimeType.includes("excel") ||
+    ["CSV", "XLS", "XLSX"].includes(extension)
+  ) {
+    return {
+      Icon: FileSpreadsheet,
+      color: "#16a34a",
+      backgroundColor: "#dcfce7",
+      badge: extension,
+    };
+  }
+  if (mimeType.includes("presentation") || ["PPT", "PPTX"].includes(extension)) {
+    return { Icon: Presentation, color: "#f97316", backgroundColor: "#ffedd5", badge: extension };
+  }
+  if (
+    mimeType.startsWith("image/") ||
+    ["PNG", "JPG", "JPEG", "WEBP", "GIF", "SVG", "AVIF", "BMP", "TIFF"].includes(extension)
+  ) {
+    return { Icon: FileImage, color: "#8b5cf6", backgroundColor: "#ede9fe", badge: extension };
+  }
+  if (["ZIP", "RAR", "7Z", "TAR", "GZ"].includes(extension)) {
+    return { Icon: FileArchive, color: "#a16207", backgroundColor: "#fef3c7", badge: extension };
+  }
+  if (
+    mimeType.startsWith("text/") ||
+    ["TXT", "MD", "JSON", "TS", "TSX", "JS", "CSS", "HTML"].includes(extension)
+  ) {
+    return { Icon: FileText, color: "#64748b", backgroundColor: "#e2e8f0", badge: extension };
+  }
+  return { Icon: File, color: "#71717a", backgroundColor: "#f4f4f5", badge: extension };
+}
+
+function UserMessageStructuredAttachment({ attachment }: { attachment: AgentAttachment }) {
+  const label = getUserMessageAttachmentLabel(attachment);
+  const visual = getUserMessageAttachmentVisual(attachment);
+  const Icon = visual.Icon;
+  return (
+    <View style={userMessageStylesheet.structuredAttachmentCard}>
+      <View
+        style={[
+          userMessageStylesheet.structuredAttachmentIconBox,
+          { backgroundColor: visual.backgroundColor },
+        ]}
+      >
+        <Icon size={18} color={visual.color} strokeWidth={2.2} />
+      </View>
+      <Text style={userMessageStylesheet.structuredAttachmentText} numberOfLines={1}>
+        {label}
+      </Text>
+      <View style={userMessageStylesheet.structuredAttachmentBadge}>
+        <Text style={userMessageStylesheet.structuredAttachmentBadgeText} numberOfLines={1}>
+          {visual.badge}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export const UserMessage = memo(function UserMessage({
   serverId,
   agentId,
@@ -728,7 +866,7 @@ export const UserMessage = memo(function UserMessage({
         onPointerLeave={handlePointerLeave}
       >
         <View style={userMessageStylesheet.bubble}>
-          {selectionPreviewUri || selectionImageSource || selectionImage ? (
+          {selectionPreviewUri ? (
             <UserMessageSelectionReference
               previewUri={selectionPreviewUri}
               source={selectionImageSource}
@@ -757,11 +895,8 @@ export const UserMessage = memo(function UserMessage({
               {attachments.map((attachment, index) => (
                 <View
                   key={`${attachment.type}:${"number" in attachment ? attachment.number : index}`}
-                  style={userMessageStylesheet.structuredAttachmentPill}
                 >
-                  <Text style={userMessageStylesheet.structuredAttachmentText} numberOfLines={1}>
-                    {getUserMessageAttachmentLabel(attachment)}
-                  </Text>
+                  <UserMessageStructuredAttachment attachment={attachment} />
                 </View>
               ))}
             </View>
@@ -1128,10 +1263,10 @@ const AssistantMarkdownResolvedImage = memo(function AssistantMarkdownResolvedIm
             leftIcon={Pencil}
             onPress={handleEditImage}
             style={assistantMessageStylesheet.imageEditButton}
-            accessibilityLabel="Edit image"
+            accessibilityLabel={translateNow("ui.edit.image.accessibility")}
             testID="assistant-image-edit"
           >
-            Edit
+            {translateNow("ui.edit.1a6ui")}
           </Button>
         ) : null}
       </View>

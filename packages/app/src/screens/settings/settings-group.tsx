@@ -3,6 +3,7 @@ import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-nat
 import { Info } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { translateNow } from "@/i18n/i18n";
 
 interface SettingsGroupProps {
   title: string;
@@ -39,7 +40,7 @@ export function SettingsGroup({
               <TooltipTrigger asChild>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`About ${title}`}
+                  accessibilityLabel={translateNow("ui.about.item.accessibility", { title })}
                   testID={testID ? `${testID}-info` : undefined}
                   hitSlop={8}
                   style={styles.infoButton}

@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useSessionStore, type AgentFileExplorerState } from "@/stores/session-store";
 import { explorerFileFromReadResult } from "@/file-explorer/read-result";
+import { translateNow } from "@/i18n/i18n";
 
 function createExplorerState(): AgentFileExplorerState {
   return {
@@ -124,7 +125,7 @@ export function useFileExplorerActions(params: { serverId: string } & FileExplor
         updateExplorerState((state) => ({
           ...state,
           isLoading: false,
-          lastError: "Host is not connected",
+          lastError: translateNow("ui.host.is.not.connected.n90cm6"),
           pendingRequest: null,
         }));
         return false;
@@ -189,7 +190,7 @@ export function useFileExplorerActions(params: { serverId: string } & FileExplor
         updateExplorerState((state) => ({
           ...state,
           isLoading: false,
-          lastError: "Host is not connected",
+          lastError: translateNow("ui.host.is.not.connected.n90cm6"),
           pendingRequest: null,
         }));
         return;
@@ -232,7 +233,7 @@ export function useFileExplorerActions(params: { serverId: string } & FileExplor
         throw new Error("Workspace is unavailable");
       }
       if (!client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       const payload = await client.requestDownloadToken(normalizedWorkspaceRoot, path);
       if (payload.error) {

@@ -269,17 +269,23 @@ function extractFileAttachmentBlocks(text: string): {
   const attachmentText = text.slice(fileBlockStart).trim();
   const attachments = parseFileAttachmentBlocks(attachmentText);
   if (attachments.length === 0) {
+    if (/^Attached image: .+$/m.test(attachmentText)) {
+      return { text: visibleText, attachments: [] };
+    }
     return { text, attachments: [] };
   }
   return { text: visibleText, attachments };
 }
 
 function findFileAttachmentBlockStart(text: string): number | null {
-  const matches = text.matchAll(/^File: .+$/gm);
+  const matches = text.matchAll(/^(?:File: .+|Uploaded file: .+|Attached image: .+)$/gm);
   for (const match of matches) {
     const index = match.index;
     if (index === undefined) {
       continue;
+    }
+    if (match[0].startsWith("Uploaded file: ") || match[0].startsWith("Attached image: ")) {
+      return index;
     }
     const afterLine = text.slice(index + match[0].length);
     if (afterLine.startsWith("\n\n")) {
@@ -303,6 +309,27 @@ function parseFileAttachmentBlocks(text: string): AgentAttachment[] {
       mimeType: "text/plain",
       title,
       text: `File: ${title}\n\n${body}`,
+    });
+  }
+  const uploadedPattern =
+    /(?:^|\n+)Uploaded file: ([^\n]+)\nMIME type: ([^\n]+)\nWorkspace path: ([^\n]+)\nUse the workspace path above when the user asks about this file\./g;
+  for (const match of text.matchAll(uploadedPattern)) {
+    const title = match[1]?.trim();
+    const mimeType = match[2]?.trim();
+    const workspacePath = match[3]?.trim();
+    if (!title || !mimeType || !workspacePath) {
+      continue;
+    }
+    attachments.push({
+      type: "text",
+      mimeType: "text/plain",
+      title,
+      text: [
+        `Uploaded file: ${title}`,
+        `MIME type: ${mimeType}`,
+        `Workspace path: ${workspacePath}`,
+        "Use the workspace path above when the user asks about this file.",
+      ].join("\n"),
     });
   }
   return attachments;

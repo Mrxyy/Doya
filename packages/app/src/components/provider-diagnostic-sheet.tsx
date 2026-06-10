@@ -110,7 +110,9 @@ function CustomModelRow({
         hitSlop={8}
         style={deleteButtonStyle}
         accessibilityRole="button"
-        accessibilityLabel={`Remove ${model.id}`}
+        accessibilityLabel={translateNow("ui.remove.model.accessibility", {
+          model: model.id,
+        })}
       >
         <Trash2 size={theme.iconSize.sm} color={theme.colors.destructive} />
       </Pressable>

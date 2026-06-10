@@ -1245,7 +1245,11 @@ function DiffRefreshButton({ isRefreshing, toggleStyle, onPress }: DiffRefreshBu
       <TooltipTrigger asChild>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={isRefreshing ? "Refreshing" : "Refresh git and GitHub state"}
+          accessibilityLabel={
+            isRefreshing
+              ? translateNow("ui.refreshing.1vbc33m")
+              : translateNow("ui.refresh.git.and.github.state")
+          }
           testID="changes-refresh"
           style={toggleStyle}
           onPress={onPress}
@@ -1623,7 +1627,9 @@ export function GitDiffPane({
       return;
     }
     void runRefresh({ serverId, cwd }).catch((error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to refresh git state.");
+      toast.error(
+        error instanceof Error ? error.message : translateNow("ui.failed.to.refresh.git.state"),
+      );
     });
   }, [cwd, isRefreshing, runRefresh, serverId, toast]);
 

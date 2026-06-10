@@ -58,7 +58,7 @@ export function useWorkspaceTabRename(
     async (nextTitle: string) => {
       if (!renamingTab) return;
       if (!client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       const trimmed = nextTitle.trim();
       if (renamingTab.kind === "terminal") {

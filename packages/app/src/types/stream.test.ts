@@ -1141,6 +1141,106 @@ describe("turn lifecycle events", () => {
     assert.strictEqual(userMessage.text, "生成图片： 生成一张卡通猫");
   });
 
+  it("renders materialized uploaded-file blocks as user message attachments", () => {
+    const state = reduceStreamUpdate(
+      [],
+      {
+        type: "timeline",
+        provider: "codex",
+        item: {
+          type: "user_message",
+          text: [
+            "内容?",
+            "Uploaded file: report.docx",
+            "MIME type: application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "Workspace path: attachments/abc-report.docx",
+            "Use the workspace path above when the user asks about this file.",
+          ].join("\n"),
+          messageId: "canonical-uploaded-file-user",
+        },
+      },
+      new Date("2025-01-01T15:03:25Z"),
+      { source: "canonical" },
+    );
+
+    const userMessage = state.find((item) => item.kind === "user_message");
+    invariant(userMessage?.kind === "user_message");
+    assert.strictEqual(userMessage.text, "内容?");
+    assert.deepStrictEqual(userMessage.attachments, [
+      {
+        type: "text",
+        mimeType: "text/plain",
+        title: "report.docx",
+        text: [
+          "Uploaded file: report.docx",
+          "MIME type: application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "Workspace path: attachments/abc-report.docx",
+          "Use the workspace path above when the user asks about this file.",
+        ].join("\n"),
+      },
+    ]);
+  });
+
+  it("strips attached-image marker lines from user message text", () => {
+    const state = reduceStreamUpdate(
+      [],
+      {
+        type: "timeline",
+        provider: "codex",
+        item: {
+          type: "user_message",
+          text: ["图片上是什么", "Attached image: $image,darkModeImage.svg"].join("\n"),
+          messageId: "canonical-attached-image-user",
+        },
+      },
+      new Date("2025-01-01T15:03:26Z"),
+      { source: "canonical" },
+    );
+
+    const userMessage = state.find((item) => item.kind === "user_message");
+    invariant(userMessage?.kind === "user_message");
+    assert.strictEqual(userMessage.text, "图片上是什么");
+    assert.strictEqual(userMessage.attachments, undefined);
+  });
+
+  it("keeps optimistic image preview when canonical text contains an attached-image marker", () => {
+    const optimisticTimestamp = new Date("2025-01-01T15:03:27Z");
+    const image = {
+      id: "uploaded-image",
+      mimeType: "image/png",
+      storageType: "web-indexeddb" as const,
+      storageKey: "uploaded-image",
+      createdAt: optimisticTimestamp.getTime(),
+    };
+    const optimistic = buildOptimisticUserMessage({
+      id: "msg_uploaded_image",
+      text: "图片上是什么",
+      timestamp: optimisticTimestamp,
+      images: [image],
+    });
+
+    const state = reduceStreamUpdate(
+      [optimistic],
+      {
+        type: "timeline",
+        provider: "codex",
+        item: {
+          type: "user_message",
+          text: ["图片上是什么", "Attached image: uploaded.png"].join("\n"),
+          messageId: "msg_uploaded_image",
+        },
+      },
+      new Date("2025-01-01T15:03:28Z"),
+      { source: "canonical" },
+    );
+
+    const userMessage = state.find((item) => item.kind === "user_message");
+    invariant(userMessage?.kind === "user_message");
+    assert.strictEqual(userMessage.text, "图片上是什么");
+    assert.deepStrictEqual(userMessage.images, [image]);
+    assert.strictEqual(userMessage.attachments, undefined);
+  });
+
   it("shows AI edit prompts without internal imagegen instructions", () => {
     const state = reduceStreamUpdate(
       [],

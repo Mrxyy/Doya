@@ -4,6 +4,7 @@ import type { AgentProvider, ProviderSnapshotEntry } from "@getpaseo/protocol/ag
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
+import { translateNow } from "@/i18n/i18n";
 import { queryClient as singletonQueryClient } from "@/query/query-client";
 import {
   isProvidersSnapshotHomeScope,
@@ -129,7 +130,7 @@ export function useProvidersSnapshot(
     staleTime: 60_000,
     queryFn: async () => {
       if (!client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       return fetchProvidersSnapshot({ client, cwd });
     },

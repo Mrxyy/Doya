@@ -130,7 +130,7 @@ export function WorkspaceOpenInEditorButton({
         requiresLocalDaemon: true,
         onOpen: async () => {
           if (!client) {
-            throw new Error("Host is not connected");
+            throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
           }
           const payload = await client.openInEditor(cwd, editor.id);
           if (payload.error) {
@@ -182,7 +182,9 @@ export function WorkspaceOpenInEditorButton({
   const openMutation = useMutation({
     mutationFn: (target: OpenTarget) => Promise.resolve(target.onOpen()),
     onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : "Failed to open workspace");
+      toast.error(
+        error instanceof Error ? error.message : translateNow("ui.failed.to.open.workspace"),
+      );
     },
   });
 
@@ -230,7 +232,9 @@ export function WorkspaceOpenInEditorButton({
           onPress={handlePrimaryPress}
           disabled={openMutation.isPending}
           accessibilityRole="button"
-          accessibilityLabel={`Open workspace in ${primaryOption.label}`}
+          accessibilityLabel={translateNow("ui.open.workspace.in.editor.accessibility", {
+            editor: primaryOption.label,
+          })}
         >
           {openMutation.isPending ? (
             <ThemedActivityIndicator

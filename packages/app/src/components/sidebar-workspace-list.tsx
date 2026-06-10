@@ -387,7 +387,9 @@ export function PrBadge({ hint }: { hint: PrHint }) {
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`Pull request #${hint.number}`}
+      accessibilityLabel={translateNow("ui.pull.request.number.accessibility", {
+        number: hint.number,
+      })}
       hitSlop={4}
       onPressIn={handlePressIn}
       onPress={handlePress}
@@ -1115,7 +1117,9 @@ function NewWorktreeButton({
             onPress={handlePress}
             disabled={loading}
             accessibilityRole={platformIsWeb ? undefined : "button"}
-            accessibilityLabel={`Create a new workspace for ${displayName}`}
+            accessibilityLabel={translateNow("ui.create.workspace.for.accessibility", {
+              name: displayName,
+            })}
             testID={testID}
           >
             {({ hovered, pressed }) =>
@@ -1779,12 +1783,14 @@ function WorkspaceRowWithMenu({
         workspaceDirectory: workspace.workspaceDirectory,
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Workspace path not available");
+      toast.error(
+        error instanceof Error ? error.message : translateNow("ui.workspace.path.not.available"),
+      );
       return;
     }
 
     if (!archiveDirectory) {
-      toast.error("Workspace path not available");
+      toast.error(translateNow("ui.workspace.path.not.available"));
       return;
     }
 
@@ -1795,7 +1801,8 @@ function WorkspaceRowWithMenu({
       cwd: archiveDirectory,
       worktreePath: archiveDirectory,
     }).catch((error) => {
-      const message = error instanceof Error ? error.message : "Failed to archive worktree";
+      const message =
+        error instanceof Error ? error.message : translateNow("ui.failed.to.archive.worktree");
       toast.error(message);
     });
   }, [archiveWorktree, isArchiving, redirectAfterArchive, toast, workspace]);
@@ -1811,7 +1818,7 @@ function WorkspaceRowWithMenu({
 
     const confirmed = await confirmDialog({
       title: translateNow("ui.hide.workspace.1g07360"),
-      message: `Hide "${workspace.name}" from the sidebar?\n\nFiles on disk will not be changed.`,
+      message: translateNow("ui.hide.workspace.from.sidebar.message", { name: workspace.name }),
       confirmLabel: translateNow("ui.hide.1c7du"),
       cancelLabel: translateNow("ui.cancel.x9d2fu"),
       destructive: true,
@@ -1822,7 +1829,7 @@ function WorkspaceRowWithMenu({
 
     const client = getHostRuntimeStore().getClient(workspace.serverId);
     if (!client) {
-      toast.error("Host is not connected");
+      toast.error(translateNow("ui.host.is.not.connected.n90cm6"));
       return;
     }
 
@@ -1834,7 +1841,9 @@ function WorkspaceRowWithMenu({
         afterHide: redirectAfterArchive,
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to hide workspace");
+      toast.error(
+        error instanceof Error ? error.message : translateNow("ui.failed.to.hide.workspace"),
+      );
     } finally {
       setIsArchivingWorkspace(false);
     }
@@ -1852,23 +1861,25 @@ function WorkspaceRowWithMenu({
         workspaceDirectory: workspace.workspaceDirectory,
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Workspace path not available");
+      toast.error(
+        error instanceof Error ? error.message : translateNow("ui.workspace.path.not.available"),
+      );
       return;
     }
     void Clipboard.setStringAsync(copyTargetDirectory);
-    toast.copied("Path copied");
+    toast.copied(translateNow("ui.path.copied"));
   }, [toast, workspace.workspaceDirectory, workspace.workspaceId]);
 
   const handleCopyBranchName = useCallback(() => {
     void Clipboard.setStringAsync(workspace.name);
-    toast.copied("Branch name copied");
+    toast.copied(translateNow("ui.branch.name.copied"));
   }, [toast, workspace.name]);
 
   const renameMutation = useMutation({
     mutationFn: async (branch: string) => {
       const client = getHostRuntimeStore().getClient(workspace.serverId);
       if (!client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       const targetCwd = requireWorkspaceExecutionDirectory({
         workspaceId: workspace.workspaceId,
@@ -1940,7 +1951,11 @@ function WorkspaceRowWithMenu({
         isCreating={isCreating}
         dragHandleProps={dragHandleProps}
         menuController={null}
-        archiveLabel={isWorktree ? "Archive worktree" : "Hide from sidebar"}
+        archiveLabel={
+          isWorktree
+            ? translateNow("ui.archive.worktree")
+            : translateNow("ui.hide.from.sidebar.8nzcv8")
+        }
         archiveStatus={getWorkspaceArchiveStatus(isWorktree, archiveStatus, isArchivingWorkspace)}
         archivePendingLabel={isWorktree ? "Archiving..." : "Hiding..."}
         onArchive={isWorktree ? handleArchiveWorktree : handleArchiveWorkspace}
@@ -2015,7 +2030,7 @@ function NonGitProjectRowWithMenuContent({
     void (async () => {
       const confirmed = await confirmDialog({
         title: translateNow("ui.hide.workspace.1g07360"),
-        message: `Hide "${workspace.name}" from the sidebar?\n\nFiles on disk will not be changed.`,
+        message: translateNow("ui.hide.workspace.from.sidebar.message", { name: workspace.name }),
         confirmLabel: translateNow("ui.hide.1c7du"),
         cancelLabel: translateNow("ui.cancel.x9d2fu"),
         destructive: true,
@@ -2026,7 +2041,7 @@ function NonGitProjectRowWithMenuContent({
 
       const client = getHostRuntimeStore().getClient(workspace.serverId);
       if (!client) {
-        toast.error("Host is not connected");
+        toast.error(translateNow("ui.host.is.not.connected.n90cm6"));
         return;
       }
 
@@ -2039,7 +2054,9 @@ function NonGitProjectRowWithMenuContent({
             afterHide: redirectAfterArchive,
           });
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Failed to hide workspace");
+          toast.error(
+            error instanceof Error ? error.message : translateNow("ui.failed.to.hide.workspace"),
+          );
         } finally {
           setIsArchivingWorkspace(false);
         }
@@ -2491,7 +2508,7 @@ function ProjectBlock({
     void (async () => {
       const confirmed = await confirmDialog({
         title: translateNow("ui.remove.project.6nvxvm"),
-        message: `Remove "${displayName}" from the sidebar?\n\nFiles on disk will not be changed.`,
+        message: translateNow("ui.remove.project.from.sidebar.message", { name: displayName }),
         confirmLabel: translateNow("ui.remove.14f871g"),
         cancelLabel: translateNow("ui.cancel.x9d2fu"),
         destructive: true,
@@ -2501,13 +2518,13 @@ function ProjectBlock({
       }
 
       if (!accountSession) {
-        toast.error("Please log in first");
+        toast.error(translateNow("ui.login.required.short"));
         return;
       }
 
       const client = getHostRuntimeStore().getClient(serverId);
       if (project.workspaces.length > 0 && !client) {
-        toast.error("Host is not connected");
+        toast.error(translateNow("ui.host.is.not.connected.n90cm6"));
         return;
       }
 
@@ -2531,11 +2548,13 @@ function ProjectBlock({
               workspaces: project.workspaces,
             });
             if (failures.length > 0) {
-              toast.error("Failed to remove some workspaces");
+              toast.error(translateNow("ui.failed.to.remove.some.workspaces"));
             }
           }
         } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Failed to remove session");
+          toast.error(
+            error instanceof Error ? error.message : translateNow("ui.failed.to.remove.session"),
+          );
         } finally {
           setIsRemovingProject(false);
         }
@@ -2558,7 +2577,7 @@ function ProjectBlock({
   const handleSubmitRename = useCallback(
     async (value: string) => {
       if (!accountSession) {
-        toast.error("Please log in first");
+        toast.error(translateNow("ui.login.required.short"));
         return;
       }
       const nextDisplayName = value.trim();

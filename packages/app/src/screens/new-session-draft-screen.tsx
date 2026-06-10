@@ -24,7 +24,7 @@ import type { TranslationKey, TranslationParams } from "@/i18n/translations";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
-import { generateMessageId } from "@/types/stream";
+import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
 import { encodeImages } from "@/utils/encode-images";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { ScreenHeader } from "@/components/headers/screen-header";
@@ -45,6 +45,9 @@ export function NewSessionDraftScreen({
   const isConnected = useHostRuntimeIsConnected(serverId);
   const mergeWorkspaces = useSessionStore((state) => state.mergeWorkspaces);
   const setHasHydratedWorkspaces = useSessionStore((state) => state.setHasHydratedWorkspaces);
+  const appendOptimisticUserMessageToAgentStream = useSessionStore(
+    (state) => state.appendOptimisticUserMessageToAgentStream,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const draft = useAgentInputDraft({
     draftKey: `new-session:${serverId}`,
@@ -133,6 +136,7 @@ export function NewSessionDraftScreen({
             }),
         });
         const images = await encodeImages(wirePayload.images);
+        const clientMessageId = generateMessageId();
         const config = buildWorkspaceDraftAgentConfig({
           provider: provider as AgentProvider,
           cwd: workspace.workspaceDirectory,
@@ -148,10 +152,23 @@ export function NewSessionDraftScreen({
           config,
           workspaceId: workspace.id,
           ...(text ? { initialPrompt: text } : {}),
-          clientMessageId: generateMessageId(),
+          clientMessageId,
           ...(images && images.length > 0 ? { images } : {}),
           ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
         });
+        appendOptimisticUserMessageToAgentStream(
+          serverId,
+          agent.id,
+          buildOptimisticUserMessage({
+            id: clientMessageId,
+            text,
+            timestamp: new Date(),
+            images: wirePayload.images,
+            attachments: wirePayload.attachments,
+            displayAttachments: wirePayload.displayAttachments,
+          }),
+          { placement: "tail" },
+        );
         await composerState.persistFormPreferences();
         draft.clear("sent");
         router.replace(buildHostAgentDetailRoute(serverId, agent.id));
@@ -163,6 +180,7 @@ export function NewSessionDraftScreen({
     },
     [
       accountSession,
+      appendOptimisticUserMessageToAgentStream,
       client,
       composerState,
       draft,

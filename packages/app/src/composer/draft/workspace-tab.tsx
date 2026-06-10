@@ -144,7 +144,7 @@ async function submitDraftCreateRequest(input: {
   invariant(workspaceDirectory, "Workspace directory is required");
   invariant(workspaceExecutionAuthority, "Workspace authority is required");
   if (!client) {
-    throw new Error("Host is not connected");
+    throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
   }
 
   const provider = autoSubmitConfig?.provider ?? composerState.selectedProvider;
@@ -441,7 +441,7 @@ export function WorkspaceDraftAgentTab({
       }),
     materializeFiles: (files, cwd) => {
       if (!client) {
-        return Promise.reject(new Error("Host is not connected"));
+        return Promise.reject(new Error(translateNow("ui.host.is.not.connected.n90cm6")));
       }
       return materializeWorkspaceFileAttachments({
         client,

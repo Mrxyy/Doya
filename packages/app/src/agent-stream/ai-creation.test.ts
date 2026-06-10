@@ -254,6 +254,7 @@ describe("normalizeAiCreationStream", () => {
           messageId: "client-message-id",
           text: "编辑图片：将两个图片混合在一起",
           images: [selectionImage],
+          selectionPreviewUri: "blob:http://localhost/source-image",
           selectionImage,
           allowOrderFallback: false,
         },
@@ -262,6 +263,7 @@ describe("normalizeAiCreationStream", () => {
 
     expect(result[0]).toMatchObject({
       kind: "user_message",
+      selectionPreviewUri: "blob:http://localhost/source-image",
       selectionImage,
     });
     expect(result[0]).not.toHaveProperty("images");
@@ -362,6 +364,60 @@ describe("normalizeAiCreationStream", () => {
     expect(result[0]).not.toHaveProperty("selectionImage");
   });
 
+  it("does not apply edit metadata to a new image creation message with the same prompt", () => {
+    const selectionImage = image("source-image");
+    const canonical = {
+      ...userMessage("provider-owned-id", 1),
+      text: "加一个美女进行互动",
+    };
+
+    const result = applyAiCreationMessageDisplayMetadata(
+      [canonical],
+      [
+        {
+          messageId: "client-message-id",
+          text: "编辑图片：加一个美女进行互动",
+          selectionPreviewUri: "blob:http://localhost/source-image",
+          selectionImage,
+        },
+      ],
+    );
+
+    expect(result[0]).toMatchObject({
+      kind: "user_message",
+      text: "加一个美女进行互动",
+    });
+    expect(result[0]).not.toHaveProperty("selectionPreviewUri");
+    expect(result[0]).not.toHaveProperty("selectionImage");
+  });
+
+  it("does not apply edit metadata to an internal image creation prompt", () => {
+    const selectionImage = image("source-image");
+    const canonical = {
+      ...userMessage("provider-owned-id", 1),
+      text: [
+        "Use the Codex imagegen skill for this request. Follow the default built-in image_gen workflow unless the user explicitly asks for a CLI fallback.",
+        "Create a raster image from this prompt:",
+        "加一个美女进行互动",
+      ].join("\n"),
+    };
+
+    const result = applyAiCreationMessageDisplayMetadata(
+      [canonical],
+      [
+        {
+          messageId: "client-message-id",
+          text: "编辑图片：加一个美女进行互动",
+          selectionPreviewUri: "blob:http://localhost/source-image",
+          selectionImage,
+        },
+      ],
+    );
+
+    expect(result[0]).not.toHaveProperty("selectionPreviewUri");
+    expect(result[0]).not.toHaveProperty("selectionImage");
+  });
+
   it("uses same-agent text metadata as an order fallback only for edit messages", () => {
     const selectionImage = image("source-image");
     const canonical = {
@@ -376,12 +432,14 @@ describe("normalizeAiCreationStream", () => {
           agentId: "same-agent",
           messageId: "client-message-id",
           text: "编辑图片：不同文案",
+          selectionPreviewUri: "blob:http://localhost/source-image",
           selectionImage,
         },
       ],
     );
 
     expect(result[0]).toMatchObject({
+      selectionPreviewUri: "blob:http://localhost/source-image",
       selectionImage,
     });
   });
@@ -399,6 +457,7 @@ describe("normalizeAiCreationStream", () => {
         {
           messageId: "client-message-id",
           text: "编辑图片：改成红白头发",
+          selectionPreviewUri: "blob:http://localhost/source-image",
           selectionImage,
         },
       ],
@@ -406,6 +465,7 @@ describe("normalizeAiCreationStream", () => {
 
     expect(result[0]).toMatchObject({
       kind: "user_message",
+      selectionPreviewUri: "blob:http://localhost/source-image",
       selectionImage,
     });
   });
@@ -424,6 +484,7 @@ describe("normalizeAiCreationStream", () => {
           agentId: "other-agent",
           messageId: "client-message-id",
           text: "编辑图片：改成黄色头发",
+          selectionPreviewUri: "blob:http://localhost/source-image",
           selectionImage,
           allowOrderFallback: false,
         },
@@ -431,11 +492,12 @@ describe("normalizeAiCreationStream", () => {
     );
 
     expect(result[0]).toMatchObject({
+      selectionPreviewUri: "blob:http://localhost/source-image",
       selectionImage,
     });
   });
 
-  it("restores legacy display metadata without text to the next bare user message", () => {
+  it("does not restore legacy selection metadata without a selection preview", () => {
     const selectionImage = image("legacy-source-image");
     const canonical = {
       ...userMessage("provider-owned-id", 1),
@@ -455,8 +517,8 @@ describe("normalizeAiCreationStream", () => {
 
     expect(result[0]).toMatchObject({
       kind: "user_message",
-      selectionImage,
+      images: [selectionImage],
     });
-    expect(result[0]).not.toHaveProperty("images");
+    expect(result[0]).not.toHaveProperty("selectionImage");
   });
 });

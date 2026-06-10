@@ -259,6 +259,14 @@ const EMPTY_STREAM_HEAD: StreamItem[] = [];
 const AI_CREATION_PLACEHOLDER_DOT_KEYS = Array.from({ length: 220 }, (_, index) => `dot-${index}`);
 const PDF_FILE_ICON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#ef5350" d="M13 9h5.5L13 3.5zM6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2m4.93 10.44c.41.9.93 1.64 1.53 2.15l.41.32c-.87.16-2.07.44-3.34.93l-.11.04.5-1.04c.45-.87.78-1.66 1.01-2.4m6.48 3.81c.18-.18.27-.41.28-.66.03-.2-.02-.39-.12-.55-.29-.47-1.04-.69-2.28-.69l-1.29.07-.87-.58c-.63-.52-1.2-1.43-1.6-2.56l.04-.14c.33-1.33.64-2.94-.02-3.6a.85.85 0 0 0-.61-.24h-.24c-.37 0-.7.39-.79.77-.37 1.33-.15 2.06.22 3.27v.01c-.25.88-.57 1.9-1.08 2.93l-.96 1.8-.89.49c-1.2.75-1.77 1.59-1.88 2.12-.04.19-.02.36.05.54l.03.05.48.31.44.11c.81 0 1.73-.95 2.97-3.07l.18-.07c1.03-.33 2.31-.56 4.03-.75 1.03.51 2.24.74 3 .74.44 0 .74-.11.91-.3m-.41-.71.09.11c-.01.1-.04.11-.09.13h-.04l-.19.02c-.46 0-1.17-.19-1.9-.51.09-.1.13-.1.23-.1 1.4 0 1.8.25 1.9.35M7.83 17c-.65 1.19-1.24 1.85-1.69 2 .05-.38.5-1.04 1.21-1.69zm3.02-6.91c-.23-.9-.24-1.63-.07-2.05l.07-.12.15.05c.17.24.19.56.09 1.1l-.03.16-.16.82z"/></svg>';
+const WORD_FILE_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#2563eb" d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zm0 2.8L17.2 9H13zM7 12h10v2H7zm0 4h10v2H7zm0-8h4v2H7z"/></svg>';
+const SPREADSHEET_FILE_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#16a34a" d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zm0 2.8L17.2 9H13zM7 12h10v7H7zm2 2v1h2v-1zm4 0v1h2v-1zm-4 3h2v-1H9zm4 0h2v-1h-2z"/></svg>';
+const PRESENTATION_FILE_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#f97316" d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zm0 2.8L17.2 9H13zM7 12h10v5H7zm2 7h6v1H9z"/></svg>';
+const DEFAULT_AI_CREATION_FILE_ICON_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#64748b" d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zm0 2.8L17.2 9H13z"/></svg>';
 
 const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamViewProps>(
   function AgentStreamView(
@@ -1038,15 +1046,15 @@ function ToolCallSlot({
 }
 
 function AiCreationPlaceholder({ intent }: { intent: ReturnType<typeof getAiCreationIntent> }) {
-  let title = "Creating image";
+  let title = translateNow("ui.creating.image");
   if (intent === "ppt_creation") {
-    title = "Creating slides";
+    title = translateNow("ui.creating.slides");
   } else if (intent === "pdf_creation") {
-    title = "Creating PDF";
+    title = translateNow("ui.creating.pdf");
   } else if (intent === "word_creation") {
-    title = "Creating document";
+    title = translateNow("ui.creating.document");
   } else if (intent === "spreadsheet_creation") {
-    title = "Creating spreadsheet";
+    title = translateNow("ui.creating.spreadsheet");
   }
   return (
     <View style={stylesheet.aiCreationPlaceholder}>
@@ -1060,6 +1068,23 @@ function AiCreationPlaceholder({ intent }: { intent: ReturnType<typeof getAiCrea
   );
 }
 
+function getAiCreationFileVisual(fileName: string): { svg: string; background: string } {
+  const extension = fileName.match(/\.([A-Za-z0-9]+)$/)?.[1]?.toLowerCase();
+  if (extension === "pdf") {
+    return { svg: PDF_FILE_ICON_SVG, background: "#fee2e2" };
+  }
+  if (extension === "docx" || extension === "doc") {
+    return { svg: WORD_FILE_ICON_SVG, background: "#dbeafe" };
+  }
+  if (extension === "xlsx" || extension === "xls" || extension === "csv") {
+    return { svg: SPREADSHEET_FILE_ICON_SVG, background: "#dcfce7" };
+  }
+  if (extension === "pptx" || extension === "ppt") {
+    return { svg: PRESENTATION_FILE_ICON_SVG, background: "#ffedd5" };
+  }
+  return { svg: DEFAULT_AI_CREATION_FILE_ICON_SVG, background: "#e2e8f0" };
+}
+
 function AiCreationFileResultCard({
   onDownload,
   onOpen,
@@ -1071,6 +1096,7 @@ function AiCreationFileResultCard({
 }) {
   const fileName = path.split(/[\\/]/).pop() || "document";
   const extension = fileName.match(/\.([A-Za-z0-9]+)$/)?.[1]?.toUpperCase() || "FILE";
+  const visual = getAiCreationFileVisual(fileName);
   const handlePress = useCallback(() => {
     onOpen(path);
   }, [onOpen, path]);
@@ -1091,50 +1117,39 @@ function AiCreationFileResultCard({
 
   return (
     <Pressable accessibilityRole="button" onPress={handlePress} style={aiCreationSlidesCardStyle}>
-      <View style={stylesheet.aiCreationSlidesIconWrap}>
-        <SvgXml xml={PDF_FILE_ICON_SVG} width={34} height={34} />
+      <View style={[stylesheet.aiCreationSlidesIconWrap, { backgroundColor: visual.background }]}>
+        <SvgXml xml={visual.svg} width={24} height={24} />
       </View>
       <View style={stylesheet.aiCreationSlidesBody}>
-        <View style={stylesheet.aiCreationSlidesHeader}>
-          <Text style={stylesheet.aiCreationSlidesTitle}>
-            {translateNow("aiCreation.result.fileReady")}
+        <View style={stylesheet.aiCreationSlidesMetaRow}>
+          <Text style={stylesheet.aiCreationSlidesFileName} numberOfLines={1}>
+            {fileName}
           </Text>
           <View style={stylesheet.aiCreationSlidesTypeBadge}>
             <Text style={stylesheet.aiCreationSlidesTypeBadgeText}>{extension}</Text>
           </View>
         </View>
-        <Text style={stylesheet.aiCreationSlidesFileName} numberOfLines={1}>
-          {fileName}
-        </Text>
         <Text style={stylesheet.aiCreationSlidesPath} numberOfLines={1}>
           {path}
         </Text>
-        <View style={stylesheet.aiCreationSlidesActions}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleOpenPress}
-            style={aiCreationSlidesPrimaryButtonStyle}
-          >
-            <View style={stylesheet.aiCreationSlidesButtonContent}>
-              <Eye size={15} color={stylesheet.aiCreationSlidesPrimaryButtonText.color} />
-              <Text style={stylesheet.aiCreationSlidesPrimaryButtonText}>
-                {translateNow("aiCreation.action.openFilePreview")}
-              </Text>
-            </View>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleDownloadPress}
-            style={aiCreationSlidesPreviewButtonStyle}
-          >
-            <View style={stylesheet.aiCreationSlidesButtonContent}>
-              <Download size={15} color={stylesheet.aiCreationSlidesSecondaryButtonText.color} />
-              <Text style={stylesheet.aiCreationSlidesSecondaryButtonText}>
-                {translateNow("ui.download.ooknmw")}
-              </Text>
-            </View>
-          </Pressable>
-        </View>
+      </View>
+      <View style={stylesheet.aiCreationSlidesActions}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleOpenPress}
+          style={aiCreationSlidesPrimaryButtonStyle}
+          accessibilityLabel={translateNow("aiCreation.action.openFilePreview")}
+        >
+          <Eye size={16} color={stylesheet.aiCreationSlidesPrimaryButtonText.color} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleDownloadPress}
+          style={aiCreationSlidesPreviewButtonStyle}
+          accessibilityLabel={translateNow("ui.download.ooknmw")}
+        >
+          <Download size={16} color={stylesheet.aiCreationSlidesSecondaryButtonText.color} />
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -1177,6 +1192,7 @@ function AiCreationSlidesResultCard({
 }) {
   const fileLinkActions = useAssistantFileLinkActions();
   const fileName = path.split(/[\\/]/).pop() || "presentation.pptx";
+  const visual = getAiCreationFileVisual(fileName);
   const projectName = extractPptProjectName(path);
   const canPreview = canOpenPreview && Boolean(projectName);
   const handlePress = useCallback(() => {
@@ -1203,52 +1219,41 @@ function AiCreationSlidesResultCard({
 
   return (
     <Pressable accessibilityRole="button" onPress={handlePress} style={aiCreationSlidesCardStyle}>
-      <View style={stylesheet.aiCreationSlidesIconWrap}>
-        <SvgXml xml={PDF_FILE_ICON_SVG} width={34} height={34} />
+      <View style={[stylesheet.aiCreationSlidesIconWrap, { backgroundColor: visual.background }]}>
+        <SvgXml xml={visual.svg} width={24} height={24} />
       </View>
       <View style={stylesheet.aiCreationSlidesBody}>
-        <View style={stylesheet.aiCreationSlidesHeader}>
-          <Text style={stylesheet.aiCreationSlidesTitle}>
-            {translateNow("aiCreation.result.slidesReady")}
+        <View style={stylesheet.aiCreationSlidesMetaRow}>
+          <Text style={stylesheet.aiCreationSlidesFileName} numberOfLines={1}>
+            {fileName}
           </Text>
           <View style={stylesheet.aiCreationSlidesTypeBadge}>
             <Text style={stylesheet.aiCreationSlidesTypeBadgeText}>PPTX</Text>
           </View>
         </View>
-        <Text style={stylesheet.aiCreationSlidesFileName} numberOfLines={1}>
-          {fileName}
-        </Text>
         <Text style={stylesheet.aiCreationSlidesPath} numberOfLines={1}>
           {path}
         </Text>
-        <View style={stylesheet.aiCreationSlidesActions}>
-          {canPreview ? (
-            <Pressable
-              accessibilityRole="button"
-              onPress={handlePreviewButtonPress}
-              style={aiCreationSlidesPrimaryButtonStyle}
-            >
-              <View style={stylesheet.aiCreationSlidesButtonContent}>
-                <Eye size={15} color={stylesheet.aiCreationSlidesPrimaryButtonText.color} />
-                <Text style={stylesheet.aiCreationSlidesPrimaryButtonText}>
-                  {translateNow("aiCreation.action.openSlidesPreview")}
-                </Text>
-              </View>
-            </Pressable>
-          ) : null}
+      </View>
+      <View style={stylesheet.aiCreationSlidesActions}>
+        {canPreview ? (
           <Pressable
             accessibilityRole="button"
-            onPress={handleDownloadPress}
-            style={aiCreationSlidesPreviewButtonStyle}
+            onPress={handlePreviewButtonPress}
+            style={aiCreationSlidesPrimaryButtonStyle}
+            accessibilityLabel={translateNow("aiCreation.action.openSlidesPreview")}
           >
-            <View style={stylesheet.aiCreationSlidesButtonContent}>
-              <Download size={15} color={stylesheet.aiCreationSlidesSecondaryButtonText.color} />
-              <Text style={stylesheet.aiCreationSlidesSecondaryButtonText}>
-                {translateNow("ui.download.ooknmw")}
-              </Text>
-            </View>
+            <Eye size={16} color={stylesheet.aiCreationSlidesPrimaryButtonText.color} />
           </Pressable>
-        </View>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={handleDownloadPress}
+          style={aiCreationSlidesPreviewButtonStyle}
+          accessibilityLabel={translateNow("ui.download.ooknmw")}
+        >
+          <Download size={16} color={stylesheet.aiCreationSlidesSecondaryButtonText.color} />
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -1277,8 +1282,8 @@ function AiCreationSlidesPreviewCard({
       onPress={handlePreviewPress}
       style={aiCreationSlidesCardStyle}
     >
-      <View style={stylesheet.aiCreationSlidesIconWrap}>
-        <SvgXml xml={PDF_FILE_ICON_SVG} width={34} height={34} />
+      <View style={[stylesheet.aiCreationSlidesIconWrap, { backgroundColor: "#ffedd5" }]}>
+        <SvgXml xml={PRESENTATION_FILE_ICON_SVG} width={34} height={34} />
       </View>
       <View style={stylesheet.aiCreationSlidesBody}>
         <Text style={stylesheet.aiCreationSlidesTitle}>
@@ -1409,7 +1414,7 @@ function PermissionRequestCard({
       },
       {
         id: "accept",
-        label: isPlanRequest ? "Implement" : "Accept",
+        label: isPlanRequest ? translateNow("ui.implement") : translateNow("ui.accept.1v7h7h8"),
         behavior: "allow",
         variant: "primary",
       },
@@ -1701,28 +1706,32 @@ const stylesheet = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.foregroundMuted,
   },
   aiCreationSlidesCard: {
-    width: "100%",
-    maxWidth: 680,
-    borderRadius: theme.borderRadius.lg,
+    alignSelf: "flex-start",
+    width: "76%",
+    maxWidth: 560,
+    minWidth: 280,
+    minHeight: 58,
+    borderRadius: theme.borderRadius.md,
     borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface1,
-    padding: theme.spacing[4],
+    borderColor: "rgba(148, 163, 184, 0.22)",
+    backgroundColor: "rgba(248, 250, 252, 0.9)",
+    paddingVertical: theme.spacing[2],
+    paddingHorizontal: theme.spacing[2],
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: theme.spacing[4],
-    ...theme.shadow.sm,
+    alignItems: "center",
+    gap: theme.spacing[2],
   },
   aiCreationSlidesCardHovered: {
-    backgroundColor: theme.colors.surface2,
+    borderColor: "rgba(148, 163, 184, 0.36)",
+    backgroundColor: "rgba(241, 245, 249, 0.95)",
   },
   aiCreationSlidesCardPressed: {
-    opacity: 0.82,
+    opacity: 0.72,
   },
   aiCreationSlidesIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: theme.borderRadius.md,
+    width: 38,
+    height: 38,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#fee2e2",
@@ -1730,7 +1739,7 @@ const stylesheet = StyleSheet.create((theme) => ({
   aiCreationSlidesBody: {
     flex: 1,
     minWidth: 0,
-    gap: theme.spacing[1],
+    gap: 0,
   },
   aiCreationSlidesHeader: {
     flexDirection: "row",
@@ -1739,67 +1748,65 @@ const stylesheet = StyleSheet.create((theme) => ({
     columnGap: theme.spacing[2],
     rowGap: theme.spacing[1],
   },
+  aiCreationSlidesMetaRow: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+  },
   aiCreationSlidesTitle: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.lg,
-    fontWeight: theme.fontWeight.semibold,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.medium,
   },
   aiCreationSlidesTypeBadge: {
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing[1],
-    paddingVertical: 1,
-    backgroundColor: theme.colors.surface2,
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 0,
+    backgroundColor: "rgba(226, 232, 240, 0.72)",
   },
   aiCreationSlidesTypeBadgeText: {
     color: theme.colors.foregroundMuted,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: theme.fontWeight.semibold,
   },
   aiCreationSlidesFileName: {
+    flexShrink: 1,
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.medium,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
   },
   aiCreationSlidesPath: {
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.xs,
+    fontSize: 11,
   },
   aiCreationSlidesActions: {
     flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
-    gap: theme.spacing[2],
-    marginTop: theme.spacing[2],
+    gap: 4,
+    flexShrink: 0,
   },
   aiCreationSlidesPrimaryButton: {
-    minHeight: 34,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: theme.borderWidth[1],
-    borderColor: "#1d4ed8",
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[1],
-    backgroundColor: "#2563eb",
+    borderRadius: 9,
+    backgroundColor: "rgba(37, 99, 235, 0.1)",
   },
   aiCreationSlidesPrimaryButtonHovered: {
-    backgroundColor: "#1d4ed8",
+    backgroundColor: "rgba(37, 99, 235, 0.16)",
   },
   aiCreationSlidesSecondaryButton: {
-    minHeight: 34,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: theme.borderRadius.sm,
-    borderWidth: theme.borderWidth[1],
-    borderColor: theme.colors.border,
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[1],
-    backgroundColor: theme.colors.surface2,
+    borderRadius: 9,
+    backgroundColor: "rgba(100, 116, 139, 0.1)",
   },
   aiCreationSlidesSecondaryButtonHovered: {
-    backgroundColor: theme.colors.surface3,
+    backgroundColor: "rgba(100, 116, 139, 0.16)",
   },
   aiCreationSlidesButtonPressed: {
     opacity: 0.76,
@@ -1810,12 +1817,12 @@ const stylesheet = StyleSheet.create((theme) => ({
     gap: theme.spacing[1],
   },
   aiCreationSlidesPrimaryButtonText: {
-    color: "#ffffff",
+    color: "#2563eb",
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.semibold,
   },
   aiCreationSlidesSecondaryButtonText: {
-    color: theme.colors.foreground,
+    color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
   },

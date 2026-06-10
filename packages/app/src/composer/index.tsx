@@ -1119,7 +1119,7 @@ export function Composer({
         return;
       }
       if (!sendAgentMessageRef.current) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       await sendAgentMessageRef.current(agentIdRef.current, text, submitAttachments);
     },
@@ -1137,7 +1137,7 @@ export function Composer({
       sendAttachments: ComposerAttachment[],
     ) => {
       if (!client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       const stream: AgentStreamWriter = {
         getTail: (id) => useSessionStore.getState().sessions[serverId]?.agentStreamTail?.get(id),
@@ -1594,7 +1594,7 @@ export function Composer({
       },
       {
         id: "file",
-        label: "Add file",
+        label: translateNow("ui.add.file"),
         icon: <ThemedFileText size={ICON_SIZE.md} uniProps={iconForegroundMutedMapping} />,
         onSelect: () => {
           void handlePickFile();

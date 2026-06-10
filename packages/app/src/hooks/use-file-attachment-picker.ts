@@ -43,7 +43,7 @@ async function persistDocumentPickerAsset(
 
 async function pickDesktopFiles(): Promise<AttachmentMetadata[]> {
   const selected = await getDesktopHost()?.dialog?.open?.({
-    title: "Add file",
+    title: translateNow("ui.add.file"),
     multiple: true,
   });
   let paths: string[] = [];

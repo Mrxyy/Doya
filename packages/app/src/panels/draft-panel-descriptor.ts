@@ -8,11 +8,11 @@ export function buildDraftPanelDescriptor(input: {
   icon: ComponentType<PanelIconProps>;
 }): PanelDescriptor {
   const { icon, isCreating, pendingPrompt } = input;
-  const creatingLabel = pendingPrompt?.trim() || "New Agent";
+  const creatingLabel = pendingPrompt?.trim() || translateNow("ui.new.agent.1xe0nd1");
   if (isCreating) {
     return {
       label: creatingLabel,
-      subtitle: "Creating agent",
+      subtitle: translateNow("ui.creating.agent"),
       titleState: "ready",
       icon,
       statusBucket: "running",
@@ -21,7 +21,7 @@ export function buildDraftPanelDescriptor(input: {
 
   return {
     label: translateNow("ui.new.agent.1xe0nd1"),
-    subtitle: "New Agent",
+    subtitle: translateNow("ui.new.agent.1xe0nd1"),
     titleState: "ready",
     icon,
     statusBucket: null,

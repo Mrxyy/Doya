@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { ActivityIndicator, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import * as XLSX from "xlsx";
+import { translateNow } from "@/i18n/i18n";
 
 export type DocumentViewerKind = "pdf" | "docx" | "pptx" | "csv" | "xlsx";
 
@@ -56,7 +57,7 @@ function useDocumentBlobUrl(input: { bytes: Uint8Array; mimeType: string }): str
 function PdfDocumentViewer({ bytes, mimeType }: Pick<DocumentViewerProps, "bytes" | "mimeType">) {
   const url = useDocumentBlobUrl({ bytes, mimeType });
   if (!url) {
-    return <DocumentLoadingState label="Loading PDF..." />;
+    return <DocumentLoadingState label={translateNow("ui.loading.pdf")} />;
   }
   return (
     <div style={webStyles.fill}>
@@ -95,7 +96,8 @@ function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
         }
         setState({
           status: "error",
-          message: error instanceof Error ? error.message : "Failed to render DOCX.",
+          message:
+            error instanceof Error ? error.message : translateNow("ui.failed.to.render.docx"),
         });
       });
 
@@ -107,7 +109,7 @@ function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
   switch (state.status) {
     case "idle":
     case "loading":
-      return <DocumentLoadingState label="Loading DOCX..." />;
+      return <DocumentLoadingState label={translateNow("ui.loading.docx")} />;
     case "error":
       return <DocumentErrorState message={state.message} />;
     case "ready":
@@ -145,7 +147,12 @@ function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
           <Text style={styles.warningText}>{state.warnings[0]}</Text>
         </View>
       ) : null}
-      <iframe title="DOCX preview" sandbox="" srcDoc={srcDoc} style={webStyles.iframe} />
+      <iframe
+        title={translateNow("ui.docx.preview.title")}
+        sandbox=""
+        srcDoc={srcDoc}
+        style={webStyles.iframe}
+      />
     </div>
   );
 }
@@ -180,7 +187,7 @@ function PptxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
         if (abortController.signal.aborted) {
           return;
         }
-        setError(error instanceof Error ? error.message : "Failed to render PPTX.");
+        setError(error instanceof Error ? error.message : translateNow("ui.failed.to.render.pptx"));
       })
       .finally(() => {
         if (!abortController.signal.aborted) {
@@ -197,7 +204,7 @@ function PptxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
 
   return (
     <div style={webStyles.pptxFrame}>
-      {isLoading ? <DocumentLoadingOverlay label="Loading PPTX..." /> : null}
+      {isLoading ? <DocumentLoadingOverlay label={translateNow("ui.loading.pptx")} /> : null}
       {error ? <DocumentErrorOverlay message={error} /> : null}
       <div ref={hostRef} style={webStyles.pptxHost} />
     </div>
@@ -270,7 +277,7 @@ function SpreadsheetDocumentViewer({
   );
 
   if (preview.rowCount === 0 || preview.columnCount === 0) {
-    return <DocumentErrorState message="This spreadsheet is empty." />;
+    return <DocumentErrorState message={translateNow("ui.spreadsheet.empty")} />;
   }
 
   return (
@@ -294,15 +301,15 @@ function SpreadsheetDocumentViewer({
         </div>
       ) : null}
       <div style={webStyles.spreadsheetMeta}>
-        {preview.rowCount.toLocaleString()} rows · {preview.columnCount.toLocaleString()} columns
+        {translateNow("ui.spreadsheet.meta", {
+          rows: preview.rowCount.toLocaleString(),
+          columns: preview.columnCount.toLocaleString(),
+        })}
         {preview.truncatedRows || preview.truncatedColumns
-          ? ` · Showing first ${Math.min(
-              preview.rowCount,
-              SPREADSHEET_MAX_ROWS,
-            ).toLocaleString()} rows and ${Math.min(
-              preview.columnCount,
-              SPREADSHEET_MAX_COLUMNS,
-            ).toLocaleString()} columns`
+          ? translateNow("ui.spreadsheet.truncated.meta", {
+              rows: Math.min(preview.rowCount, SPREADSHEET_MAX_ROWS).toLocaleString(),
+              columns: Math.min(preview.columnCount, SPREADSHEET_MAX_COLUMNS).toLocaleString(),
+            })
           : ""}
       </div>
       <div style={webStyles.spreadsheetScroller}>

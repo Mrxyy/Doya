@@ -177,16 +177,16 @@ interface WorkspaceDesktopTabsRowProps {
 
 function getFallbackTabLabel(tab: WorkspaceTabDescriptor): string {
   if (tab.target.kind === "draft") {
-    return "New Agent";
+    return translateNow("ui.new.agent.1xe0nd1");
   }
   if (tab.target.kind === "setup") {
-    return "Setup";
+    return translateNow("ui.setup.1bhvtp");
   }
   if (tab.target.kind === "terminal") {
-    return "Terminal";
+    return translateNow("ui.terminal");
   }
   if (tab.target.kind === "browser") {
-    return "Browser";
+    return translateNow("ui.browser.session.xyazr2");
   }
   if (tab.target.kind === "pptPreview") {
     return tab.target.projectName;
@@ -194,7 +194,7 @@ function getFallbackTabLabel(tab: WorkspaceTabDescriptor): string {
   if (tab.target.kind === "file") {
     return tab.target.path.split("/").findLast(Boolean) ?? tab.target.path;
   }
-  return "Agent";
+  return translateNow("ui.agent.11mjtx");
 }
 
 function useMiddleClickClose(onClose: () => void) {

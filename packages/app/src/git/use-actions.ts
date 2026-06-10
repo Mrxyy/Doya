@@ -12,6 +12,7 @@ import { useSessionStore } from "@/stores/session-store";
 import { resolveWorkspaceIdByExecutionDirectory } from "@/utils/workspace-execution";
 import { buildWorkspaceArchiveRedirectRoute } from "@/utils/workspace-archive-navigation";
 import { confirmRiskyWorktreeArchive } from "@/git/worktree-archive-warning";
+import { translateNow } from "@/i18n/i18n";
 
 export type { GitActionId, GitAction, GitActions } from "@/git/policy";
 
@@ -304,44 +305,44 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
   const handleCommit = useCallback(() => {
     void runCommit({ serverId, cwd })
       .then(() => {
-        toastActionSuccess("Committed");
+        toastActionSuccess(translateNow("ui.committed.8hbmfw"));
         return;
       })
       .catch((err) => {
-        toastActionError(err, "Failed to commit");
+        toastActionError(err, translateNow("ui.failed.to.commit"));
       });
   }, [cwd, runCommit, serverId, toastActionError, toastActionSuccess]);
 
   const handlePull = useCallback(() => {
     void runPull({ serverId, cwd })
       .then(() => {
-        toastActionSuccess("Pulled");
+        toastActionSuccess(translateNow("ui.pulled"));
         return;
       })
       .catch((err) => {
-        toastActionError(err, "Failed to pull");
+        toastActionError(err, translateNow("ui.failed.to.pull"));
       });
   }, [cwd, runPull, serverId, toastActionError, toastActionSuccess]);
 
   const handlePush = useCallback(() => {
     void runPush({ serverId, cwd })
       .then(() => {
-        toastActionSuccess("Pushed");
+        toastActionSuccess(translateNow("ui.pushed"));
         return;
       })
       .catch((err) => {
-        toastActionError(err, "Failed to push");
+        toastActionError(err, translateNow("ui.failed.to.push"));
       });
   }, [cwd, runPush, serverId, toastActionError, toastActionSuccess]);
 
   const handlePullAndPush = useCallback(() => {
     void runPullAndPush({ serverId, cwd })
       .then(() => {
-        toastActionSuccess("Pulled and pushed");
+        toastActionSuccess(translateNow("ui.pulled.and.pushed"));
         return;
       })
       .catch((err) => {
-        toastActionError(err, "Failed to pull and push");
+        toastActionError(err, translateNow("ui.failed.to.pull.and.push"));
       });
   }, [cwd, runPullAndPush, serverId, toastActionError, toastActionSuccess]);
 
@@ -349,11 +350,11 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     void persistShipDefault("pr");
     void runCreatePr({ serverId, cwd })
       .then(() => {
-        toastActionSuccess("PR created");
+        toastActionSuccess(translateNow("ui.pr.created"));
         return;
       })
       .catch((err) => {
-        toastActionError(err, "Failed to create PR");
+        toastActionError(err, translateNow("ui.failed.to.create.pr"));
       });
   }, [cwd, persistShipDefault, runCreatePr, serverId, toastActionError, toastActionSuccess]);
 
@@ -363,11 +364,11 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
       void runMergePr({ serverId, cwd, method })
         .then(() => {
           setPostShipArchiveSuggested(true);
-          toastActionSuccess("PR merged");
+          toastActionSuccess(translateNow("ui.pr.merged"));
           return;
         })
         .catch((err) => {
-          toastActionError(err, "Failed to merge PR");
+          toastActionError(err, translateNow("ui.failed.to.merge.pr"));
         });
     },
     [cwd, persistShipDefault, runMergePr, serverId, toastActionError, toastActionSuccess],
@@ -378,11 +379,11 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
       void persistShipDefault("pr");
       void runEnablePrAutoMerge({ serverId, cwd, method })
         .then(() => {
-          toastActionSuccess("Auto-merge enabled");
+          toastActionSuccess(translateNow("ui.auto.merge.enabled.1uoyl7f"));
           return;
         })
         .catch((err) => {
-          toastActionError(err, "Failed to enable auto-merge");
+          toastActionError(err, translateNow("ui.failed.to.enable.auto.merge"));
         });
     },
     [cwd, persistShipDefault, runEnablePrAutoMerge, serverId, toastActionError, toastActionSuccess],
@@ -391,28 +392,28 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
   const handleDisablePrAutoMerge = useCallback(() => {
     void runDisablePrAutoMerge({ serverId, cwd })
       .then(() => {
-        toastActionSuccess("Auto-merge disabled");
+        toastActionSuccess(translateNow("ui.auto.merge.disabled"));
         return;
       })
       .catch((err) => {
-        toastActionError(err, "Failed to disable auto-merge");
+        toastActionError(err, translateNow("ui.failed.to.disable.auto.merge"));
       });
   }, [cwd, runDisablePrAutoMerge, serverId, toastActionError, toastActionSuccess]);
 
   const handleMergeBranch = useCallback(() => {
     if (!baseRef) {
-      toast.error("Base ref unavailable");
+      toast.error(translateNow("ui.base.ref.unavailable"));
       return;
     }
     void persistShipDefault("merge");
     void runMergeBranch({ serverId, cwd, baseRef })
       .then(() => {
         setPostShipArchiveSuggested(true);
-        toastActionSuccess("Merged");
+        toastActionSuccess(translateNow("ui.merged"));
         return;
       })
       .catch((err) => {
-        toastActionError(err, "Failed to merge");
+        toastActionError(err, translateNow("ui.failed.to.merge"));
       });
   }, [
     baseRef,
@@ -427,23 +428,23 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
 
   const handleMergeFromBase = useCallback(() => {
     if (!baseRef) {
-      toast.error("Base ref unavailable");
+      toast.error(translateNow("ui.base.ref.unavailable"));
       return;
     }
     void runMergeFromBase({ serverId, cwd, baseRef })
       .then(() => {
-        toastActionSuccess("Updated");
+        toastActionSuccess(translateNow("ui.updated"));
         return;
       })
       .catch((err) => {
-        toastActionError(err, "Failed to merge from base");
+        toastActionError(err, translateNow("ui.failed.to.merge.from.base"));
       });
   }, [baseRef, cwd, runMergeFromBase, serverId, toast, toastActionError, toastActionSuccess]);
 
   const archiveWorktreeAfterConfirmation = useCallback(async () => {
     const worktreePath = status?.cwd;
     if (!worktreePath) {
-      toast.error("Worktree path unavailable");
+      toast.error(translateNow("ui.worktree.path.unavailable"));
       return;
     }
 
@@ -475,7 +476,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
       }) as Href,
     );
     void runArchiveWorktree({ serverId, cwd, worktreePath }).catch((err) => {
-      toastActionError(err, "Failed to archive worktree");
+      toastActionError(err, translateNow("ui.failed.to.archive.worktree"));
     });
   }, [
     branchLabel,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@getpaseo/protocol/messages";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { translateNow } from "@/i18n/i18n";
 
 export function daemonConfigQueryKey(serverId: string | null) {
   return ["daemon-config", serverId] as const;
@@ -25,7 +26,7 @@ export function useDaemonConfig(serverId: string | null): UseDaemonConfigResult 
     staleTime: Infinity,
     queryFn: async () => {
       if (!client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       const result = await client.getDaemonConfig();
       return result.config;

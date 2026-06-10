@@ -107,7 +107,9 @@ export function ContextWindowMeter({
         <Pressable
           style={containerStyle}
           accessibilityRole="image"
-          accessibilityLabel={`Context window ${roundedPercentage}% used`}
+          accessibilityLabel={translateNow("ui.context.window.percent.used", {
+            percentage: roundedPercentage,
+          })}
         >
           <Svg
             width={svgSize}

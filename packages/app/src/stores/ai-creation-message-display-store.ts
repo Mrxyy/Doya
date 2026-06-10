@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { AgentAttachment } from "@getpaseo/protocol/messages";
 import type { AttachmentMetadata } from "@/attachments/types";
 import type { UserMessageImageAttachment } from "@/types/stream";
 
@@ -6,6 +7,7 @@ const STORAGE_KEY = "paseo:ai-creation-message-display:v1";
 
 export interface AiCreationMessageDisplayMetadata {
   images?: UserMessageImageAttachment[];
+  displayAttachments?: AgentAttachment[];
   selectionPreviewUri?: string;
   selectionImageSource?: string;
   selectionImage?: AttachmentMetadata;
@@ -36,6 +38,9 @@ function normalizeMetadata(
     : value.images;
   return {
     ...(images && images.length > 0 ? { images } : {}),
+    ...(value.displayAttachments && value.displayAttachments.length > 0
+      ? { displayAttachments: value.displayAttachments }
+      : {}),
     ...(value.selectionPreviewUri ? { selectionPreviewUri: value.selectionPreviewUri } : {}),
     ...(value.selectionImageSource ? { selectionImageSource: value.selectionImageSource } : {}),
     ...(value.selectionImage ? { selectionImage: value.selectionImage } : {}),
@@ -72,6 +77,7 @@ export async function saveAiCreationMessageDisplayMetadata(input: {
   const metadata = normalizeMetadata(input.metadata);
   if (
     !metadata.images &&
+    !metadata.displayAttachments &&
     !metadata.selectionPreviewUri &&
     !metadata.selectionImageSource &&
     !metadata.selectionImage

@@ -817,7 +817,9 @@ function DesktopAgentControlsContent(props: DesktopAgentControlsContentProps) {
                 onPress={handleThinkingPress}
                 style={thinkingPressableStyle}
                 accessibilityRole="button"
-                accessibilityLabel={`Select thinking option (${displayThinking})`}
+                accessibilityLabel={translateNow("ui.select.thinking.option.accessibility", {
+                  option: displayThinking,
+                })}
                 testID="agent-thinking-selector"
               >
                 <Brain size={theme.iconSize.md} color={theme.colors.foregroundMuted} />

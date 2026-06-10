@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { GitHubSearchRequest, GitHubSearchResponse } from "@getpaseo/protocol/messages";
+import { translateNow } from "@/i18n/i18n";
 
 export const GITHUB_SEARCH_STALE_TIME = 30_000;
 
@@ -46,7 +47,7 @@ export function buildGithubSearchQueryOptions(input: GitHubSearchQueryInput) {
     queryKey: githubSearchQueryKey(input.serverId, input.cwd, query, input.kinds),
     queryFn: async (): Promise<GitHubSearchPayload> => {
       if (!input.client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       const request = { cwd: input.cwd, query, limit: 20 };
       if (input.kinds) {

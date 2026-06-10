@@ -494,7 +494,7 @@ export function FilePane({
           imageAttachment: null,
           documentBytes: null,
           documentKind: null,
-          error: "Host is not connected",
+          error: translateNow("ui.host.is.not.connected.n90cm6"),
         };
       }
       try {

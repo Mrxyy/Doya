@@ -806,7 +806,7 @@ function toggleRealtimeVoiceImpl(ctx: ToggleRealtimeVoiceContext): void {
     return;
   }
   if (ctx.isAgentRunning) {
-    ctx.toast.error("Interrupt the agent before starting voice mode");
+    ctx.toast.error(translateNow("ui.interrupt.agent.before.voice.mode"));
     return;
   }
   void ctx.voice.startVoice(ctx.voiceServerId, ctx.voiceAgentId).catch((error) => {

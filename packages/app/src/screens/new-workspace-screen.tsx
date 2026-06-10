@@ -178,7 +178,9 @@ function CheckoutHintBadge({
         onPress={onAccept}
         style={styles.checkoutHintAction}
         accessibilityRole="button"
-        accessibilityLabel={`Check out PR #${prNumber}`}
+        accessibilityLabel={translateNow("ui.checkout.pr.accessibility", {
+          number: prNumber,
+        })}
       >
         <Check size={iconSize} color={iconColor} />
       </Pressable>
@@ -187,7 +189,9 @@ function CheckoutHintBadge({
         onPress={onDismiss}
         style={styles.checkoutHintAction}
         accessibilityRole="button"
-        accessibilityLabel={`Dismiss PR #${prNumber} checkout hint`}
+        accessibilityLabel={translateNow("ui.dismiss.pr.checkout.hint.accessibility", {
+          number: prNumber,
+        })}
       >
         <X size={iconSize} color={iconColor} />
       </Pressable>
@@ -573,7 +577,7 @@ export function NewWorkspaceScreen({
 
   const withConnectedClient = useCallback(() => {
     if (!client || !isConnected) {
-      throw new Error("Host is not connected");
+      throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
     }
     return client;
   }, [client, isConnected]);

@@ -193,7 +193,10 @@ function HostLinkRow({ label, url, scriptName, onOpenInBrowserTab }: HostLinkPro
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`Open ${scriptName} at ${label}`}
+      accessibilityLabel={translateNow("ui.open.script.host.accessibility", {
+        script: scriptName,
+        host: label,
+      })}
       disabled={disabled}
       hitSlop={2}
       onPress={handlePress}
@@ -313,7 +316,9 @@ function ScriptRow({
   if (isRunning && liveTerminalId) {
     primaryAction = (
       <ScriptActionButton
-        accessibilityLabel={`View ${script.scriptName} terminal`}
+        accessibilityLabel={translateNow("ui.view.script.terminal.accessibility", {
+          script: script.scriptName,
+        })}
         testID={`workspace-scripts-view-${script.scriptName}`}
         icon="view"
         label={translateNow("ui.view.1l58l")}
@@ -323,7 +328,9 @@ function ScriptRow({
   } else if (!isRunning) {
     primaryAction = (
       <ScriptActionButton
-        accessibilityLabel={`Run ${script.scriptName} script`}
+        accessibilityLabel={translateNow("ui.run.script.accessibility", {
+          script: script.scriptName,
+        })}
         testID={`workspace-scripts-start-${script.scriptName}`}
         disabled={isStartPending}
         icon="start"
@@ -384,7 +391,7 @@ export function WorkspaceScriptsButton({
   const startScriptMutation = useMutation({
     mutationFn: async (scriptName: string) => {
       if (!client) {
-        throw new Error("Daemon client not available");
+        throw new Error(translateNow("ui.daemon.client.not.available"));
       }
       const result = await client.startWorkspaceScript(workspaceId, scriptName);
       if (result.error) {
@@ -393,9 +400,14 @@ export function WorkspaceScriptsButton({
       return result;
     },
     onError: (error, scriptName) => {
-      toast.show(error instanceof Error ? error.message : `Failed to start ${scriptName}`, {
-        variant: "error",
-      });
+      toast.show(
+        error instanceof Error
+          ? error.message
+          : translateNow("ui.failed.to.start.script", { script: scriptName }),
+        {
+          variant: "error",
+        },
+      );
     },
     onSuccess: (result) => {
       if (result.terminalId) {

@@ -220,7 +220,7 @@ export function WorkspaceSetupDialog() {
 
   const withConnectedClient = useCallback(() => {
     if (!client || !isConnected) {
-      throw new Error("Host is not connected");
+      throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
     }
     return client;
   }, [client, isConnected]);

@@ -92,7 +92,9 @@ export function BranchSwitcher({
         onPress={handleOpen}
         style={triggerStyle}
         accessibilityRole="button"
-        accessibilityLabel={`Current branch: ${currentBranchName}. Press to switch branch.`}
+        accessibilityLabel={translateNow("ui.current.branch.switch.accessibility", {
+          branch: currentBranchName,
+        })}
       >
         {titleContent}
         {!isCompact ? <ChevronDown size={12} color={theme.colors.foregroundMuted} /> : null}

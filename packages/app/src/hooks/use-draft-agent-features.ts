@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { AgentProvider, AgentSessionConfig } from "@getpaseo/protocol/agent-types";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import { translateNow } from "@/i18n/i18n";
 import { mergeProviderPreferences, useFormPreferences } from "./use-form-preferences";
 import {
   applyFeatureValues,
@@ -67,7 +68,7 @@ export function useDraftAgentFeatures(input: {
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       if (!client || !draftConfig) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       const payload = await client.listProviderFeatures(draftConfig);
       if (payload.error) {

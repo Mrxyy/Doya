@@ -73,7 +73,7 @@ function buildSessionsQueriesConfig(args: {
     enabled,
     queryFn: async () => {
       if (!client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       return await client.fetchRecentProviderSessions({
         ...(cwd ? { cwd } : {}),
@@ -360,7 +360,7 @@ export function ImportSessionSheet({
   const importMutation = useMutation({
     mutationFn: async (entry: FetchRecentProviderSessionEntry) => {
       if (!client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       const effectiveCwd = cwd ?? entry.cwd;
       if (!effectiveCwd) {

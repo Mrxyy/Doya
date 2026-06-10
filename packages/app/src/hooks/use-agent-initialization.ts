@@ -9,6 +9,7 @@ import {
   rejectInitDeferred,
 } from "@/utils/agent-initialization";
 import { planInitialAgentTimelineSync, planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
+import { translateNow } from "@/i18n/i18n";
 
 export const INIT_TIMEOUT_MS = 30_000;
 
@@ -48,7 +49,7 @@ export function ensureAgentIsInitialized(input: EnsureAgentIsInitializedInput): 
 
   if (!client) {
     setAgentInitializing(agentId, false);
-    rejectInitDeferred(key, new Error("Host is not connected"));
+    rejectInitDeferred(key, new Error(translateNow("ui.host.is.not.connected.n90cm6")));
     return deferred.promise;
   }
 
@@ -69,7 +70,7 @@ export interface RefreshAgentInput {
 export async function refreshAgent(input: RefreshAgentInput): Promise<void> {
   const { agentId, client, setAgentInitializing } = input;
   if (!client) {
-    throw new Error("Host is not connected");
+    throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
   }
   setAgentInitializing(agentId, true);
 

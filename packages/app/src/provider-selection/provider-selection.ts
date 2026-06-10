@@ -7,6 +7,7 @@ import type {
 import type { AgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
 import type { DraftCommandConfig } from "@/hooks/use-agent-commands-query";
 import { buildFavoriteModelKey, type FavoriteModelRow } from "@/hooks/use-form-preferences";
+import { translateNow } from "@/i18n/i18n";
 import { compareMatchScores, scoreTextFields } from "@/utils/score-match";
 
 export type ProviderSelectionModelRow = FavoriteModelRow & { isDefault?: boolean };
@@ -152,21 +153,23 @@ export function resolveSelectedModelLabel(input: {
 }): string {
   const selectedProvider = input.selectedProvider.trim();
   if (!selectedProvider) {
-    return "Select model";
+    return translateNow("ui.select.model.fallback");
   }
 
   const provider = input.providers.find((entry) => entry.id === selectedProvider);
   if (!provider) {
-    return input.isLoading ? "Loading..." : "Select model";
+    return input.isLoading
+      ? translateNow("ui.loading.13pudaq")
+      : translateNow("ui.select.model.fallback");
   }
   if (provider.modelSelection.kind === "loading") {
-    return "Loading...";
+    return translateNow("ui.loading.13pudaq");
   }
   if (provider.modelSelection.kind === "error") {
-    return "Error";
+    return translateNow("ui.error.1410q0");
   }
   if (provider.modelSelection.kind !== "models") {
-    return "Select model";
+    return translateNow("ui.select.model.fallback");
   }
 
   const model = provider.modelSelection.rows.find((entry) => entry.modelId === input.selectedModel);
@@ -175,7 +178,7 @@ export function resolveSelectedModelLabel(input: {
     model?.modelLabel ??
     defaultModel?.modelLabel ??
     provider.modelSelection.rows[0]?.modelLabel ??
-    "Select model"
+    translateNow("ui.select.model.fallback")
   );
 }
 
@@ -299,7 +302,7 @@ export function resolveSubmissionReadiness(input: {
     return { ok: false, reason: "Workspace directory not found" };
   }
   if (!input.hasClient) {
-    return { ok: false, reason: "Host is not connected" };
+    return { ok: false, reason: translateNow("ui.host.is.not.connected.n90cm6") };
   }
   return { ok: true };
 }

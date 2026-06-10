@@ -35,7 +35,7 @@ function useSetupPanelDescriptor(
   if (snapshot?.status === "completed") {
     return {
       label: translateNow("ui.setup.1bhvtp"),
-      subtitle: "Setup completed",
+      subtitle: translateNow("ui.setup.completed"),
       titleState: "ready",
       icon: CheckCircle2,
       statusBucket: null,
@@ -45,7 +45,7 @@ function useSetupPanelDescriptor(
   if (snapshot?.status === "failed") {
     return {
       label: translateNow("ui.setup.1bhvtp"),
-      subtitle: "Setup failed",
+      subtitle: translateNow("ui.setup.failed"),
       titleState: "ready",
       icon: CircleAlert,
       statusBucket: null,
@@ -54,7 +54,7 @@ function useSetupPanelDescriptor(
 
   return {
     label: translateNow("ui.setup.1bhvtp"),
-    subtitle: "Workspace setup",
+    subtitle: translateNow("ui.workspace.setup"),
     titleState: "ready",
     icon: SquareTerminal,
     statusBucket: snapshot?.status === "running" ? "running" : null,

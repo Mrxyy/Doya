@@ -14,6 +14,7 @@ import {
   type ListTerminalsPayload,
   upsertCreatedTerminalPayload,
 } from "@/screens/workspace/terminals/state";
+import { translateNow } from "@/i18n/i18n";
 
 interface PendingTerminalCreateInput {
   paneId?: string;
@@ -69,7 +70,7 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
     enabled: canCreateNow,
     queryFn: async () => {
       if (!client || !workspaceDirectory) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       return await client.listTerminals(workspaceDirectory);
     },
@@ -106,7 +107,7 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
   const createMutation = useMutation({
     mutationFn: async (_input?: PendingTerminalCreateInput) => {
       if (!client || !workspaceDirectory) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       return await client.createTerminal(workspaceDirectory);
     },
@@ -134,7 +135,7 @@ export function useWorkspaceTerminals(input: UseWorkspaceTerminalsInput) {
   const killMutation = useMutation({
     mutationFn: async (terminalId: string) => {
       if (!client) {
-        throw new Error("Host is not connected");
+        throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
       const payload = await client.killTerminal(terminalId);
       if (!payload.success) {

@@ -97,7 +97,7 @@ function ProjectRow({ project, isFirst, isSelected }: ProjectRowProps) {
       style={rowStyle}
       onPress={handleNavigate}
       accessibilityRole="button"
-      accessibilityLabel={`Edit ${projectName}`}
+      accessibilityLabel={translateNow("ui.edit.project.accessibility", { name: projectName })}
       testID={`project-row-${projectKey}`}
       data-selected={isSelected ? "true" : "false"}
     >

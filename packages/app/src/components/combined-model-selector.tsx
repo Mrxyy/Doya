@@ -660,7 +660,10 @@ export function CombinedModelSelector({
   }, [providers, view]);
 
   const triggerLabel = useMemo(() => {
-    if (selectedModelLabel === "Loading..." || selectedModelLabel === "Select model") {
+    if (
+      selectedModelLabel === translateNow("ui.loading.13pudaq") ||
+      selectedModelLabel === translateNow("ui.select.model.fallback")
+    ) {
       return selectedModelLabel;
     }
 
@@ -735,7 +738,9 @@ export function CombinedModelSelector({
         hitSlop={8}
         style={iconButtonStyle}
         accessibilityRole="button"
-        accessibilityLabel={`Open ${view.providerLabel} settings`}
+        accessibilityLabel={translateNow("ui.open.provider.settings.accessibility", {
+          provider: view.providerLabel,
+        })}
         testID={`selector-header-settings-${view.providerId}`}
       >
         <Settings
@@ -783,7 +788,9 @@ export function CombinedModelSelector({
         onPress={handleTriggerPress}
         style={triggerStyle}
         accessibilityRole="button"
-        accessibilityLabel={`Select model (${selectedModelLabel})`}
+        accessibilityLabel={translateNow("ui.select.model.accessibility", {
+          model: selectedModelLabel,
+        })}
         testID="combined-model-selector"
       >
         {renderTrigger ? (

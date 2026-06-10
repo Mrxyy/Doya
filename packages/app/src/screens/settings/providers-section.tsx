@@ -128,7 +128,9 @@ function ProviderRow({
             value={enabled}
             onValueChange={handleToggleValueChange}
             disabled={isToggling}
-            accessibilityLabel={`Enable ${def.label}`}
+            accessibilityLabel={translateNow("ui.enable.item.accessibility", {
+              label: def.label,
+            })}
           />
         </>
       )}

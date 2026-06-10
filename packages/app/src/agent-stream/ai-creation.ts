@@ -294,10 +294,31 @@ function isAiCreationEditDisplayText(text: string | undefined): boolean {
 
 function isAiCreationInternalEditPrompt(text: string | undefined): boolean {
   const normalized = (text ?? "").trim();
-  return (
-    normalized.startsWith("Use the Codex imagegen skill for this guided image edit.") ||
-    normalized.startsWith("Use the Codex imagegen skill for this request.")
+  return normalized.startsWith("Use the Codex imagegen skill for this guided image edit.");
+}
+
+function isAiCreationEditMetadata(metadata: AiCreationMessageDisplayEntry): boolean {
+  return Boolean(
+    metadata.selectionPreviewUri ||
+    metadata.selectionImage ||
+    isAiCreationEditDisplayText(metadata.text),
   );
+}
+
+function canApplyAiCreationMetadataToUserMessage(
+  item: Extract<StreamItem, { kind: "user_message" }>,
+  metadata: AiCreationMessageDisplayEntry,
+): boolean {
+  const itemIsEdit =
+    isAiCreationEditDisplayText(item.text) || isAiCreationInternalEditPrompt(item.text);
+  const metadataIsEdit = isAiCreationEditMetadata(metadata);
+  if (metadataIsEdit) {
+    return itemIsEdit;
+  }
+  if (itemIsEdit) {
+    return isAiCreationEditDisplayText(metadata.text);
+  }
+  return true;
 }
 
 function isAiCreationDisplayTextMatch(
@@ -320,11 +341,13 @@ function applyAiCreationDisplayMetadataToUserMessage(
   item: Extract<StreamItem, { kind: "user_message" }>,
   metadata: AiCreationMessageDisplayEntry,
 ): Extract<StreamItem, { kind: "user_message" }> {
-  const metadataSelectionImage = isAiCreationEditDisplayText(item.text)
-    ? metadata.selectionImage
-    : undefined;
-  const metadataImages = metadata.selectionImage
-    ? metadata.images?.filter((image) => image.id !== metadata.selectionImage?.id)
+  const hasSelectionReference = Boolean(metadata.selectionPreviewUri);
+  const metadataSelectionImage =
+    hasSelectionReference && isAiCreationEditDisplayText(item.text)
+      ? metadata.selectionImage
+      : undefined;
+  const metadataImages = metadataSelectionImage
+    ? metadata.images?.filter((image) => image.id !== metadataSelectionImage.id)
     : metadata.images;
 
   return {
@@ -333,10 +356,15 @@ function applyAiCreationDisplayMetadataToUserMessage(
     ...(item.images || !metadataImages || metadataImages.length === 0
       ? {}
       : { images: metadataImages }),
+    ...(item.displayAttachments ||
+    !metadata.displayAttachments ||
+    metadata.displayAttachments.length === 0
+      ? {}
+      : { displayAttachments: metadata.displayAttachments }),
     ...(item.selectionPreviewUri || !metadata.selectionPreviewUri
       ? {}
       : { selectionPreviewUri: metadata.selectionPreviewUri }),
-    ...(item.selectionImageSource || !metadata.selectionImageSource
+    ...(item.selectionImageSource || !metadataSelectionImage || !metadata.selectionImageSource
       ? {}
       : { selectionImageSource: metadata.selectionImageSource }),
     ...(item.selectionImage || !metadataSelectionImage
@@ -489,10 +517,15 @@ export function applyAiCreationMessageDisplayMetadata(
     let metadata = metadataByMessageId.get(item.id);
     if (metadata) {
       consumeMetadataEntry(metadata);
+      if (!canApplyAiCreationMetadataToUserMessage(item, metadata)) {
+        metadata = undefined;
+      }
     }
     if (!metadata) {
-      const textMatchIndex = unmatchedByText.findIndex((entry) =>
-        isAiCreationDisplayTextMatch(entry.text, item.text),
+      const textMatchIndex = unmatchedByText.findIndex(
+        (entry) =>
+          canApplyAiCreationMetadataToUserMessage(item, entry) &&
+          isAiCreationDisplayTextMatch(entry.text, item.text),
       );
       metadata = textMatchIndex >= 0 ? unmatchedByText.splice(textMatchIndex, 1)[0] : undefined;
     }
@@ -503,12 +536,17 @@ export function applyAiCreationMessageDisplayMetadata(
       (isAiCreationEditDisplayText(item.text) || isAiCreationInternalEditPrompt(item.text))
     ) {
       const orderedTextMatchIndex = unmatchedByText.findIndex(
-        (entry) => entry.allowOrderFallback !== false,
+        (entry) =>
+          entry.allowOrderFallback !== false &&
+          canApplyAiCreationMetadataToUserMessage(item, entry),
       );
       metadata =
         orderedTextMatchIndex >= 0
           ? unmatchedByText.splice(orderedTextMatchIndex, 1)[0]
-          : unmatchedLegacy.shift();
+          : unmatchedLegacy.find((entry) => canApplyAiCreationMetadataToUserMessage(item, entry));
+      if (metadata) {
+        consumeMetadataEntry(metadata);
+      }
     }
     if (!metadata) {
       return item;

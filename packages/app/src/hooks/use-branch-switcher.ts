@@ -135,7 +135,9 @@ export function useBranchSwitcher({
         }
         await invalidateStashAndCheckout();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to stash changes");
+        toast.error(
+          err instanceof Error ? err.message : translateNow("ui.failed.to.stash.changes"),
+        );
       }
     },
     [client, currentBranchName, invalidateStashAndCheckout, normalizedWorkspaceId, toast],
@@ -162,7 +164,9 @@ export function useBranchSwitcher({
           await invalidateStashAndCheckout();
           await maybeRestoreStashForBranch(branchId);
         } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Failed to switch branch");
+          toast.error(
+            err instanceof Error ? err.message : translateNow("ui.failed.to.switch.branch"),
+          );
         }
       })();
     },

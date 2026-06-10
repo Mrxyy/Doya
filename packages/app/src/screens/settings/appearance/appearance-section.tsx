@@ -394,7 +394,9 @@ function SyntaxRow({ value, onChange }: SyntaxRowProps) {
       <DropdownMenu>
         <DropdownMenuTrigger
           style={dropdownTriggerStyle}
-          accessibilityLabel={`Highlight theme: ${syntaxLabelForId(value)}`}
+          accessibilityLabel={translateNow("ui.highlight.theme.accessibility", {
+            theme: syntaxLabelForId(value),
+          })}
         >
           <Text style={styles.triggerText}>{syntaxLabelForId(value)}</Text>
           <ThemedChevronDown size={ICON_SIZE.sm} uniProps={mutedColorMapping} />

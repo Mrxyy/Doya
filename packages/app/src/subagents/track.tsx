@@ -127,7 +127,8 @@ function SubagentsTrackRow({
   const isCompact = useIsCompactFormFactor();
   const [hovered, setHovered] = useState(false);
   const presentation = useMemo(() => buildRowPresentation(row), [row]);
-  const displayLabel = presentation.titleState === "loading" ? "Loading..." : presentation.label;
+  const displayLabel =
+    presentation.titleState === "loading" ? translateNow("ui.loading.13pudaq") : presentation.label;
   const handlePress = useCallback(() => {
     onOpenSubagent(row.id);
   }, [onOpenSubagent, row.id]);
@@ -189,7 +190,9 @@ function SubagentArchiveButton({
         <TooltipTrigger asChild disabled={!visible}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Archive ${displayLabel}`}
+            accessibilityLabel={translateNow("ui.archive.item.accessibility", {
+              name: displayLabel,
+            })}
             testID={`subagents-track-archive-${rowId}`}
             onPress={onPress}
             style={styles.archiveButton}

@@ -5,6 +5,7 @@ import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { RewindMode } from "./use-rewind-capabilities";
 import { useRewindComposerRestore } from "./composer-restore";
 import { useSessionStore } from "@/stores/session-store";
+import { translateNow } from "@/i18n/i18n";
 import { shouldRestoreComposerForRewindMode } from "./rewind-mode";
 import { clearOptimisticUserMessages } from "@/types/stream";
 
@@ -59,7 +60,9 @@ export function useRewindAgentMutation(input: UseRewindAgentMutationInput): {
       composerRestore?.restoreTextIfComposerEmpty(variables.rewoundText);
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to rewind agent");
+      toast.error(
+        error instanceof Error ? error.message : translateNow("ui.failed.to.rewind.agent"),
+      );
     },
   });
 
