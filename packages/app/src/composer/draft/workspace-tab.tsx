@@ -33,7 +33,10 @@ import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
 import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
-import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
+import {
+  materializeWorkspaceFileAttachments,
+  materializeWorkspaceImageAttachmentsForSubmit,
+} from "@/attachments/workspace-materialize";
 import {
   useWorkspaceAttachments,
   useWorkspaceAttachmentScopeKey,
@@ -384,6 +387,9 @@ export function WorkspaceDraftAgentTab({
       ...(pendingCreateAttempt.attachments && pendingCreateAttempt.attachments.length > 0
         ? { attachments: pendingCreateAttempt.attachments }
         : {}),
+      ...("displayAttachments" in pendingCreateAttempt
+        ? { displayAttachments: pendingCreateAttempt.displayAttachments }
+        : {}),
     };
   }, [pendingAutoSubmit, pendingCreateAttempt]);
   const allowsEmptyAutoSubmit = pendingAutoSubmit?.allowEmptyText === true;
@@ -447,6 +453,16 @@ export function WorkspaceDraftAgentTab({
         client,
         cwd,
         files,
+      });
+    },
+    materializeImages: (images, cwd) => {
+      if (!client) {
+        return Promise.reject(new Error(translateNow("ui.host.is.not.connected.n90cm6")));
+      }
+      return materializeWorkspaceImageAttachmentsForSubmit({
+        client,
+        cwd,
+        images,
       });
     },
     onBeforeSubmit: () => {

@@ -28,6 +28,8 @@ import {
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Animated,
+  Easing,
   Image,
   PanResponder,
   Pressable,
@@ -58,13 +60,18 @@ import {
   persistAttachmentFromDataUrl,
   persistAttachmentFromFileUri,
 } from "@/attachments/service";
+import { blobToBase64 } from "@/attachments/utils";
 import type {
   AttachmentMetadata,
   ComposerAttachment,
   UserComposerAttachment,
 } from "@/attachments/types";
 import {
+  materializeWorkspaceAttachmentsToFiles,
   materializeWorkspaceFileAttachments,
+  materializeWorkspaceImageAttachmentsForSubmit,
+  workspaceMaterializedFilesToPromptAttachments,
+  workspaceMaterializedFilesToUserMessageImages,
   type WorkspaceMaterializeAttachment,
 } from "@/attachments/workspace-materialize";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
@@ -150,11 +157,17 @@ interface SelectionPoint {
 interface SelectionStroke {
   points: SelectionPoint[];
   width: number;
+  color: string;
 }
 
 interface CanvasLayout {
   width: number;
   height: number;
+}
+
+interface CanvasBounds extends CanvasLayout {
+  x: number;
+  y: number;
 }
 
 interface ImageDimensions {
@@ -194,6 +207,18 @@ interface CreateAiCreationWorkspaceInput {
 const RATIO_OPTIONS: AspectRatio[] = ["1:1", "2:3", "3:4", "4:3", "9:16", "16:9"];
 const SLIDE_RATIO_OPTIONS: AspectRatio[] = ["16:9", "4:3"];
 const MASK_VIEWBOX_SIZE = 1000;
+const EDIT_CANVAS_MAX_IMAGE_WIDTH = 760;
+const EDIT_CANVAS_STAGE_HORIZONTAL_PADDING = 32;
+const SELECTION_DEFAULT_STROKE_COLOR = "#20744A";
+const SELECTION_STROKE_COLORS = [
+  "#20744A",
+  "#EF4444",
+  "#F59E0B",
+  "#3B82F6",
+  "#A855F7",
+  "#FFFFFF",
+  "#111827",
+] as const;
 const SELECTION_BRUSH_SIZE_MIN = 18;
 const SELECTION_BRUSH_SIZE_MAX = 110;
 const SELECTION_BRUSH_SIZE_DEFAULT = 58;
@@ -494,6 +519,10 @@ interface AiCreationFeatureItem {
   mode: CreationMode;
   source: ImageSourcePropType;
   width: number;
+  accentColor: string;
+  backgroundColor: string;
+  hoverBackgroundColor: string;
+  pressBackgroundColor: string;
 }
 
 interface VisualStyleOption {
@@ -513,30 +542,50 @@ const AI_CREATION_FEATURES: readonly AiCreationFeatureItem[] = [
     mode: "image",
     source: require("../../assets/ai-creation-inspiration/feature-01.png"),
     width: 166,
+    accentColor: "#8b5cf6",
+    backgroundColor: "#faf7ff",
+    hoverBackgroundColor: "#f4ecff",
+    pressBackgroundColor: "#ede2ff",
   },
   {
     key: "aiCreation.feature.makeSlides",
     mode: "slides",
     source: require("../../assets/ai-creation-inspiration/feature-02.png"),
     width: 149,
+    accentColor: "#f97316",
+    backgroundColor: "#fff8f1",
+    hoverBackgroundColor: "#ffedd5",
+    pressBackgroundColor: "#fed7aa",
   },
   {
     key: "aiCreation.feature.makePdf",
     mode: "pdf",
     source: require("../../assets/ai-creation-inspiration/feature-03.png"),
     width: 179,
+    accentColor: "#ef4444",
+    backgroundColor: "#fff5f5",
+    hoverBackgroundColor: "#fee2e2",
+    pressBackgroundColor: "#fecaca",
   },
   {
     key: "aiCreation.feature.writeDocument",
     mode: "word",
     source: require("../../assets/ai-creation-inspiration/feature-04.png"),
     width: 149,
+    accentColor: "#2563eb",
+    backgroundColor: "#f4f8ff",
+    hoverBackgroundColor: "#dbeafe",
+    pressBackgroundColor: "#bfdbfe",
   },
   {
     key: "aiCreation.feature.makeSpreadsheet",
     mode: "spreadsheet",
     source: require("../../assets/ai-creation-inspiration/feature-05.png"),
     width: 163,
+    accentColor: "#22c55e",
+    backgroundColor: "#f3fbf5",
+    hoverBackgroundColor: "#dcfce7",
+    pressBackgroundColor: "#bbf7d0",
   },
 ];
 
@@ -1327,6 +1376,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   const [selectionStrokes, setSelectionStrokes] = useState<SelectionStroke[]>([]);
   const [redoSelectionStrokes, setRedoSelectionStrokes] = useState<SelectionStroke[]>([]);
   const [selectionBrushSize, setSelectionBrushSize] = useState(SELECTION_BRUSH_SIZE_DEFAULT);
+  const [selectionColor, setSelectionColor] = useState(SELECTION_DEFAULT_STROKE_COLOR);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCopyingImage, setIsCopyingImage] = useState(false);
   const [isDownloadingImage, setIsDownloadingImage] = useState(false);
@@ -1337,6 +1387,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     mode === "edit" && initialEditState.sourceServerId === serverId
       ? initialEditState.sourceAgentId
       : null;
+  const sourceEditAgentCwd = useSessionStore((state) =>
+    editTargetAgentId ? state.sessions[serverId]?.agents.get(editTargetAgentId)?.cwd : undefined,
+  );
   const prompt = draft.text;
   const setPrompt = draft.setText;
   const composerState = draft.composerState;
@@ -1653,7 +1706,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     try {
       const title = buildAiCreationTitle({ mode, prompt: trimmedPrompt });
       const clientMessageId = generateMessageId();
-      const submittedReferences = references;
+      let submittedReferences: UserMessageImageAttachment[] = references;
       const submittedReferenceAttachments = referenceAttachments;
       const submittedEditImage = editImage;
       const selectionGuideDimensions = await resolveSelectionGuideDimensions({
@@ -1667,6 +1720,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
           : null;
       const { images, hasSelectionGuide, selectionGuide } = await encodeAiCreationImagesForSubmit({
         mode,
+        client,
         references,
         conversationEditImages: editTargetAgentId ? conversationEditImages : [],
         includeImagePayload: !editTargetAgentId,
@@ -1718,21 +1772,34 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
           extraImages: conversationEditImages,
           excludeSourceImage: hasSelectionReference,
         });
-        const editFileAttachments =
+        const editMaterializedFiles =
           editFileInputs.length > 0
-            ? await materializeWorkspaceFileAttachments({
+            ? await materializeWorkspaceAttachmentsToFiles({
                 client,
                 agentId: editTargetAgentId,
                 files: editFileInputs,
               })
             : [];
+        const editFileAttachments =
+          workspaceMaterializedFilesToPromptAttachments(editMaterializedFiles);
         const editAttachments = existingEditSourceAttachment
           ? [existingEditSourceAttachment, ...editFileAttachments]
           : editFileAttachments;
-        const optimisticImages = buildWorkspaceBackedUserImages({
-          images: localOptimisticImages,
-          attachments: editFileAttachments,
-        });
+        const materializedSourceUrl = editMaterializedFiles.find((file) =>
+          file.title.startsWith("ai-edit-source."),
+        )?.url;
+        const displaySelectionPreviewUri = materializedSourceUrl ?? selectionPreviewUri;
+        const optimisticImages =
+          editMaterializedFiles.length > 0
+            ? workspaceMaterializedFilesToUserMessageImages(editMaterializedFiles).filter(
+                (image) =>
+                  !hasSelectionReference || image.fileName !== selectionImageForDisplay?.fileName,
+              )
+            : buildWorkspaceBackedUserImages({
+                images: localOptimisticImages,
+                attachments: editFileAttachments,
+                cwd: sourceEditAgentCwd,
+              });
         await saveAiCreationMessageDisplayMetadata({
           serverId,
           agentId: editTargetAgentId,
@@ -1742,7 +1809,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
             images: optimisticImages,
             ...(hasSelectionReference
               ? {
-                  selectionPreviewUri,
+                  selectionPreviewUri: displaySelectionPreviewUri,
                   ...(selectionImageSource ? { selectionImageSource } : {}),
                   selectionImage: selectionImageForDisplay,
                 }
@@ -1759,7 +1826,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
             text: userMessageText,
             timestamp: new Date(),
             images: optimisticImages,
-            selectionPreviewUri: hasSelectionReference ? selectionPreviewUri : undefined,
+            selectionPreviewUri: hasSelectionReference ? displaySelectionPreviewUri : undefined,
             ...(hasSelectionReference && selectionImageSource ? { selectionImageSource } : {}),
             ...(hasSelectionReference ? { selectionImage: selectionImageForDisplay } : {}),
           }),
@@ -1795,8 +1862,17 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         | undefined;
       let composerImages: typeof images = undefined;
       let displayAttachments: AgentAttachment[] = [];
+      let editMaterializedFilesForDisplay: Awaited<
+        ReturnType<typeof materializeWorkspaceAttachmentsToFiles>
+      > = [];
       if (usesWorkspaceFileReferences(mode)) {
         const wirePayload = await splitComposerAttachmentsForSubmit(submittedReferenceAttachments, {
+          materializeImages: (images) =>
+            materializeWorkspaceImageAttachmentsForSubmit({
+              client,
+              cwd: workspace.cwd,
+              images,
+            }),
           materializeFiles: (files) =>
             materializeWorkspaceFileAttachments({
               client,
@@ -1807,12 +1883,29 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         composerImages = await encodeImages(wirePayload.images);
         fileAttachments = wirePayload.attachments;
         displayAttachments = wirePayload.displayAttachments;
+        if (wirePayload.displayImages.length > 0) {
+          submittedReferences = wirePayload.displayImages;
+        }
+      } else if (mode === "image" && references.length > 0) {
+        const materializedReferences = await materializeWorkspaceImageAttachmentsForSubmit({
+          client,
+          cwd: workspace.cwd,
+          images: references.map((reference, index) =>
+            withAttachmentFileName(reference, `ai-reference-${index + 1}`),
+          ),
+        });
+        fileAttachments = materializedReferences.attachments;
+        submittedReferences = materializedReferences.images;
+        composerImages = undefined;
       } else if (editFileInputs.length > 0) {
-        fileAttachments = await materializeWorkspaceFileAttachments({
+        editMaterializedFilesForDisplay = await materializeWorkspaceAttachmentsToFiles({
           client,
           cwd: workspace.cwd,
           files: editFileInputs,
         });
+        fileAttachments = workspaceMaterializedFilesToPromptAttachments(
+          editMaterializedFilesForDisplay,
+        );
       }
       if (existingEditSourceAttachment) {
         fileAttachments = [existingEditSourceAttachment, ...(fileAttachments ?? [])];
@@ -1828,7 +1921,8 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
         featureValues: composerState.featureValues,
       });
-      const initialImages = images ?? composerImages;
+      const initialImages =
+        mode === "image" && references.length > 0 ? undefined : (images ?? composerImages);
       const result = await client.createAgent({
         config,
         workspaceId: workspace.workspaceId,
@@ -1846,13 +1940,22 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
       const selectionImageForDisplay =
         mode === "edit" && hasSelectionGuide && submittedEditImage ? submittedEditImage : undefined;
       const hasSelectionReference = Boolean(selectionPreviewUri && selectionImageForDisplay);
+      const materializedSourceUrl = editMaterializedFilesForDisplay.find((file) =>
+        file.title.startsWith("ai-edit-source."),
+      )?.url;
+      const displaySelectionPreviewUri = materializedSourceUrl ?? selectionPreviewUri;
       const optimisticImages =
         mode === "edit"
-          ? buildEditOptimisticImages({
-              image: submittedEditImage,
-              extraImages: [],
-              excludeSourceImage: hasSelectionReference,
-            })
+          ? editMaterializedFilesForDisplay.length > 0
+            ? workspaceMaterializedFilesToUserMessageImages(editMaterializedFilesForDisplay).filter(
+                (image) =>
+                  !hasSelectionReference || image.fileName !== selectionImageForDisplay?.fileName,
+              )
+            : buildEditOptimisticImages({
+                image: submittedEditImage,
+                extraImages: [],
+                excludeSourceImage: hasSelectionReference,
+              })
           : mode === "image"
             ? submittedReferences
             : [];
@@ -1867,7 +1970,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
           displayAttachments,
           ...(hasSelectionReference
             ? {
-                selectionPreviewUri,
+                selectionPreviewUri: displaySelectionPreviewUri,
                 ...(selectionImageSource ? { selectionImageSource } : {}),
                 selectionImage: selectionImageForDisplay,
               }
@@ -1885,7 +1988,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
           timestamp: new Date(),
           images: optimisticImages,
           displayAttachments,
-          selectionPreviewUri: hasSelectionReference ? selectionPreviewUri : undefined,
+          selectionPreviewUri: hasSelectionReference ? displaySelectionPreviewUri : undefined,
           ...(hasSelectionReference && selectionImageSource ? { selectionImageSource } : {}),
           ...(hasSelectionReference ? { selectionImage: selectionImageForDisplay } : {}),
         }),
@@ -1912,6 +2015,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     draft,
     editImage,
     editTargetAgentId,
+    sourceEditAgentCwd,
     conversationEditImages,
     mergeWorkspaces,
     prompt,
@@ -2012,10 +2116,12 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         {selectionMode ? (
           <SelectionBrushToolbar
             brushSize={selectionBrushSize}
+            color={selectionColor}
             canUndo={selectionStrokes.length > 0}
             canRedo={redoSelectionStrokes.length > 0}
             canClear={selectionStrokes.length > 0}
             onChangeBrushSize={setSelectionBrushSize}
+            onChangeColor={setSelectionColor}
             onUndo={handleUndoSelection}
             onRedo={handleRedoSelection}
             onClear={handleClearSelection}
@@ -2028,6 +2134,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
               selectionMode={selectionMode}
               strokes={selectionStrokes}
               brushSize={selectionBrushSize}
+              color={selectionColor}
               onChangeStrokes={handleChangeSelectionStrokes}
               onPickImage={handlePickEditImage}
               variant="conversation"
@@ -2123,6 +2230,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
                   selectionMode={selectionMode}
                   strokes={selectionStrokes}
                   brushSize={selectionBrushSize}
+                  color={selectionColor}
                   onChangeStrokes={handleChangeSelectionStrokes}
                   onPickImage={handlePickEditImage}
                 />
@@ -2292,26 +2400,104 @@ function AiCreationTopBar({
 }
 
 function AiCreationFeatureRow({ onSelectMode }: { onSelectMode: (mode: CreationMode) => void }) {
-  const { t } = useI18n();
   return (
     <View style={styles.featureRow}>
       {AI_CREATION_FEATURES.map((feature) => (
-        <Pressable
-          key={feature.key}
-          onPress={() => onSelectMode(feature.mode)}
-          style={[styles.featureCardOuter, { width: feature.width }]}
-          accessibilityRole="button"
-          accessibilityLabel={t(feature.key)}
-        >
-          <View style={styles.featureCard}>
-            <Text numberOfLines={1} style={styles.featureCardText}>
-              {t(feature.key)}
-            </Text>
-            <Image source={feature.source} style={styles.featureCardImage} resizeMode="contain" />
-          </View>
-        </Pressable>
+        <AiCreationFeatureCard key={feature.key} feature={feature} onSelectMode={onSelectMode} />
       ))}
     </View>
+  );
+}
+
+function AiCreationFeatureCard({
+  feature,
+  onSelectMode,
+}: {
+  feature: AiCreationFeatureItem;
+  onSelectMode: (mode: CreationMode) => void;
+}) {
+  const { t } = useI18n();
+  const interaction = useRef(new Animated.Value(0)).current;
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  const label = t(feature.key);
+  const target = isPressed ? 2 : isHovered ? 1 : 0;
+
+  useEffect(() => {
+    Animated.timing(interaction, {
+      toValue: target,
+      duration: isPressed ? 90 : 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [interaction, isPressed, target]);
+
+  const cardAnimatedStyle = useMemo(
+    () => ({
+      borderColor: interaction.interpolate({
+        inputRange: [0, 1, 2],
+        outputRange: ["#00000014", feature.accentColor, feature.accentColor],
+      }),
+      backgroundColor: interaction.interpolate({
+        inputRange: [0, 1, 2],
+        outputRange: [
+          feature.backgroundColor,
+          feature.hoverBackgroundColor,
+          feature.pressBackgroundColor,
+        ],
+      }),
+      transform: [
+        {
+          translateY: interaction.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [0, -3, 1],
+          }),
+        },
+      ],
+    }),
+    [feature, interaction],
+  );
+  const imageAnimatedStyle = useMemo(
+    () => ({
+      transform: [
+        {
+          translateY: interaction.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [0, -4, 1],
+          }),
+        },
+      ],
+    }),
+    [interaction],
+  );
+  const handlePress = useCallback(() => onSelectMode(feature.mode), [feature.mode, onSelectMode]);
+  const handleHoverIn = useCallback(() => setIsHovered(true), []);
+  const handleHoverOut = useCallback(() => setIsHovered(false), []);
+  const handlePressIn = useCallback(() => setIsPressed(true), []);
+  const handlePressOut = useCallback(() => setIsPressed(false), []);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onHoverIn={handleHoverIn}
+      onHoverOut={handleHoverOut}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={[styles.featureCardOuter, { width: feature.width }]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Animated.View style={[styles.featureCard, cardAnimatedStyle]}>
+        <Text numberOfLines={1} style={styles.featureCardText}>
+          {label}
+        </Text>
+        <Animated.Image
+          source={feature.source}
+          style={[styles.featureCardImage, imageAnimatedStyle]}
+          resizeMode="contain"
+        />
+      </Animated.View>
+    </Pressable>
   );
 }
 
@@ -2468,6 +2654,7 @@ function EditCanvas({
   selectionMode,
   strokes,
   brushSize,
+  color,
   onChangeStrokes,
   onPickImage,
   variant = "default",
@@ -2476,37 +2663,54 @@ function EditCanvas({
   selectionMode: boolean;
   strokes: SelectionStroke[];
   brushSize: number;
+  color: string;
   onChangeStrokes: (strokes: SelectionStroke[]) => void;
   onPickImage: () => void;
   variant?: "default" | "conversation";
 }) {
   const { t } = useI18n();
   const uri = useAttachmentPreviewUrl(image);
+  const overlayRef = useRef<View>(null);
   const [containerLayout, setContainerLayout] = useState<CanvasLayout>({ width: 0, height: 0 });
   const [canvasLayout, setCanvasLayout] = useState<CanvasLayout>({ width: 0, height: 0 });
+  const canvasBoundsRef = useRef<CanvasBounds | null>(null);
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
   const [draftStroke, setDraftStroke] = useState<SelectionStroke>({
     points: [],
     width: brushSize,
+    color,
   });
   const allStrokes =
     draftStroke.points.length > 0 ? [...strokes, { ...draftStroke, width: brushSize }] : strokes;
   const imageSource = useMemo(() => (uri ? { uri } : null), [uri]);
-  const fittedConversationImageSize = useMemo(() => {
-    if (variant !== "conversation" || !imageAspectRatio) return null;
-    return fitAspectRatioWithinBox({
-      aspectRatio: imageAspectRatio,
-      boxWidth: containerLayout.width,
-      boxHeight: containerLayout.height,
-    });
+  const imageBoxSize = useMemo(() => {
+    if (!imageAspectRatio) return null;
+    if (variant === "conversation") {
+      return fitAspectRatioWithinBox({
+        aspectRatio: imageAspectRatio,
+        boxWidth: containerLayout.width,
+        boxHeight: containerLayout.height,
+      });
+    }
+    const maxWidth = Math.min(
+      Math.max(0, containerLayout.width - EDIT_CANVAS_STAGE_HORIZONTAL_PADDING),
+      EDIT_CANVAS_MAX_IMAGE_WIDTH,
+    );
+    if (maxWidth <= 0) return null;
+    return { width: maxWidth, height: maxWidth / imageAspectRatio };
   }, [containerLayout.height, containerLayout.width, imageAspectRatio, variant]);
   const imageFrameStyle = useMemo(
     () => [
       variant === "conversation" ? styles.conversationEditImageFrame : styles.editImageFrame,
-      fittedConversationImageSize ?? (imageAspectRatio ? { aspectRatio: imageAspectRatio } : null),
+      imageBoxSize ?? styles.editImageFrameFallback,
     ],
-    [fittedConversationImageSize, imageAspectRatio, variant],
+    [imageBoxSize, variant],
   );
+  const selectionViewBox = useMemo(() => {
+    const width = Math.max(1, Math.round(canvasLayout.width));
+    const height = Math.max(1, Math.round(canvasLayout.height));
+    return `0 0 ${width} ${height}`;
+  }, [canvasLayout.height, canvasLayout.width]);
 
   useEffect(() => {
     if (!uri) {
@@ -2524,20 +2728,47 @@ function EditCanvas({
     };
   }, [uri]);
 
-  const handleCanvasLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setCanvasLayout({ width, height });
+  const measureCanvasBounds = useCallback(() => {
+    overlayRef.current?.measureInWindow((x, y, width, height) => {
+      if (width > 0 && height > 0) {
+        canvasBoundsRef.current = { x, y, width, height };
+      }
+    });
   }, []);
-  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setContainerLayout({ width, height });
-  }, []);
-  const pointFromEvent = useCallback(
-    (event: GestureResponderEvent): SelectionPoint | null => {
+  const handleCanvasLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { width, height } = event.nativeEvent.layout;
+      setCanvasLayout({ width, height });
+      requestAnimationFrame(measureCanvasBounds);
+    },
+    [measureCanvasBounds],
+  );
+  useEffect(() => {
+    measureCanvasBounds();
+  }, [canvasLayout.height, canvasLayout.width, measureCanvasBounds]);
+  useEffect(() => {
+    if (selectionMode) {
+      measureCanvasBounds();
+    }
+  }, [measureCanvasBounds, selectionMode]);
+  const pointFromPageCoordinates = useCallback(
+    (pageX: number, pageY: number): SelectionPoint | null => {
+      const bounds = canvasBoundsRef.current;
+      if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+        return null;
+      }
+      return {
+        x: clamp((pageX - bounds.x) / bounds.width, 0, 1),
+        y: clamp((pageY - bounds.y) / bounds.height, 0, 1),
+      };
+    },
+    [],
+  );
+  const pointFromLocalCoordinates = useCallback(
+    (locationX: number, locationY: number): SelectionPoint | null => {
       if (canvasLayout.width <= 0 || canvasLayout.height <= 0) {
         return null;
       }
-      const { locationX, locationY } = event.nativeEvent;
       return {
         x: clamp(locationX / canvasLayout.width, 0, 1),
         y: clamp(locationY / canvasLayout.height, 0, 1),
@@ -2545,6 +2776,19 @@ function EditCanvas({
     },
     [canvasLayout.height, canvasLayout.width],
   );
+  const pointFromEvent = useCallback(
+    (event: GestureResponderEvent): SelectionPoint | null => {
+      const { locationX, locationY, pageX, pageY } = event.nativeEvent;
+      return (
+        pointFromPageCoordinates(pageX, pageY) ?? pointFromLocalCoordinates(locationX, locationY)
+      );
+    },
+    [pointFromLocalCoordinates, pointFromPageCoordinates],
+  );
+  const handleContainerLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    setContainerLayout({ width, height });
+  }, []);
   const panResponder = useMemo(
     () =>
       PanResponder.create({
@@ -2552,7 +2796,7 @@ function EditCanvas({
         onMoveShouldSetPanResponder: () => selectionMode,
         onPanResponderGrant: (event) => {
           const point = pointFromEvent(event);
-          setDraftStroke({ points: point ? [point] : [], width: brushSize });
+          setDraftStroke({ points: point ? [point] : [], width: brushSize, color });
         },
         onPanResponderMove: (event) => {
           const point = pointFromEvent(event);
@@ -2560,6 +2804,7 @@ function EditCanvas({
           setDraftStroke((current) => ({
             points: [...current.points, point],
             width: brushSize,
+            color: current.color || color,
           }));
         },
         onPanResponderRelease: () => {
@@ -2567,14 +2812,14 @@ function EditCanvas({
             if (current.points.length > 1) {
               onChangeStrokes([...strokes, current]);
             }
-            return { points: [], width: brushSize };
+            return { points: [], width: brushSize, color };
           });
         },
         onPanResponderTerminate: () => {
-          setDraftStroke({ points: [], width: brushSize });
+          setDraftStroke({ points: [], width: brushSize, color });
         },
       }),
-    [brushSize, onChangeStrokes, pointFromEvent, selectionMode, strokes],
+    [brushSize, color, onChangeStrokes, pointFromEvent, selectionMode, strokes],
   );
   return (
     <View
@@ -2583,8 +2828,9 @@ function EditCanvas({
     >
       {imageSource ? (
         <View style={imageFrameStyle} onLayout={handleCanvasLayout}>
-          <Image source={imageSource} style={styles.editImage} resizeMode="contain" />
+          <Image source={imageSource} style={styles.editImage} resizeMode="stretch" />
           <View
+            ref={overlayRef}
             style={styles.selectionOverlay}
             pointerEvents={selectionMode ? "auto" : "none"}
             {...panResponder.panHandlers}
@@ -2592,18 +2838,18 @@ function EditCanvas({
             {allStrokes.length > 0 ? (
               <Svg
                 style={styles.selectionCanvas}
-                viewBox={`0 0 ${MASK_VIEWBOX_SIZE} ${MASK_VIEWBOX_SIZE}`}
+                viewBox={selectionViewBox}
                 preserveAspectRatio="none"
               >
                 {allStrokes.map((stroke) => (
                   <Path
                     key={selectionStrokeKey(stroke)}
-                    d={selectionStrokePath(stroke)}
+                    d={selectionStrokePath(stroke, canvasLayout)}
                     fill="none"
-                    stroke={styles.selectionStroke.color}
+                    stroke={stroke.color || SELECTION_DEFAULT_STROKE_COLOR}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={stroke.width}
+                    strokeWidth={selectionStrokeWidth(stroke, canvasLayout)}
                   />
                 ))}
               </Svg>
@@ -2645,26 +2891,35 @@ function fitAspectRatioWithinBox({
   return { width, height: width / aspectRatio };
 }
 
-function selectionCoordinate(value: number): number {
-  return Math.round(clamp(value, 0, 1) * MASK_VIEWBOX_SIZE);
+function selectionCoordinate(value: number, size: number): number {
+  return Math.round(clamp(value, 0, 1) * Math.max(1, size));
 }
 
-function selectionStrokePath(stroke: SelectionStroke): string {
+function selectionStrokePath(stroke: SelectionStroke, layout: CanvasLayout): string {
   const [first, ...rest] = stroke.points;
   if (!first) {
     return "";
   }
-  const head = `M ${selectionCoordinate(first.x)} ${selectionCoordinate(first.y)}`;
+  const width = Math.max(1, layout.width);
+  const height = Math.max(1, layout.height);
+  const head = `M ${selectionCoordinate(first.x, width)} ${selectionCoordinate(first.y, height)}`;
   const tail = rest
-    .map((point) => `L ${selectionCoordinate(point.x)} ${selectionCoordinate(point.y)}`)
+    .map(
+      (point) => `L ${selectionCoordinate(point.x, width)} ${selectionCoordinate(point.y, height)}`,
+    )
     .join(" ");
   return tail ? `${head} ${tail}` : head;
+}
+
+function selectionStrokeWidth(stroke: SelectionStroke, layout: CanvasLayout): number {
+  const scale = Math.min(Math.max(1, layout.width), Math.max(1, layout.height)) / MASK_VIEWBOX_SIZE;
+  return Math.max(1, stroke.width * scale);
 }
 
 function selectionStrokeKey(stroke: SelectionStroke): string {
   const first = stroke.points[0];
   const last = stroke.points[stroke.points.length - 1];
-  return `${stroke.points.length}:${stroke.width}:${first ? selectionCoordinate(first.x) : 0}:${first ? selectionCoordinate(first.y) : 0}:${last ? selectionCoordinate(last.x) : 0}:${last ? selectionCoordinate(last.y) : 0}`;
+  return `${stroke.points.length}:${stroke.width}:${first?.x ?? 0}:${first?.y ?? 0}:${last?.x ?? 0}:${last?.y ?? 0}`;
 }
 
 async function resolveSelectionGuideDimensions(input: {
@@ -2687,6 +2942,8 @@ async function createSelectionGuideAttachment(
   strokes: SelectionStroke[],
   dimensions: ImageDimensions | null,
   sourcePreviewUri?: string,
+  sourceImage?: AttachmentMetadata | null,
+  client?: DaemonClient | null,
 ): Promise<WorkspaceMaterializeAttachment | null> {
   if (strokes.length === 0) {
     return null;
@@ -2699,7 +2956,12 @@ async function createSelectionGuideAttachment(
   if (!dimensions) {
     throw new Error("Unable to create selection guide because the source image size is unknown.");
   }
-  const guide = await createSelectionGuideDataUrl(strokes, dimensions, sourcePreviewUri);
+  const sourceDataUrl = await resolveSelectionGuideSourceDataUrl({
+    sourceImage,
+    fallbackPreviewUri: sourcePreviewUri,
+    client,
+  });
+  const guide = await createSelectionGuideDataUrl(strokes, dimensions, sourceDataUrl);
   const attachment = await persistAttachmentFromDataUrl({
     dataUrl: guide.dataUrl,
     mimeType: guide.mimeType,
@@ -2709,6 +2971,75 @@ async function createSelectionGuideAttachment(
     ...attachment,
     fallbackPreviewUrl: guide.dataUrl,
   };
+}
+
+async function resolveSelectionGuideSourceDataUrl(input: {
+  sourceImage: AttachmentMetadata | null | undefined;
+  fallbackPreviewUri: string;
+  client?: DaemonClient | null;
+}): Promise<string> {
+  const sourceStorageType = input.sourceImage?.storageType;
+  if (input.sourceImage && input.client && sourceStorageType === "desktop-file") {
+    const sourcePath = input.sourceImage.storageKey.trim();
+    if (sourcePath) {
+      try {
+        const file = await input.client.readFile("/", sourcePath);
+        if (file.kind === "image") {
+          return `data:${file.mime};base64,${bytesToBase64(file.bytes)}`;
+        }
+      } catch (error) {
+        console.warn("[AiCreation] Failed to read workspace source image for selection guide", {
+          sourcePath,
+          error,
+        });
+      }
+    }
+  }
+
+  const previewDataUrl = await resolvePreviewUriDataUrl(input.fallbackPreviewUri);
+  if (previewDataUrl) {
+    return previewDataUrl;
+  }
+
+  if (input.sourceImage && sourceStorageType !== "desktop-file") {
+    const encoded = await encodeAttachmentsForSend([input.sourceImage]);
+    const source = encoded?.[0];
+    if (source?.data) {
+      return `data:${source.mimeType};base64,${source.data}`;
+    }
+  }
+  throw new Error("Unable to create selection guide because the source image data is unavailable.");
+}
+
+async function resolvePreviewUriDataUrl(uri: string): Promise<string | null> {
+  if (/^data:/i.test(uri)) {
+    return uri;
+  }
+  try {
+    const response = await fetch(uri);
+    if (!response.ok) {
+      return null;
+    }
+    const blob = await response.blob();
+    const mimeType = blob.type || "image/png";
+    return `data:${mimeType};base64,${await blobToBase64(blob)}`;
+  } catch (error) {
+    console.warn("[AiCreation] Failed to fetch source image preview for selection guide", {
+      uri,
+      error,
+    });
+    return null;
+  }
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }
 
 async function createSelectionGuideDataUrl(
@@ -2745,15 +3076,12 @@ async function createSelectionGuideDataUrl(
       continue;
     }
     context.lineWidth = Math.max(1, stroke.width * strokeScale);
-    context.strokeStyle = "rgba(34, 197, 94, 0.58)";
+    context.strokeStyle = stroke.color || SELECTION_DEFAULT_STROKE_COLOR;
     context.beginPath();
     context.moveTo(first.x * width, first.y * height);
     for (const point of rest) {
       context.lineTo(point.x * width, point.y * height);
     }
-    context.stroke();
-    context.lineWidth = Math.max(1, stroke.width * strokeScale * 0.22);
-    context.strokeStyle = "rgba(255, 255, 255, 0.92)";
     context.stroke();
   }
   return {
@@ -2823,6 +3151,7 @@ async function persistPickedImagesWithFallbackPreviewUrl(
 
 async function encodeAiCreationImagesForSubmit(input: {
   mode: CreationMode;
+  client?: DaemonClient | null;
   references: AttachmentMetadata[];
   conversationEditImages: AttachmentMetadata[];
   includeImagePayload: boolean;
@@ -2840,6 +3169,8 @@ async function encodeAiCreationImagesForSubmit(input: {
           input.selectionStrokes,
           input.selectionGuideDimensions,
           input.selectionPreviewUri,
+          input.references[0],
+          input.client,
         )
       : null;
   const imageInputs =
@@ -3261,8 +3592,8 @@ function buildImageEditPrompt(input: {
       `Style guidance: ${STYLE_PROMPT_LABELS[input.style]}`,
       "Use the structured uploaded-file attachment text to find workspace paths.",
       "`ai-edit-source.*` is the exact latest source image to edit.",
-      "`ai-edit-selection-guide.png` is a visual guide image made from the source image with the user's selected region highlighted in green. It is not the source image and must not be copied as the output.",
-      "Use the guide only to understand the user's selected region; apply the requested change only around that green highlighted region while preserving the rest of the source image.",
+      "`ai-edit-selection-guide.png` is a visual guide image made from the source image with the user's selected region drawn over it in the user's chosen brush color. It is not the source image and must not be copied as the output.",
+      "Use the guide only to understand the user's selected region; apply the requested change only around the colored brushed region while preserving the rest of the source image.",
       "Write the final image under `output/imagegen/` as a non-destructive PNG. Use `--force` only if retrying the same output path in this turn.",
       "Preserve all unrelated parts of the original image.",
       "Do not inspect temp attachment directories to choose a different image. Do not use any earlier image from the conversation as the edit source.",
@@ -3329,6 +3660,7 @@ function buildEditOptimisticImages(input: {
 function buildWorkspaceBackedUserImages(input: {
   images: AttachmentMetadata[];
   attachments: AgentAttachment[];
+  cwd?: string;
 }): UserMessageImageAttachment[] {
   if (input.images.length === 0 || input.attachments.length === 0) {
     return input.images;
@@ -3356,11 +3688,11 @@ function buildWorkspaceBackedUserImages(input: {
     return {
       kind: "workspace_image",
       id: image.id,
+      ...(input.cwd ? { cwd: input.cwd } : {}),
       path,
       mimeType: image.mimeType,
       fileName: image.fileName,
       createdAt: image.createdAt,
-      preview: image,
     };
   });
 }
@@ -3372,19 +3704,23 @@ function extractWorkspacePathFromAttachmentText(text: string | undefined): strin
 
 function SelectionBrushToolbar({
   brushSize,
+  color,
   canUndo,
   canRedo,
   canClear,
   onChangeBrushSize,
+  onChangeColor,
   onUndo,
   onRedo,
   onClear,
 }: {
   brushSize: number;
+  color: string;
   canUndo: boolean;
   canRedo: boolean;
   canClear: boolean;
   onChangeBrushSize: (size: number) => void;
+  onChangeColor: (color: string) => void;
   onUndo: () => void;
   onRedo: () => void;
   onClear: () => void;
@@ -3392,18 +3728,44 @@ function SelectionBrushToolbar({
   const { t } = useI18n();
   return (
     <View style={styles.selectionToolbar}>
-      <View style={styles.selectionBrushPreviewSmall} />
+      <View style={[styles.selectionBrushPreviewSmall, { backgroundColor: color }]} />
       <BrushSizeControl value={brushSize} onChange={onChangeBrushSize} />
       <View
         style={[
           styles.selectionBrushPreviewLarge,
           {
+            backgroundColor: color,
             width: Math.round(brushSize / 3),
             height: Math.round(brushSize / 3),
             borderRadius: Math.round(brushSize / 6),
           },
         ]}
       />
+      <View style={styles.selectionToolbarDivider} />
+      <View style={styles.selectionColorSwatches}>
+        {SELECTION_STROKE_COLORS.map((swatch) => {
+          const selected = swatch.toLowerCase() === color.toLowerCase();
+          return (
+            <Pressable
+              key={swatch}
+              accessibilityRole="button"
+              accessibilityLabel={`Brush color ${swatch}`}
+              onPress={() => onChangeColor(swatch)}
+              style={[styles.selectionColorSwatch, selected && styles.selectionColorSwatchSelected]}
+            >
+              <View
+                style={[
+                  styles.selectionColorSwatchInner,
+                  {
+                    backgroundColor: swatch,
+                    borderColor: swatch === "#FFFFFF" ? "#d4d4d8" : swatch,
+                  },
+                ]}
+              />
+            </Pressable>
+          );
+        })}
+      </View>
       <View style={styles.selectionToolbarDivider} />
       <SelectionToolButton
         icon={Undo2}
@@ -3827,6 +4189,29 @@ const styles = StyleSheet.create((theme) => ({
     height: 28,
     backgroundColor: theme.colors.border,
   },
+  selectionColorSwatches: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+  },
+  selectionColorSwatch: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: theme.borderWidth[1],
+    borderColor: "transparent",
+  },
+  selectionColorSwatchSelected: {
+    borderColor: theme.colors.foreground,
+  },
+  selectionColorSwatchInner: {
+    width: 18,
+    height: 18,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: theme.borderWidth[1],
+  },
   selectionToolButton: {
     width: 32,
     height: 32,
@@ -4117,9 +4502,11 @@ const styles = StyleSheet.create((theme) => ({
   editImageFrame: {
     width: "100%",
     maxWidth: 760,
-    minHeight: 320,
     position: "relative",
     overflow: "hidden",
+  },
+  editImageFrameFallback: {
+    minHeight: 320,
   },
   editImage: {
     width: "100%",
@@ -4137,7 +4524,7 @@ const styles = StyleSheet.create((theme) => ({
     height: "100%",
   },
   selectionStroke: {
-    color: theme.colors.accent,
+    color: SELECTION_DEFAULT_STROKE_COLOR,
   },
   editUploadTarget: {
     minHeight: 320,
@@ -4440,6 +4827,7 @@ const styles = StyleSheet.create((theme) => ({
     height: 72,
     borderRadius: 12,
     padding: 1,
+    overflow: "visible",
   },
   featureCard: {
     height: 70,
@@ -4453,6 +4841,10 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     paddingLeft: 20,
     paddingRight: 12,
+    shadowColor: "#000000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
   },
   featureCardText: {
     marginTop: 24,

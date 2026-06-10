@@ -1292,17 +1292,19 @@ function AiCreationSlidesPreviewCard({
         <Text style={stylesheet.aiCreationSlidesPath} numberOfLines={1}>
           {path}
         </Text>
-        {canPreview ? (
-          <View style={stylesheet.aiCreationSlidesPrimaryButton}>
-            <View style={stylesheet.aiCreationSlidesButtonContent}>
-              <Eye size={15} color={stylesheet.aiCreationSlidesPrimaryButtonText.color} />
-              <Text style={stylesheet.aiCreationSlidesPrimaryButtonText}>
-                {translateNow("aiCreation.action.openSlidesPreview")}
-              </Text>
-            </View>
-          </View>
-        ) : null}
       </View>
+      {canPreview ? (
+        <View style={stylesheet.aiCreationSlidesActions}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handlePreviewPress}
+            style={aiCreationSlidesPrimaryButtonStyle}
+            accessibilityLabel={translateNow("aiCreation.action.openSlidesPreview")}
+          >
+            <Eye size={16} color={stylesheet.aiCreationSlidesPrimaryButtonText.color} />
+          </Pressable>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -1707,7 +1709,7 @@ const stylesheet = StyleSheet.create((theme) => ({
   },
   aiCreationSlidesCard: {
     alignSelf: "flex-start",
-    width: "76%",
+    width: "100%",
     maxWidth: 560,
     minWidth: 280,
     minHeight: 58,
@@ -1779,6 +1781,7 @@ const stylesheet = StyleSheet.create((theme) => ({
   aiCreationSlidesPath: {
     color: theme.colors.foregroundMuted,
     fontSize: 11,
+    minWidth: 0,
   },
   aiCreationSlidesActions: {
     flexDirection: "row",

@@ -17,13 +17,13 @@ vi.mock("@/attachments/workspace-materialize", () => ({
     const response = await client.materializeWorkspaceAttachments({
       agentId,
       cwd,
-      files: files.map((file) => ({
+      files: files.map((file: AttachmentMetadata) => ({
         fileName: file.fileName ?? "attached-file",
         mimeType: file.mimeType,
         sourcePath: file.storageKey,
       })),
     });
-    return response.files.map((file) => ({
+    return response.files.map((file: { title: string; mimeType: string; path: string }) => ({
       type: "text",
       mimeType: "text/plain",
       title: file.title,
@@ -35,6 +35,61 @@ vi.mock("@/attachments/workspace-materialize", () => ({
       ].join("\n"),
     }));
   }),
+  materializeWorkspaceAttachmentsToFiles: vi.fn(async ({ client, agentId, cwd, files }) => {
+    const response = await client.materializeWorkspaceAttachments({
+      agentId,
+      cwd,
+      files: files.map((file: AttachmentMetadata) => ({
+        fileName: file.fileName ?? "attached-file",
+        mimeType: file.mimeType,
+        sourcePath: file.storageKey,
+      })),
+    });
+    return response.files.map(
+      (file: { title: string; mimeType: string; path: string }, index: number) => ({
+        id: files[index]?.id ?? file.path,
+        ...(response.cwd ? { cwd: response.cwd } : {}),
+        ...file,
+        ...(response.cwd && client.buildWorkspaceFileRawUrl
+          ? { url: client.buildWorkspaceFileRawUrl({ cwd: response.cwd, path: file.path }) }
+          : {}),
+      }),
+    );
+  }),
+  workspaceMaterializedFilesToPromptAttachments: vi.fn((files) =>
+    files.map((file: { title: string; mimeType: string; path: string }) => ({
+      type: "text",
+      mimeType: "text/plain",
+      title: file.title,
+      text: [
+        `Uploaded file: ${file.title}`,
+        `MIME type: ${file.mimeType}`,
+        `Workspace path: ${file.path}`,
+        "Use the workspace path above when the user asks about this file.",
+      ].join("\n"),
+    })),
+  ),
+  workspaceMaterializedFilesToUserMessageImages: vi.fn((files) =>
+    files.map(
+      (file: {
+        id: string;
+        cwd?: string;
+        title: string;
+        mimeType: string;
+        path: string;
+        url?: string;
+      }) => ({
+        kind: "workspace_image",
+        id: file.id,
+        ...(file.cwd ? { cwd: file.cwd } : {}),
+        path: file.path,
+        ...(file.url ? { url: file.url } : {}),
+        mimeType: file.mimeType,
+        fileName: file.title,
+        createdAt: 1,
+      }),
+    ),
+  ),
 }));
 
 import {
@@ -220,6 +275,7 @@ function createFakeSendClient(
       })),
       error: null,
     }),
+    buildWorkspaceFileRawUrl: ({ cwd, path }) => `raw:${cwd}:${path}`,
     sendAgentMessage: async (agentId, text, opts) => {
       calls.push({ agentId, text, options: opts });
       if (options.rejection) {
@@ -359,7 +415,7 @@ describe("pickAndPersistImages", () => {
 });
 
 describe("dispatchComposerAgentMessage", () => {
-  it("sends text + image data + structured attachments and appends user_message to the tail when head is empty", async () => {
+  it("materializes images into workspace attachments and appends user_message to the tail when head is empty", async () => {
     const client = createFakeSendClient();
     const stream = createFakeStream();
     const image = imageWithId("img-2");
@@ -380,7 +436,7 @@ describe("dispatchComposerAgentMessage", () => {
     const [call] = client.calls;
     expect(call.agentId).toBe("agent");
     expect(call.text).toBe("send attachments");
-    expect(call.options.images).toEqual([{ data: image.id, mimeType: image.mimeType }]);
+    expect(call.options.images).toEqual([]);
     expect(call.options.attachments).toEqual([
       {
         type: "github_pr",
@@ -392,6 +448,17 @@ describe("dispatchComposerAgentMessage", () => {
         baseRefName: "main",
         headRefName: "composer-attachments",
       },
+      {
+        type: "text",
+        mimeType: "text/plain",
+        title: "img-2.png",
+        text: [
+          "Uploaded file: img-2.png",
+          "MIME type: image/png",
+          "Workspace path: attachments/1-img-2.png",
+          "Use the workspace path above when the user asks about this file.",
+        ].join("\n"),
+      },
     ]);
 
     expect(stream.head.get("agent")).toBeUndefined();
@@ -400,7 +467,18 @@ describe("dispatchComposerAgentMessage", () => {
     const userMessage = tail?.[0] as Extract<StreamItem, { kind: "user_message" }>;
     expect(userMessage.kind).toBe("user_message");
     expect(userMessage.text).toBe("send attachments");
-    expect(userMessage.images).toEqual([image]);
+    expect(userMessage.images).toEqual([
+      {
+        kind: "workspace_image",
+        id: image.id,
+        cwd: "/repo",
+        path: "attachments/1-img-2.png",
+        url: "raw:/repo:attachments/1-img-2.png",
+        mimeType: image.mimeType,
+        fileName: "img-2.png",
+        createdAt: 1,
+      },
+    ]);
     expect(userMessage.attachments).toEqual(call.options.attachments);
     expect(userMessage.id).toBe(call.options.messageId);
     expect(userMessage.optimistic).toBe(true);

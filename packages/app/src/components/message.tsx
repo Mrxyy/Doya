@@ -32,7 +32,6 @@ import Markdown, {
   type ASTNode,
   type RenderRules,
 } from "react-native-markdown-display";
-import { useQuery } from "@tanstack/react-query";
 import MaskedView from "@react-native-masked-view/masked-view";
 import {
   Circle,
@@ -91,11 +90,6 @@ import {
 } from "@/utils/assistant-image-metadata";
 import { setAssistantMarkdownBlockHeight } from "@/utils/assistant-message-height-estimate";
 import { resolveAssistantImageSource } from "@/utils/assistant-image-source";
-import {
-  createPreviewAttachmentId,
-  getFileNameFromPath,
-  parseImageDataUrl,
-} from "@/attachments/utils";
 import { PlanCard } from "./plan-card";
 import { useToolCallSheet } from "./tool-call-sheet";
 import { ToolCallDetailsContent } from "./tool-call-details";
@@ -109,9 +103,9 @@ import {
 } from "@/assistant-file-links";
 import { getCompactionMarkerLabel } from "./message-compaction-label";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
-import { persistAttachmentFromBytes, persistAttachmentFromDataUrl } from "@/attachments/service";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { Button } from "@/components/ui/button";
+import { filterUserMessageDisplayAttachments } from "@/components/user-message-attachments";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { isWeb, isNative } from "@/constants/platform";
 import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
@@ -413,7 +407,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
   selectionReferenceArrow: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.xl,
-    lineHeight: theme.lineHeight.xl,
+    lineHeight: theme.fontSize.xl * 1.2,
   },
   selectionReferenceThumb: {
     width: 48,
@@ -524,71 +518,102 @@ function useAssistantResolvedImage(input: {
       source ? resolveAssistantImageSource({ source, workspaceRoot: input.workspaceRoot }) : null,
     [source, input.workspaceRoot],
   );
-  const dataImage = useMemo(() => (source ? parseImageDataUrl(source) : null), [source]);
+  const workspaceFileUri = useMemo(() => {
+    if (!input.client || resolution?.kind !== "file_rpc") {
+      return null;
+    }
+    return input.client.buildWorkspaceFileRawUrl({
+      cwd: resolution.cwd,
+      path: resolution.path,
+    });
+  }, [input.client, resolution]);
 
-  const query = useQuery({
-    queryKey: [
-      "assistantMarkdownImage",
-      input.serverId ?? "unknown-server",
-      resolution?.kind === "file_rpc" ? resolution.cwd : null,
-      resolution?.kind === "file_rpc" ? resolution.path : null,
-    ],
-    enabled: Boolean(input.client && resolution?.kind === "file_rpc"),
-    staleTime: 30_000,
-    queryFn: async () => {
-      if (!input.client || !resolution || resolution.kind !== "file_rpc") {
-        return null;
-      }
-
-      const file = await input.client.readFile(resolution.cwd, resolution.path);
-      if (file.kind !== "image") {
-        throw new Error("Image preview unavailable.");
-      }
-
-      return await persistAttachmentFromBytes({
-        id: createPreviewAttachmentId({
-          mimeType: file.mime,
-          path: file.path || resolution.path,
-          size: file.size,
-          modifiedAt: file.modifiedAt,
-          contentLength: file.bytes.byteLength,
-        }),
-        bytes: file.bytes,
-        mimeType: file.mime,
-        fileName: getFileNameFromPath(file.path || resolution.path),
-      });
-    },
-  });
-  const dataImageQuery = useQuery({
-    queryKey: ["assistantMarkdownDataImage", dataImage?.cacheKey ?? null],
-    enabled: dataImage !== null,
-    staleTime: 30_000,
-    queryFn: async () => {
-      if (!dataImage) {
-        return null;
-      }
-
-      return await persistAttachmentFromDataUrl({
-        id: createPreviewAttachmentId({
-          mimeType: dataImage.mimeType,
-          contentLength: dataImage.base64.length,
-        }),
-        dataUrl: source,
-        mimeType: dataImage.mimeType,
-      });
-    },
-  });
-
-  const fileAssetUri = useAttachmentPreviewUrl(query.data);
-  const dataImageAssetUri = useAttachmentPreviewUrl(dataImageQuery.data);
-  const directUri = resolution?.kind === "direct" && !dataImage ? resolution.uri : null;
+  const directUri = resolution?.kind === "direct" ? resolution.uri : null;
+  const editableImage = useMemo(() => {
+    if (!workspaceFileUri || resolution?.kind !== "file_rpc") {
+      return null;
+    }
+    return buildAssistantWorkspaceEditableImage({
+      cwd: resolution.cwd,
+      path: resolution.path,
+      previewUri: workspaceFileUri,
+    });
+  }, [resolution, workspaceFileUri]);
 
   return {
-    uri: directUri ?? dataImageAssetUri ?? fileAssetUri ?? null,
-    editableImage: resolveEditableAssistantImage(query.data, dataImageQuery.data),
-    isLoading: query.isLoading || dataImageQuery.isLoading,
-    errorText: resolveAssistantImageErrorText(query.error, dataImageQuery.error),
+    uri: directUri ?? workspaceFileUri ?? null,
+    editableImage,
+    isLoading: false,
+    errorText: "Unable to load image preview.",
   };
+}
+
+function buildAssistantWorkspaceEditableImage(input: {
+  cwd: string;
+  path: string;
+  previewUri: string;
+}): AttachmentMetadata & { fallbackPreviewUrl: string } {
+  const fileName = getPathFileName(input.path) ?? "assistant-image.png";
+  return {
+    id: `assistant_workspace_image_${hashStableString(`${input.cwd}\0${input.path}`)}`,
+    mimeType: inferImageMimeType(fileName),
+    storageType: "desktop-file",
+    storageKey: resolveWorkspaceFileStorageKey(input),
+    fileName,
+    byteSize: null,
+    createdAt: Date.now(),
+    fallbackPreviewUrl: input.previewUri,
+  };
+}
+
+function resolveWorkspaceFileStorageKey(input: { cwd: string; path: string }): string {
+  const path = input.path.trim();
+  if (!path || isAbsoluteFilePath(path) || path.startsWith("~")) {
+    return path;
+  }
+  const cwd = input.cwd.trim();
+  if (!cwd) {
+    return path;
+  }
+  const separator = cwd.endsWith("/") || cwd.endsWith("\\") ? "" : "/";
+  return `${cwd}${separator}${path.replace(/^[\\/]+/u, "")}`;
+}
+
+function isAbsoluteFilePath(path: string): boolean {
+  return path.startsWith("/") || /^[A-Za-z]:[\\/]/u.test(path);
+}
+
+function getPathFileName(path: string): string | null {
+  const normalized = path.trim().replace(/\\/gu, "/");
+  const fileName = normalized.split("/").filter(Boolean).pop()?.trim();
+  return fileName || null;
+}
+
+function inferImageMimeType(fileName: string): string {
+  const extension = fileName.match(/\.([A-Za-z0-9]+)$/u)?.[1]?.toLowerCase();
+  switch (extension) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    case "avif":
+      return "image/avif";
+    case "svg":
+      return "image/svg+xml";
+    default:
+      return "image/png";
+  }
+}
+
+function hashStableString(value: string): string {
+  let hash = 5381;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(index);
+  }
+  return (hash >>> 0).toString(36);
 }
 
 function UserMessageAttachmentThumbnail({
@@ -603,15 +628,26 @@ function UserMessageAttachmentThumbnail({
   serverId?: string;
 }) {
   const isWorkspaceImage = isWorkspaceUserMessageImage(image);
-  const workspaceImage = useAssistantResolvedImage({
-    source: isWorkspaceImage ? image.path : undefined,
-    client,
-    workspaceRoot,
-    serverId,
-  });
-  const attachmentUri = useAttachmentPreviewUrl(isWorkspaceImage ? image.preview : image);
-  const uri = workspaceImage.uri ?? attachmentUri;
+  const attachmentUri = useAttachmentPreviewUrl(isWorkspaceImage ? null : image);
+  const workspaceUri = useMemo(() => {
+    if (!isWorkspaceImage) {
+      return null;
+    }
+    const rawTarget = resolveWorkspaceImageRawTarget({
+      image,
+      workspaceRoot,
+    });
+    if (client && rawTarget) {
+      return client.buildWorkspaceFileRawUrl({
+        cwd: rawTarget.cwd,
+        path: rawTarget.path,
+      });
+    }
+    return image.url ?? null;
+  }, [client, image, isWorkspaceImage, workspaceRoot]);
+  const uri = isWorkspaceImage ? workspaceUri : attachmentUri;
   const imageSource = useMemo(() => ({ uri: uri ?? "" }), [uri]);
+  debugger;
   if (!uri) {
     return <View style={userMessageStylesheet.imageThumbnailPlaceholder} />;
   }
@@ -622,6 +658,28 @@ function isWorkspaceUserMessageImage(
   image: UserMessageImageAttachment,
 ): image is Extract<UserMessageImageAttachment, { kind: "workspace_image" }> {
   return "kind" in image && image.kind === "workspace_image";
+}
+
+function resolveWorkspaceImageRawTarget(input: {
+  image: Extract<UserMessageImageAttachment, { kind: "workspace_image" }>;
+  workspaceRoot?: string;
+}): { cwd: string; path: string } | null {
+  const cwd = input.image.cwd?.trim() || input.workspaceRoot?.trim() || "";
+  const path = input.image.path.trim();
+  if (!path) {
+    return null;
+  }
+  if (cwd) {
+    return { cwd, path };
+  }
+  const normalized = path.replace(/\\/g, "/");
+  const attachmentIndex = normalized.lastIndexOf("/attachments/");
+  if (attachmentIndex < 0) {
+    return null;
+  }
+  const inferredCwd = normalized.slice(0, attachmentIndex);
+  const relativePath = normalized.slice(attachmentIndex + 1);
+  return inferredCwd && relativePath ? { cwd: inferredCwd, path: relativePath } : null;
 }
 
 function UserMessageSelectionReference({
@@ -641,7 +699,7 @@ function UserMessageSelectionReference({
 }) {
   const sourceImage = useAssistantResolvedImage({ source, client, workspaceRoot, serverId });
   const imagePreviewUri = useAttachmentPreviewUrl(image);
-  const resolvedPreviewUri = sourceImage.uri ?? imagePreviewUri ?? previewUri;
+  const resolvedPreviewUri = previewUri ?? sourceImage.uri ?? imagePreviewUri;
   const imageSource = useMemo(() => ({ uri: resolvedPreviewUri ?? "" }), [resolvedPreviewUri]);
   if (!source && !resolvedPreviewUri && !image && !previewUri) {
     return null;
@@ -803,9 +861,17 @@ export const UserMessage = memo(function UserMessage({
   const isCompact = useIsCompactFormFactor();
   const [isHovered, setIsHovered] = useState(false);
   const resolvedDisableOuterSpacing = useDisableOuterSpacing(disableOuterSpacing);
+  const displayImages = useMemo(
+    () => images.filter((image) => !isLocalUserMessageImage(image)),
+    [images],
+  );
+  const displayAttachments = useMemo(
+    () => filterUserMessageDisplayAttachments({ images: displayImages, attachments }),
+    [attachments, displayImages],
+  );
   const hasText = message.trim().length > 0;
-  const hasImages = images.length > 0;
-  const hasAttachments = attachments.length > 0;
+  const hasImages = displayImages.length > 0;
+  const hasAttachments = displayAttachments.length > 0;
   const showTrailingRow = hasText && (isCompact || isNative || isHovered);
   const formattedTimestamp = useMemo(
     () => formatMessageTimestamp(new Date(timestamp)),
@@ -878,7 +944,7 @@ export const UserMessage = memo(function UserMessage({
           ) : null}
           {hasImages ? (
             <View style={imagePreviewContainerStyle}>
-              {images.map((image) => (
+              {displayImages.map((image) => (
                 <View key={image.id} style={userMessageStylesheet.imagePill}>
                   <UserMessageAttachmentThumbnail
                     image={image}
@@ -892,7 +958,7 @@ export const UserMessage = memo(function UserMessage({
           ) : null}
           {hasAttachments ? (
             <View style={attachmentPreviewContainerStyle}>
-              {attachments.map((attachment, index) => (
+              {displayAttachments.map((attachment, index) => (
                 <View
                   key={`${attachment.type}:${"number" in attachment ? attachment.number : index}`}
                 >
@@ -929,6 +995,10 @@ export const UserMessage = memo(function UserMessage({
     </View>
   );
 });
+
+function isLocalUserMessageImage(image: UserMessageImageAttachment): boolean {
+  return !isWorkspaceUserMessageImage(image);
+}
 
 interface AssistantTurnFooterProps {
   getContent: () => string;
@@ -1338,19 +1408,6 @@ function AssistantMarkdownImage({
       <Text style={assistantMessageStylesheet.imageErrorText}>{resolvedImage.errorText}</Text>
     </View>
   );
-}
-
-function resolveEditableAssistantImage(
-  fileImage: AttachmentMetadata | null | undefined,
-  dataImage: AttachmentMetadata | null | undefined,
-): AttachmentMetadata | null {
-  return fileImage ?? dataImage ?? null;
-}
-
-function resolveAssistantImageErrorText(fileError: unknown, dataError: unknown): string {
-  if (fileError instanceof Error) return fileError.message;
-  if (dataError instanceof Error) return dataError.message;
-  return "Unable to load image preview.";
 }
 
 function getInlineCodeAutoLinkUrl(

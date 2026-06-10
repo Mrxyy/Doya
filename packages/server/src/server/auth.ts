@@ -99,7 +99,8 @@ export function createRequireBearerMiddleware(
 
     void (async () => {
       try {
-        const token = extractHttpBearerToken(req.header("authorization"));
+        const token =
+          extractHttpBearerToken(req.header("authorization")) ?? extractHttpQueryToken(req.query);
         if (!(await isBearerTokenValidAsync({ password, token }))) {
           onReject?.({
             path: req.path,
@@ -123,4 +124,13 @@ export function shouldBypassBearerAuth(method: string, path: string): boolean {
     return true;
   }
   return path === "/api/health";
+}
+
+function extractHttpQueryToken(query: Record<string, unknown>): string | null {
+  const value = query.access_token;
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }

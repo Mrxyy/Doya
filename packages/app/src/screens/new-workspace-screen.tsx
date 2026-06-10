@@ -9,7 +9,10 @@ import { Check, ChevronDown, GitBranch, GitPullRequest, X } from "lucide-react-n
 import { Composer } from "@/composer";
 import { DraftAgentModeControl } from "@/composer/agent-controls/mode-control";
 import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
-import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
+import {
+  materializeWorkspaceFileAttachments,
+  materializeWorkspaceImageAttachmentsForSubmit,
+} from "@/attachments/workspace-materialize";
 import { FileDropZone } from "@/components/file-drop-zone";
 import { Combobox, ComboboxItem } from "@/components/ui/combobox";
 import type { ComboboxOption as ComboboxOptionType } from "@/components/ui/combobox";
@@ -478,6 +481,12 @@ async function submitWorkspaceDraft(input: SubmitDraftInput): Promise<void> {
   const clientMessageId = generateMessageId();
   const timestamp = Date.now();
   const wirePayload = await splitComposerAttachmentsForSubmit(attachments, {
+    materializeImages: (images) =>
+      materializeWorkspaceImageAttachmentsForSubmit({
+        client,
+        cwd: workspaceDirectory,
+        images,
+      }),
     materializeFiles: (files) =>
       materializeWorkspaceFileAttachments({
         client,
@@ -492,7 +501,7 @@ async function submitWorkspaceDraft(input: SubmitDraftInput): Promise<void> {
     clientMessageId,
     text: text.trim(),
     timestamp,
-    ...(wirePayload.images.length > 0 ? { images: wirePayload.images } : {}),
+    ...(wirePayload.displayImages.length > 0 ? { images: wirePayload.displayImages } : {}),
     ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
     ...(wirePayload.displayAttachments.length > 0
       ? { displayAttachments: wirePayload.displayAttachments }

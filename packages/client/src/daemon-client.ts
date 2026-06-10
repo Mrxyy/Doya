@@ -272,6 +272,7 @@ export interface WorkspaceAttachmentUploadResponse {
     title: string;
     mimeType: string;
     path: string;
+    url: string;
   };
 }
 
@@ -2343,7 +2344,30 @@ export class DaemonClient {
     if (!payload || !("file" in payload)) {
       throw new Error("Upload response was malformed");
     }
-    return payload;
+    return {
+      ...payload,
+      file: {
+        ...payload.file,
+        url:
+          "url" in payload.file && typeof payload.file.url === "string"
+            ? payload.file.url
+            : this.buildWorkspaceFileRawUrl({
+                cwd: payload.cwd,
+                path: payload.file.path,
+              }),
+      },
+    };
+  }
+
+  buildWorkspaceFileRawUrl(input: { cwd: string; path: string }): string {
+    const url = this.buildHttpUrl("/api/workspace-files/raw");
+    url.searchParams.set("cwd", input.cwd);
+    url.searchParams.set("path", input.path);
+    const token = this.resolveHttpUrlAccessToken();
+    if (token) {
+      url.searchParams.set("access_token", token);
+    }
+    return url.toString();
   }
 
   async rewindAgent(
@@ -4381,6 +4405,22 @@ export class DaemonClient {
       return `Bearer ${password}`;
     }
     return this.config.authHeader ?? null;
+  }
+
+  private resolveHttpUrlAccessToken(): string | null {
+    const password = normalizePassword(this.config.password);
+    if (password) {
+      return password;
+    }
+    const authHeader = this.config.authHeader?.trim();
+    if (!authHeader) {
+      return null;
+    }
+    const [scheme, token, ...rest] = authHeader.split(/\s+/);
+    if (scheme !== "Bearer" || !token || rest.length > 0) {
+      return null;
+    }
+    return token;
   }
 
   getLastServerInfoMessage(): ServerInfoStatusPayload | null {

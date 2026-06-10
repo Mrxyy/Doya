@@ -14,7 +14,11 @@ export function resolveAssistantImageSource(input: {
     return null;
   }
 
-  if (/^(https?:|data:|blob:)/i.test(source)) {
+  if (/^blob:/i.test(source)) {
+    return null;
+  }
+
+  if (/^(https?:|data:)/i.test(source)) {
     return { kind: "direct", uri: source };
   }
 

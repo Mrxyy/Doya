@@ -144,6 +144,7 @@ import {
   type AccountAuthResult,
 } from "./account-control-plane.js";
 import { createPptPreviewRouter } from "./ai-creation/ppt-preview-service.js";
+import { getDownloadableFileInfo } from "./file-explorer/service.js";
 
 type AgentMcpTransportMap = Map<string, StreamableHTTPServerTransport>;
 
@@ -635,6 +636,59 @@ export async function createPaseoDaemon(
 
   app.get("/api/files/download", (req, res) => {
     void handleFileDownload(req, res);
+  });
+
+  const handleWorkspaceFileRaw = async (
+    req: express.Request,
+    res: express.Response,
+  ): Promise<void> => {
+    const cwd = typeof req.query.cwd === "string" ? req.query.cwd.trim() : "";
+    const requestedPath = typeof req.query.path === "string" ? req.query.path.trim() : "";
+    if (!cwd || !requestedPath) {
+      res.status(400).json({ error: "cwd and path are required" });
+      return;
+    }
+
+    let fileHandle: Awaited<ReturnType<typeof open>> | null = null;
+    try {
+      const info = await getDownloadableFileInfo({
+        root: cwd,
+        relativePath: requestedPath,
+      });
+      fileHandle = await open(info.absolutePath, DOWNLOAD_OPEN_FLAGS);
+      const fileStats = await fileHandle.stat();
+      if (!fileStats.isFile()) {
+        res.status(404).json({ error: "File not found" });
+        return;
+      }
+
+      res.setHeader("Content-Type", info.mimeType);
+      res.setHeader("Content-Length", fileStats.size.toString());
+      res.setHeader("Cache-Control", "private, max-age=3600");
+
+      const stream = fileHandle.createReadStream();
+      fileHandle = null;
+      stream.on("error", (err) => {
+        logger.error({ err }, "Failed to stream workspace file");
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Failed to read file" });
+        } else {
+          res.end();
+        }
+      });
+      stream.pipe(res);
+    } catch (err) {
+      logger.error({ err, cwd, path: requestedPath }, "Failed to stream workspace file");
+      if (!res.headersSent) {
+        res.status(404).json({ error: "File not found" });
+      }
+    } finally {
+      await fileHandle?.close().catch(() => undefined);
+    }
+  };
+
+  app.get("/api/workspace-files/raw", (req, res) => {
+    void handleWorkspaceFileRaw(req, res);
   });
 
   const httpServer = createHTTPServer(app);

@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { AgentAttachment } from "@getpaseo/protocol/messages";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { releaseAttachmentPreviewUrl, resolveAttachmentPreviewUrl } from "@/attachments/service";
-import { materializeWorkspaceFileAttachments } from "./workspace-materialize";
+import {
+  materializeWorkspaceFileAttachments,
+  materializeWorkspaceImageAttachmentsForSubmit,
+} from "./workspace-materialize";
 
 vi.mock("@/attachments/service", () => ({
   releaseAttachmentPreviewUrl: vi.fn(),
@@ -86,6 +90,47 @@ describe("materializeWorkspaceFileAttachments", () => {
     ]);
   });
 
+  it("returns workspace-backed image metadata with cwd and raw URL", async () => {
+    const blob = new Blob(["image"], { type: "image/png" });
+    vi.mocked(resolveAttachmentPreviewUrl).mockResolvedValue("blob:image");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(blob, { status: 200 })),
+    );
+    uploadWorkspaceAttachment.mockResolvedValue({
+      cwd: "/repo",
+      file: {
+        title: "screenshot.png",
+        mimeType: "image/png",
+        path: "attachments/abc-screenshot.png",
+      },
+    });
+
+    const result = await materializeWorkspaceImageAttachmentsForSubmit({
+      client: {
+        materializeWorkspaceAttachments,
+        uploadWorkspaceAttachment,
+        buildWorkspaceFileRawUrl: ({ cwd, path }) => `raw:${cwd}:${path}`,
+      },
+      agentId: "agent-1",
+      images: [attachment({ mimeType: "image/png", fileName: "screenshot.png" })],
+    });
+
+    expect(result.images).toEqual([
+      {
+        kind: "workspace_image",
+        id: "file-1",
+        cwd: "/repo",
+        path: "attachments/abc-screenshot.png",
+        url: "raw:/repo:attachments/abc-screenshot.png",
+        mimeType: "image/png",
+        fileName: "screenshot.png",
+        createdAt: 1,
+      },
+    ]);
+    expect(result.images[0]).not.toHaveProperty("preview");
+  });
+
   it("preserves the upload client receiver when calling uploadWorkspaceAttachment", async () => {
     const blob = new Blob(["hello"], { type: "application/pdf" });
     vi.mocked(resolveAttachmentPreviewUrl).mockResolvedValue("blob:report");
@@ -116,7 +161,7 @@ describe("materializeWorkspaceFileAttachments", () => {
       files: [attachment()],
     });
 
-    expect(result[0]?.text).toContain("Workspace path: attachments/abc-report.pdf");
+    expect(textAttachment(result[0]).text).toContain("Workspace path: attachments/abc-report.pdf");
   });
 
   it("copies desktop files by source path instead of encoding bytes", async () => {
@@ -215,7 +260,9 @@ describe("materializeWorkspaceFileAttachments", () => {
       body: blob,
     });
     expect(releaseAttachmentPreviewUrl).not.toHaveBeenCalled();
-    expect(result[0]?.text).toContain("Workspace path: attachments/abc-ai-edit-source.png");
+    expect(textAttachment(result[0]).text).toContain(
+      "Workspace path: attachments/abc-ai-edit-source.png",
+    );
   });
 
   it("prefers the fallback preview URL when one is provided", async () => {
@@ -257,3 +304,10 @@ describe("materializeWorkspaceFileAttachments", () => {
     expect(releaseAttachmentPreviewUrl).not.toHaveBeenCalled();
   });
 });
+
+function textAttachment(
+  attachment: AgentAttachment | undefined,
+): Extract<AgentAttachment, { type: "text" }> {
+  expect(attachment?.type).toBe("text");
+  return attachment as Extract<AgentAttachment, { type: "text" }>;
+}

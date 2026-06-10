@@ -4,7 +4,12 @@ import type {
   ComposerAttachment,
   UserComposerAttachment,
 } from "@/attachments/types";
-import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
+import {
+  materializeWorkspaceAttachmentsToFiles,
+  materializeWorkspaceFileAttachments,
+  workspaceMaterializedFilesToPromptAttachments,
+  workspaceMaterializedFilesToUserMessageImages,
+} from "@/attachments/workspace-materialize";
 import {
   isWorkspaceAttachment,
   userAttachmentsOnly,
@@ -60,8 +65,10 @@ export interface ComposerSendClient {
     mimeType: string;
     body: Blob;
   }) => Promise<{
-    file: { title: string; mimeType: string; path: string };
+    cwd?: string;
+    file: { title: string; mimeType: string; path: string; url?: string };
   }>;
+  buildWorkspaceFileRawUrl?: (input: { cwd: string; path: string }) => string;
   sendAgentMessage: (
     agentId: string,
     text: string,
@@ -159,6 +166,17 @@ export async function dispatchComposerAgentMessage(
   input: DispatchComposerAgentMessageInput,
 ): Promise<void> {
   const wirePayload = await splitComposerAttachmentsForSubmit(input.attachments, {
+    materializeImages: async (images) => {
+      const files = await materializeWorkspaceAttachmentsToFiles({
+        client: input.client,
+        agentId: input.agentId,
+        files: images,
+      });
+      return {
+        images: workspaceMaterializedFilesToUserMessageImages(files),
+        attachments: workspaceMaterializedFilesToPromptAttachments(files),
+      };
+    },
     materializeFiles: (files) =>
       materializeWorkspaceFileAttachments({
         client: input.client,
@@ -171,7 +189,7 @@ export async function dispatchComposerAgentMessage(
     id: messageId,
     text: input.text,
     timestamp: new Date(),
-    images: wirePayload.images,
+    images: wirePayload.displayImages,
     attachments: wirePayload.attachments,
     displayAttachments: wirePayload.displayAttachments,
   });

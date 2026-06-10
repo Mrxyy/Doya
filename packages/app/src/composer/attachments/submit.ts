@@ -1,5 +1,6 @@
 import type { AttachmentMetadata, ComposerAttachment } from "@/attachments/types";
 import type { ImageAttachment } from "@/composer/types";
+import type { UserMessageImageAttachment } from "@/types/stream";
 import { encodeFilesAsTextAttachments } from "@/attachments/text-file";
 import {
   isWorkspaceAttachment,
@@ -12,9 +13,14 @@ export async function splitComposerAttachmentsForSubmit(
   attachments: ComposerAttachment[],
   options: {
     materializeFiles?: (files: readonly AttachmentMetadata[]) => Promise<AgentAttachment[]>;
+    materializeImages?: (images: readonly AttachmentMetadata[]) => Promise<{
+      images: UserMessageImageAttachment[];
+      attachments: AgentAttachment[];
+    }>;
   } = {},
 ): Promise<{
   images: ImageAttachment[];
+  displayImages: UserMessageImageAttachment[];
   attachments: AgentAttachment[];
   displayAttachments: AgentAttachment[];
 }> {
@@ -55,13 +61,19 @@ export async function splitComposerAttachmentsForSubmit(
     }
   }
 
+  const materializedImages =
+    images.length > 0 && options.materializeImages ? await options.materializeImages(images) : null;
+  const sendImages = materializedImages ? [] : images;
+  const displayImages = materializedImages?.images ?? images;
+  const imageTextAttachments = materializedImages?.attachments ?? [];
   const textFileAttachments =
     files.length > 0 && options.materializeFiles
       ? await options.materializeFiles(files)
       : await encodeFilesAsTextAttachments(files);
   return {
-    images,
-    attachments: [...agentAttachments, ...textFileAttachments],
+    images: sendImages,
+    displayImages,
+    attachments: [...agentAttachments, ...imageTextAttachments, ...textFileAttachments],
     displayAttachments,
   };
 }

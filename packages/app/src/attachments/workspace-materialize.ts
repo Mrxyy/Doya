@@ -1,10 +1,21 @@
 import type { AgentAttachment } from "@getpaseo/protocol/messages";
 import { releaseAttachmentPreviewUrl, resolveAttachmentPreviewUrl } from "@/attachments/service";
 import type { AttachmentMetadata } from "@/attachments/types";
+import type { UserMessageImageAttachment } from "@/types/stream";
 
 export type WorkspaceMaterializeAttachment = AttachmentMetadata & {
   fallbackPreviewUrl?: string | null;
 };
+
+export interface WorkspaceMaterializedFile {
+  id: string;
+  cwd?: string;
+  title: string;
+  mimeType: string;
+  path: string;
+  url?: string;
+  preview?: AttachmentMetadata;
+}
 
 interface WorkspaceAttachmentMaterializeClient {
   materializeWorkspaceAttachments(input: {
@@ -17,6 +28,7 @@ interface WorkspaceAttachmentMaterializeClient {
       sourcePath?: string;
     }>;
   }): Promise<{
+    cwd?: string;
     files: Array<{ title: string; mimeType: string; path: string }>;
   }>;
   uploadWorkspaceAttachment?(input: {
@@ -26,8 +38,10 @@ interface WorkspaceAttachmentMaterializeClient {
     mimeType: string;
     body: Blob;
   }): Promise<{
-    file: { title: string; mimeType: string; path: string };
+    cwd?: string;
+    file: { title: string; mimeType: string; path: string; url?: string };
   }>;
+  buildWorkspaceFileRawUrl?(input: { cwd: string; path: string }): string;
 }
 
 export async function materializeWorkspaceFileAttachments(input: {
@@ -36,23 +50,58 @@ export async function materializeWorkspaceFileAttachments(input: {
   cwd?: string;
   agentId?: string;
 }): Promise<AgentAttachment[]> {
+  const files = await materializeWorkspaceAttachmentsToFiles(input);
+  return workspaceMaterializedFilesToPromptAttachments(files);
+}
+
+export async function materializeWorkspaceImageAttachmentsForSubmit(input: {
+  client: WorkspaceAttachmentMaterializeClient;
+  images: readonly WorkspaceMaterializeAttachment[];
+  cwd?: string;
+  agentId?: string;
+}): Promise<{
+  images: UserMessageImageAttachment[];
+  attachments: AgentAttachment[];
+}> {
+  const files = await materializeWorkspaceAttachmentsToFiles({
+    client: input.client,
+    files: input.images,
+    cwd: input.cwd,
+    agentId: input.agentId,
+  });
+  return {
+    images: workspaceMaterializedFilesToUserMessageImages(files),
+    attachments: workspaceMaterializedFilesToPromptAttachments(files),
+  };
+}
+
+export async function materializeWorkspaceAttachmentsToFiles(input: {
+  client: WorkspaceAttachmentMaterializeClient;
+  files: readonly WorkspaceMaterializeAttachment[];
+  cwd?: string;
+  agentId?: string;
+}): Promise<WorkspaceMaterializedFile[]> {
   if (input.files.length === 0) {
     return [];
   }
 
-  const materializedFiles: Array<{ title: string; mimeType: string; path: string }> = [];
+  const materializedFiles: WorkspaceMaterializedFile[] = [];
   const copyRequests: Array<{
+    id: string;
     fileName?: string | null;
     mimeType: string;
     sourcePath?: string;
+    preview?: AttachmentMetadata;
   }> = [];
   for (const file of input.files) {
     const title = file.fileName ?? "attached-file";
     if (canUseWorkspaceSourcePath(file)) {
       copyRequests.push({
+        id: file.id,
         fileName: title,
         mimeType: file.mimeType,
         sourcePath: file.storageKey,
+        preview: file,
       });
       continue;
     }
@@ -60,14 +109,20 @@ export async function materializeWorkspaceFileAttachments(input: {
     const uploadWorkspaceAttachment = input.client.uploadWorkspaceAttachment?.bind(input.client);
     if (uploadWorkspaceAttachment) {
       const uploaded = await uploadAttachmentBodyToWorkspace({
-        client: { uploadWorkspaceAttachment },
+        client: { ...input.client, uploadWorkspaceAttachment },
         cwd: input.cwd,
         agentId: input.agentId,
         file,
         fallbackPreviewUrl: file.fallbackPreviewUrl,
         title,
       });
-      materializedFiles.push(uploaded);
+      const cwd = resolveMaterializedCwd(uploaded, input.cwd);
+      materializedFiles.push({
+        id: file.id,
+        ...uploaded,
+        ...(cwd ? { cwd } : {}),
+        preview: file,
+      });
       continue;
     }
 
@@ -85,7 +140,13 @@ export async function materializeWorkspaceFileAttachments(input: {
         mimeType: string;
         sourcePath?: string;
       }>;
-    } = { files: copyRequests };
+    } = {
+      files: copyRequests.map((file) => ({
+        fileName: file.fileName,
+        mimeType: file.mimeType,
+        sourcePath: file.sourcePath,
+      })),
+    };
     if (input.cwd) {
       request.cwd = input.cwd;
     }
@@ -93,10 +154,32 @@ export async function materializeWorkspaceFileAttachments(input: {
       request.agentId = input.agentId;
     }
     const response = await input.client.materializeWorkspaceAttachments(request);
-    materializedFiles.push(...response.files);
+    materializedFiles.push(
+      ...response.files.map((file, index) => {
+        const request = copyRequests[index];
+        const cwd = resolveMaterializedCwd(response, input.cwd);
+        return {
+          id: request?.id ?? file.path,
+          ...file,
+          ...(cwd ? { cwd } : {}),
+          ...(request?.preview ? { preview: request.preview } : {}),
+          ...resolveWorkspaceFileUrl({
+            client: input.client,
+            cwd: response.cwd || input.cwd,
+            path: file.path,
+          }),
+        };
+      }),
+    );
   }
 
-  return materializedFiles.map((file) => ({
+  return materializedFiles;
+}
+
+export function workspaceMaterializedFilesToPromptAttachments(
+  files: readonly Pick<WorkspaceMaterializedFile, "title" | "mimeType" | "path">[],
+): AgentAttachment[] {
+  return files.map((file) => ({
     type: "text",
     mimeType: "text/plain",
     title: file.title,
@@ -109,18 +192,42 @@ export async function materializeWorkspaceFileAttachments(input: {
   }));
 }
 
+export function workspaceMaterializedFilesToUserMessageImages(
+  files: readonly WorkspaceMaterializedFile[],
+): UserMessageImageAttachment[] {
+  return files.map((file) => ({
+    kind: "workspace_image",
+    id: file.id,
+    ...(file.cwd ? { cwd: file.cwd } : {}),
+    path: file.path,
+    ...(file.url ? { url: file.url } : {}),
+    mimeType: file.mimeType,
+    fileName: file.title,
+    createdAt: file.preview?.createdAt ?? Date.now(),
+  }));
+}
+
+function resolveMaterializedCwd(input: { cwd?: string }, fallback?: string): string | undefined {
+  const cwd = input.cwd?.trim() || fallback?.trim();
+  return cwd || undefined;
+}
+
 function canUseWorkspaceSourcePath(file: AttachmentMetadata): boolean {
   return file.storageType === "desktop-file" && file.storageKey.trim().length > 0;
 }
 
 async function uploadAttachmentBodyToWorkspace(input: {
-  client: Required<Pick<WorkspaceAttachmentMaterializeClient, "uploadWorkspaceAttachment">>;
+  client: WorkspaceAttachmentMaterializeClient & {
+    uploadWorkspaceAttachment: NonNullable<
+      WorkspaceAttachmentMaterializeClient["uploadWorkspaceAttachment"]
+    >;
+  };
   cwd?: string;
   agentId?: string;
   file: WorkspaceMaterializeAttachment;
   fallbackPreviewUrl?: string | null;
   title: string;
-}): Promise<{ title: string; mimeType: string; path: string }> {
+}): Promise<{ cwd?: string; title: string; mimeType: string; path: string; url?: string }> {
   let previewUrl: string | null = null;
   let shouldReleasePreviewUrl = false;
   try {
@@ -146,7 +253,15 @@ async function uploadAttachmentBodyToWorkspace(input: {
       mimeType: input.file.mimeType,
       body,
     });
-    return uploaded.file;
+    return {
+      ...(uploaded.cwd ? { cwd: uploaded.cwd } : {}),
+      ...uploaded.file,
+      ...resolveWorkspaceFileUrl({
+        client: input.client,
+        cwd: uploaded.cwd ?? input.cwd,
+        path: uploaded.file.path,
+      }),
+    };
   } catch (error) {
     console.error("[attachments] Failed to upload attachment body to workspace", {
       attachmentId: input.file.id,
@@ -166,6 +281,22 @@ async function uploadAttachmentBodyToWorkspace(input: {
       ).catch(() => undefined);
     }
   }
+}
+
+function resolveWorkspaceFileUrl(input: {
+  client: WorkspaceAttachmentMaterializeClient;
+  cwd?: string;
+  path: string;
+}): { url?: string } {
+  if (!input.cwd || !input.client.buildWorkspaceFileRawUrl) {
+    return {};
+  }
+  return {
+    url: input.client.buildWorkspaceFileRawUrl({
+      cwd: input.cwd,
+      path: input.path,
+    }),
+  };
 }
 
 async function fetchAttachmentBody(input: {

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useReducer } from "react";
 import type { AttachmentMetadata, ComposerAttachment } from "@/attachments/types";
 import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
 import { useCreateFlowStore } from "@/stores/create-flow-store";
+import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
 import { useSessionStore } from "@/stores/session-store";
 import {
   buildOptimisticUserMessage,
@@ -89,6 +90,13 @@ interface UseDraftAgentCreateFlowOptions<TDraftAgent, TCreateResult> {
     files: readonly AttachmentMetadata[],
     cwd: string,
   ) => Promise<AgentAttachment[]>;
+  materializeImages?: (
+    images: readonly AttachmentMetadata[],
+    cwd: string,
+  ) => Promise<{
+    images: UserMessageImageAttachment[];
+    attachments: AgentAttachment[];
+  }>;
   onBeforeSubmit?: (ctx: CreateRequestContext) => void;
   onCreateStart?: () => void;
   createRequest: (ctx: CreateRequestContext) => Promise<CreateRequestResult<TCreateResult>>;
@@ -104,6 +112,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
   allowEmptyText = false,
   validateBeforeSubmit,
   materializeFiles,
+  materializeImages,
   onBeforeSubmit,
   onCreateStart,
   createRequest,
@@ -154,7 +163,9 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         timestamp: machine.attempt.timestamp,
         images: machine.attempt.images,
         attachments: machine.attempt.attachments,
-        displayAttachments: machine.attempt.displayAttachments,
+        ...("displayAttachments" in machine.attempt
+          ? { displayAttachments: machine.attempt.displayAttachments }
+          : {}),
       }),
     ];
   }, [machine]);
@@ -193,6 +204,18 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         });
 
         if (createResult.agentId) {
+          await saveAiCreationMessageDisplayMetadata({
+            serverId: pendingServerId,
+            agentId: createResult.agentId,
+            messageId: attempt.clientMessageId,
+            text: attempt.text,
+            metadata: {
+              images: attempt.images,
+              displayAttachments: attempt.displayAttachments,
+            },
+          }).catch((error) => {
+            console.warn("[DraftCreateFlow] Failed to persist message display metadata", error);
+          });
           updatePendingAgentId({ draftId, agentId: createResult.agentId });
           appendOptimisticUserMessageToAgentStream(
             pendingServerId,
@@ -203,7 +226,9 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
               timestamp: attempt.timestamp,
               images: attempt.images,
               attachments: attempt.attachments,
-              displayAttachments: attempt.displayAttachments,
+              ...("displayAttachments" in attempt
+                ? { displayAttachments: attempt.displayAttachments }
+                : {}),
             }),
             { placement: "tail", skipIfUserMessageExists: true },
           );
@@ -268,11 +293,18 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
 
       const wirePayload = await splitComposerAttachmentsForSubmit(
         attachments,
-        materializeFiles
-          ? { materializeFiles: (files) => materializeFiles(files, cwd) }
+        materializeFiles || materializeImages
+          ? {
+              ...(materializeFiles
+                ? { materializeFiles: (files) => materializeFiles(files, cwd) }
+                : {}),
+              ...(materializeImages
+                ? { materializeImages: (images) => materializeImages(images, cwd) }
+                : {}),
+            }
           : undefined,
       );
-      const images = wirePayload.images;
+      const images = wirePayload.displayImages;
 
       const attempt: CreateAttempt = {
         clientMessageId: generateMessageId(),
@@ -280,7 +312,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
         timestamp: new Date(),
         ...(images && images.length > 0 ? { images } : {}),
         ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
-        ...(wirePayload.displayAttachments.length > 0
+        ...(wirePayload.displayAttachments.length > 0 || wirePayload.displayImages.length > 0
           ? { displayAttachments: wirePayload.displayAttachments }
           : {}),
       };
@@ -311,6 +343,7 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
       getPendingServerId,
       isSubmitting,
       materializeFiles,
+      materializeImages,
       onCreateStart,
       runCreateAttempt,
       setPendingCreateAttempt,

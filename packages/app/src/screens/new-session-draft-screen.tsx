@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { router } from "expo-router";
 import { StyleSheet } from "react-native-unistyles";
@@ -10,11 +10,14 @@ import {
 } from "@/account/account-api";
 import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
 import type { ComposerAttachment } from "@/attachments/types";
-import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
+import {
+  materializeWorkspaceFileAttachments,
+  materializeWorkspaceImageAttachmentsForSubmit,
+} from "@/attachments/workspace-materialize";
 import { Composer } from "@/composer";
 import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
 import { useAgentInputDraft } from "@/composer/draft/input-draft";
-import type { MessagePayload } from "@/composer/types";
+import type { ImageAttachment, MessagePayload } from "@/composer/types";
 import { FileDropZone } from "@/components/file-drop-zone";
 import { SidebarMenuToggle } from "@/components/headers/menu-header";
 import { useIsCompactFormFactor, MAX_CONTENT_WIDTH } from "@/constants/layout";
@@ -24,6 +27,7 @@ import type { TranslationKey, TranslationParams } from "@/i18n/translations";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
+import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
 import { encodeImages } from "@/utils/encode-images";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
@@ -128,6 +132,12 @@ export function NewSessionDraftScreen({
         setHasHydratedWorkspaces(serverId, true);
 
         const wirePayload = await splitComposerAttachmentsForSubmit(payload.attachments, {
+          materializeImages: (images) =>
+            materializeWorkspaceImageAttachmentsForSubmit({
+              client,
+              cwd: workspace.workspaceDirectory,
+              images,
+            }),
           materializeFiles: (files) =>
             materializeWorkspaceFileAttachments({
               client,
@@ -156,6 +166,18 @@ export function NewSessionDraftScreen({
           ...(images && images.length > 0 ? { images } : {}),
           ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
         });
+        await saveAiCreationMessageDisplayMetadata({
+          serverId,
+          agentId: agent.id,
+          messageId: clientMessageId,
+          text,
+          metadata: {
+            images: wirePayload.displayImages,
+            displayAttachments: wirePayload.displayAttachments,
+          },
+        }).catch((error) => {
+          console.warn("[NewSessionDraft] Failed to persist message display metadata", error);
+        });
         appendOptimisticUserMessageToAgentStream(
           serverId,
           agent.id,
@@ -163,7 +185,7 @@ export function NewSessionDraftScreen({
             id: clientMessageId,
             text,
             timestamp: new Date(),
-            images: wirePayload.images,
+            images: wirePayload.displayImages,
             attachments: wirePayload.attachments,
             displayAttachments: wirePayload.displayAttachments,
           }),
@@ -193,8 +215,16 @@ export function NewSessionDraftScreen({
     ],
   );
 
+  const addImagesRef = useRef<((images: ImageAttachment[]) => void) | null>(null);
+  const handleFilesDropped = useCallback((files: ImageAttachment[]) => {
+    addImagesRef.current?.(files);
+  }, []);
+  const handleAddImagesCallback = useCallback((addImages: (images: ImageAttachment[]) => void) => {
+    addImagesRef.current = addImages;
+  }, []);
+
   return (
-    <FileDropZone onFilesDropped={draft.addDroppedFiles}>
+    <FileDropZone onFilesDropped={handleFilesDropped}>
       <View style={styles.container}>
         {isCompact ? <ScreenHeader left={mobileHeaderLeft} borderless /> : null}
         <View style={styles.content}>
@@ -213,6 +243,7 @@ export function NewSessionDraftScreen({
               onChangeAttachments={draft.setAttachments}
               cwd={accountSession.workspace.runtime?.cwd ?? ""}
               clearDraft={draft.clear}
+              onAddImages={handleAddImagesCallback}
               autoFocus
               commandDraftConfig={composerState?.commandDraftConfig}
               agentControls={agentControlsWithDisabled}

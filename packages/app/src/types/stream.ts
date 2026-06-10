@@ -59,11 +59,12 @@ export type UserMessageImageAttachment =
   | {
       kind: "workspace_image";
       id: string;
+      cwd?: string;
       path: string;
+      url?: string;
       mimeType: string;
       fileName?: string | null;
       createdAt: number;
-      preview?: AttachmentMetadata;
     };
 
 export interface UserMessageItem {
@@ -233,8 +234,8 @@ function buildUserMessageItem(input: {
       ...(input.optimistic.attachments && input.optimistic.attachments.length > 0
         ? { attachments: input.optimistic.attachments }
         : {}),
-      ...(input.optimistic.displayAttachments && input.optimistic.displayAttachments.length > 0
-        ? { displayAttachments: input.optimistic.displayAttachments }
+      ...("displayAttachments" in input.optimistic
+        ? { displayAttachments: input.optimistic.displayAttachments ?? [] }
         : {}),
       ...(input.optimistic.selectionPreviewUri
         ? { selectionPreviewUri: input.optimistic.selectionPreviewUri }
@@ -346,8 +347,8 @@ export function buildOptimisticUserMessage(input: OptimisticUserMessageInput): U
     ...(input.attachments && input.attachments.length > 0
       ? { attachments: input.attachments }
       : {}),
-    ...(input.displayAttachments && input.displayAttachments.length > 0
-      ? { displayAttachments: input.displayAttachments }
+    ...("displayAttachments" in input
+      ? { displayAttachments: input.displayAttachments ?? [] }
       : {}),
     ...(input.selectionPreviewUri ? { selectionPreviewUri: input.selectionPreviewUri } : {}),
     ...(input.selectionImageSource ? { selectionImageSource: input.selectionImageSource } : {}),

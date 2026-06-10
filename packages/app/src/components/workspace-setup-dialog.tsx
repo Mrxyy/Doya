@@ -11,6 +11,7 @@ import { useProjectIconQuery } from "@/hooks/use-project-icon-query";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
+import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
 import { useWorkspaceSetupStore } from "@/stores/workspace-setup-store";
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
 import { encodeImages } from "@/utils/encode-images";
@@ -25,8 +26,12 @@ import { requireWorkspaceExecutionAuthority } from "@/utils/workspace-execution"
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { navigateToPreparedWorkspaceTab } from "@/utils/workspace-navigation";
 import type { ImageAttachment, MessagePayload } from "@/composer/types";
-import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
+import {
+  materializeWorkspaceFileAttachments,
+  materializeWorkspaceImageAttachmentsForSubmit,
+} from "@/attachments/workspace-materialize";
 import { translateNow } from "@/i18n/i18n";
+import { generateMessageId } from "@/types/stream";
 
 function toProjectIconDataUri(icon: { mimeType: string; data: string } | null): string | null {
   if (!icon) {
@@ -110,6 +115,7 @@ function buildCreateAgentOptions({
   workspaceDirectory,
   workspaceId,
   provider,
+  clientMessageId,
 }: {
   composerState: {
     modeOptions: { id: string }[];
@@ -123,6 +129,7 @@ function buildCreateAgentOptions({
   workspaceDirectory: string;
   workspaceId: string;
   provider: CreateAgentRequestOptions["provider"];
+  clientMessageId?: string;
 }): CreateAgentRequestOptions {
   return {
     provider,
@@ -136,6 +143,7 @@ function buildCreateAgentOptions({
       ? { thinkingOptionId: composerState.effectiveThinkingOptionId }
       : {}),
     ...(text.trim() ? { initialPrompt: text.trim() } : {}),
+    ...(clientMessageId ? { clientMessageId } : {}),
     ...(encodedImages && encodedImages.length > 0 ? { images: encodedImages } : {}),
     ...(attachments.length > 0 ? { attachments } : {}),
   };
@@ -296,6 +304,12 @@ export function WorkspaceSetupDialog() {
           workspace: ensuredWorkspace,
         }).workspaceDirectory;
         const wirePayload = await splitComposerAttachmentsForSubmit(attachments, {
+          materializeImages: (images) =>
+            materializeWorkspaceImageAttachmentsForSubmit({
+              client: connectedClient,
+              cwd: workspaceDirectory,
+              images,
+            }),
           materializeFiles: (files) =>
             materializeWorkspaceFileAttachments({
               client: connectedClient,
@@ -304,17 +318,30 @@ export function WorkspaceSetupDialog() {
             }),
         });
         const encodedImages = await encodeImages(wirePayload.images);
-        const agent = await connectedClient.createAgent(
-          buildCreateAgentOptions({
-            composerState,
-            text,
-            attachments: wirePayload.attachments,
-            encodedImages: encodedImages ?? null,
-            workspaceDirectory,
-            workspaceId: ensuredWorkspace.id,
-            provider: composerState.selectedProvider,
-          }),
-        );
+        const clientMessageId = generateMessageId();
+        const createOptions = buildCreateAgentOptions({
+          composerState,
+          text,
+          attachments: wirePayload.attachments,
+          encodedImages: encodedImages ?? null,
+          workspaceDirectory,
+          workspaceId: ensuredWorkspace.id,
+          provider: composerState.selectedProvider,
+          clientMessageId,
+        });
+        const agent = await connectedClient.createAgent(createOptions);
+        await saveAiCreationMessageDisplayMetadata({
+          serverId,
+          agentId: agent.id,
+          messageId: clientMessageId,
+          text: text.trim(),
+          metadata: {
+            images: wirePayload.displayImages,
+            displayAttachments: wirePayload.displayAttachments,
+          },
+        }).catch((error) => {
+          console.warn("[WorkspaceSetup] Failed to persist message display metadata", error);
+        });
 
         if (!getIsStillActive()) {
           return;

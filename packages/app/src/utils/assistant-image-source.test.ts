@@ -14,6 +14,12 @@ describe("resolveAssistantImageSource", () => {
     });
   });
 
+  it("rejects blob image URIs", () => {
+    expect(
+      resolveAssistantImageSource({ source: "blob:http://localhost:8081/source-image" }),
+    ).toBeNull();
+  });
+
   it("uses the workspace root for relative paths", () => {
     expect(
       resolveAssistantImageSource({

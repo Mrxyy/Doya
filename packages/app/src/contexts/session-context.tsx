@@ -58,7 +58,10 @@ import { derivePendingPermissionKey, normalizeAgentSnapshot } from "@/utils/agen
 import { resolveProjectPlacement } from "@/utils/project-placement";
 import { buildDraftStoreKey } from "@/stores/draft-keys";
 import type { AttachmentMetadata } from "@/attachments/types";
-import { materializeWorkspaceFileAttachments } from "@/attachments/workspace-materialize";
+import {
+  materializeWorkspaceFileAttachments,
+  materializeWorkspaceImageAttachmentsForSubmit,
+} from "@/attachments/workspace-materialize";
 import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
 import { reconcilePreviousAgentStatuses } from "@/contexts/session-status-tracking";
 import { patchWorkspaceScripts } from "@/contexts/session-workspace-scripts";
@@ -664,6 +667,14 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
           const [next, ...rest] = queue;
           if (sendAgentMessageRef.current) {
             void splitComposerAttachmentsForSubmit(next.attachments, {
+              materializeImages: (images) =>
+                client
+                  ? materializeWorkspaceImageAttachmentsForSubmit({
+                      client,
+                      agentId: agent.id,
+                      images,
+                    })
+                  : Promise.reject(new Error("Daemon client is unavailable")),
               materializeFiles: (files) =>
                 client
                   ? materializeWorkspaceFileAttachments({
