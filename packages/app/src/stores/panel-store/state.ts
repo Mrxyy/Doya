@@ -16,7 +16,8 @@ export interface DesktopSidebarState {
 
 export type SortOption = "name" | "modified" | "size";
 
-export const DEFAULT_SIDEBAR_WIDTH = 320;
+const LEGACY_DEFAULT_SIDEBAR_WIDTH = 320;
+export const DEFAULT_SIDEBAR_WIDTH = 280;
 export const MIN_SIDEBAR_WIDTH = 200;
 export const MAX_SIDEBAR_WIDTH = 600;
 
@@ -229,6 +230,9 @@ export function migratePanelState(
     migratePanelDesktopFocusMode(state);
   }
   if (version < 6 || typeof state.sidebarWidth !== "number") {
+    state.sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+  }
+  if (version < 11 && state.sidebarWidth === LEGACY_DEFAULT_SIDEBAR_WIDTH) {
     state.sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
   }
   if (

@@ -67,6 +67,7 @@ import { translateNow } from "@/i18n/i18n";
 
 const DROPDOWN_WIDTH = 220;
 const LOADING_TAB_LABEL_SKELETON_WIDTH = 80;
+const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
 
 const ThemedActivityIndicator = withUnistyles(ActivityIndicator);
 const ThemedX = withUnistyles(X);
@@ -920,7 +921,7 @@ const styles = StyleSheet.create((theme) => ({
     height: WORKSPACE_SECONDARY_HEADER_HEIGHT,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
     flexDirection: "row",
     alignItems: "center",
     overflow: "visible",

@@ -15,6 +15,7 @@ import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 interface ScreenHeaderProps {
   left?: ReactNode;
   right?: ReactNode;
+  style?: StyleProp<ViewStyle>;
   leftStyle?: StyleProp<ViewStyle>;
   rightStyle?: StyleProp<ViewStyle>;
   borderless?: boolean;
@@ -29,6 +30,7 @@ interface ScreenHeaderProps {
 export function ScreenHeader({
   left,
   right,
+  style,
   leftStyle,
   rightStyle,
   borderless,
@@ -60,9 +62,10 @@ export function ScreenHeader({
   );
   const leftCombinedStyle = useMemo(() => [styles.left, leftStyle], [leftStyle]);
   const rightCombinedStyle = useMemo(() => [styles.right, rightStyle], [rightStyle]);
+  const headerStyle = useMemo(() => [styles.header, style], [style]);
 
   return (
-    <View style={styles.header}>
+    <View style={headerStyle}>
       <View style={innerStyle}>
         <View onLayout={onRowLayout} style={rowStyle}>
           <TitlebarDragRegion />

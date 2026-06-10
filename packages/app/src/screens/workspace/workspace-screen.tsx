@@ -199,6 +199,7 @@ import { RenderProfile } from "@/utils/render-profiler";
 
 const WORKSPACE_SETUP_AUTO_OPEN_WINDOW_MS = 30_000;
 const WORKSPACE_FLOATING_PANEL_PORTAL_HOST_PREFIX = "workspace-floating-panels";
+const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
 const EMPTY_UI_TABS: WorkspaceTab[] = [];
 const EMPTY_WORKSPACE_SCRIPTS: WorkspaceDescriptor["scripts"] = [];
 const EMPTY_PINNED_AGENT_IDS = new Set<string>();
@@ -1379,7 +1380,7 @@ function useResolvedWorkspaceRouteState(input: {
 function WorkspaceScreenGateFrame({ children }: { children: ReactNode }) {
   return (
     <>
-      <ScreenHeader left={GATED_WORKSPACE_HEADER_LEFT} />
+      <ScreenHeader left={GATED_WORKSPACE_HEADER_LEFT} style={styles.workspaceHeader} />
       <View style={styles.centerContent}>{children}</View>
     </>
   );
@@ -3403,6 +3404,7 @@ function WorkspaceScreenContent({
     <View style={styles.centerColumn}>
       {showScreenHeader && (
         <ScreenHeader
+          style={styles.workspaceHeader}
           onRowLayout={onHeaderLayout}
           left={
             <>
@@ -3595,10 +3597,13 @@ function AccountWorkspaceStatusBar({
 const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
   },
   containerWorkspaceBackground: {
-    backgroundColor: theme.colors.surfaceWorkspace,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
+  },
+  workspaceHeader: {
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
   },
   threePaneRow: {
     flex: 1,
@@ -3756,7 +3761,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   explorerTooltipShortcut: {},
   mobileTabsRow: {
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
     borderBottomWidth: theme.borderWidth[1],
     borderBottomColor: theme.colors.border,
   },
@@ -3803,7 +3808,7 @@ const styles = StyleSheet.create((theme) => ({
   tabsContainer: {
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -3828,12 +3833,13 @@ const styles = StyleSheet.create((theme) => ({
   centerContent: {
     flex: 1,
     minHeight: 0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
   },
   accountStatusBar: {
     minHeight: 42,
     borderBottomWidth: theme.borderWidth[1],
     borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
     paddingHorizontal: theme.spacing[4],
     paddingVertical: theme.spacing[2],
     flexDirection: "row",
@@ -3926,7 +3932,7 @@ const styles = StyleSheet.create((theme) => ({
   content: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
     position: "relative",
   },
   mobileMountedTabSlotVisible: {
@@ -3940,7 +3946,7 @@ const styles = StyleSheet.create((theme) => ({
   contentPlaceholder: {
     flex: 1,
     minHeight: 0,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
   },
   emptyState: {
     flex: 1,

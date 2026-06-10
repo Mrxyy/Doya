@@ -34,6 +34,7 @@ import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { ScreenHeader } from "@/components/headers/screen-header";
 
 const MAX_SESSION_TITLE_LENGTH = 60;
+const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
 
 export function NewSessionDraftScreen({
   serverId,
@@ -226,7 +227,9 @@ export function NewSessionDraftScreen({
   return (
     <FileDropZone onFilesDropped={handleFilesDropped}>
       <View style={styles.container}>
-        {isCompact ? <ScreenHeader left={mobileHeaderLeft} borderless /> : null}
+        {isCompact ? (
+          <ScreenHeader left={mobileHeaderLeft} style={styles.header} borderless />
+        ) : null}
         <View style={styles.content}>
           <View style={styles.centered}>
             <Composer
@@ -321,7 +324,10 @@ function clampSessionTitle(value: string): string {
 const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
+  },
+  header: {
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
   },
   content: {
     flex: 1,

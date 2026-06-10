@@ -48,6 +48,7 @@ import { translateNow } from "@/i18n/i18n";
 
 const EMPTY_PENDING_PERMISSIONS = new Map();
 const EMPTY_ONLINE_SERVER_IDS: string[] = [];
+const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
 const DRAFT_CAPABILITIES: AgentCapabilityFlags = {
   supportsStreaming: true,
   supportsSessionPersistence: false,
@@ -736,7 +737,7 @@ const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
     width: "100%",
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
   },
   contentContainer: {
     flex: 1,
@@ -757,7 +758,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   inputAreaWrapper: {
     width: "100%",
-    backgroundColor: theme.colors.surface0,
+    backgroundColor: RIGHT_PANEL_BACKGROUND,
   },
   importPillRow: {
     width: "100%",

@@ -56,7 +56,6 @@ import {
   GitPullRequest,
   Globe,
   Flag,
-  MessagesSquare,
   Pin,
   Settings,
   Share2,
@@ -65,9 +64,9 @@ import {
   MoreVertical,
   Pencil,
   Plus,
-  Sparkles,
   Trash2,
 } from "lucide-react-native";
+import Svg, { Path } from "react-native-svg";
 import { NestableScrollContainer } from "react-native-draggable-flatlist";
 import { DraggableList, type DraggableRenderItemInfo } from "./draggable-list";
 import type { DraggableListDragHandleProps } from "./draggable-list.types";
@@ -155,7 +154,6 @@ const ThemedFolderGit2 = withUnistyles(FolderGit2);
 const ThemedFolderPlus = withUnistyles(FolderPlus);
 const ThemedFlag = withUnistyles(Flag);
 const ThemedGlobe = withUnistyles(Globe);
-const ThemedMessagesSquare = withUnistyles(MessagesSquare);
 const ThemedPin = withUnistyles(Pin);
 const ThemedShare2 = withUnistyles(Share2);
 const ThemedSquareTerminal = withUnistyles(SquareTerminal);
@@ -191,6 +189,47 @@ function getPrIconUniMapping(state: PrHint["state"]) {
     case "closed":
       return redColorMapping;
   }
+}
+
+function NewConversationIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 22 22" fill="none">
+      <Path
+        d="M10.25 3.49911C10.6642 3.49911 10.9999 3.83494 11 4.24911C11 4.66332 10.6642 4.99911 10.25 4.99911C9.18773 4.99911 8.43604 4.99946 7.84839 5.04745C7.26948 5.09475 6.91543 5.18427 6.63769 5.32577C6.07334 5.61336 5.61427 6.07246 5.32666 6.63681C5.18515 6.91452 5.09564 7.26861 5.04834 7.8475C5.00035 8.43513 5 9.18688 5 10.2491V10.9991C5 12.4219 5.00084 13.4292 5.08496 14.2056C5.16757 14.9679 5.32309 15.4191 5.57275 15.7628C5.75774 16.0173 5.98175 16.2414 6.23633 16.4263C6.58 16.6761 7.03114 16.8315 7.79346 16.9141C8.56998 16.9983 9.57718 16.9991 11 16.9991H11.75C12.8123 16.9991 13.564 16.9988 14.1516 16.9508C14.7306 16.9035 15.0846 16.814 15.3623 16.6725C15.9267 16.3848 16.3858 15.9258 16.6734 15.3614C16.8148 15.0837 16.9044 14.7296 16.9516 14.1507C16.9996 13.5631 17 12.8113 17 11.7491C17.0001 11.3349 17.3358 10.9991 17.75 10.9991C18.1642 10.9991 18.4999 11.3349 18.5 11.7491C18.5 12.7867 18.5007 13.6101 18.4465 14.2731C18.3916 14.9447 18.2764 15.5175 18.0093 16.0419C17.5779 16.8885 16.8895 17.577 16.0427 18.0084C15.5183 18.2756 14.9456 18.3908 14.2739 18.4456C13.611 18.4998 12.7876 18.4991 11.75 18.4991H11C9.61063 18.4991 8.50837 18.5002 7.63233 18.4053C6.74237 18.309 5.99719 18.1062 5.35522 17.64C4.97322 17.3624 4.63668 17.0259 4.35913 16.6439C3.89286 16.002 3.69017 15.2567 3.59375 14.3668C3.49886 13.4907 3.5 12.3884 3.5 10.9991V10.2491C3.5 9.21151 3.49932 8.38809 3.55347 7.72518C3.60835 7.05356 3.72355 6.48078 3.99073 5.95638C4.42216 5.10969 5.11057 4.42125 5.95728 3.98983C6.48168 3.72267 7.05442 3.60745 7.72608 3.55258C8.389 3.49842 9.21236 3.49911 10.25 3.49911ZM14.7844 4.03012C15.6631 3.15143 17.0881 3.15141 17.9668 4.03012C18.8449 4.90863 18.8449 6.33314 17.9668 7.21176L12.3703 12.8104C12.1115 13.0694 11.9224 13.2625 11.701 13.419C11.515 13.5504 11.314 13.6604 11.1033 13.7464C10.8522 13.8489 10.5873 13.9049 10.2295 13.9837L9.45313 14.1551C9.31499 14.1855 9.16132 14.2197 9.02979 14.2364C8.89792 14.2531 8.67815 14.2691 8.44531 14.1749C8.16294 14.0606 7.93929 13.8361 7.82495 13.5538C7.73091 13.3213 7.74604 13.1019 7.76269 12.97C7.77934 12.8385 7.81354 12.6842 7.84399 12.546L8.01612 11.7681C8.09479 11.4111 8.15049 11.1473 8.25269 10.8966C8.33864 10.6859 8.44886 10.4848 8.58008 10.2989C8.73634 10.0776 8.92859 9.88827 9.18726 9.62945L14.7844 4.03012ZM16.9062 5.09067C16.6133 4.79772 16.1379 4.79838 15.845 5.09139L10.2478 10.69C9.95443 10.9836 9.8708 11.0714 9.8054 11.1639C9.73993 11.2567 9.68428 11.3568 9.64138 11.462C9.59855 11.567 9.57043 11.6853 9.48096 12.0912L9.35938 12.639L9.9065 12.5189C10.313 12.4293 10.4313 12.3999 10.5364 12.357C10.6417 12.314 10.7423 12.26 10.8352 12.1944C10.9279 12.129 11.0152 12.0446 11.3091 11.7506L16.9062 6.15121C17.1987 5.85841 17.1986 5.38347 16.9062 5.09067Z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+function AiCreationSidebarIcon({ color }: { color: string }) {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 22 22" fill="none">
+      <Path
+        d="M12.188 3.50073C14.1304 3.50745 15.2005 3.56163 16.0427 3.99072C16.8893 4.42216 17.5779 5.11064 18.0093 5.95728C18.4996 6.91981 18.5 8.17986 18.5 10.6997V11.3003L18.4993 12.188C18.4926 14.1305 18.4384 15.2005 18.0093 16.0427C17.5779 16.8894 16.8893 17.5779 16.0427 18.0093C15.2005 18.4383 14.1304 18.4926 12.188 18.4993L11.3003 18.5H10.6997C8.33728 18.5 7.08189 18.4998 6.14111 18.0957L5.95728 18.0093C5.16359 17.6049 4.50843 16.9749 4.07421 16.2002L3.99072 16.0427C3.5616 15.2005 3.50744 14.1306 3.50073 12.188L3.5 11.3003V10.6997C3.5 8.33703 3.50011 7.08193 3.9043 6.14111L3.99072 5.95728C4.39515 5.16361 5.02506 4.50841 5.7998 4.07421L5.95728 3.99072C6.91979 3.50046 8.17998 3.5 10.6997 3.5H11.3003L12.188 3.50073ZM11.8291 11.6965C11.2808 11.5937 10.7177 11.5937 10.1695 11.6965C9.57463 11.8082 8.99397 12.0909 7.57812 12.7988L5.05127 14.0623C5.05306 14.0862 5.05448 14.1099 5.05639 14.1333C5.11012 14.7909 5.20713 15.1277 5.32666 15.3623C5.61426 15.9266 6.07336 16.3858 6.63769 16.6734C6.87228 16.7928 7.20934 16.8899 7.86669 16.9436C8.54171 16.9987 9.41531 17 10.6997 17H11.3003C12.5847 17 13.4583 16.9987 14.1333 16.9436C14.7907 16.8899 15.1278 16.7929 15.3623 16.6734C15.9265 16.3858 16.3858 15.9266 16.6733 15.3623C16.7929 15.1277 16.8899 14.7908 16.9436 14.1333C16.9455 14.1101 16.9462 14.0866 16.948 14.063L14.4204 12.7988C13.0045 12.0909 12.424 11.8081 11.8291 11.6965ZM10.6997 5C9.41531 5 8.54171 5.00128 7.86669 5.0564C7.20934 5.11011 6.87228 5.2072 6.63769 5.32666C6.07336 5.61424 5.61426 6.07338 5.32666 6.63769C5.20713 6.87229 5.11012 7.20909 5.05639 7.8667C5.00125 8.54176 5 9.41508 5 10.6997V11.3003C5 11.7094 5.00024 12.0767 5.0022 12.4092L6.90723 11.4578C8.24535 10.7887 9.04302 10.3824 9.89256 10.2229C10.6237 10.0857 11.3749 10.0858 12.106 10.2229C12.9556 10.3824 13.7532 10.7887 15.0913 11.4578L16.9963 12.4099C16.9983 12.0772 17 11.7097 17 11.3003V10.6997C17 9.4151 16.9987 8.54176 16.9436 7.8667C16.8899 7.20921 16.7929 6.87228 16.6733 6.63769C16.3858 6.07341 15.9265 5.61427 15.3623 5.32666C15.1278 5.20715 14.7907 5.11013 14.1333 5.0564C13.4583 5.00125 12.5847 5 11.3003 5H10.6997ZM8.23803 6.875C8.99109 6.87507 9.60178 7.4857 9.60178 8.23877C9.60163 8.99172 8.991 9.6017 8.23803 9.60178C7.48518 9.60163 6.87441 8.99164 6.87426 8.23877C6.87426 7.48578 7.48509 6.8752 8.23803 6.875Z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+function ConversationBubbleIcon({ color }: { color: string }) {
+  return (
+    <Svg width={12} height={12} viewBox="0 0 12 12" fill="none">
+      <Path
+        d="M6.61865 0.949219C7.9519 0.949219 8.6187 0.949124 9.14795 1.15723C9.9232 1.46213 10.5368 2.07583 10.8418 2.85107C11.0499 3.38033 11.0503 4.04712 11.0503 5.38037C11.0503 6.71367 11.0499 7.38042 10.8418 7.90967C10.5368 8.68497 9.92325 9.29857 9.14795 9.60352C8.6187 9.81167 7.95195 9.81202 6.61865 9.81202H6.40575L3.82324 11.2583C3.28137 11.5615 2.62653 11.1123 2.71436 10.4976L2.84229 9.59912C2.07168 9.29287 1.46182 8.68167 1.15821 7.90967C0.95008 7.38042 0.950195 6.71362 0.950195 5.38037C0.950195 4.04712 0.950055 3.38033 1.15821 2.85107C1.46315 2.07581 2.07678 1.46213 2.85205 1.15723C3.38131 0.949094 4.04806 0.949219 5.38135 0.949219H6.61865ZM5.38135 1.94922C4.70161 1.94922 4.23939 1.94976 3.87989 1.97314C3.52912 1.99597 3.34616 2.03762 3.21826 2.08789C2.70146 2.29114 2.29218 2.7004 2.08887 3.21728C2.0386 3.34516 1.99695 3.52811 1.97412 3.87891C1.95074 4.23842 1.9502 4.70065 1.9502 5.38037C1.9502 6.06007 1.95074 6.52232 1.97412 6.88182C1.99695 7.23257 2.03861 7.41557 2.08887 7.54347L2.12891 7.63867C2.34206 8.10797 2.72943 8.47832 3.21143 8.66992L3.94336 8.96047L3.83252 9.74022L3.77539 10.1382L5.917 8.93947L6.145 8.81202H6.61865C7.2982 8.81202 7.76025 8.81157 8.11965 8.78807C8.4704 8.76517 8.6536 8.72322 8.78175 8.67287C9.2986 8.46957 9.70785 8.06032 9.91115 7.54347C9.9615 7.41532 10.0035 7.23212 10.0264 6.88132C10.0499 6.52197 10.0503 6.05992 10.0503 5.38037C10.0503 4.70084 10.0499 4.23878 10.0264 3.87939C10.0035 3.52857 9.9615 3.34541 9.91115 3.21728C9.7078 2.7004 9.29855 2.29114 8.78175 2.08789C8.65385 2.03763 8.47085 1.99597 8.1201 1.97314C7.7606 1.94976 7.29835 1.94922 6.61865 1.94922H5.38135ZM3.70313 4.7334C4.08973 4.7334 4.40332 5.04697 4.40332 5.43357C4.40322 5.82012 4.08966 6.13332 3.70313 6.13332C3.31671 6.13317 3.00353 5.82002 3.00342 5.43357C3.00342 5.04707 3.31664 4.73353 3.70313 4.7334ZM6.0005 4.7334C6.387 4.73353 6.7002 5.04707 6.7002 5.43357C6.7001 5.82002 6.3869 6.13317 6.0005 6.13332C5.61395 6.13332 5.3004 5.82012 5.3003 5.43357C5.3003 5.04697 5.6139 4.7334 6.0005 4.7334ZM8.29735 4.7334C8.68385 4.73353 8.99705 5.04707 8.99705 5.43357C8.99695 5.82002 8.6838 6.13317 8.29735 6.13332C7.91085 6.13332 7.59725 5.82012 7.59715 5.43357C7.59715 5.04697 7.91075 4.7334 8.29735 4.7334Z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+function renderNewConversationIcon(color: string): ReactElement {
+  return <NewConversationIcon color={color} />;
+}
+
+function renderAiCreationSidebarIcon(color: string): ReactElement {
+  return <AiCreationSidebarIcon color={color} />;
 }
 
 function useStableProjectIconData(
@@ -312,16 +351,21 @@ function getProjectRowBaseStyle({
   isDragging,
   selected,
   isHovered,
+  conversationVisual,
 }: {
   isDragging: boolean;
   selected: boolean;
   isHovered: boolean;
+  conversationVisual: boolean;
 }) {
   return [
     styles.projectRow,
+    conversationVisual && styles.conversationProjectRow,
     isDragging && styles.projectRowDragging,
     selected && styles.sidebarRowSelected,
+    conversationVisual && selected && styles.conversationProjectRowSelected,
     isHovered && styles.projectRowHovered,
+    conversationVisual && isHovered && styles.conversationProjectRowHovered,
   ];
 }
 
@@ -595,10 +639,13 @@ function ProjectLeadingVisual({
   const shouldShowSyncedLoader = activeWorkspace
     ? shouldRenderSyncedStatusLoader({ bucket: activeWorkspace.statusBucket })
     : false;
+  const visualSlotStyle = conversationVisual
+    ? styles.conversationProjectLeadingVisualSlot
+    : styles.projectLeadingVisualSlot;
 
   if (showChevron && chevron !== null) {
     return (
-      <View style={styles.projectLeadingVisualSlot}>
+      <View style={visualSlotStyle}>
         <ProjectInlineChevron chevron={chevron} />
       </View>
     );
@@ -606,7 +653,7 @@ function ProjectLeadingVisual({
 
   if (!shouldShowWorkspaceStatus || !activeWorkspace) {
     return (
-      <View style={styles.projectLeadingVisualSlot}>
+      <View style={visualSlotStyle}>
         <ProjectIcon
           iconDataUri={iconDataUri}
           placeholderInitial={placeholderInitial}
@@ -977,8 +1024,8 @@ function ProjectIcon({
 }) {
   if (conversationVisual) {
     return (
-      <View style={styles.projectIconFallback}>
-        <ThemedMessagesSquare size={15} uniProps={foregroundMutedColorMapping} />
+      <View style={styles.conversationProjectIconFrame}>
+        <ConversationBubbleIcon color={styles.conversationProjectIcon.color} />
       </View>
     );
   }
@@ -1436,17 +1483,20 @@ function ProjectHeaderRow({
   const projectRowStyle = useCallback(
     ({ pressed }: PressableStateCallbackType) => [
       styles.projectRow,
+      conversationVisual && styles.conversationProjectRow,
       isDragging && styles.projectRowDragging,
       selected && styles.sidebarRowSelected,
+      conversationVisual && selected && styles.conversationProjectRowSelected,
       isHovered && styles.projectRowHovered,
+      conversationVisual && isHovered && styles.conversationProjectRowHovered,
       pressed && styles.projectRowPressed,
     ],
-    [isDragging, selected, isHovered],
+    [conversationVisual, isDragging, selected, isHovered],
   );
 
   const projectRowBaseStyle = useMemo(
-    () => getProjectRowBaseStyle({ isDragging, selected, isHovered }),
-    [isDragging, selected, isHovered],
+    () => getProjectRowBaseStyle({ isDragging, selected, isHovered, conversationVisual }),
+    [conversationVisual, isDragging, selected, isHovered],
   );
 
   const projectRowLeftContent = (
@@ -1463,7 +1513,10 @@ function ProjectHeaderRow({
       />
 
       <View style={styles.projectTitleGroup}>
-        <Text style={styles.projectTitle} numberOfLines={1}>
+        <Text
+          style={conversationVisual ? styles.conversationProjectTitle : styles.projectTitle}
+          numberOfLines={1}
+        >
           {displayName}
         </Text>
       </View>
@@ -2783,6 +2836,35 @@ export function SidebarWorkspaceList({
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
   const useConversationSidebar = accountSession !== null;
   const isAiCreationActive = pathname.includes("/ai-creation");
+  const isNewConversationActive = pathname.includes("/open-project");
+  const newConversationButtonStyle = useMemo(
+    () => [
+      styles.primaryConversationButton,
+      isNewConversationActive && styles.primaryConversationButtonActive,
+    ],
+    [isNewConversationActive],
+  );
+  const newConversationButtonTextStyle = useMemo(
+    () => [
+      styles.primaryConversationButtonText,
+      isNewConversationActive && styles.primaryConversationButtonTextActive,
+    ],
+    [isNewConversationActive],
+  );
+  const aiCreationButtonStyle = useMemo(
+    () => [
+      styles.secondaryConversationButton,
+      isAiCreationActive && styles.secondaryConversationButtonActive,
+    ],
+    [isAiCreationActive],
+  );
+  const aiCreationButtonTextStyle = useMemo(
+    () => [
+      styles.secondaryConversationButtonText,
+      isAiCreationActive && styles.secondaryConversationButtonTextActive,
+    ],
+    [isAiCreationActive],
+  );
 
   const projectIconRequests = useMemo(() => {
     if (!serverId || useConversationSidebar) {
@@ -3054,32 +3136,8 @@ export function SidebarWorkspaceList({
     ],
   );
 
-  const content = (
+  const projectListContent = (
     <>
-      {useConversationSidebar ? (
-        <View style={styles.conversationSidebarHeader}>
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={MessagesSquare}
-            onPress={onAddProject}
-            style={styles.newConversationButton}
-          >
-            {addProjectLabel}
-          </Button>
-          <Button
-            variant={isAiCreationActive ? "secondary" : "ghost"}
-            size="sm"
-            leftIcon={Sparkles}
-            onPress={onAiCreation}
-            style={styles.newConversationButton}
-            testID="sidebar-ai-creation"
-          >
-            {aiCreationLabel}
-          </Button>
-          <Text style={styles.historySectionLabel}>{t("sidebar.historyConversations")}</Text>
-        </View>
-      ) : null}
       {projects.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>{t("account.project.empty")}</Text>
@@ -3108,6 +3166,60 @@ export function SidebarWorkspaceList({
     </>
   );
 
+  const conversationHeader = (
+    <View style={styles.conversationSidebarHeader}>
+      <Button
+        variant="secondary"
+        size="sm"
+        leftIcon={renderNewConversationIcon}
+        onPress={onAddProject}
+        style={newConversationButtonStyle}
+        textStyle={newConversationButtonTextStyle}
+      >
+        {addProjectLabel}
+      </Button>
+      <Button
+        variant="secondary"
+        size="sm"
+        leftIcon={renderAiCreationSidebarIcon}
+        onPress={onAiCreation}
+        style={aiCreationButtonStyle}
+        textStyle={aiCreationButtonTextStyle}
+        testID="sidebar-ai-creation"
+      >
+        {aiCreationLabel}
+      </Button>
+      <Text style={styles.historySectionLabel}>{t("sidebar.historyConversations")}</Text>
+    </View>
+  );
+
+  if (useConversationSidebar) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.conversationFixedHeader}>{conversationHeader}</View>
+        {platformIsNative ? (
+          <NestableScrollContainer
+            style={styles.list}
+            contentContainerStyle={styles.conversationListContent}
+            showsVerticalScrollIndicator={false}
+            testID="sidebar-project-workspace-list-scroll"
+          >
+            {projectListContent}
+          </NestableScrollContainer>
+        ) : (
+          <ScrollView
+            style={styles.list}
+            contentContainerStyle={styles.conversationListContent}
+            showsVerticalScrollIndicator={false}
+            testID="sidebar-project-workspace-list-scroll"
+          >
+            {projectListContent}
+          </ScrollView>
+        )}
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {platformIsNative ? (
@@ -3117,7 +3229,7 @@ export function SidebarWorkspaceList({
           showsVerticalScrollIndicator={false}
           testID="sidebar-project-workspace-list-scroll"
         >
-          {content}
+          {projectListContent}
         </NestableScrollContainer>
       ) : (
         <ScrollView
@@ -3126,7 +3238,7 @@ export function SidebarWorkspaceList({
           showsVerticalScrollIndicator={false}
           testID="sidebar-project-workspace-list-scroll"
         >
-          {content}
+          {projectListContent}
         </ScrollView>
       )}
     </View>
@@ -3142,24 +3254,79 @@ const styles = StyleSheet.create((theme) => ({
   },
   listContent: {
     paddingHorizontal: theme.spacing[2],
-    paddingTop: theme.spacing[2],
+    paddingTop: theme.spacing[1],
+    paddingBottom: theme.spacing[4],
+  },
+  conversationFixedHeader: {
+    flexShrink: 0,
+    paddingHorizontal: theme.spacing[2],
+    paddingTop: theme.spacing[1],
+  },
+  conversationListContent: {
+    paddingHorizontal: theme.spacing[2],
     paddingBottom: theme.spacing[4],
   },
   conversationSidebarHeader: {
-    gap: theme.spacing[4],
+    gap: 3,
     paddingHorizontal: theme.spacing[1],
-    paddingTop: theme.spacing[1],
-    paddingBottom: theme.spacing[2],
+    paddingTop: 0,
+    paddingBottom: theme.spacing[3],
   },
-  newConversationButton: {
+  primaryConversationButton: {
     width: "100%",
+    height: 36,
     justifyContent: "flex-start",
+    paddingVertical: 0,
+    paddingHorizontal: theme.spacing[2],
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+    borderRadius: 10,
+  },
+  primaryConversationButtonText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "500",
+    lineHeight: 22,
+  },
+  primaryConversationButtonActive: {
+    backgroundColor: theme.colors.surface0,
+    borderColor: theme.colors.surface0,
+    ...theme.shadow.sm,
+  },
+  primaryConversationButtonTextActive: {
+    color: theme.colors.foreground,
+  },
+  secondaryConversationButton: {
+    width: "100%",
+    height: 36,
+    justifyContent: "flex-start",
+    paddingVertical: 0,
+    paddingHorizontal: theme.spacing[2],
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+    borderRadius: 10,
+  },
+  secondaryConversationButtonActive: {
+    backgroundColor: theme.colors.surface0,
+    borderColor: theme.colors.surface0,
+    ...theme.shadow.sm,
+  },
+  secondaryConversationButtonText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "500",
+    lineHeight: 22,
+  },
+  secondaryConversationButtonTextActive: {
+    color: theme.colors.foreground,
   },
   historySectionLabel: {
     paddingHorizontal: theme.spacing[2],
+    paddingTop: theme.spacing[3],
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.xs,
-    fontWeight: theme.fontWeight.medium,
+    fontWeight: "500",
+    lineHeight: 18,
   },
   projectListContainer: {
     width: "100%",
@@ -3205,6 +3372,19 @@ const styles = StyleSheet.create((theme) => ({
   projectRowHovered: {
     backgroundColor: theme.colors.surfaceSidebarHover,
   },
+  conversationProjectRow: {
+    minHeight: 36,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 2,
+    borderRadius: 10,
+  },
+  conversationProjectRowHovered: {
+    backgroundColor: theme.colors.surfaceSidebarHover,
+  },
+  conversationProjectRowSelected: {
+    backgroundColor: theme.colors.surface0,
+  },
   projectRowPressed: {
     backgroundColor: theme.colors.surface2,
   },
@@ -3247,6 +3427,27 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
+  conversationProjectLeadingVisualSlot: {
+    position: "relative",
+    width: 19,
+    height: 19,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  conversationProjectIconFrame: {
+    width: 19,
+    height: 19,
+    borderRadius: theme.borderRadius.full,
+    borderWidth: theme.borderWidth[1],
+    borderColor: "rgba(0, 0, 0, 0.10)",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface0,
+  },
+  conversationProjectIcon: {
+    color: theme.colors.foregroundMuted,
+  },
   projectIconFallback: {
     width: "100%",
     height: "100%",
@@ -3261,6 +3462,14 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
     fontWeight: "400",
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  conversationProjectTitle: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "500",
+    lineHeight: 22,
     minWidth: 0,
     flexShrink: 1,
   },

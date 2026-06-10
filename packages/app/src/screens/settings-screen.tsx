@@ -1,13 +1,5 @@
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
-import type { ComponentType, ReactElement, ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import type { ComponentType, ReactNode } from "react";
 import {
   Alert,
   Pressable,
@@ -25,7 +17,6 @@ import { Buffer } from "buffer";
 import {
   ArrowLeft,
   ChevronDown,
-  Monitor,
   Settings,
   Palette,
   Server,
@@ -37,11 +28,8 @@ import {
   Info,
   Shield,
   Puzzle,
-  Plus,
   FolderGit2,
 } from "lucide-react-native";
-import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
-import { SidebarSeparator } from "@/components/sidebar/sidebar-separator";
 import { ScreenTitle } from "@/components/headers/screen-title";
 import { HeaderIconBadge } from "@/components/headers/header-icon-badge";
 import { SettingsSection } from "@/screens/settings/settings-section";
@@ -80,7 +68,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
 import { DesktopPermissionsSection } from "@/desktop/components/desktop-permissions-section";
 import { IntegrationsSection } from "@/desktop/components/integrations-section";
 import { isElectronRuntime } from "@/desktop/host";
@@ -140,6 +127,12 @@ const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
   { id: "diagnostics", icon: Stethoscope },
   { id: "about", icon: Info },
 ];
+
+const VISIBLE_SETTINGS_SIDEBAR_SECTIONS: ReadonlySet<SettingsSectionSlug> = new Set([
+  "appearance",
+  "diagnostics",
+  "about",
+]);
 
 interface HostSectionItem {
   id: HostSectionSlug;
@@ -370,7 +363,7 @@ function DiagnosticsSection({
     void handlePlaybackTest();
   }, [handlePlaybackTest]);
   return (
-    <SettingsSection title={t("settings.section.diagnostics")}>
+    <View style={styles.detailSection}>
       <View style={settingsStyles.card}>
         <View style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
@@ -391,7 +384,7 @@ function DiagnosticsSection({
           </Button>
         </View>
       </View>
-    </SettingsSection>
+    </View>
   );
 }
 
@@ -405,7 +398,7 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
   const { t } = useI18n();
   return (
     <>
-      <SettingsSection title={t("settings.section.about")}>
+      <View style={styles.detailSection}>
         <View style={settingsStyles.card}>
           <View style={settingsStyles.row}>
             <View style={settingsStyles.rowContent}>
@@ -416,7 +409,7 @@ function AboutSection({ appVersion, appVersionText, isDesktopApp }: AboutSection
           </View>
           {isDesktopApp ? <DesktopAppUpdateRow /> : null}
         </View>
-      </SettingsSection>
+      </View>
       <ConnectedHostsSection clientVersion={appVersion} />
     </>
   );
@@ -701,10 +694,7 @@ function SidebarSectionButton({
     onSelect(itemId);
   }, [onSelect, itemId]);
   const accessibilityState = useMemo(() => ({ selected: isSelected }), [isSelected]);
-  const labelStyle = useMemo(
-    () => [sidebarStyles.label, isSelected && { color: theme.colors.foreground }],
-    [isSelected, theme.colors.foreground],
-  );
+  const labelStyle = sidebarStyles.label;
   return (
     <Pressable
       accessibilityRole="button"
@@ -712,10 +702,7 @@ function SidebarSectionButton({
       onPress={handlePress}
       style={isSelected ? selectedSidebarItemStyle : sidebarItemStyle}
     >
-      <IconComponent
-        size={theme.iconSize.md}
-        color={isSelected ? theme.colors.foreground : theme.colors.foregroundMuted}
-      />
+      <IconComponent size={22} color={theme.colors.foregroundMuted} />
       <Text style={labelStyle} numberOfLines={1}>
         {label}
       </Text>
@@ -723,259 +710,40 @@ function SidebarSectionButton({
   );
 }
 
-interface SidebarHostSectionButtonProps {
-  itemId: HostSectionSlug;
+interface SidebarBackButtonProps {
   label: string;
-  icon: ComponentType<{ size: number; color: string }>;
-  isSelected: boolean;
-  onSelect: (section: HostSectionSlug) => void;
-}
-
-function SidebarHostSectionButton({
-  itemId,
-  label,
-  icon: IconComponent,
-  isSelected,
-  onSelect,
-}: SidebarHostSectionButtonProps) {
-  const { theme } = useUnistyles();
-  const handlePress = useCallback(() => {
-    onSelect(itemId);
-  }, [onSelect, itemId]);
-  const accessibilityState = useMemo(() => ({ selected: isSelected }), [isSelected]);
-  const labelStyle = useMemo(
-    () => [sidebarStyles.label, isSelected && { color: theme.colors.foreground }],
-    [isSelected, theme.colors.foreground],
-  );
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={accessibilityState}
-      onPress={handlePress}
-      testID={`settings-host-section-${itemId}`}
-      style={isSelected ? selectedSidebarItemStyle : sidebarItemStyle}
-    >
-      <IconComponent
-        size={theme.iconSize.md}
-        color={isSelected ? theme.colors.foreground : theme.colors.foregroundMuted}
-      />
-      <Text style={labelStyle} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-interface SidebarProjectsButtonProps {
-  isSelected: boolean;
-  onSelect: () => void;
-}
-
-function SidebarProjectsButton({ isSelected, onSelect }: SidebarProjectsButtonProps) {
-  const { t } = useI18n();
-  const { theme } = useUnistyles();
-  const accessibilityState = useMemo(() => ({ selected: isSelected }), [isSelected]);
-  const labelStyle = useMemo(
-    () => [sidebarStyles.label, isSelected && { color: theme.colors.foreground }],
-    [isSelected, theme.colors.foreground],
-  );
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={accessibilityState}
-      onPress={onSelect}
-      testID="settings-projects"
-      style={isSelected ? selectedSidebarItemStyle : sidebarItemStyle}
-    >
-      <FolderGit2
-        size={theme.iconSize.md}
-        color={isSelected ? theme.colors.foreground : theme.colors.foregroundMuted}
-      />
-      <Text style={labelStyle} numberOfLines={1}>
-        {t("settings.section.projects")}
-      </Text>
-    </Pressable>
-  );
-}
-
-// Sentinel option id for the "Add host" row appended to the picker list.
-const ADD_HOST_OPTION_ID = "__add_host__";
-
-interface HostPickerOptionProps {
-  serverId: string;
-  label: string;
-  isLocal: boolean;
-  selected: boolean;
-  active: boolean;
   onPress: () => void;
 }
 
-function HostPickerOption({
-  serverId,
-  label,
-  isLocal,
-  selected,
-  active,
-  onPress,
-}: HostPickerOptionProps) {
+function SidebarBackButton({ label, onPress }: SidebarBackButtonProps) {
   const { theme } = useUnistyles();
-  const leadingSlot = useMemo(
-    () => <Server size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />,
-    [theme.iconSize.sm, theme.colors.foregroundMuted],
-  );
-  // The local host carries a "Local" marker; the active host is conveyed by the
-  // row's selected check, so both can coexist on one row.
-  const trailingSlot = useMemo(
-    () =>
-      isLocal ? (
-        <Text style={sidebarStyles.localMarker} testID="settings-host-local-marker">
-          {translateNow("ui.local.17tcgb")}
-        </Text>
-      ) : undefined,
-    [isLocal],
-  );
   return (
-    <ComboboxItem
-      label={label}
-      leadingSlot={leadingSlot}
-      trailingSlot={trailingSlot}
-      selected={selected}
-      active={active}
+    <Pressable
+      accessibilityRole="button"
       onPress={onPress}
-      testID={`settings-host-picker-item-${serverId}`}
-    />
+      style={sidebarItemStyle}
+      testID="settings-back-to-workspace"
+    >
+      <ArrowLeft size={22} color={theme.colors.foregroundMuted} />
+      <Text style={sidebarStyles.label} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
   );
 }
 
-function AddHostOption({ active, onPress }: { active: boolean; onPress: () => void }) {
-  const { t } = useI18n();
+interface SettingsDetailPageTitleProps {
+  title: string;
+  icon: ComponentType<{ size: number; color: string }>;
+}
+
+function SettingsDetailPageTitle({ title, icon: IconComponent }: SettingsDetailPageTitleProps) {
   const { theme } = useUnistyles();
-  const leadingSlot = useMemo(
-    () => <Plus size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />,
-    [theme.iconSize.sm, theme.colors.foregroundMuted],
-  );
   return (
-    <ComboboxItem
-      label={t("settings.addHost")}
-      leadingSlot={leadingSlot}
-      active={active}
-      onPress={onPress}
-      testID="settings-add-host"
-    />
-  );
-}
-
-interface HostPickerProps {
-  activeServerId: string | null;
-  sortedHosts: HostProfile[];
-  localServerId: string | null;
-  onSelectHost: (serverId: string) => void;
-  onAddHost: () => void;
-}
-
-/**
- * Scopes the four host sections to a host. Reuses the canonical sidebar host
- * switcher pattern (left-sidebar.tsx): a quiet row-styled trigger opening a
- * <Combobox>. The local host is listed first and tagged "Local"; an "Add host"
- * row is always reachable from the list — even with a single host.
- */
-function HostPicker({
-  activeServerId,
-  sortedHosts,
-  localServerId,
-  onSelectHost,
-  onAddHost,
-}: HostPickerProps) {
-  const { t } = useI18n();
-  const { theme } = useUnistyles();
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<View | null>(null);
-  const activeHost =
-    sortedHosts.find((host) => host.serverId === activeServerId) ?? sortedHosts[0] ?? null;
-
-  const options = useMemo<ComboboxOption[]>(() => {
-    const hostOptions = sortedHosts.map((host) => ({ id: host.serverId, label: host.label }));
-    return [...hostOptions, { id: ADD_HOST_OPTION_ID, label: t("settings.addHost") }];
-  }, [sortedHosts, t]);
-
-  const handleSelect = useCallback(
-    (id: string) => {
-      if (id === ADD_HOST_OPTION_ID) {
-        onAddHost();
-        return;
-      }
-      onSelectHost(id);
-    },
-    [onAddHost, onSelectHost],
-  );
-
-  const renderOption = useCallback(
-    ({
-      option,
-      selected,
-      active,
-      onPress,
-    }: {
-      option: ComboboxOption;
-      selected: boolean;
-      active: boolean;
-      onPress: () => void;
-    }): ReactElement => {
-      if (option.id === ADD_HOST_OPTION_ID) {
-        return <AddHostOption active={active} onPress={onPress} />;
-      }
-      return (
-        <HostPickerOption
-          serverId={option.id}
-          label={option.label}
-          isLocal={localServerId !== null && option.id === localServerId}
-          selected={selected}
-          active={active}
-          onPress={onPress}
-        />
-      );
-    },
-    [localServerId],
-  );
-
-  const handleOpen = useCallback(() => setIsOpen(true), []);
-  const triggerStyle = useCallback(
-    ({ hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
-      sidebarStyles.pickerTrigger,
-      hovered && sidebarStyles.pickerTriggerHovered,
-    ],
-    [],
-  );
-
-  return (
-    <>
-      <Pressable
-        ref={triggerRef}
-        style={triggerStyle}
-        onPress={handleOpen}
-        accessibilityRole="button"
-        accessibilityLabel={translateNow("ui.switch.host.1ptxkhg")}
-        testID="settings-host-picker"
-      >
-        <Monitor size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
-        <Text style={sidebarStyles.pickerTriggerLabel} numberOfLines={1}>
-          {activeHost?.label ?? "Host"}
-        </Text>
-        <ChevronDown size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
-      </Pressable>
-      <Combobox
-        options={options}
-        value={activeServerId ?? ""}
-        onSelect={handleSelect}
-        renderOption={renderOption}
-        searchable={false}
-        title={translateNow("ui.switch.host.1ptxkhg")}
-        desktopMinWidth={240}
-        open={isOpen}
-        onOpenChange={setIsOpen}
-        anchorRef={triggerRef}
-      />
-    </>
+    <View style={styles.detailPageTitle}>
+      <IconComponent size={32} color={theme.colors.foregroundMuted} />
+      <Text style={styles.detailPageTitleText}>{title}</Text>
+    </View>
   );
 }
 
@@ -994,22 +762,14 @@ interface SettingsSidebarProps {
 function SettingsSidebar({
   view,
   onSelectSection,
-  onSelectHostSection,
-  onSelectHost,
-  onSelectProjects,
-  onAddHost,
   onBackToWorkspace,
-  activeHostServerId,
   layout,
 }: SettingsSidebarProps) {
-  const { theme } = useUnistyles();
-  const hosts = useHosts();
-  const localServerId = useLocalDaemonServerId();
-  const sortedHosts = useSortedHosts(hosts, localServerId);
   const { t } = useI18n();
-  const hasHosts = sortedHosts.length > 0;
   const isDesktopApp = isElectronRuntime();
-  const items = SIDEBAR_SECTION_ITEMS.filter((item) => !item.desktopOnly || isDesktopApp);
+  const items = SIDEBAR_SECTION_ITEMS.filter(
+    (item) => VISIBLE_SETTINGS_SIDEBAR_SECTIONS.has(item.id) && (!item.desktopOnly || isDesktopApp),
+  );
   const insets = useSafeAreaInsets();
   const padding = useWindowControlsPadding("sidebar");
   const isDesktop = layout === "desktop";
@@ -1021,8 +781,6 @@ function SettingsSidebar({
     [insets.top, isDesktop],
   );
   const selectedSectionId = view.kind === "section" ? view.section : null;
-  const selectedHostSection = view.kind === "host" ? view.section : null;
-  const isProjectsSelected = view.kind === "projects" || view.kind === "project";
   const paddingTopStyle = useMemo(() => ({ height: padding.top }), [padding.top]);
 
   return (
@@ -1033,69 +791,21 @@ function SettingsSidebar({
           {padding.top > 0 ? <View style={paddingTopStyle} /> : null}
         </>
       ) : null}
-      {isDesktop ? (
-        <SidebarHeaderRow
-          icon={ArrowLeft}
-          label={t("settings.back")}
-          onPress={onBackToWorkspace}
-          testID="settings-back-to-workspace"
-        />
-      ) : null}
       <View style={sidebarStyles.list}>
-        <Text style={sidebarStyles.groupLabel}>{t("settings.group.app")}</Text>
         {items.map((item) => (
-          <Fragment key={item.id}>
-            <SidebarSectionButton
-              itemId={item.id}
-              label={settingsSectionLabel(item.id, t)}
-              icon={item.icon}
-              isSelected={selectedSectionId === item.id}
-              onSelect={onSelectSection}
-            />
-            {item.id === "general" ? (
-              <SidebarProjectsButton isSelected={isProjectsSelected} onSelect={onSelectProjects} />
-            ) : null}
-          </Fragment>
+          <SidebarSectionButton
+            key={item.id}
+            itemId={item.id}
+            label={settingsSectionLabel(item.id, t)}
+            icon={item.icon}
+            isSelected={selectedSectionId === item.id}
+            onSelect={onSelectSection}
+          />
         ))}
       </View>
-      <SidebarSeparator />
-      {hasHosts ? (
-        <View style={sidebarStyles.list}>
-          <Text style={sidebarStyles.groupLabel}>{t("settings.group.host")}</Text>
-          <HostPicker
-            activeServerId={activeHostServerId}
-            sortedHosts={sortedHosts}
-            localServerId={localServerId}
-            onSelectHost={onSelectHost}
-            onAddHost={onAddHost}
-          />
-          {HOST_SECTION_ITEMS.map((item) => (
-            <SidebarHostSectionButton
-              key={item.id}
-              itemId={item.id}
-              label={hostSectionLabel(item.id, t)}
-              icon={item.icon}
-              isSelected={selectedHostSection === item.id}
-              onSelect={onSelectHostSection}
-            />
-          ))}
-        </View>
-      ) : (
-        <View style={sidebarStyles.list}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("settings.addHost")}
-            onPress={onAddHost}
-            testID="settings-add-host"
-            style={sidebarItemStyle}
-          >
-            <Plus size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
-            <Text style={sidebarStyles.label} numberOfLines={1}>
-              {t("settings.addHost")}
-            </Text>
-          </Pressable>
-        </View>
-      )}
+      <View style={sidebarStyles.footer}>
+        <SidebarBackButton label={t("settings.back")} onPress={onBackToWorkspace} />
+      </View>
     </View>
   );
 }
@@ -1128,6 +838,10 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
   const webScrollbarStyle = useWebScrollbarStyle();
   const scrollViewStyle = useMemo(
     () => [styles.scrollView, webScrollbarStyle],
+    [webScrollbarStyle],
+  );
+  const desktopScrollViewStyle = useMemo(
+    () => [styles.scrollView, webScrollbarStyle, desktopStyles.detailScrollView],
     [webScrollbarStyle],
   );
   const hosts = useHosts();
@@ -1503,6 +1217,7 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
         />
         <View style={desktopStyles.contentPane}>
           <ScreenHeader
+            style={desktopStyles.detailHeader}
             borderless={!detailHeader}
             windowControlsPaddingRole="detailHeader"
             left={
@@ -1523,7 +1238,7 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
             }
             leftStyle={desktopStyles.detailLeft}
           />
-          <ScrollView style={scrollViewStyle} contentContainerStyle={insetBottomStyle}>
+          <ScrollView style={desktopScrollViewStyle} contentContainerStyle={insetBottomStyle}>
             <View style={styles.content}>{content}</View>
           </ScrollView>
         </View>
@@ -1625,6 +1340,13 @@ const desktopStyles = StyleSheet.create((theme) => ({
   },
   contentPane: {
     flex: 1,
+    backgroundColor: "#fcfcfc",
+  },
+  detailHeader: {
+    backgroundColor: "#fcfcfc",
+  },
+  detailScrollView: {
+    backgroundColor: "#fcfcfc",
   },
   detailLeft: {
     gap: theme.spacing[2],
@@ -1633,19 +1355,30 @@ const desktopStyles = StyleSheet.create((theme) => ({
 
 const sidebarStyles = StyleSheet.create((theme) => ({
   desktopContainer: {
-    width: 320,
+    width: 280,
+    flexDirection: "column",
     borderRightWidth: 1,
     borderRightColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceSidebar,
+    backgroundColor: "#f9f9f9",
+    paddingHorizontal: theme.spacing[3],
   },
   mobileContainer: {
-    paddingVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[2],
+    flex: 1,
+    flexDirection: "column",
+    backgroundColor: "#f9f9f9",
+    paddingVertical: theme.spacing[3],
+    paddingHorizontal: theme.spacing[3],
   },
   list: {
-    paddingVertical: theme.spacing[2],
-    paddingHorizontal: theme.spacing[2],
-    gap: theme.spacing[1],
+    paddingTop: theme.spacing[3],
+    gap: 3,
+  },
+  footer: {
+    marginTop: "auto",
+    paddingTop: theme.spacing[3],
+    paddingBottom: theme.spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0, 0, 0, 0.1)",
   },
   groupLabel: {
     fontSize: theme.fontSize.sm,
@@ -1657,22 +1390,24 @@ const sidebarStyles = StyleSheet.create((theme) => ({
   item: {
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 0,
     gap: theme.spacing[2],
-    minHeight: 36,
-    paddingVertical: theme.spacing[2],
+    height: 36,
     paddingHorizontal: theme.spacing[2],
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: 10,
   },
   itemHovered: {
-    backgroundColor: theme.colors.surfaceSidebarHover,
+    backgroundColor: theme.colors.surface2,
   },
   itemSelected: {
-    backgroundColor: theme.colors.surfaceSidebarHover,
+    backgroundColor: theme.colors.surface0,
+    ...theme.shadow.sm,
   },
   label: {
-    fontSize: theme.fontSize.base,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 22,
     color: theme.colors.foregroundMuted,
-    fontWeight: theme.fontWeight.normal,
+    fontWeight: theme.fontWeight.medium,
     flex: 1,
   },
   localMarker: {

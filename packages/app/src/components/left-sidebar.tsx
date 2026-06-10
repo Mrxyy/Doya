@@ -19,6 +19,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
+import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import {
   DropdownMenu,
@@ -403,6 +404,27 @@ function AccountMenuTrigger({
   );
 }
 
+function ConversationBrandHeader({ onPress }: { onPress: () => void }) {
+  return (
+    <View style={styles.conversationBrandHeader}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Paseo"
+        onPress={onPress}
+        style={styles.conversationBrandButton}
+        testID="sidebar-brand"
+      >
+        <View style={styles.conversationBrandLogo}>
+          <PaseoLogo size={18} />
+        </View>
+        <Text style={styles.conversationBrandText} numberOfLines={1}>
+          Paseo
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function SidebarFooter({
   theme,
   accountSession,
@@ -644,9 +666,15 @@ function MobileSidebar({
       staticStyles.mobileSidebar,
       mobileSidebarInsetStyle,
       sidebarAnimatedStyle,
-      { backgroundColor: theme.colors.surfaceSidebar },
+      { backgroundColor: accountSession ? theme.colors.surface1 : theme.colors.surfaceSidebar },
     ],
-    [mobileSidebarInsetStyle, sidebarAnimatedStyle, theme.colors.surfaceSidebar],
+    [
+      accountSession,
+      mobileSidebarInsetStyle,
+      sidebarAnimatedStyle,
+      theme.colors.surface1,
+      theme.colors.surfaceSidebar,
+    ],
   );
 
   return (
@@ -656,13 +684,17 @@ function MobileSidebar({
       <GestureDetector gesture={closeGesture} touchAction="pan-y">
         <Animated.View style={mobileSidebarStyle} pointerEvents="auto">
           <View style={styles.sidebarContent} pointerEvents="auto">
-            <SidebarHeaderRow
-              icon={MessagesSquare}
-              label={sessionsLabel}
-              onPress={handleViewMore}
-              isActive={isSessionsActive}
-              testID="sidebar-sessions"
-            />
+            {accountSession ? (
+              <ConversationBrandHeader onPress={handleViewMore} />
+            ) : (
+              <SidebarHeaderRow
+                icon={MessagesSquare}
+                label={sessionsLabel}
+                onPress={handleViewMore}
+                isActive={isSessionsActive}
+                testID="sidebar-sessions"
+              />
+            )}
             <Pressable
               style={styles.mobileCloseButton}
               onPress={closeToAgent}
@@ -796,8 +828,12 @@ function DesktopSidebar({
     [resizeAnimatedStyle],
   );
   const desktopSidebarBorderStyle = useMemo(
-    () => [styles.desktopSidebarBorder, { flex: 1, paddingTop: insetsTop }],
-    [insetsTop],
+    () => [
+      styles.desktopSidebarBorder,
+      accountSession && styles.conversationSidebarSurface,
+      { flex: 1, paddingTop: insetsTop },
+    ],
+    [accountSession, insetsTop],
   );
   const resizeHandleStyle = useMemo(
     () => [styles.resizeHandle, isWeb && ({ cursor: "col-resize" } as object)],
@@ -814,13 +850,17 @@ function DesktopSidebar({
         <View style={styles.sidebarDragArea}>
           <TitlebarDragRegion />
           {padding.top > 0 ? <View style={paddingTopSpacerStyle} /> : null}
-          <SidebarHeaderRow
-            icon={MessagesSquare}
-            label={sessionsLabel}
-            onPress={handleViewMore}
-            isActive={isSessionsActive}
-            testID="sidebar-sessions"
-          />
+          {accountSession ? (
+            <ConversationBrandHeader onPress={handleViewMore} />
+          ) : (
+            <SidebarHeaderRow
+              icon={MessagesSquare}
+              label={sessionsLabel}
+              onPress={handleViewMore}
+              isActive={isSessionsActive}
+              testID="sidebar-sessions"
+            />
+          )}
         </View>
 
         {isInitialLoad ? (
@@ -907,6 +947,9 @@ const styles = StyleSheet.create((theme) => ({
     borderRightColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceSidebar,
   },
+  conversationSidebarSurface: {
+    backgroundColor: theme.colors.surface1,
+  },
   resizeHandle: {
     position: "absolute",
     right: -5,
@@ -917,6 +960,34 @@ const styles = StyleSheet.create((theme) => ({
   },
   sidebarDragArea: {
     position: "relative",
+  },
+  conversationBrandHeader: {
+    height: 52,
+    paddingHorizontal: theme.spacing[3],
+    justifyContent: "center",
+    userSelect: "none",
+  },
+  conversationBrandButton: {
+    height: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[2],
+    borderRadius: theme.borderRadius.lg,
+  },
+  conversationBrandLogo: {
+    width: 24,
+    height: 24,
+    borderRadius: theme.borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface0,
+  },
+  conversationBrandText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "500",
+    lineHeight: 22,
   },
   sidebarFooter: {
     flexDirection: "row",
