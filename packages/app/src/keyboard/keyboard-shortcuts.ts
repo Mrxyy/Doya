@@ -80,6 +80,7 @@ interface ShortcutBinding {
   id: string;
   action: KeyboardActionId;
   combo: string;
+  disabled?: boolean;
   repeat?: false;
   when?: ShortcutWhen;
   payload?: ShortcutPayloadDef;
@@ -776,6 +777,37 @@ const SHORTCUT_BINDINGS: readonly ShortcutBinding[] = [
       keys: ["mod", "shift", "F"],
     },
   },
+
+  // --- Theme cycling (disabled while Doya is light-only) ---
+  {
+    id: "theme-cycle-cmd-shift-t-mac",
+    action: "theme.cycle",
+    combo: "Cmd+Alt+T",
+    disabled: true,
+    when: { mac: true, commandCenter: false },
+    help: {
+      id: "cycle-theme",
+      section: "panels",
+      label: translateNow("ui.cycle.theme.1dyeeb3"),
+      keys: ["mod", "alt", "T"],
+      note: translateNow("ui.disabled.5jsqzg"),
+    },
+  },
+  {
+    id: "theme-cycle-ctrl-alt-t-non-mac",
+    action: "theme.cycle",
+    combo: "Ctrl+Alt+T",
+    disabled: true,
+    when: { mac: false, commandCenter: false, terminal: false },
+    help: {
+      id: "cycle-theme",
+      section: "panels",
+      label: translateNow("ui.cycle.theme.1dyeeb3"),
+      keys: ["mod", "alt", "T"],
+      note: translateNow("ui.disabled.5jsqzg"),
+    },
+  },
+
   // --- Message input ---
   {
     id: "message-input-focus-cmd-l-mac",
@@ -1130,6 +1162,9 @@ function resolveInitialChordStep(input: {
   let singleComboMatch: KeyboardShortcutMatch | null = null;
 
   for (const [index, binding] of bindings.entries()) {
+    if (binding.disabled) {
+      continue;
+    }
     const firstCombo = binding.parsedChord[0];
     if (!firstCombo) {
       continue;
@@ -1186,6 +1221,9 @@ function resolveAdvancingChordStep(input: {
   for (const index of chordState.candidateIndices) {
     const binding = bindings[index];
     if (!binding) {
+      continue;
+    }
+    if (binding.disabled) {
       continue;
     }
     const combo = binding.parsedChord[chordState.step];

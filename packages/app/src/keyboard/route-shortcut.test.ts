@@ -294,6 +294,12 @@ describe("routeKeyboardShortcut — callbacks and pickers", () => {
       routeKeyboardShortcut({ action: "agent.new", payload: null }, makeCtx()),
     ).toEqual<ShortcutAction>({ kind: "open-project-picker" });
   });
+
+  it("theme.cycle is disabled", () => {
+    expect(
+      routeKeyboardShortcut({ action: "theme.cycle", payload: null }, makeCtx()),
+    ).toEqual<ShortcutAction>({ kind: "none" });
+  });
 });
 
 describe("routeKeyboardShortcut — toggle dialogs", () => {

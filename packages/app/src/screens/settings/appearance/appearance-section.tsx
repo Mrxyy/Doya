@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Text, TextInput, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { ChevronDown, Monitor } from "lucide-react-native";
+import { ChevronDown, Monitor, Moon, Sun } from "lucide-react-native";
 import {
   SYNTAX_THEME_OPTIONS,
   type SyntaxThemeId,
@@ -11,6 +11,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SettingsSection } from "@/screens/settings/settings-section";
@@ -22,6 +23,7 @@ import {
   parseClampedFontSize,
   sanitizeFontFamily,
   useAppSettings,
+  type AppSettings,
   type LanguageSetting,
 } from "@/hooks/use-settings";
 import { useI18n, translateNow } from "@/i18n/i18n";
@@ -29,17 +31,36 @@ import {
   DEFAULT_MONO_FONT_STACK,
   DEFAULT_UI_FONT_STACK,
   ICON_SIZE,
+  THEME_SWATCHES,
   type Theme,
 } from "@/styles/theme";
 import { isNative } from "@/constants/platform";
 import { settingsStyles } from "@/styles/settings";
 import { AppearancePreview } from "./appearance-preview";
 
+const ThemedSun = withUnistyles(Sun);
+const ThemedMoon = withUnistyles(Moon);
 const ThemedMonitor = withUnistyles(Monitor);
 const ThemedChevronDown = withUnistyles(ChevronDown);
 
 const mutedColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 
+const THEME_LABELS: Record<Exclude<AppSettings["theme"], "auto">, string> = {
+  light: "Light",
+  dark: "Dark",
+  zinc: "Zinc",
+  midnight: "Midnight",
+  claude: "Claude",
+  ghostty: "Ghostty",
+};
+
+const PRIMARY_THEMES: readonly AppSettings["theme"][] = ["light", "dark", "auto"];
+const DARK_VARIANT_THEMES: readonly AppSettings["theme"][] = [
+  "zinc",
+  "midnight",
+  "claude",
+  "ghostty",
+];
 const LANGUAGE_VALUES: readonly LanguageSetting[] = ["system", "en", "zh"];
 
 // Platform default stacks can be the bare native tokens ("normal"/"monospace");
@@ -63,6 +84,106 @@ function sizeDraftToOverride(value: string): number | undefined {
 
 function dropdownTriggerStyle({ pressed }: PressableStateCallbackType) {
   return [styles.trigger, pressed ? styles.triggerPressed : null];
+}
+
+interface ThemeLeadingProps {
+  themeValue: AppSettings["theme"];
+}
+
+function ThemeLeading({ themeValue }: ThemeLeadingProps) {
+  switch (themeValue) {
+    case "light":
+      return <ThemedSun size={ICON_SIZE.md} uniProps={mutedColorMapping} />;
+    case "dark":
+      return <ThemedMoon size={ICON_SIZE.md} uniProps={mutedColorMapping} />;
+    case "auto":
+      return <ThemedMonitor size={ICON_SIZE.md} uniProps={mutedColorMapping} />;
+    default:
+      return <ThemeSwatch color={THEME_SWATCHES[themeValue]} />;
+  }
+}
+
+interface ThemeSwatchProps {
+  color: string;
+}
+
+function ThemeSwatch({ color }: ThemeSwatchProps) {
+  const swatchStyle = useMemo(() => [styles.swatch, { backgroundColor: color }], [color]);
+  return <View style={swatchStyle} />;
+}
+
+interface ThemeMenuItemProps {
+  themeValue: AppSettings["theme"];
+  selected: boolean;
+  onChange: (theme: AppSettings["theme"]) => void;
+}
+
+function ThemeMenuItem({ themeValue, selected, onChange }: ThemeMenuItemProps) {
+  const { t } = useI18n();
+  const disabled = themeValue !== "light";
+  const handleSelect = useCallback(() => {
+    onChange(themeValue);
+  }, [onChange, themeValue]);
+  const leading = useMemo(() => <ThemeLeading themeValue={themeValue} />, [themeValue]);
+  return (
+    <DropdownMenuItem
+      selected={selected}
+      disabled={disabled}
+      onSelect={handleSelect}
+      leading={leading}
+    >
+      {themeLabel(themeValue, t)}
+    </DropdownMenuItem>
+  );
+}
+
+interface ThemeRowProps {
+  value: AppSettings["theme"];
+  onChange: (theme: AppSettings["theme"]) => void;
+}
+
+function ThemeRow({ value, onChange }: ThemeRowProps) {
+  const { t } = useI18n();
+  return (
+    <View style={settingsStyles.row}>
+      <View style={settingsStyles.rowContent}>
+        <Text style={settingsStyles.rowTitle}>{t("settings.appearance.theme")}</Text>
+      </View>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          style={dropdownTriggerStyle}
+          accessibilityLabel={`${t("settings.appearance.theme")}: ${themeLabel(value, t)}`}
+        >
+          <ThemeLeading themeValue={value} />
+          <Text style={styles.triggerText}>{themeLabel(value, t)}</Text>
+          <ThemedChevronDown size={ICON_SIZE.sm} uniProps={mutedColorMapping} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="bottom" align="end" width={200}>
+          {PRIMARY_THEMES.map((themeValue) => (
+            <ThemeMenuItem
+              key={themeValue}
+              themeValue={themeValue}
+              selected={value === themeValue}
+              onChange={onChange}
+            />
+          ))}
+          <DropdownMenuSeparator />
+          {DARK_VARIANT_THEMES.map((themeValue) => (
+            <ThemeMenuItem
+              key={themeValue}
+              themeValue={themeValue}
+              selected={value === themeValue}
+              onChange={onChange}
+            />
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </View>
+  );
+}
+
+function themeLabel(theme: AppSettings["theme"], t: ReturnType<typeof useI18n>["t"]): string {
+  return theme === "auto" ? t("settings.appearance.themeSystem") : THEME_LABELS[theme];
 }
 
 interface LanguageMenuItemProps {
@@ -91,7 +212,7 @@ interface LanguageRowProps {
 function LanguageRow({ value, onChange }: LanguageRowProps) {
   const { t } = useI18n();
   return (
-    <View style={settingsStyles.row}>
+    <View style={styles.rowWithBorder}>
       <View style={settingsStyles.rowContent}>
         <Text style={settingsStyles.rowTitle}>{t("settings.language.title")}</Text>
       </View>
@@ -313,6 +434,13 @@ export function AppearanceSection() {
     setCodeSizeDraft(String(settings.codeFontSize));
   }, [settings.codeFontSize]);
 
+  const handleThemeChange = useCallback(
+    (theme: AppSettings["theme"]) => {
+      void updateSettings({ theme });
+    },
+    [updateSettings],
+  );
+
   const handleLanguageChange = useCallback(
     (language: LanguageSetting) => {
       void updateSettings({ language });
@@ -402,8 +530,9 @@ export function AppearanceSection() {
 
   return (
     <View>
-      <SettingsSection title={t("settings.language.title")}>
+      <SettingsSection title={t("settings.appearance.theme")}>
         <View style={settingsStyles.card}>
+          <ThemeRow value={settings.theme} onChange={handleThemeChange} />
           <LanguageRow value={settings.language} onChange={handleLanguageChange} />
         </View>
       </SettingsSection>
@@ -493,6 +622,13 @@ const styles = StyleSheet.create((theme) => ({
   triggerText: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
+  },
+  swatch: {
+    width: ICON_SIZE.md,
+    height: ICON_SIZE.md,
+    borderRadius: ICON_SIZE.md / 2,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
   },
   fontFamilyInput: {
     flexGrow: 1,

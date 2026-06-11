@@ -446,6 +446,11 @@ describe("keyboard-shortcuts", () => {
       event: { key: "\u2020", code: "KeyT", altKey: true },
       context: { isMac: true },
     },
+    {
+      name: "does not cycle theme because the theme shortcut is disabled",
+      event: { key: "\u2020", code: "KeyT", metaKey: true, altKey: true },
+      context: { isMac: true },
+    },
   ];
 
   it.each(nonMatchingCases)("$name", ({ event, context }) => {
@@ -536,6 +541,7 @@ describe("keyboard-shortcut help sections", () => {
         "workspace-tab-close-current": ["alt", "shift", "W"],
         "workspace-pane-split-right": ["mod", "\\"],
         "workspace-pane-close": ["mod", "shift", "W"],
+        "cycle-theme": ["mod", "alt", "T"],
       },
     },
     {
@@ -575,5 +581,11 @@ describe("keyboard-shortcut help sections", () => {
     for (const [id, keys] of Object.entries(expectedKeys)) {
       expect(findRow(sections, id)?.keys).toEqual(keys);
     }
+  });
+
+  it("marks the theme cycle shortcut as disabled", () => {
+    const sections = buildKeyboardShortcutHelpSections({ isMac: true, isDesktop: false });
+
+    expect(findRow(sections, "cycle-theme")?.note).toBe("Disabled");
   });
 });
