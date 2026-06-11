@@ -21,11 +21,14 @@ export function resolveLocale(language: string): Locale {
 
 export function translate(key: TranslationKey, locale: Locale, params?: TranslationParams): string {
   const template = translations[locale][key] ?? translations.en[key];
-  if (!params) {
-    return template;
-  }
+  const mergedParams: TranslationParams = {
+    brand: translations[locale]["brand.name"],
+    brandEnglish: translations[locale]["brand.nameEnglish"],
+    brandChinese: translations[locale]["brand.nameChinese"],
+    ...params,
+  };
   return template.replace(/\{(\w+)\}/g, (match, name: string) => {
-    const value = params[name];
+    const value = mergedParams[name];
     return value === undefined ? match : String(value);
   });
 }

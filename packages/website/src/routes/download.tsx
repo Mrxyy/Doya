@@ -20,8 +20,8 @@ import "~/styles.css";
 export const Route = createFileRoute("/download")({
   head: () =>
     pageMeta(
-      "Download Paseo for macOS, Windows, Linux, iOS, and Android",
-      "Install Paseo on every platform. Native desktop apps for macOS, Windows, and Linux. Mobile apps for iOS and Android. Self-hosted, open source, free to download.",
+      "Download Doya for macOS, Windows, Linux, iOS, and Android",
+      "Install Doya on every platform. Native desktop apps for macOS, Windows, and Linux. Mobile apps for iOS and Android. Self-hosted, open source, free to download.",
       "/download",
     ),
   component: Download,
@@ -165,7 +165,7 @@ function Download() {
           <div>
             <h2 className="text-2xl font-semibold">Server</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Run the Paseo server anywhere, connect from any client
+              Run the Doya server anywhere, connect from any client
             </p>
           </div>
           <TerminalIcon className="h-5 w-5 text-muted-foreground mt-1.5" />

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { resolveAppVersion } from "@/utils/app-version";
 import { formatVersionWithPrefix } from "@/desktop/updates/desktop-updates";
 import { buildHostRootRoute } from "@/utils/host-routes";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { DoyaLogo } from "@/components/icons/doya-logo";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { isWeb, isNative } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
@@ -263,7 +263,7 @@ export function WelcomeScreen({ onHostAdded }: WelcomeScreenProps) {
         testID="welcome-screen"
       >
         <View style={styles.content}>
-          <PaseoLogo size={96} />
+          <DoyaLogo size={96} />
           <View style={styles.copyBlock}>
             <Text style={styles.title}>{translateNow("ui.welcome.to.paseo.10q1ihx")}</Text>
             <Text style={styles.subtitle}>

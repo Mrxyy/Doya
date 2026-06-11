@@ -1,17 +1,17 @@
 ---
 title: Configuration
-description: Configure Paseo via config.json, environment variables, and CLI overrides.
+description: Configure Doya via config.json, environment variables, and CLI overrides.
 nav: Configuration
 order: 10
 ---
 
 # Configuration
 
-Paseo loads configuration from a single JSON file in your Paseo home directory, with optional environment variable and CLI overrides.
+Doya loads configuration from a single JSON file in your Doya home directory, with optional environment variable and CLI overrides.
 
 ## Where config lives
 
-By default, Paseo uses `~/.paseo` as its home directory. The configuration file is:
+By default, Doya uses `~/.paseo` as its home directory. The configuration file is:
 
 ```bash
 ~/.paseo/config.json
@@ -21,7 +21,7 @@ You can change the home directory by setting `PASEO_HOME` or passing `--home` to
 
 ## Precedence
 
-Paseo merges configuration in this order:
+Doya merges configuration in this order:
 
 1. Defaults
 2. `config.json`
@@ -50,9 +50,9 @@ Minimal example that configures listening address, hostnames, and MCP:
 
 ## Agent providers
 
-Agent providers, both the first-class ones Paseo ships with and custom entries you add under `agents.providers`, are documented on their own page.
+Agent providers, both the first-class ones Doya ships with and custom entries you add under `agents.providers`, are documented on their own page.
 
-See [Providers](/docs/providers) for the mental model and [Supported providers](/docs/supported-providers) for the full list of agents Paseo can launch. For pointing Claude at Anthropic-compatible endpoints (Z.AI, Alibaba/Qwen), multiple profiles, custom binaries, ACP agents, and the `additionalModels` merge behavior, see [Custom providers](/docs/custom-providers). The full field reference lives on GitHub at [docs/custom-providers.md](https://github.com/getpaseo/paseo/blob/main/docs/custom-providers.md).
+See [Providers](/docs/providers) for the mental model and [Supported providers](/docs/supported-providers) for the full list of agents Doya can launch. For pointing Claude at Anthropic-compatible endpoints (Z.AI, Alibaba/Qwen), multiple profiles, custom binaries, ACP agents, and the `additionalModels` merge behavior, see [Custom providers](/docs/custom-providers). The full field reference lives on GitHub at [docs/custom-providers.md](https://github.com/getpaseo/paseo/blob/main/docs/custom-providers.md).
 
 ## Worktrees
 
@@ -66,7 +66,7 @@ New worktrees are created under `$PASEO_HOME/worktrees` by default. To place new
 }
 ```
 
-Relative paths are resolved against `PASEO_HOME`. Existing worktrees remain where they are; changing this setting only changes where Paseo creates and discovers Paseo-managed worktrees going forward.
+Relative paths are resolved against `PASEO_HOME`. Existing worktrees remain where they are; changing this setting only changes where Doya creates and discovers Doya-managed worktrees going forward.
 
 ## Voice
 
@@ -158,7 +158,7 @@ In the mobile app, enter the password in the direct connection setup screen.
 
 ## Common env vars
 
-- `PASEO_HOME`, set Paseo home directory
+- `PASEO_HOME`, set Doya home directory
 - `PASEO_PASSWORD`, on the daemon, the password to require (plaintext, hashed at startup); on the CLI, the password used to connect when the host URI doesn't include one
 - `PASEO_LISTEN`, override `daemon.listen`
 - `PASEO_HOSTNAMES`, override/extend `daemon.hostnames`

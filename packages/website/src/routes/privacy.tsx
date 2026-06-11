@@ -5,8 +5,8 @@ import { pageMeta } from "~/meta";
 export const Route = createFileRoute("/privacy")({
   head: () =>
     pageMeta(
-      "Privacy Policy - Paseo",
-      "Privacy policy for Paseo, the self-hosted coding agent manager. No tracking, no analytics, no data collection. Your code stays on your machine.",
+      "Privacy Policy - Doya",
+      "Privacy policy for Doya, the self-hosted coding agent manager. No tracking, no analytics, no data collection. Your code stays on your machine.",
       "/privacy",
     ),
   component: Privacy,
@@ -19,13 +19,13 @@ function Privacy() {
 
       <div className="space-y-6 text-white/70 leading-relaxed">
         <p>
-          Paseo is a self-hosted tool for managing coding agents. Your code and data stay on your
+          Doya is a self-hosted tool for managing coding agents. Your code and data stay on your
           machine.
         </p>
 
         <section className="space-y-3">
           <h2 className="text-xl font-medium text-white">What we collect</h2>
-          <p>Nothing. Paseo runs on your machine and doesn&apos;t send us any data.</p>
+          <p>Nothing. Doya runs on your machine and doesn&apos;t send us any data.</p>
         </section>
 
         <section className="space-y-3">
@@ -57,8 +57,8 @@ function Privacy() {
         <section className="space-y-3">
           <h2 className="text-xl font-medium text-white">Third-party services</h2>
           <p>
-            Paseo wraps agent providers like Claude Code, Codex, and OpenCode. Those tools
-            communicate with their own APIs (Anthropic, OpenAI, etc.) using your credentials. Paseo
+            Doya wraps agent providers like Claude Code, Codex, and OpenCode. Those tools
+            communicate with their own APIs (Anthropic, OpenAI, etc.) using your credentials. Doya
             doesn&apos;t manage or intercept those API calls.
           </p>
           <p>
@@ -69,7 +69,7 @@ function Privacy() {
 
         <section className="space-y-3">
           <h2 className="text-xl font-medium text-white">We don&apos;t sell your data</h2>
-          <p>We don&apos;t have your data to sell. Paseo is self-hosted and local-first.</p>
+          <p>We don&apos;t have your data to sell. Doya is self-hosted and local-first.</p>
         </section>
 
         <section className="space-y-3">

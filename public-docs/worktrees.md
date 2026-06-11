@@ -20,7 +20,7 @@ Worktrees live under `$PASEO_HOME/worktrees/` by default, grouped by a hash of t
     └── bold-owl/
 ```
 
-With a custom root, Paseo keeps the same hashed layout under that directory:
+With a custom root, Doya keeps the same hashed layout under that directory:
 
 ```json
 {
@@ -30,14 +30,14 @@ With a custom root, Paseo keeps the same hashed layout under that directory:
 }
 ```
 
-1. Create a worktree, Paseo runs your setup hooks
+1. Create a worktree, Doya runs your setup hooks
 2. Launch an agent, a branch is created or assigned
 3. Review the diff against the base branch
 4. Merge or archive, archive runs teardown and removes the directory
 
 ## paseo.json
 
-Drop a `paseo.json` in your repo root. Paseo reads it from the committed version of the base branch you picked, so uncommitted changes in other branches don't apply.
+Drop a `paseo.json` in your repo root. Doya reads it from the committed version of the base branch you picked, so uncommitted changes in other branches don't apply.
 
 ```json
 {
@@ -71,7 +71,7 @@ Commands run with the worktree as `cwd`. Use `$PASEO_SOURCE_CHECKOUT_PATH` to re
 
 ## Scripts and services
 
-`scripts` are named commands you can run inside a worktree on demand. Mark one as a _service_ and Paseo supervises it as a long-running process, assigns it a port, and routes HTTP traffic to it through the daemon's reverse proxy.
+`scripts` are named commands you can run inside a worktree on demand. Mark one as a _service_ and Doya supervises it as a long-running process, assigns it a port, and routes HTTP traffic to it through the daemon's reverse proxy.
 
 ### Plain scripts
 
@@ -103,7 +103,7 @@ Commands run with the worktree as `cwd`. Use `$PASEO_SOURCE_CHECKOUT_PATH` to re
 }
 ```
 
-Omit `port` to let Paseo auto-assign one. Bind your process to `$PASEO_PORT` rather than hard-coding, each worktree gets a distinct port so multiple copies of the same service coexist.
+Omit `port` to let Doya auto-assign one. Bind your process to `$PASEO_PORT` rather than hard-coding, each worktree gets a distinct port so multiple copies of the same service coexist.
 
 ### Reverse proxy
 

@@ -1,6 +1,6 @@
 ---
 title: Custom providers
-description: Configure custom providers, alternative endpoints, profiles, custom binaries, and ACP agents in ~/.paseo/config.json.
+description: Configure custom providers, alternative endpoints, profiles, custom binaries, and ACP agents in the Doya config file.
 nav: Custom providers
 order: 5
 ---
@@ -132,7 +132,7 @@ Create as many entries as you want against the same first-class provider. Each o
 
 ## ACP providers
 
-Any agent that speaks [ACP](https://agentclientprotocol.com) over stdio can be added with `extends: "acp"` and a `command`. Paseo spawns the process, sends an `initialize` JSON-RPC request, and the agent reports its capabilities, modes, and models at runtime.
+Any agent that speaks [ACP](https://agentclientprotocol.com) over stdio can be added with `extends: "acp"` and a `command`. Doya spawns the process, sends an `initialize` JSON-RPC request, and the agent reports its capabilities, modes, and models at runtime.
 
 ```json
 {

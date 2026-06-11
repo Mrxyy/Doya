@@ -1,8 +1,7 @@
 import { router, usePathname } from "expo-router";
 import { Home, LogOut, MessagesSquare, Settings, UserRound, X } from "lucide-react-native";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
-  type ComponentType,
   Pressable,
   ScrollView,
   StyleSheet as RNStyleSheet,
@@ -21,7 +20,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { DoyaLogo } from "@/components/icons/doya-logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -391,20 +390,23 @@ function AccountMenuTrigger({
 }
 
 function ConversationBrandHeader({ onPress }: { onPress: () => void }) {
+  const { t } = useI18n();
+  const brandName = t("brand.name");
+
   return (
     <View style={styles.conversationBrandHeader}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Paseo"
+        accessibilityLabel={brandName}
         onPress={onPress}
         style={styles.conversationBrandButton}
         testID="sidebar-brand"
       >
         <View style={styles.conversationBrandLogo}>
-          <PaseoLogo size={18} />
+          <DoyaLogo size={24} />
         </View>
         <Text style={styles.conversationBrandText} numberOfLines={1}>
-          Paseo
+          {brandName}
         </Text>
       </Pressable>
     </View>
@@ -1167,10 +1169,8 @@ const styles = StyleSheet.create((theme) => ({
   conversationBrandLogo: {
     width: 24,
     height: 24,
-    borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.surface0,
   },
   conversationBrandText: {
     color: theme.colors.foreground,

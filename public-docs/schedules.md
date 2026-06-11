@@ -1,6 +1,6 @@
 ---
 title: Schedules
-description: Run Paseo agents on intervals or cron.
+description: Run Doya agents on intervals or cron.
 nav: Schedules
 order: 8
 ---
@@ -110,4 +110,4 @@ When targeting a remote daemon with `--host`, pass `--cwd`; your local working d
 
 ## MCP
 
-Agents can create and manage schedules through [Paseo MCP](/docs/mcp).
+Agents can create and manage schedules through [Doya MCP](/docs/mcp).

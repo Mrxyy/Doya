@@ -19,8 +19,7 @@ import { useCliInstall, useSkillsStatus } from "@/desktop/hooks/use-install-stat
 const CLI_DOCS_URL = "https://paseo.sh/docs/cli";
 const SKILLS_DOCS_URL = "https://paseo.sh/docs/skills";
 const ROW_WITH_BORDER_STYLE = [settingsStyles.row, settingsStyles.rowBorder];
-const UNINSTALL_MESSAGE =
-  "Removes all Paseo orchestration skills from ~/.agents, ~/.claude, ~/.codex.";
+const UNINSTALL_MESSAGE = `Removes all ${translateNow("brand.nameEnglish")} orchestration skills from ~/.agents, ~/.claude, ~/.codex.`;
 
 const OP_KIND_ORDER: Record<SkillOp["kind"], number> = { add: 0, update: 1, delete: 2 };
 const OP_KIND_LABEL: Record<SkillOp["kind"], string> = {

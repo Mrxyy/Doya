@@ -56,7 +56,7 @@ export function useBuiltInDaemonManagement(
       reportError({
         error,
         message: settings.manageBuiltInDaemon
-          ? "Built-in daemon management was paused, but Paseo could not stop the daemon."
+          ? `Built-in daemon management was paused, but ${translateNow("brand.nameEnglish")} could not stop the daemon.`
           : "Unable to update built-in daemon management.",
         logLabel: "[Settings] Failed to update built-in daemon management",
       });

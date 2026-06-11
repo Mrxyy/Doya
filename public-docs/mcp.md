@@ -1,13 +1,13 @@
 ---
-title: Paseo MCP
-description: Paseo MCP tools injected into agents.
-nav: Paseo MCP
+title: Doya MCP
+description: Doya MCP tools injected into agents.
+nav: Doya MCP
 order: 7
 ---
 
-# Paseo MCP
+# Doya MCP
 
-Paseo can inject these MCP tools into every new agent it launches. Turn on **Inject Paseo tools** in host settings, or set `daemon.mcp.injectIntoAgents` to `true`.
+Doya can inject these MCP tools into every new agent it launches. Turn on **Inject Doya tools** in host settings, or set `daemon.mcp.injectIntoAgents` to `true`.
 
 The MCP server itself is controlled by `daemon.mcp.enabled`. Existing agents may need a reload.
 
@@ -60,11 +60,11 @@ The MCP server itself is controlled by `daemon.mcp.enabled`. Existing agents may
 
 ### Worktrees
 
-| Tool               | Function                                                                      |
-| ------------------ | ----------------------------------------------------------------------------- |
-| `list_worktrees`   | List Paseo-managed git worktrees for a repository.                            |
-| `create_worktree`  | Create a Paseo-managed git worktree from a branch, base branch, or GitHub PR. |
-| `archive_worktree` | Delete a Paseo-managed git worktree.                                          |
+| Tool               | Function                                                                     |
+| ------------------ | ---------------------------------------------------------------------------- |
+| `list_worktrees`   | List Doya-managed git worktrees for a repository.                            |
+| `create_worktree`  | Create a Doya-managed git worktree from a branch, base branch, or GitHub PR. |
+| `archive_worktree` | Delete a Doya-managed git worktree.                                          |
 
 ### Permissions
 

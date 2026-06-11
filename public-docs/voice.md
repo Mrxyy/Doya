@@ -1,17 +1,17 @@
 ---
 title: Voice
-description: Paseo voice architecture, local-first model execution, and provider configuration.
+description: Doya voice architecture, local-first model execution, and provider configuration.
 nav: Voice
 order: 9
 ---
 
 # Voice
 
-Paseo has first-class voice support for dictation and realtime conversations with your coding environment.
+Doya has first-class voice support for dictation and realtime conversations with your coding environment.
 
 ## Philosophy
 
-Voice is local-first. You can run speech fully on-device, or choose OpenAI for speech features. For voice reasoning/orchestration, Paseo reuses agent providers already installed and authenticated on your machine.
+Voice is local-first. You can run speech fully on-device, or choose OpenAI for speech features. For voice reasoning/orchestration, Doya reuses agent providers already installed and authenticated on your machine.
 
 This keeps credentials and execution in your environment and avoids introducing a separate cloud-only voice stack.
 
@@ -71,7 +71,7 @@ For multilingual local dictation, set the model to v3 — it auto-detects the la
 }
 ```
 
-The `language` field applies only to the OpenAI STT provider: set `features.dictation.stt.language` for dictation and `features.voiceMode.stt.language` for realtime voice. If voice language is omitted, Paseo uses the dictation language before falling back to `en`. It has no effect on the local Parakeet models.
+The `language` field applies only to the OpenAI STT provider: set `features.dictation.stt.language` for dictation and `features.voiceMode.stt.language` for realtime voice. If voice language is omitted, Doya uses the dictation language before falling back to `en`. It has no effect on the local Parakeet models.
 
 ## OpenAI Speech Option
 

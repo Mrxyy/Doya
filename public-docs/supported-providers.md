@@ -1,13 +1,13 @@
 ---
-title: Supported providers
-description: Every coding agent Paseo can launch, natively supported providers and the ACP catalog.
+title: Doya supported providers
+description: Every coding agent Doya can launch, natively supported providers and the ACP catalog.
 nav: Supported providers
 order: 4
 ---
 
-# Supported providers
+# Doya supported providers
 
-For the concept and how Paseo manages providers, see [Providers](/docs/providers). To add or configure your own, see [Custom providers](/docs/custom-providers).
+For the concept and how Doya manages providers, see [Providers](/docs/providers). To add or configure your own, see [Custom providers](/docs/custom-providers).
 
 ## Native support
 

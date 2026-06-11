@@ -1,13 +1,13 @@
 ---
-title: Why Paseo?
-description: What Paseo is, what it isn't, and how it fits into your workflow.
-nav: Why Paseo?
+title: Why Doya?
+description: What Doya is, what it isn't, and how it fits into your workflow.
+nav: Why Doya?
 order: 2
 ---
 
-# Why Paseo?
+# Why Doya?
 
-Paseo is a self-hostable platform for running and orchestrating coding agents. It runs the agent CLIs you already use, on the hardware you already have, and gives you a UI, CLI, and API to drive them from anywhere.
+Doya is a self-hostable platform for running and orchestrating coding agents. It runs the agent CLIs you already use, on the hardware you already have, and gives you a UI, CLI, and API to drive them from anywhere.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ Paseo is a self-hostable platform for running and orchestrating coding agents. I
 
 ## Providers
 
-- Bring your own. Use your Claude subscription, your OpenAI account, your own API keys, a self-hosted endpoint. Paseo doesn't proxy model calls.
+- Bring your own. Use your Claude subscription, your OpenAI account, your own API keys, a self-hosted endpoint. Doya doesn't proxy model calls.
 - Local voice stack. Speech-to-text and text-to-speech run on-device by default. OpenAI providers are configurable if you want cloud quality.
 - Open source. No telemetry on your code.
 
@@ -36,8 +36,8 @@ Paseo is a self-hostable platform for running and orchestrating coding agents. I
 ## Automation
 
 - The CLI exposes the same surface as the app. Anything in the UI is scriptable.
-- MCP server. Agents can drive Paseo themselves: create worktrees, spawn other agents, open terminals, send prompts.
+- MCP server. Agents can drive Doya themselves: create worktrees, spawn other agents, open terminals, send prompts.
 
 ## What it isn't
 
-Not a hosted agent, not an IDE, not a model provider. Paseo runs the CLIs you already use and stays out of the way.
+Not a hosted agent, not an IDE, not a model provider. Doya runs the CLIs you already use and stays out of the way.

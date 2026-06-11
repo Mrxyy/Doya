@@ -90,8 +90,7 @@ const WORKTREE_DOCS_TOOLTIP =
   "See docs for more details and the environment variables available to these commands";
 const SCRIPTS_GROUP_INFO =
   "Long-running services and one-off commands you can launch from any agent in this project";
-const METADATA_GROUP_INFO =
-  "Project-specific instructions injected into the AI prompts Paseo uses to generate metadata — use them to enforce your team's conventions like branch naming, commit style, or PR format";
+const METADATA_GROUP_INFO = `Project-specific instructions injected into the AI prompts ${translateNow("brand.nameEnglish")} uses to generate metadata — use them to enforce your team's conventions like branch naming, commit style, or PR format`;
 
 const NO_TARGET_MESSAGE = "We don't have an editable copy of this project on any connected host.";
 

@@ -28,7 +28,6 @@ const VIEWPORT_60 = { once: true, margin: "-60px" };
 
 const SVG_OVERFLOW_VISIBLE_STYLE = { overflow: "visible" as const };
 const PHONE_PERSPECTIVE_STYLE = { minHeight: 480, perspective: 1200 };
-import { CursorFieldProvider } from "~/components/butterfly";
 import { CommandDialog } from "~/components/command-dialog";
 import { AGENT_PAGES } from "~/data/agent-pages";
 import {
@@ -58,8 +57,7 @@ interface LandingPageProps {
 
 export function LandingPage({ title, subtitle }: LandingPageProps) {
   return (
-    <CursorFieldProvider>
-      {/* Hero section with background image */}
+    <>
       <div className="relative bg-cover bg-center bg-no-repeat">
         <div className="relative p-6 pb-10 md:px-32 md:pt-20 md:pb-12 max-w-7xl mx-auto">
           <Nav />
@@ -99,7 +97,7 @@ export function LandingPage({ title, subtitle }: LandingPageProps) {
         </main>
         <SiteFooter />
       </div>
-    </CursorFieldProvider>
+    </>
   );
 }
 
@@ -192,7 +190,7 @@ const SOCIAL_PROOF_TWEETS = [
     date: "May 28, 2026",
     avatar: "/social-proof/arnoldgamboa.jpg",
     url: "https://x.com/arnoldgamboa/status/2059832028099436921",
-    text: "Paseo is a really good interface for Pi. It’s not the only thing it does, but that’s my current use case for now.",
+    text: "Doya is a really good interface for Pi. It’s not the only thing it does, but that’s my current use case for now.",
   },
   {
     name: "Dong",
@@ -200,7 +198,7 @@ const SOCIAL_PROOF_TWEETS = [
     date: "Apr 12, 2026",
     avatar: "/social-proof/dongnaebi.jpg",
     url: "https://x.com/dongnaebi/status/2043162391941398735",
-    text: "Paseo is the best software I've used this year. Absolutely amazing!",
+    text: "Doya is the best software I've used this year. Absolutely amazing!",
   },
 ] as const;
 
@@ -281,7 +279,7 @@ function SocialProofWall() {
     >
       <SectionTitle
         title="Loved by developers"
-        description="See what developers are saying about Paseo."
+        description="See what developers are saying about Doya."
       />
 
       <div className="social-proof-marquee space-y-4 overflow-hidden">
@@ -361,7 +359,7 @@ function MultiProviderSection() {
   return (
     <FeatureSection
       title="Use the best agent for the job"
-      description="Run multiple providers from a single interface. Paseo runs the native agent harness as you'd normally run it, with your skills, config and MCP servers intact."
+      description="Run multiple providers from a single interface. Doya runs the native agent harness as you'd normally run it, with your skills, config and MCP servers intact."
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {providers.map((p) => (
@@ -678,7 +676,7 @@ function ServiceProxySection() {
   return (
     <FeatureSection
       title="Forget about ports"
-      description="When agents work in parallel, they all run dev servers. Paseo gives each one a URL based on the branch name, no port conflicts, no guessing."
+      description="When agents work in parallel, they all run dev servers. Doya gives each one a URL based on the branch name, no port conflicts, no guessing."
     >
       <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
         <div className="px-5 py-4 space-y-3">
@@ -1100,7 +1098,7 @@ function ServerInstallButton() {
     <CommandDialog
       trigger={SERVER_INSTALL_TRIGGER}
       title="Run agents on a remote machine"
-      description="For headless machines you want to connect to from the Paseo apps. The desktop app already includes a built-in daemon."
+      description="For headless machines you want to connect to from the Doya apps. The desktop app already includes a built-in daemon."
       command="npm install -g @getpaseo/cli && paseo"
       footnote={SERVER_INSTALL_FOOTNOTE}
     />
@@ -1492,7 +1490,7 @@ function PhoneShowcase() {
             src="/phone-1-480.webp"
             srcSet="/phone-1-320.webp 320w, /phone-1-480.webp 480w"
             sizes="(min-width: 768px) 240px, 160px"
-            alt="Paseo sessions list"
+            alt="Doya sessions list"
             width={480}
             height={1044}
             loading="lazy"
@@ -1512,7 +1510,7 @@ function PhoneShowcase() {
             src="/phone-2-480.webp"
             srcSet="/phone-2-320.webp 320w, /phone-2-480.webp 480w"
             sizes="(min-width: 768px) 240px, 220px"
-            alt="Paseo agent chat"
+            alt="Doya agent chat"
             width={480}
             height={1044}
             loading="lazy"
@@ -1527,7 +1525,7 @@ function PhoneShowcase() {
             src="/phone-3-480.webp"
             srcSet="/phone-3-320.webp 320w, /phone-3-480.webp 480w"
             sizes="(min-width: 768px) 240px, 160px"
-            alt="Paseo diff view"
+            alt="Doya diff view"
             width={480}
             height={1044}
             loading="lazy"
@@ -1627,12 +1625,12 @@ function FAQ() {
       <h2 className="text-3xl font-medium">FAQ</h2>
       <div className="space-y-6">
         <FAQItem question="Is this free?">
-          Yes. Paseo is free and open source. You need Claude Code, Codex, Copilot, OpenCode, or Pi
+          Yes. Doya is free and open source. You need Claude Code, Codex, Copilot, OpenCode, or Pi
           installed with your own credentials. Voice is local-first by default and can optionally
           use OpenAI speech providers if you configure them.
         </FAQItem>
         <FAQItem question="Does my code leave my machine?">
-          Paseo doesn&apos;t send your code anywhere. Agents run locally and talk to their own APIs
+          Doya doesn&apos;t send your code anywhere. Agents run locally and talk to their own APIs
           as they normally would. For remote access, you can use the optional{" "}
           <a href="/docs/security" className="underline hover:text-white/80">
             end-to-end encrypted relay
@@ -1641,7 +1639,7 @@ function FAQ() {
         </FAQItem>
         <FAQItem question="What agents does it support?">
           Claude Code, Codex, Copilot, OpenCode, and Pi. Each agent runs as its own process using
-          its own CLI or local integration. Paseo doesn&apos;t modify or wrap their behavior.
+          its own CLI or local integration. Doya doesn&apos;t modify or wrap their behavior.
         </FAQItem>
         <FAQItem question="Do I need the desktop app?">
           No. You can run the daemon headless with{" "}
@@ -1661,7 +1659,7 @@ function FAQ() {
           .
         </FAQItem>
         <FAQItem question="Can I connect from outside my network?">
-          Yes. You can use the hosted relay (end-to-end encrypted, Paseo can&apos;t read your
+          Yes. You can use the hosted relay (end-to-end encrypted, Doya can&apos;t read your
           traffic), set up your own tunnel (Tailscale, Cloudflare Tunnel, etc.), or expose the
           daemon port directly. See{" "}
           <a href="/docs/configuration" className="underline hover:text-white/80">
@@ -1670,21 +1668,21 @@ function FAQ() {
           .
         </FAQItem>
         <FAQItem question="Do I need git or GitHub?">
-          No. Paseo works in any directory. Worktrees are optional and only relevant if you use git.
+          No. Doya works in any directory. Worktrees are optional and only relevant if you use git.
           You can run agents anywhere you&apos;d normally work.
         </FAQItem>
-        <FAQItem question="Can I get banned for using Paseo?">
+        <FAQItem question="Can I get banned for using Doya?">
           <p>We can&apos;t make promises on behalf of providers.</p>
           <p>
-            That said, Paseo launches each provider&apos;s local CLI or integration (Claude Code,
+            That said, Doya launches each provider&apos;s local CLI or integration (Claude Code,
             Codex, Copilot, OpenCode, Pi) as a subprocess. It doesn&apos;t extract tokens or call
-            inference APIs directly. From the provider&apos;s perspective, usage through Paseo is
+            inference APIs directly. From the provider&apos;s perspective, usage through Doya is
             indistinguishable from running the provider yourself.
           </p>
-          <p>I&apos;ve been using Paseo with all providers for months without issue.</p>
+          <p>I&apos;ve been using Doya with all providers for months without issue.</p>
         </FAQItem>
         <FAQItem question="How do worktrees work?">
-          When you launch an agent with the worktree option (from the app, desktop, or CLI), Paseo
+          When you launch an agent with the worktree option (from the app, desktop, or CLI), Doya
           creates a git worktree and runs the agent inside it. The agent works on an isolated branch
           without touching your main working directory. See the{" "}
           <a href="/docs/worktrees" className="underline hover:text-white/80">

@@ -1,15 +1,15 @@
 ---
 title: CLI
-description: "Paseo CLI reference: manage agents, daemons, permissions, and worktrees from your terminal."
+description: "Doya CLI reference: manage agents, daemons, permissions, and worktrees from your terminal."
 nav: CLI
 order: 6
 ---
 
 # CLI
 
-The Paseo CLI lets you manage agents from your terminal. It's the same interface exposed by the daemon's API, so anything you can do in the app you can do from the command line.
+The Doya CLI lets you manage agents from your terminal. It's the same interface exposed by the daemon's API, so anything you can do in the app you can do from the command line.
 
-> **Agent orchestration:** You can tell coding agents to use the Paseo CLI to spawn and manage other agents. This enables multi-agent workflows where one agent delegates subtasks to others and waits for results.
+> **Agent orchestration:** You can tell coding agents to use the Doya CLI to spawn and manage other agents. This enables multi-agent workflows where one agent delegates subtasks to others and waits for results.
 
 ## Quick reference
 
@@ -122,7 +122,7 @@ Use `PASEO_HOME` to run multiple isolated daemon instances.
 
 ## Connecting to a remote daemon
 
-`--host` accepts either a local target (`host:port`, a unix socket, or a Windows pipe) or a pairing offer URL, the same `https://app.paseo.sh/#offer=...` link the mobile app uses for QR pairing. With an offer URL the CLI connects through the Paseo relay with end-to-end encryption, so you can drive a daemon on another machine without exposing it to the network.
+`--host` accepts either a local target (`host:port`, a unix socket, or a Windows pipe) or a pairing offer URL, the same `https://app.paseo.sh/#offer=...` link the mobile app uses for QR pairing. With an offer URL the CLI connects through the Doya relay with end-to-end encryption, so you can drive a daemon on another machine without exposing it to the network.
 
 Get an offer URL from the daemon you want to control:
 

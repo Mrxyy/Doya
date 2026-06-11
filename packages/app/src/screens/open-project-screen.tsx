@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { ArrowRight, MessagesSquare, Plug, Smartphone, Sparkles } from "lucide-react-native";
 import Svg, { Circle, Ellipse, Path } from "react-native-svg";
 import { AdaptiveModalSheet, AdaptiveTextInput } from "@/components/adaptive-modal-sheet";
-import { PaseoLogo } from "@/components/icons/paseo-logo";
+import { DoyaLogo } from "@/components/icons/doya-logo";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { Button } from "@/components/ui/button";
 import { usePanelStore } from "@/stores/panel-store";
@@ -274,7 +274,7 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
         <MenuHeader borderless />
         <View style={styles.content}>
           <TitlebarDragRegion />
-          <PaseoLogo size={52} />
+          <DoyaLogo size={52} />
         </View>
       </View>
     );
@@ -310,7 +310,7 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
       <View style={styles.content}>
         <TitlebarDragRegion />
         <View style={styles.logo}>
-          <PaseoLogo size={52} />
+          <DoyaLogo size={52} />
         </View>
         <View style={styles.tiles}>
           <HomeTile
@@ -423,7 +423,7 @@ function AuthLoginScreen(props: AuthLoginScreenProps) {
         <View style={styles.authHeader}>
           <View style={styles.authHeaderTop}>
             <View style={styles.authLogoBadge}>
-              <PaseoLogo size={48} />
+              <DoyaLogo size={64} />
             </View>
             <AuthHeroArt />
           </View>
@@ -924,22 +924,8 @@ const styles = StyleSheet.create((theme) => ({
   authLogoBadge: {
     width: 64,
     height: 64,
-    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.surface0,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    ...(isWeb
-      ? {
-          boxShadow: "0 10px 22px 0 rgba(30, 134, 255, 0.08)",
-        }
-      : {
-          shadowColor: theme.colors.palette.blue[500],
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.08,
-          shadowRadius: 22,
-        }),
   },
   authHeroArt: {
     position: "relative",

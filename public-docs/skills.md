@@ -1,13 +1,13 @@
 ---
-title: Orchestration skills
-description: "Paseo orchestration skills: teach coding agents to spawn, coordinate, and manage other agents using slash commands."
+title: Doya orchestration skills
+description: "Doya orchestration skills: teach coding agents to spawn, coordinate, and manage other agents using slash commands."
 nav: Skills
 order: 8
 ---
 
-# Orchestration skills
+# Doya orchestration skills
 
-Paseo ships orchestration skills that teach coding agents (Claude Code, Codex) how to use the Paseo CLI to spawn, coordinate, and manage other agents. Skills are slash commands your agent can invoke, they provide the prompts, context, and workflows so agents know how to orchestrate without you writing boilerplate. Install them from the desktop app's Integrations settings or via the CLI.
+Doya ships orchestration skills that teach coding agents (Claude Code, Codex) how to use the Doya CLI to spawn, coordinate, and manage other agents. Skills are slash commands your agent can invoke, they provide the prompts, context, and workflows so agents know how to orchestrate without you writing boilerplate. Install them from the desktop app's Integrations settings or via the CLI.
 
 ## Installation
 
@@ -16,14 +16,14 @@ Two ways to install:
 - **Desktop app:** Settings → Integrations → Install
 - **Manual:** `npx skills add getpaseo/paseo`, this installs to `~/.agents/skills/` and sets up symlinks for each agent.
 
-## `/paseo`, Paseo Reference
+## `/paseo`, Doya Reference
 
-The foundational skill. Paseo reference for managing agents and worktrees. Load it when an agent needs to create agents, send them prompts, or manage worktrees.
+The foundational skill. Doya reference for managing agents and worktrees. Load it when an agent needs to create agents, send them prompts, or manage worktrees.
 
 Not typically invoked directly by users, it's a reference that other skills depend on.
 
 ```
-/paseo show me the Paseo CLI surface for creating an agent in a worktree
+/paseo show me the Doya CLI surface for creating an agent in a worktree
 ```
 
 ## `/paseo-handoff`, Task Handoff
@@ -74,7 +74,7 @@ The advisor gives a judgment. You decide what to do. The advisor prompt is analy
 
 Heavy-ceremony orchestration for big work: research, planning, adversarial review, phased implementation, audit, and delivery. Use it when you say "epic", "long task", "build this end to end", or want a feature that runs all night.
 
-The plan file at `~/.paseo/plans/<slug>.md` is the source of truth. Default mode is conversational, with clarification and gates between phases. `--autopilot` runs through delivery without grills or gates. `--worktree` isolates the work in a new Paseo worktree.
+The plan file at `~/.paseo/plans/<slug>.md` is the source of truth. Default mode is conversational, with clarification and gates between phases. `--autopilot` runs through delivery without grills or gates. `--worktree` isolates the work in a new Doya worktree.
 
 ```
 /paseo-epic build the settings import/export flow end to end
