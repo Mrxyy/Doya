@@ -1,6 +1,6 @@
 import { PptxViewer } from "@aiden0z/pptx-renderer";
 import { PDFViewer } from "@embedpdf/react-pdf-viewer";
-import mammoth from "mammoth";
+import { renderAsync } from "docx-preview";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
@@ -16,10 +16,7 @@ export interface DocumentViewerProps {
   fileName: string;
 }
 
-type HtmlState =
-  | { status: "idle" | "loading" }
-  | { status: "ready"; html: string; warnings: string[] }
-  | { status: "error"; message: string };
+type RenderState = { status: "idle" | "loading" | "ready" } | { status: "error"; message: string };
 
 interface SpreadsheetPreview {
   sheetNames: string[];
@@ -67,31 +64,38 @@ function PdfDocumentViewer({ bytes, mimeType }: Pick<DocumentViewerProps, "bytes
 }
 
 function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
-  const [state, setState] = useState<HtmlState>({ status: "idle" });
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const renderVersionRef = useRef(0);
+  const [state, setState] = useState<RenderState>({ status: "idle" });
 
   useEffect(() => {
-    let canceled = false;
-    setState({ status: "loading" });
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
 
-    void mammoth
-      .convertToHtml(
-        { arrayBuffer: getArrayBuffer(bytes) },
-        {
-          externalFileAccess: false,
-        },
-      )
-      .then((result) => {
-        if (canceled) {
+    let canceled = false;
+    const renderVersion = renderVersionRef.current + 1;
+    renderVersionRef.current = renderVersion;
+    const renderHost = document.createElement("div");
+    setState({ status: "loading" });
+    host.replaceChildren();
+
+    async function renderDocx() {
+      try {
+        await renderAsync(getArrayBuffer(bytes), renderHost, undefined, {
+          className: "paseo-docx",
+          inWrapper: true,
+          renderAltChunks: false,
+          useBase64URL: true,
+        });
+        if (canceled || renderVersionRef.current !== renderVersion) {
           return;
         }
-        setState({
-          status: "ready",
-          html: result.value,
-          warnings: result.messages.map((message) => message.message),
-        });
-      })
-      .catch((error) => {
-        if (canceled) {
+        host.replaceChildren(...Array.from(renderHost.childNodes));
+        setState({ status: "ready" });
+      } catch (error) {
+        if (canceled || renderVersionRef.current !== renderVersion) {
           return;
         }
         setState({
@@ -99,59 +103,27 @@ function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
           message:
             error instanceof Error ? error.message : translateNow("ui.failed.to.render.docx"),
         });
-      });
+      }
+    }
+
+    void renderDocx();
 
     return () => {
       canceled = true;
+      host.replaceChildren();
     };
   }, [bytes]);
 
-  switch (state.status) {
-    case "idle":
-    case "loading":
-      return <DocumentLoadingState label={translateNow("ui.loading.docx")} />;
-    case "error":
-      return <DocumentErrorState message={state.message} />;
-    case "ready":
-      break;
-  }
-
-  const srcDoc = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <style>
-    :root { color-scheme: light dark; }
-    html, body { margin: 0; min-height: 100%; background: #fff; color: #18181b; }
-    body { font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    main { max-width: 820px; margin: 0 auto; padding: 32px 40px 56px; }
-    img { max-width: 100%; height: auto; }
-    table { border-collapse: collapse; width: 100%; margin: 16px 0; }
-    td, th { border: 1px solid #d4d4d8; padding: 6px 8px; vertical-align: top; }
-    h1, h2, h3 { line-height: 1.25; }
-    a { color: #2563eb; }
-    @media (prefers-color-scheme: dark) {
-      html, body { background: #18181b; color: #f4f4f5; }
-      td, th { border-color: #3f3f46; }
-      a { color: #93c5fd; }
-    }
-  </style>
-</head>
-<body><main>${state.html}</main></body>
-</html>`;
-
   return (
     <div style={webStyles.docxRoot}>
-      {state.warnings.length > 0 ? (
-        <View style={styles.warningBar}>
-          <Text style={styles.warningText}>{state.warnings[0]}</Text>
-        </View>
+      {state.status === "idle" || state.status === "loading" ? (
+        <DocumentLoadingOverlay label={translateNow("ui.loading.docx")} />
       ) : null}
-      <iframe
-        title={translateNow("ui.docx.preview.title")}
-        sandbox=""
-        srcDoc={srcDoc}
-        style={webStyles.iframe}
+      {state.status === "error" ? <DocumentErrorOverlay message={state.message} /> : null}
+      <div
+        aria-label={translateNow("ui.docx.preview.title")}
+        ref={hostRef}
+        style={webStyles.docxHost}
       />
     </div>
   );
@@ -397,18 +369,19 @@ const webStyles = {
     minHeight: 0,
   },
   docxRoot: {
+    position: "relative",
     width: "100%",
     height: "100%",
     minHeight: 0,
-    display: "flex",
-    flexDirection: "column",
+    overflow: "hidden",
+    background: "var(--paseo-surface1, #f4f4f5)",
   },
-  iframe: {
-    flex: 1,
-    minHeight: 0,
+  docxHost: {
     width: "100%",
-    border: 0,
-    background: "white",
+    height: "100%",
+    minHeight: 0,
+    overflow: "auto",
+    padding: "24px 0",
   },
   pptxFrame: {
     position: "relative",
@@ -557,16 +530,5 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.destructive,
     fontSize: theme.fontSize.sm,
     textAlign: "center",
-  },
-  warningBar: {
-    paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[2],
-    borderBottomWidth: theme.borderWidth[1],
-    borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.surface1,
-  },
-  warningText: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.xs,
   },
 }));
