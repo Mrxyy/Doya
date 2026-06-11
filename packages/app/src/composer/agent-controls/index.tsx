@@ -428,7 +428,11 @@ function ControlledAgentControls({
     onSelectThinkingOption && thinkingOptions && thinkingOptions.length > 0,
   );
 
-  const displayProvider = findOptionLabel(providerOptions, selectedProviderId, "Provider");
+  const displayProvider = findOptionLabel(
+    providerOptions,
+    selectedProviderId,
+    translateNow("composer.agentControls.provider"),
+  );
   const formattedThinkingOptions = useMemo(
     () => toThinkingControlOptions(thinkingOptions),
     [thinkingOptions],
@@ -436,7 +440,7 @@ function ControlledAgentControls({
   const displayThinking = findOptionLabel(
     formattedThinkingOptions,
     selectedThinkingOptionId,
-    formattedThinkingOptions[0]?.label ?? "Unknown",
+    formattedThinkingOptions[0]?.label ?? translateNow("composer.agentControls.unknown"),
   );
 
   const ProviderIcon = resolveProviderIcon(provider);

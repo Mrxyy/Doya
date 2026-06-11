@@ -363,6 +363,14 @@ export function buildHostAiCreationRoute(serverId: string) {
   return `${base}/ai-creation` as const;
 }
 
+export function buildHostAiCreationEditRoute(serverId: string) {
+  const base = buildHostAiCreationRoute(serverId);
+  if (base === "/") {
+    return "/" as const;
+  }
+  return `${base}?edit=result` as const;
+}
+
 export function buildHostNewWorkspaceRoute(
   serverId: string,
   sourceDirectory: string,

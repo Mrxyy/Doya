@@ -8,6 +8,7 @@ const accountSessionListeners = new Set<() => void>();
 export interface AccountUserRecord {
   userId: string;
   email: string;
+  phone?: string | null;
 }
 
 export interface AccountWorkspaceRecord {
@@ -38,6 +39,10 @@ interface AccountAuthResponse {
   workspace: AccountWorkspaceRecord;
   projects: AccountProjectRecord[];
   accessToken: string;
+}
+
+interface AccountSmsSendResponse {
+  ok: boolean;
 }
 
 interface AccountCreateProjectResponse {
@@ -162,6 +167,23 @@ export async function registerAccountUser(input: {
 
 export async function loginAccountUser(input: { email: string }): Promise<AccountBootstrapSession> {
   const payload = await postAccountApi<AccountAuthResponse>("/api/account/login", input);
+  return {
+    ...payload,
+    projects: payload.projects ?? [],
+    apiBaseUrl: accountApiBaseUrl(),
+  };
+}
+
+export async function sendAccountSmsCode(input: { phone: string }): Promise<void> {
+  await postAccountApi<AccountSmsSendResponse>("/api/account/sms/send", input);
+}
+
+export async function loginAccountUserWithSms(input: {
+  phone: string;
+  code: string;
+  displayName: string;
+}): Promise<AccountBootstrapSession> {
+  const payload = await postAccountApi<AccountAuthResponse>("/api/account/sms/login", input);
   return {
     ...payload,
     projects: payload.projects ?? [],

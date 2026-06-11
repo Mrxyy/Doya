@@ -32,7 +32,11 @@ import { useAgentInputDraft } from "@/composer/draft/input-draft";
 import type { ImageAttachment, MessagePayload } from "@/composer/types";
 import { FileDropZone } from "@/components/file-drop-zone";
 import { SidebarMenuToggle } from "@/components/headers/menu-header";
-import { useIsCompactFormFactor } from "@/constants/layout";
+import {
+  HEADER_HORIZONTAL_PADDING,
+  HEADER_INNER_HEIGHT,
+  useIsCompactFormFactor,
+} from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { useI18n } from "@/i18n/i18n";
@@ -75,6 +79,21 @@ const HOME_TITLE_GRADIENT_KEYFRAME_CSS = `
     }
   }
 `;
+
+type HomeAiCreationMode = "image" | "slides" | "pdf" | "word" | "spreadsheet";
+type HomeAiCreationIntent =
+  | "imagegen"
+  | "ppt_creation"
+  | "pdf_creation"
+  | "word_creation"
+  | "spreadsheet_creation";
+
+const HOME_AI_CREATION_RATIO = "16:9";
+const HOME_AI_CREATION_STYLE = "auto";
+
+const HOME_STYLE_PROMPT_LABELS = {
+  auto: "auto",
+} as const;
 const FIREWORK_PARTICLES = [
   { color: "#f97316", x: -112, y: -72, size: 8, delay: 0 },
   { color: "#facc15", x: -84, y: -118, size: 7, delay: 18 },
@@ -96,6 +115,12 @@ interface HomePromptSuggestion {
   iconSource: ImageSourcePropType;
   accentColor: string;
   borderColor: string;
+  aiCreationMode?: HomeAiCreationMode;
+}
+
+interface HomeAiCreationSubmitContext {
+  mode: HomeAiCreationMode;
+  displayText: string;
 }
 
 const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
@@ -105,6 +130,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     iconSource: HOME_IMAGE_ICON_SOURCE,
     accentColor: "#8b5cf6",
     borderColor: "rgba(139, 92, 246, 0.22)",
+    aiCreationMode: "image",
   },
   {
     id: "slides-roadshow",
@@ -112,6 +138,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     iconSource: HOME_SLIDES_ICON_SOURCE,
     accentColor: "#f97316",
     borderColor: "rgba(249, 115, 22, 0.22)",
+    aiCreationMode: "slides",
   },
   {
     id: "pdf-brief",
@@ -119,6 +146,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     iconSource: HOME_PDF_ICON_SOURCE,
     accentColor: "#ef4444",
     borderColor: "rgba(239, 68, 68, 0.22)",
+    aiCreationMode: "pdf",
   },
   {
     id: "document-prd",
@@ -126,6 +154,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     iconSource: HOME_DOCUMENT_ICON_SOURCE,
     accentColor: "#2563eb",
     borderColor: "rgba(37, 99, 235, 0.22)",
+    aiCreationMode: "word",
   },
   {
     id: "sheet-budget",
@@ -133,6 +162,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     iconSource: HOME_SHEET_ICON_SOURCE,
     accentColor: "#16a34a",
     borderColor: "rgba(22, 163, 74, 0.22)",
+    aiCreationMode: "spreadsheet",
   },
   {
     id: "search-ai-funding",
@@ -208,7 +238,7 @@ export function NewSessionDraftScreen({
   );
 
   const handleSubmit = useCallback(
-    async (payload: MessagePayload) => {
+    async (payload: MessagePayload, aiCreationContext?: HomeAiCreationSubmitContext) => {
       if (!client || !isConnected || !composerState) {
         toast.error(t("openProject.error.openProjectDaemon"));
         return;
@@ -218,14 +248,14 @@ export function NewSessionDraftScreen({
         toast.error(t("openProject.error.selectModel"));
         return;
       }
-      const text = payload.text.trim();
-      if (!text && payload.attachments.length === 0) {
+      const submitText = resolveHomeSubmitText(payload, aiCreationContext);
+      if (!submitText.displayText && payload.attachments.length === 0) {
         return;
       }
       setIsSubmitting(true);
       try {
         const sessionTitle = buildNewSessionTitle({
-          text,
+          text: submitText.displayText,
           attachments: payload.attachments,
           fallback: t("account.project.defaultName"),
           t,
@@ -287,16 +317,17 @@ export function NewSessionDraftScreen({
         const agent = await client.createAgent({
           config,
           workspaceId: workspace.id,
-          ...(text ? { initialPrompt: text } : {}),
+          ...(submitText.agentText ? { initialPrompt: submitText.agentText } : {}),
           clientMessageId,
           ...(images && images.length > 0 ? { images } : {}),
           ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
+          ...buildHomeAiCreationLabels(aiCreationContext),
         });
         await saveAiCreationMessageDisplayMetadata({
           serverId,
           agentId: agent.id,
           messageId: clientMessageId,
-          text,
+          text: submitText.displayText,
           metadata: {
             images: wirePayload.displayImages,
             displayAttachments: wirePayload.displayAttachments,
@@ -309,7 +340,7 @@ export function NewSessionDraftScreen({
           agent.id,
           buildOptimisticUserMessage({
             id: clientMessageId,
-            text,
+            text: submitText.displayText,
             timestamp: new Date(),
             images: wirePayload.displayImages,
             attachments: wirePayload.attachments,
@@ -355,12 +386,20 @@ export function NewSessionDraftScreen({
     setIsShareModalVisible(false);
   }, []);
   const handleCapabilitySelect = useCallback(
-    (text: string) => {
-      void handleSubmit({
-        text,
-        attachments: [],
-        cwd: accountSession.workspace.runtime?.cwd ?? "",
-      });
+    (suggestion: HomePromptSuggestion, text: string) => {
+      void handleSubmit(
+        {
+          text,
+          attachments: [],
+          cwd: accountSession.workspace.runtime?.cwd ?? "",
+        },
+        suggestion.aiCreationMode
+          ? {
+              mode: suggestion.aiCreationMode,
+              displayText: text,
+            }
+          : undefined,
+      );
     },
     [accountSession.workspace.runtime?.cwd, handleSubmit],
   );
@@ -415,8 +454,8 @@ function NewSessionHomeHeader({ left, onShare }: { left?: ReactNode; onShare: ()
     () => [
       styles.homeHeaderRow,
       {
-        paddingLeft: 16 + padding.left,
-        paddingRight: 16 + padding.right,
+        paddingLeft: HEADER_HORIZONTAL_PADDING + padding.left,
+        paddingRight: HEADER_HORIZONTAL_PADDING + padding.right,
       },
     ],
     [padding.left, padding.right],
@@ -472,7 +511,7 @@ function ShareButton({ label, onPress }: { label: string; onPress: () => void })
       {({ hovered, pressed }) => (
         <Animated.View style={motionLayerStyle}>
           <Share2
-            size={18}
+            size={theme.iconSize.md}
             color={hovered || pressed ? theme.colors.foreground : theme.colors.foregroundMuted}
           />
         </Animated.View>
@@ -602,7 +641,7 @@ function DownloadComingSoonButton() {
         const color = isActive ? theme.colors.foreground : theme.colors.foregroundMuted;
         return (
           <Animated.View style={motionLayerStyle}>
-            <Download size={16} color={color} />
+            <Download size={theme.iconSize.md} color={color} />
             <Text style={isActive ? styles.downloadButtonTextActive : styles.downloadButtonText}>
               {t("home.newSession.downloadDesktop")}
             </Text>
@@ -819,7 +858,7 @@ function NewSessionHomeHero({
   onSelectPrompt,
 }: {
   disabled: boolean;
-  onSelectPrompt: (prompt: string) => void;
+  onSelectPrompt: (suggestion: HomePromptSuggestion, prompt: string) => void;
 }) {
   const { t } = useI18n();
 
@@ -906,7 +945,7 @@ function HomePromptSuggestionPill({
 }: {
   suggestion: HomePromptSuggestion;
   disabled: boolean;
-  onSelect: (prompt: string) => void;
+  onSelect: (suggestion: HomePromptSuggestion, prompt: string) => void;
 }) {
   const { t } = useI18n();
   const motion = usePressMotion({ hoverScale: 1.018, pressScale: 0.975 });
@@ -939,8 +978,8 @@ function HomePromptSuggestionPill({
     [suggestion.borderColor],
   );
   const handlePress = useCallback(() => {
-    onSelect(t(suggestion.promptKey));
-  }, [onSelect, suggestion.promptKey, t]);
+    onSelect(suggestion, t(suggestion.promptKey));
+  }, [onSelect, suggestion, t]);
 
   return (
     <Pressable
@@ -1032,6 +1071,198 @@ function clampSessionTitle(value: string): string {
   return clamped || normalized;
 }
 
+function resolveHomeSubmitText(
+  payload: MessagePayload,
+  aiCreationContext: HomeAiCreationSubmitContext | undefined,
+): { agentText: string; displayText: string } {
+  const rawText = payload.text.trim();
+  const displayText = aiCreationContext?.displayText.trim() || rawText;
+  return {
+    displayText,
+    agentText: aiCreationContext
+      ? buildHomeAiCreationPrompt({
+          mode: aiCreationContext.mode,
+          prompt: displayText,
+          referenceCount: payload.attachments.length,
+        })
+      : rawText,
+  };
+}
+
+function buildHomeAiCreationLabels(aiCreationContext: HomeAiCreationSubmitContext | undefined): {
+  labels?: { surface: "ai_creation"; intent: HomeAiCreationIntent };
+} {
+  if (!aiCreationContext) {
+    return {};
+  }
+  return {
+    labels: {
+      surface: "ai_creation",
+      intent: getHomeAiCreationIntentForMode(aiCreationContext.mode),
+    },
+  };
+}
+
+function getHomeAiCreationIntentForMode(mode: HomeAiCreationMode): HomeAiCreationIntent {
+  if (mode === "slides") {
+    return "ppt_creation";
+  }
+  if (mode === "pdf") {
+    return "pdf_creation";
+  }
+  if (mode === "word") {
+    return "word_creation";
+  }
+  if (mode === "spreadsheet") {
+    return "spreadsheet_creation";
+  }
+  return "imagegen";
+}
+
+function buildHomeAiCreationPrompt(input: {
+  mode: HomeAiCreationMode;
+  prompt: string;
+  referenceCount: number;
+}): string {
+  if (input.mode === "slides") {
+    return buildHomeSlidesPrompt({
+      prompt: input.prompt,
+      sourceFileCount: input.referenceCount,
+    });
+  }
+  if (input.mode === "pdf") {
+    return buildHomeDocumentCreationPrompt({
+      kind: "pdf",
+      prompt: input.prompt,
+      sourceFileCount: input.referenceCount,
+    });
+  }
+  if (input.mode === "word") {
+    return buildHomeDocumentCreationPrompt({
+      kind: "word",
+      prompt: input.prompt,
+      sourceFileCount: input.referenceCount,
+    });
+  }
+  if (input.mode === "spreadsheet") {
+    return buildHomeDocumentCreationPrompt({
+      kind: "spreadsheet",
+      prompt: input.prompt,
+      sourceFileCount: input.referenceCount,
+    });
+  }
+  return buildHomeImagegenPrompt({
+    prompt: input.prompt,
+    referenceCount: input.referenceCount,
+  });
+}
+
+function buildHomeImagegenPrompt(input: { prompt: string; referenceCount: number }): string {
+  const lines = [
+    "Use the Codex imagegen skill for this request. Follow the default built-in image_gen workflow unless the user explicitly asks for a CLI fallback.",
+    "This is an AI creation surface. Do not explain your reasoning, workflow, skill usage, shell commands, or implementation steps in the final conversation.",
+    "Reply only with the generated image result when available. If you must send text while generating, keep it to one short user-facing sentence in Chinese.",
+    "",
+    "Create a raster image from this prompt:",
+    input.prompt,
+    "",
+    `Aspect ratio: ${HOME_AI_CREATION_RATIO}`,
+    `Style: ${HOME_STYLE_PROMPT_LABELS[HOME_AI_CREATION_STYLE]}`,
+    "Save the final image into the current workspace if a workspace-bound asset is produced.",
+    "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](assets/generated-image.png)",
+  ];
+  if (input.referenceCount > 0) {
+    lines.push(
+      `Reference images attached: ${input.referenceCount}. Treat them as visual references unless the user asks for an edit.`,
+    );
+  }
+  return lines.join("\n");
+}
+
+function buildHomeSlidesPrompt(input: { prompt: string; sourceFileCount: number }): string {
+  const lines = [
+    "You are creating a PowerPoint deck for the Paseo AI Creation slides surface.",
+    "Paseo has already prepared the bundled PPT Master skill link at `.paseo/skills/ppt-master` before this agent starts.",
+    "Do not search for PPT Master in other directories.",
+    "Do not use web search for PPT Master.",
+    "Do not git clone, fetch, or download PPT Master.",
+    'If `.paseo/skills/ppt-master/SKILL.md` is missing, stop immediately and reply exactly: "PPT Master skill link missing: .paseo/skills/ppt-master/SKILL.md".',
+    "Read `.paseo/skills/ppt-master/SKILL.md` and follow that workflow exactly.",
+    "Paseo provides its own built-in slide preview service. Do not run PPT Master's `scripts/svg_editor/server.py`, do not start Flask, and do not open localhost preview ports yourself.",
+    "Continue writing all generated SVG pages into `projects/<project>/svg_output/`; Paseo will preview that directory through the daemon.",
+    "Immediately after project initialization creates `projects/<project>/svg_output/`, send one short progress message exactly like: `Preview: projects/<project>/svg_output/`. Then continue the PPT Master workflow without waiting for the user.",
+    "Only after the skill link exists, install Python requirements if needed: `pip install -r .paseo/skills/ppt-master/requirements.txt`.",
+    "",
+    "User request:",
+    input.prompt,
+    "",
+    "Canvas format: ppt169",
+    `Source file count: ${input.sourceFileCount}`,
+    "If source files are attached, the daemon writes them into `attachments/` and includes their paths in the structured attachment text. Use those workspace paths as PPT Master source files.",
+    "",
+    "Run the PPT Master pipeline end to end:",
+    "source_to_md -> project_manager init/import-sources -> Strategist design_spec/spec_lock -> sequential SVG pages -> svg_quality_checker -> total_md_split -> finalize_svg -> svg_to_pptx.",
+    "",
+    "The output must be a native editable PPTX in `projects/<project>/exports/`.",
+    "Do not create a screenshot-only deck.",
+    "Do not explain internal commands in the final reply unless a blocking error occurs.",
+    "Final reply: only provide the PPTX path and optional preview path.",
+  ];
+  return lines.join("\n");
+}
+
+function buildHomeDocumentCreationPrompt(input: {
+  kind: "pdf" | "word" | "spreadsheet";
+  prompt: string;
+  sourceFileCount: number;
+}): string {
+  const config = {
+    pdf: {
+      surface: "PDF document",
+      skill: "PDF/document generation",
+      output: "PDF",
+      directory: "output/documents/",
+      extension: ".pdf",
+      example: "[output/documents/report.pdf](output/documents/report.pdf)",
+    },
+    word: {
+      surface: "Word document",
+      skill: "document generation",
+      output: "DOCX",
+      directory: "output/documents/",
+      extension: ".docx",
+      example: "[output/documents/report.docx](output/documents/report.docx)",
+    },
+    spreadsheet: {
+      surface: "spreadsheet",
+      skill: "spreadsheet generation",
+      output: "XLSX workbook",
+      directory: "output/spreadsheets/",
+      extension: ".xlsx",
+      example: "[output/spreadsheets/workbook.xlsx](output/spreadsheets/workbook.xlsx)",
+    },
+  }[input.kind];
+  const lines = [
+    `You are creating a ${config.surface} for the Paseo AI Creation surface.`,
+    `Use the agent's available built-in ${config.skill} skill or workflow. Codex and Claude Code both have default capabilities for this artifact type; choose the appropriate one for the current provider.`,
+    "This is an AI creation surface. Do not explain your reasoning, workflow, skill usage, shell commands, or implementation steps in the final conversation.",
+    "If you must send progress text while creating, keep it to one short user-facing sentence in Chinese.",
+    "",
+    "User request:",
+    input.prompt,
+    "",
+    `Source file count: ${input.sourceFileCount}`,
+    "If source files are attached, the daemon writes them into `attachments/` and includes their paths in the structured attachment text. Use those workspace paths as source materials.",
+    "",
+    `Create a real ${config.output} file, not a screenshot or placeholder.`,
+    `Write the final file under \`${config.directory}\` with a \`${config.extension}\` extension.`,
+    "Use a clear, filesystem-safe file name based on the user's request.",
+    "When the final file is saved, reply with Markdown file-link syntax only, using the workspace-relative path.",
+    `Example final reply: ${config.example}`,
+  ];
+  return lines.join("\n");
+}
+
 const styles = StyleSheet.create((theme) => ({
   container: {
     flex: 1,
@@ -1044,7 +1275,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   homeHeaderRow: {
     position: "relative",
-    height: 55,
+    height: HEADER_INNER_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",

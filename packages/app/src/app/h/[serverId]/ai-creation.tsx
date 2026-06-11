@@ -11,8 +11,9 @@ export default function HostAiCreationRoute() {
 }
 
 function HostAiCreationRouteContent() {
-  const params = useLocalSearchParams<{ serverId?: string }>();
+  const params = useLocalSearchParams<{ serverId?: string; edit?: string | string[] }>();
   const serverId = typeof params.serverId === "string" ? params.serverId : "";
+  const restoreEditSource = params.edit === "result";
 
-  return <AiCreationScreen serverId={serverId} />;
+  return <AiCreationScreen serverId={serverId} restoreEditSource={restoreEditSource} />;
 }

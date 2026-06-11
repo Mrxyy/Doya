@@ -40,7 +40,9 @@ import {
   type GestureResponderEvent,
   type ImageSourcePropType,
   type LayoutChangeEvent,
+  type NativeSyntheticEvent,
   type PressableStateCallbackType,
+  type TextInputContentSizeChangeEventData,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
@@ -79,10 +81,15 @@ import { pickAndPersistImages } from "@/composer/actions";
 import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit";
 import { useAgentInputDraft } from "@/composer/draft/input-draft";
 import { CombinedModelSelector } from "@/components/combined-model-selector";
+import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useIsCompactFormFactor } from "@/constants/layout";
+import {
+  HEADER_HORIZONTAL_PADDING,
+  HEADER_INNER_HEIGHT,
+  useIsCompactFormFactor,
+} from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
@@ -90,7 +97,10 @@ import { translateNow, useI18n } from "@/i18n/i18n";
 import type { TranslationKey } from "@/i18n/translations";
 import { usePanelStore } from "@/stores/panel-store";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
-import { takeAiCreationEditSource } from "@/stores/ai-creation-edit-source-store";
+import {
+  clearAiCreationEditSource,
+  takeAiCreationEditSource,
+} from "@/stores/ai-creation-edit-source-store";
 import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
 import { useLastWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import {
@@ -105,6 +115,7 @@ import { buildHostAgentDetailRoute, buildHostOpenProjectRoute } from "@/utils/ho
 import { useImageAttachmentPicker } from "@/hooks/use-image-attachment-picker";
 import { useFileAttachmentPicker } from "@/hooks/use-file-attachment-picker";
 import type { PickedImageAttachmentInput } from "@/hooks/image-attachment-picker";
+import { useWindowControlsPadding } from "@/utils/desktop-window";
 import {
   buildOptimisticUserMessage,
   generateMessageId,
@@ -177,12 +188,16 @@ interface ImageDimensions {
 
 interface InitialAiCreationEditState {
   mode: CreationMode;
-  references: AttachmentMetadata[];
+  references: PreviewableAttachmentMetadata[];
   previewUri: string | null;
   imageSource: string | null;
   sourceAgentId: string | null;
   sourceServerId: string | null;
 }
+
+type PreviewableAttachmentMetadata = AttachmentMetadata & {
+  fallbackPreviewUrl?: string | null;
+};
 
 interface EncodedAiCreationImages {
   images?: Array<{ data: string; mimeType: string; fileName?: string }>;
@@ -494,6 +509,10 @@ const AI_CREATION_CONTROL_TEXT_COLOR = "#71717a";
 const AI_CREATION_CONTROL_MUTED_COLOR = "#71717a";
 const AI_CREATION_CONTROL_ICON_COLOR = "#71717a";
 const AI_CREATION_CONTROL_TITLE_COLOR = "#a1a1aa";
+const AI_CREATION_PROMPT_LINE_HEIGHT = 24;
+const AI_CREATION_PROMPT_MIN_ROWS = 3;
+const AI_CREATION_PROMPT_MIN_HEIGHT = AI_CREATION_PROMPT_LINE_HEIGHT * AI_CREATION_PROMPT_MIN_ROWS;
+const AI_CREATION_PROMPT_MAX_HEIGHT = AI_CREATION_PROMPT_LINE_HEIGHT * 5;
 const AI_CREATION_TITLE_GRADIENT_KEYFRAME_CSS = `
   @keyframes ${AI_CREATION_TITLE_GRADIENT_ANIMATION_NAME} {
     0% {
@@ -1229,7 +1248,7 @@ function usesWorkspaceFileReferences(mode: CreationMode): boolean {
 }
 
 function attachmentMetadataToComposerAttachment(
-  metadata: AttachmentMetadata,
+  metadata: PreviewableAttachmentMetadata,
 ): UserComposerAttachment {
   return metadata.mimeType.toLowerCase().startsWith("image/")
     ? { kind: "image", metadata }
@@ -1247,6 +1266,12 @@ function isComposerImageAttachment(
   attachment: UserComposerAttachment,
 ): attachment is Extract<UserComposerAttachment, { kind: "image" }> {
   return attachment.kind === "image";
+}
+
+function isPersistedAssistantWorkspaceImageReference(attachment: UserComposerAttachment): boolean {
+  return (
+    attachment.kind === "image" && attachment.metadata.id.startsWith("assistant_workspace_image_")
+  );
 }
 
 function usesAspectRatio(mode: CreationMode): boolean {
@@ -1306,7 +1331,13 @@ function getPromptPlaceholderKey(mode: Exclude<CreationMode, "edit">): Translati
   return "aiCreation.prompt.imagePlaceholder";
 }
 
-export function AiCreationScreen({ serverId }: { serverId: string }) {
+export function AiCreationScreen({
+  serverId,
+  restoreEditSource = false,
+}: {
+  serverId: string;
+  restoreEditSource?: boolean;
+}) {
   const router = useRouter();
   const { theme } = useUnistyles();
   const { t } = useI18n();
@@ -1340,12 +1371,19 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     }),
     [creationCwd],
   );
-  const [initialEditState] = useState(takeInitialAiCreationEditState);
+  const [initialEditState] = useState(() => takeInitialAiCreationEditState(restoreEditSource));
   const [mode, setMode] = useState<CreationMode>(initialEditState.mode);
   const [ratio, setRatio] = useState<AspectRatio>("1:1");
   const [style, setStyle] = useState<VisualStyle>("auto");
+  const draftKey = useMemo(
+    () =>
+      initialEditState.mode === "edit" && initialEditState.sourceAgentId
+        ? `ai-creation-edit:${serverId}:${initialEditState.sourceAgentId}:${initialEditState.references[0]?.id ?? "source"}`
+        : `ai-creation:${serverId}`,
+    [initialEditState.mode, initialEditState.references, initialEditState.sourceAgentId, serverId],
+  );
   const draft = useAgentInputDraft({
-    draftKey: `ai-creation:${serverId}`,
+    draftKey,
     composer: {
       initialServerId: serverId,
       isVisible: true,
@@ -1361,6 +1399,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   const didSeedInitialReferencesRef = useRef(false);
   const referenceAttachments = draft.attachments;
   const setReferenceAttachments = draft.setAttachments;
+  const clearDraft = draft.clear;
   const references = useMemo(
     () =>
       referenceAttachments.flatMap((attachment) => {
@@ -1392,9 +1431,42 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
   );
   const prompt = draft.text;
   const setPrompt = draft.setText;
+  const [promptInputHeight, setPromptInputHeight] = useState(AI_CREATION_PROMPT_MIN_HEIGHT);
   const composerState = draft.composerState;
   const selectedProvider = composerState?.selectedProvider ?? "";
   const selectedModel = composerState?.selectedModel ?? "";
+  const isPromptInputScrollable = promptInputHeight >= AI_CREATION_PROMPT_MAX_HEIGHT;
+  const promptInputStyle = useMemo(
+    () => [
+      styles.promptInput,
+      {
+        height: promptInputHeight,
+        ...(isWeb ? ({ overflowY: isPromptInputScrollable ? "auto" : "hidden" } as object) : {}),
+      },
+    ],
+    [isPromptInputScrollable, promptInputHeight],
+  );
+  const syncPromptInputHeight = useCallback((contentHeight: number) => {
+    const nextHeight = Math.max(
+      AI_CREATION_PROMPT_MIN_HEIGHT,
+      Math.min(AI_CREATION_PROMPT_MAX_HEIGHT, contentHeight),
+    );
+    setPromptInputHeight((current) => (Math.abs(current - nextHeight) < 1 ? current : nextHeight));
+  }, []);
+  const handleChangePrompt = useCallback(
+    (nextPrompt: string) => {
+      setPrompt(nextPrompt);
+      const lineCount = Math.max(1, nextPrompt.split(/\r\n|\r|\n/).length);
+      syncPromptInputHeight(lineCount * AI_CREATION_PROMPT_LINE_HEIGHT);
+    },
+    [syncPromptInputHeight, setPrompt],
+  );
+  const handlePromptContentSizeChange = useCallback(
+    (event: NativeSyntheticEvent<TextInputContentSizeChangeEventData>) => {
+      syncPromptInputHeight(event.nativeEvent.contentSize.height);
+    },
+    [syncPromptInputHeight],
+  );
   useEffect(() => {
     if (didSeedInitialReferencesRef.current || !draft.isHydrated) {
       return;
@@ -1413,6 +1485,18 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
     referenceAttachments.length,
     setReferenceAttachments,
   ]);
+  useEffect(() => {
+    if (!draft.isHydrated || initialEditState.mode === "edit" || prompt.trim().length > 0) {
+      return;
+    }
+    if (referenceAttachments.length === 0) {
+      return;
+    }
+    if (!referenceAttachments.every(isPersistedAssistantWorkspaceImageReference)) {
+      return;
+    }
+    clearDraft("abandoned");
+  }, [clearDraft, draft.isHydrated, initialEditState.mode, prompt, referenceAttachments]);
   const subtitleText = t("aiCreation.subtitle");
   const [typedSubtitleLength, setTypedSubtitleLength] = useState(0);
   useEffect(() => {
@@ -1530,6 +1614,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
       setRatio("16:9");
     }
     if (nextMode !== "edit") {
+      clearAiCreationEditSource();
       setSelectionMode(false);
       setSelectionStrokes([]);
       setRedoSelectionStrokes([]);
@@ -1841,6 +1926,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
         });
         await composerState.persistFormPreferences();
         draft.clear("sent");
+        clearAiCreationEditSource();
         setSelectionStrokes([]);
         setRedoSelectionStrokes([]);
         setConversationEditImages([]);
@@ -1996,6 +2082,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
       );
       await composerState.persistFormPreferences();
       draft.clear("sent");
+      clearAiCreationEditSource();
       setReferenceAttachments([]);
       setConversationEditImages([]);
       setSelectionStrokes([]);
@@ -2244,7 +2331,7 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
                   autoFocus={!isCompact}
                   nativeID="ai-creation-prompt"
                   value={prompt}
-                  onChangeText={setPrompt}
+                  onChangeText={handleChangePrompt}
                   onBlur={() => setIsComposerFocused(false)}
                   onFocus={() => setIsComposerFocused(true)}
                   placeholder={
@@ -2254,7 +2341,9 @@ export function AiCreationScreen({ serverId }: { serverId: string }) {
                   }
                   placeholderTextColor={theme.colors.foregroundMuted}
                   multiline
-                  style={styles.promptInput}
+                  style={promptInputStyle}
+                  scrollEnabled={isPromptInputScrollable}
+                  onContentSizeChange={handlePromptContentSizeChange}
                   textAlignVertical="top"
                 />
                 {references.length > 0 ? (
@@ -2375,8 +2464,21 @@ function AiCreationTopBar({
   onNewSession: () => void;
   onToggleSidebar: () => void;
 }) {
+  const { theme } = useUnistyles();
+  const padding = useWindowControlsPadding("header");
+  const topBarStyle = useMemo(
+    () => [
+      styles.topBar,
+      {
+        paddingLeft: HEADER_HORIZONTAL_PADDING + padding.left,
+        paddingRight: HEADER_HORIZONTAL_PADDING + padding.right,
+      },
+    ],
+    [padding.left, padding.right],
+  );
   return (
-    <View style={styles.topBar}>
+    <View style={topBarStyle}>
+      <TitlebarDragRegion />
       <View style={styles.topBarIconGroup}>
         <Pressable
           style={styles.topBarIconBox}
@@ -2384,7 +2486,7 @@ function AiCreationTopBar({
           accessibilityLabel={translateNow("ui.toggle.left.sidebar.1gb2s1b")}
           onPress={onToggleSidebar}
         >
-          <PanelLeft size={18} color="#111111" />
+          <PanelLeft size={theme.iconSize.md} color={theme.colors.foreground} />
         </Pressable>
         <Pressable
           style={styles.topBarIconBox}
@@ -2392,7 +2494,7 @@ function AiCreationTopBar({
           accessibilityLabel={translateNow("openProject.newProject.title")}
           onPress={onNewSession}
         >
-          <SquarePen size={18} color="#111111" />
+          <SquarePen size={theme.iconSize.md} color={theme.colors.foreground} />
         </Pressable>
       </View>
     </View>
@@ -3331,25 +3433,34 @@ function triggerImageDownload(input: { data: string; mimeType: string; fileName:
   link.remove();
 }
 
-function takeInitialAiCreationEditState(): InitialAiCreationEditState {
+function takeInitialAiCreationEditState(restoreEditSource: boolean): InitialAiCreationEditState {
+  if (!restoreEditSource) {
+    clearAiCreationEditSource();
+    return createEmptyInitialAiCreationEditState();
+  }
+
   const source = takeAiCreationEditSource();
   if (!source) {
-    return {
-      mode: "image",
-      references: [],
-      previewUri: null,
-      imageSource: null,
-      sourceAgentId: null,
-      sourceServerId: null,
-    };
+    return createEmptyInitialAiCreationEditState();
   }
   return {
     mode: "edit",
-    references: [source.image],
+    references: [{ ...source.image, fallbackPreviewUrl: source.previewUri }],
     previewUri: source.previewUri,
     imageSource: source.imageSource,
     sourceAgentId: source.sourceAgentId,
     sourceServerId: source.sourceServerId,
+  };
+}
+
+function createEmptyInitialAiCreationEditState(): InitialAiCreationEditState {
+  return {
+    mode: "image",
+    references: [],
+    previewUri: null,
+    imageSource: null,
+    sourceAgentId: null,
+    sourceServerId: null,
   };
 }
 
@@ -4126,6 +4237,8 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: theme.colors.surface0,
   },
   conversationEditTopBar: {
+    position: "relative",
+    zIndex: 1100,
     minHeight: 64,
     borderBottomWidth: theme.borderWidth[1],
     borderColor: theme.colors.border,
@@ -4135,6 +4248,8 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
   },
   selectionToolbar: {
+    position: "relative",
+    zIndex: 1090,
     minHeight: 48,
     borderBottomWidth: theme.borderWidth[1],
     borderColor: theme.colors.border,
@@ -4234,6 +4349,8 @@ const styles = StyleSheet.create((theme) => ({
     opacity: theme.opacity[50],
   },
   conversationEditTopActions: {
+    position: "relative",
+    zIndex: 1110,
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
@@ -4266,6 +4383,8 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
   },
   conversationEditContent: {
+    position: "relative",
+    zIndex: 1,
     flex: 1,
     alignItems: "center",
     paddingHorizontal: theme.spacing[6],
@@ -4275,6 +4394,8 @@ const styles = StyleSheet.create((theme) => ({
     overflow: "hidden",
   },
   conversationEditStage: {
+    position: "relative",
+    zIndex: 1,
     width: "100%",
     maxWidth: 1360,
     flex: 1,
@@ -4283,6 +4404,8 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
   },
   conversationEditCanvas: {
+    position: "relative",
+    zIndex: 1,
     width: "100%",
     height: "100%",
     alignItems: "center",
@@ -4355,26 +4478,25 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: "#fcfcfc",
   },
   topBar: {
-    height: 57,
+    height: HEADER_INNER_HEIGHT,
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: theme.borderWidth[1],
     borderBottomColor: "#00000012",
-    paddingHorizontal: 16,
     backgroundColor: "#fcfcfc",
   },
   topBarIconGroup: {
-    width: 507,
+    width: 160,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
   topBarIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
+    width: 36,
+    height: 36,
+    borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -4399,6 +4521,7 @@ const styles = StyleSheet.create((theme) => ({
     width: "100%",
     maxWidth: 848,
     alignItems: "center",
+    overflow: "visible",
   },
   title: {
     fontSize: 26,
@@ -4454,18 +4577,17 @@ const styles = StyleSheet.create((theme) => ({
   },
   composer: {
     position: "relative",
-    zIndex: 30,
+    zIndex: 1000,
     width: "100%",
-    minHeight: 124,
     borderRadius: 24,
     borderWidth: theme.borderWidth[1],
     borderColor: "#00000014",
     backgroundColor: "#ffffff",
-    paddingTop: 15,
-    paddingRight: 9,
-    paddingBottom: 9,
-    paddingLeft: 19,
-    gap: 14,
+    paddingTop: 14,
+    paddingRight: 14,
+    paddingBottom: 12,
+    paddingLeft: 14,
+    gap: 10,
     ...theme.shadow.lg,
   },
   composerFocused: {
@@ -4473,10 +4595,9 @@ const styles = StyleSheet.create((theme) => ({
     shadowColor: "rgba(59, 130, 246, 0.22)",
   },
   promptInput: {
-    minHeight: 55,
     color: "#000000d9",
     fontSize: 16,
-    lineHeight: 24,
+    lineHeight: AI_CREATION_PROMPT_LINE_HEIGHT,
     padding: 0,
     ...(isWeb
       ? ({
@@ -4487,6 +4608,8 @@ const styles = StyleSheet.create((theme) => ({
       : {}),
   },
   editStage: {
+    position: "relative",
+    zIndex: 1,
     width: "100%",
     maxWidth: 1180,
     minHeight: 420,
@@ -4582,7 +4705,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   toolbar: {
     position: "relative",
-    zIndex: 40,
+    zIndex: 1010,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -4660,7 +4783,7 @@ const styles = StyleSheet.create((theme) => ({
     zIndex: 1,
   },
   choiceGroupOpen: {
-    zIndex: 100,
+    zIndex: 1190,
   },
   choiceTrigger: {
     minHeight: 32,
@@ -4710,7 +4833,7 @@ const styles = StyleSheet.create((theme) => ({
     position: "absolute",
     top: 42,
     left: 0,
-    zIndex: 100,
+    zIndex: 1200,
     borderRadius: 14,
     borderWidth: theme.borderWidth[1],
     borderColor: "#00000014",
@@ -4723,7 +4846,7 @@ const styles = StyleSheet.create((theme) => ({
     position: "absolute",
     top: 42,
     left: 0,
-    zIndex: 100,
+    zIndex: 1200,
     borderRadius: 14,
     borderWidth: theme.borderWidth[1],
     borderColor: "#00000014",

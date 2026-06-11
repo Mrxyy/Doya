@@ -21,10 +21,10 @@ import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import {
   createAccountProject,
   loadAccountBootstrapSession,
-  loginAccountUser,
+  loginAccountUserWithSms,
   refreshAccountBootstrapSession,
-  registerAccountUser,
   saveAccountBootstrapSession,
+  sendAccountSmsCode,
   type AccountBootstrapSession,
   type AccountProjectRecord,
 } from "@/account/account-api";
@@ -47,7 +47,9 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null>(null);
   const [isAccountProjectOpen, setIsAccountProjectOpen] = useState(false);
   const [hasLoadedAccount, setHasLoadedAccount] = useState(false);
-  const [accountEmail, setAccountEmail] = useState("");
+  const [accountPhone, setAccountPhone] = useState("");
+  const [accountSmsCode, setAccountSmsCode] = useState("");
+  const [isSendingSmsCode, setIsSendingSmsCode] = useState(false);
   const accountWorkspaceName = t("account.workspace.defaultName");
   const [accountProjectName, setAccountProjectName] = useState(() =>
     t("account.project.defaultName"),
@@ -84,10 +86,10 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
             await saveAccountBootstrapSession(refreshed);
           }
           setAccountSession(refreshed);
-          setAccountEmail(refreshed?.user.email ?? stored?.user.email ?? "");
+          setAccountPhone(refreshed?.user.phone ?? stored?.user.phone ?? "");
         } catch {
           setAccountSession(stored ? { ...stored, projects: [] } : null);
-          setAccountEmail(stored?.user.email ?? "");
+          setAccountPhone(stored?.user.phone ?? "");
           if (stored) {
             setAccountError(t("openProject.error.sessionKept"));
           }
@@ -121,15 +123,33 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const handleSaveAccountSession = useCallback(async (session: AccountBootstrapSession) => {
     await saveAccountBootstrapSession(session);
     setAccountSession(session);
-    setAccountEmail(session.user.email);
+    setAccountPhone(session.user.phone ?? "");
   }, []);
+
+  const handleSendAccountSmsCode = useCallback(() => {
+    setIsSendingSmsCode(true);
+    setAccountError(null);
+    void (async () => {
+      try {
+        await sendAccountSmsCode({ phone: accountPhone });
+      } catch (caught) {
+        setAccountError(caught instanceof Error ? caught.message : t("openProject.error.sendCode"));
+      } finally {
+        setIsSendingSmsCode(false);
+      }
+    })();
+  }, [accountPhone, t]);
 
   const handleLoginAccount = useCallback(() => {
     setAccountBusy(true);
     setAccountError(null);
     void (async () => {
       try {
-        const session = await loginAccountUser({ email: accountEmail });
+        const session = await loginAccountUserWithSms({
+          phone: accountPhone,
+          code: accountSmsCode,
+          displayName: accountWorkspaceName,
+        });
         await handleSaveAccountSession(session);
       } catch (caught) {
         setAccountError(caught instanceof Error ? caught.message : t("openProject.error.login"));
@@ -137,25 +157,7 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
         setAccountBusy(false);
       }
     })();
-  }, [handleSaveAccountSession, accountEmail, t]);
-
-  const handleRegisterAccount = useCallback(() => {
-    setAccountBusy(true);
-    setAccountError(null);
-    void (async () => {
-      try {
-        const session = await registerAccountUser({
-          email: accountEmail,
-          displayName: accountWorkspaceName,
-        });
-        await handleSaveAccountSession(session);
-      } catch (caught) {
-        setAccountError(caught instanceof Error ? caught.message : t("openProject.error.register"));
-      } finally {
-        setAccountBusy(false);
-      }
-    })();
-  }, [handleSaveAccountSession, accountEmail, accountWorkspaceName, t]);
+  }, [handleSaveAccountSession, accountPhone, accountSmsCode, accountWorkspaceName, t]);
 
   const handleCreateAccountProject = useCallback(() => {
     if (!accountSession) return;
@@ -254,16 +256,28 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
               <Text style={styles.authSubtitle}>{t("openProject.accountAuth.subtitle")}</Text>
             </View>
             <View style={styles.sheetStack}>
-              <Text style={styles.fieldLabel}>{t("openProject.accountAuth.email")}</Text>
+              <Text style={styles.fieldLabel}>{t("openProject.accountAuth.phone")}</Text>
               <AdaptiveTextInput
-                testID="workspace-auth-email"
-                accessibilityLabel={t("openProject.accountAuth.email")}
-                value={accountEmail}
-                onChangeText={setAccountEmail}
-                placeholder={translateNow("ui.you.example.com.1qsej4s")}
+                testID="workspace-auth-phone"
+                accessibilityLabel={t("openProject.accountAuth.phone")}
+                value={accountPhone}
+                onChangeText={setAccountPhone}
+                placeholder={translateNow("openProject.accountAuth.phonePlaceholder")}
                 autoCapitalize="none"
                 autoCorrect={false}
-                keyboardType="email-address"
+                keyboardType="phone-pad"
+                style={styles.sheetInput}
+              />
+              <Text style={styles.fieldLabel}>{t("openProject.accountAuth.code")}</Text>
+              <AdaptiveTextInput
+                testID="workspace-auth-code"
+                accessibilityLabel={t("openProject.accountAuth.code")}
+                value={accountSmsCode}
+                onChangeText={setAccountSmsCode}
+                placeholder={translateNow("openProject.accountAuth.codePlaceholder")}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="number-pad"
                 style={styles.sheetInput}
               />
               {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
@@ -271,19 +285,24 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
                 <Button
                   variant="secondary"
                   style={FULL_WIDTH_STYLE}
-                  loading={accountBusy}
-                  disabled={accountBusy || !accountEmail.trim()}
-                  onPress={handleLoginAccount}
+                  loading={isSendingSmsCode}
+                  disabled={accountBusy || isSendingSmsCode || !accountPhone.trim()}
+                  onPress={handleSendAccountSmsCode}
                 >
-                  {t("common.login")}
+                  {t("openProject.accountAuth.sendCode")}
                 </Button>
                 <Button
                   style={FULL_WIDTH_STYLE}
                   loading={accountBusy}
-                  disabled={accountBusy || !accountEmail.trim()}
-                  onPress={handleRegisterAccount}
+                  disabled={
+                    accountBusy ||
+                    isSendingSmsCode ||
+                    !accountPhone.trim() ||
+                    !accountSmsCode.trim()
+                  }
+                  onPress={handleLoginAccount}
                 >
-                  {t("openProject.accountAuth.register")}
+                  {t("openProject.accountAuth.loginOrRegister")}
                 </Button>
               </View>
             </View>
@@ -306,7 +325,7 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
             icon={MessagesSquare}
             title={t("openProject.newProject.title")}
             description={t("openProject.newProject.description")}
-            status={accountError ?? accountSession.user.email}
+            status={accountError ?? accountSession.user.phone ?? accountSession.user.email}
             onPress={handleOpenAccountProject}
             testID="open-project-account-workspace"
             accent

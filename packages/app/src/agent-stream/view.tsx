@@ -26,7 +26,17 @@ import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { SvgXml } from "react-native-svg";
 import { MAX_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
 import { useMutation } from "@tanstack/react-query";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { Check, ChevronDown, Download, Eye, X } from "lucide-react-native";
 import { usePanelStore } from "@/stores/panel-store";
 import {
@@ -86,7 +96,7 @@ import { recordRenderProfileReasons } from "@/utils/render-profiler";
 import { translateNow } from "@/i18n/i18n";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { setAiCreationEditSource } from "@/stores/ai-creation-edit-source-store";
-import { buildHostAiCreationRoute } from "@/utils/host-routes";
+import { buildHostAiCreationEditRoute } from "@/utils/host-routes";
 import { createWorkspacePptPreviewTabTarget } from "@/workspace/ppt-preview";
 import { useDownloadStore } from "@/stores/download-store";
 import { useHosts } from "@/runtime/host-runtime";
@@ -257,7 +267,9 @@ const AGENT_CAPABILITY_FLAG_KEYS: (keyof AgentCapabilityFlags)[] = [
 
 const EMPTY_STREAM_HEAD: StreamItem[] = [];
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
-const AI_CREATION_PLACEHOLDER_DOT_KEYS = Array.from({ length: 220 }, (_, index) => `dot-${index}`);
+const AI_CREATION_PLACEHOLDER_DOT_KEYS = Array.from({ length: 420 }, (_, index) => `dot-${index}`);
+const AI_CREATION_PLACEHOLDER_DOT_COLUMNS = 36;
+const AI_CREATION_PLACEHOLDER_DOT_PHASES = 24;
 const PDF_FILE_ICON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#ef5350" d="M13 9h5.5L13 3.5zM6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2m4.93 10.44c.41.9.93 1.64 1.53 2.15l.41.32c-.87.16-2.07.44-3.34.93l-.11.04.5-1.04c.45-.87.78-1.66 1.01-2.4m6.48 3.81c.18-.18.27-.41.28-.66.03-.2-.02-.39-.12-.55-.29-.47-1.04-.69-2.28-.69l-1.29.07-.87-.58c-.63-.52-1.2-1.43-1.6-2.56l.04-.14c.33-1.33.64-2.94-.02-3.6a.85.85 0 0 0-.61-.24h-.24c-.37 0-.7.39-.79.77-.37 1.33-.15 2.06.22 3.27v.01c-.25.88-.57 1.9-1.08 2.93l-.96 1.8-.89.49c-1.2.75-1.77 1.59-1.88 2.12-.04.19-.02.36.05.54l.03.05.48.31.44.11c.81 0 1.73-.95 2.97-3.07l.18-.07c1.03-.33 2.31-.56 4.03-.75 1.03.51 2.24.74 3 .74.44 0 .74-.11.91-.3m-.41-.71.09.11c-.01.1-.04.11-.09.13h-.04l-.19.02c-.46 0-1.17-.19-1.9-.51.09-.1.13-.1.23-.1 1.4 0 1.8.25 1.9.35M7.83 17c-.65 1.19-1.24 1.85-1.69 2 .05-.38.5-1.04 1.21-1.69zm3.02-6.91c-.23-.9-.24-1.63-.07-2.05l.07-.12.15.05c.17.24.19.56.09 1.1l-.03.16-.16.82z"/></svg>';
 const WORD_FILE_ICON_SVG =
@@ -423,7 +435,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           sourceAgentId: agentId,
           sourceServerId: resolvedServerId,
         });
-        router.push(buildHostAiCreationRoute(resolvedServerId));
+        router.push(buildHostAiCreationEditRoute(resolvedServerId));
       },
     );
 
@@ -1061,12 +1073,51 @@ function AiCreationPlaceholder({ intent }: { intent: ReturnType<typeof getAiCrea
     <View style={stylesheet.aiCreationPlaceholder}>
       <Text style={stylesheet.aiCreationPlaceholderTitle}>{title}</Text>
       <View style={stylesheet.aiCreationDotField}>
-        {AI_CREATION_PLACEHOLDER_DOT_KEYS.map((dotKey) => (
-          <View key={dotKey} style={stylesheet.aiCreationDot} />
+        {AI_CREATION_PLACEHOLDER_DOT_KEYS.map((dotKey, index) => (
+          <AiCreationPlaceholderDot key={dotKey} index={index} />
         ))}
       </View>
     </View>
   );
+}
+
+function AiCreationPlaceholderDot({ index }: { index: number }) {
+  const progress = useSharedValue(0);
+  const column = index % AI_CREATION_PLACEHOLDER_DOT_COLUMNS;
+  const row = Math.floor(index / AI_CREATION_PLACEHOLDER_DOT_COLUMNS);
+  const top = `${8 + row * 7.6 + ((column * 11 + row * 5) % 9) * 0.18}%`;
+  const left = `${2 + column * 2.72 + ((row * 13 + column * 3) % 7) * 0.12}%`;
+
+  useEffect(() => {
+    const phase =
+      (column * 7 + row * 13 + ((column * row + index * 5) % 17)) %
+      AI_CREATION_PLACEHOLDER_DOT_PHASES;
+    progress.value = withDelay(
+      phase * 58,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 520, easing: Easing.out(Easing.quad) }),
+          withTiming(0, { duration: 880, easing: Easing.inOut(Easing.quad) }),
+        ),
+        -1,
+        false,
+      ),
+    );
+  }, [index, progress]);
+
+  const angle = ((index * 137.5) % 360) * (Math.PI / 180);
+  const driftX = Math.cos(angle) * 3;
+  const driftY = Math.sin(angle) * 3;
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: 0.28 + progress.value * 0.72,
+    transform: [
+      { translateX: driftX * progress.value },
+      { translateY: driftY * progress.value },
+      { scale: 0.86 + progress.value * 0.34 },
+    ],
+  }));
+
+  return <Animated.View style={[stylesheet.aiCreationDot, { top, left }, animatedStyle]} />;
 }
 
 function getAiCreationFileVisual(fileName: string): { svg: string; background: string } {
@@ -1708,13 +1759,11 @@ const stylesheet = StyleSheet.create((theme) => ({
   aiCreationDotField: {
     flex: 1,
     minHeight: 360,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignContent: "flex-start",
-    gap: 18,
-    opacity: 0.5,
+    position: "relative",
+    overflow: "hidden",
   },
   aiCreationDot: {
+    position: "absolute",
     width: 2,
     height: 2,
     borderRadius: 1,

@@ -74,7 +74,7 @@ export function SidebarMenuToggle({
       tooltipSide={tooltipSide}
       testID={testID}
       nativeID={nativeID}
-      style={style}
+      style={[styles.sidebarToggleButton, style]}
       accessible
       accessibilityRole="button"
       accessibilityLabel={isOpen ? "Close menu" : "Open menu"}
@@ -108,6 +108,13 @@ export function MenuHeader({ title, rightContent, borderless }: MenuHeaderProps)
 const styles = StyleSheet.create((theme) => ({
   left: {
     gap: theme.spacing[2],
+  },
+  sidebarToggleButton: {
+    width: 36,
+    height: 36,
+    padding: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   mobileMenuIcon: {
     width: MOBILE_MENU_LINE_WIDTH,

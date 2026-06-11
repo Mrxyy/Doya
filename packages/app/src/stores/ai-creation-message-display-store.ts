@@ -76,6 +76,7 @@ export async function saveAiCreationMessageDisplayMetadata(input: {
 }): Promise<void> {
   const metadata = normalizeMetadata(input.metadata);
   if (
+    !input.text &&
     !metadata.images &&
     !metadata.displayAttachments &&
     !metadata.selectionPreviewUri &&

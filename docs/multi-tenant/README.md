@@ -30,6 +30,8 @@ $PASEO_HOME/accounts/
 
 - `POST /api/account/register`
 - `POST /api/account/login`
+- `POST /api/account/sms/send`
+- `POST /api/account/sms/login`
 - `POST /api/account/projects`
 
 开发时如果 daemon 监听 `127.0.0.1:6767`，App 会默认请求 `http://127.0.0.1:6767`。`npm run dev` 走 portless 时，App 使用 `EXPO_PUBLIC_LOCAL_DAEMON` 推导 daemon HTTP 地址。
@@ -50,3 +52,18 @@ npm run web --workspace=@getpaseo/app
 ```
 
 不再需要额外指定控制面 daemon 地址、provider 或工作区根目录，也不再运行额外账号服务。
+
+## 短信登录
+
+手机号注册/登录走 daemon 内置短信验证码接口。短信服务凭证只在 daemon
+环境变量中配置，App 不保存或发送服务商 secret：
+
+```bash
+PASEO_DOTSMS_APIKEY=...
+PASEO_DOTSMS_SECRET=...
+PASEO_DOTSMS_SIGN_ID=...
+PASEO_DOTSMS_TEMPLATE_ID=...
+```
+
+默认使用点信模板短信接口 `https://api.dotsms.cn/sms/template`。如需调试或切换网关，可用
+`PASEO_DOTSMS_URL` 覆盖。

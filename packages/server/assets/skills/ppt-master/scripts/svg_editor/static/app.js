@@ -259,6 +259,20 @@
         return String(value).replace(/"/g, '\\"');
     }
 
+    function formatSlideDisplayName(name) {
+        var base = String(name || "")
+            .split(/[\\/]/)
+            .pop()
+            .replace(/\.svg$/i, "")
+            .replace(/[_-]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+        if (!base) return "";
+        return base.replace(/\b([a-z])/g, function (match) {
+            return match.toUpperCase();
+        });
+    }
+
     function updateNavLabel() {
         if (!navCounterEl) return;
         var total = slideNames.length;
@@ -268,7 +282,7 @@
         } else {
             var idx = currentSlideIndex();
             navCounterEl.textContent = t("nav_counter", { current: idx + 1, total: total });
-            if (navNameEl) navNameEl.textContent = currentSlide;
+            if (navNameEl) navNameEl.textContent = formatSlideDisplayName(currentSlide);
         }
         var idx2 = currentSlideIndex();
         var hasCurrent = idx2 >= 0;
@@ -334,7 +348,7 @@
 
                     var nameSpan = document.createElement("span");
                     nameSpan.className = "slide-name";
-                    nameSpan.textContent = s.name;
+                    nameSpan.textContent = formatSlideDisplayName(s.name);
                     item.appendChild(nameSpan);
 
                     if (s.annotation_count > 0) {

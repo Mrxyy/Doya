@@ -209,7 +209,9 @@ export function DictationOverlay({
         </View>
         {isFailed ? (
           <Text numberOfLines={2} style={overlayTranscriptTextStyle}>
-            {errorText ? `Dictation failed: ${errorText}` : "Dictation failed. Tap retry."}
+            {errorText
+              ? translateNow("composer.dictation.failedWithError", { error: errorText })
+              : translateNow("composer.dictation.failedRetry")}
           </Text>
         ) : null}
       </View>

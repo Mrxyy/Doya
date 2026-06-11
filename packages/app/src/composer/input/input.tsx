@@ -321,10 +321,10 @@ function resolveSubmitAccessibilityLabel(input: {
   isAgentRunning: boolean;
 }): string {
   if (input.submitButtonAccessibilityLabel) return input.submitButtonAccessibilityLabel;
-  if (input.canPressLoadingButton) return "Interrupt agent";
-  if (input.defaultActionQueues) return "Queue message";
-  if (input.isAgentRunning) return "Send and interrupt";
-  return "Send message";
+  if (input.canPressLoadingButton) return translateNow("composer.action.interruptAgent");
+  if (input.defaultActionQueues) return translateNow("composer.action.queueMessage");
+  if (input.isAgentRunning) return translateNow("composer.action.sendAndInterrupt");
+  return translateNow("composer.action.sendMessage");
 }
 
 function resolveVoiceAccessibilityLabel(input: {
@@ -333,10 +333,12 @@ function resolveVoiceAccessibilityLabel(input: {
   isDictating: boolean;
 }): string {
   if (input.isRealtimeVoiceForCurrentAgent) {
-    return input.isMuted ? "Unmute Voice mode" : "Mute Voice mode";
+    return input.isMuted
+      ? translateNow("composer.voice.unmuteMode")
+      : translateNow("composer.voice.muteMode");
   }
-  if (input.isDictating) return "Stop dictation";
-  return "Start dictation";
+  if (input.isDictating) return translateNow("composer.voice.stopDictation");
+  return translateNow("composer.voice.startDictation");
 }
 
 function resolveVoiceTooltipText(input: {
@@ -344,9 +346,11 @@ function resolveVoiceTooltipText(input: {
   isMuted: boolean;
 }): string {
   if (input.isRealtimeVoiceForCurrentAgent) {
-    return input.isMuted ? "Unmute voice" : "Mute voice";
+    return input.isMuted
+      ? translateNow("composer.voice.unmute")
+      : translateNow("composer.voice.mute");
   }
-  return "Dictation";
+  return translateNow("composer.voice.dictation");
 }
 
 function resolveSendTooltipLabel(input: {
@@ -354,7 +358,9 @@ function resolveSendTooltipLabel(input: {
   defaultActionQueues: boolean;
 }): string {
   if (input.submitButtonAccessibilityLabel) return input.submitButtonAccessibilityLabel;
-  return input.defaultActionQueues ? "Queue" : "Send";
+  return input.defaultActionQueues
+    ? translateNow("composer.action.queue")
+    : translateNow("composer.action.send");
 }
 
 interface DesktopKeyPressContext {
@@ -1125,7 +1131,7 @@ function resolveMessageInputProps(props: MessageInputProps): ResolvedMessageInpu
     onAddImages: props.onAddImages,
     client: props.client,
     isReadyForDictation: props.isReadyForDictation,
-    placeholder: props.placeholder ?? "Message...",
+    placeholder: props.placeholder ?? translateNow("composer.placeholder.default"),
     autoFocus: props.autoFocus ?? false,
     autoFocusKey: props.autoFocusKey,
     disabled: props.disabled ?? false,
@@ -1690,8 +1696,13 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
     }, [handleStopRealtimeVoice]);
 
     const inputWrapperCombinedStyle = useMemo(
-      () => [styles.inputWrapper, inputWrapperStyle, inputAnimatedStyle],
-      [inputWrapperStyle, inputAnimatedStyle],
+      () => [
+        styles.inputWrapper,
+        isInputFocused && styles.inputWrapperFocused,
+        inputWrapperStyle,
+        inputAnimatedStyle,
+      ],
+      [inputWrapperStyle, inputAnimatedStyle, isInputFocused],
     );
     const textInputStyle = useMemo(
       () => [styles.textInput, computeTextInputHeightStyle(inputHeight, maxInputHeight)],
@@ -1854,11 +1865,18 @@ const styles = StyleSheet.create((theme: Theme) => ({
     },
     ...(isWeb
       ? {
-          transitionProperty: "border-color",
+          transitionProperty: "border-color, box-shadow",
           transitionDuration: "200ms",
           transitionTimingFunction: "ease-in-out",
         }
       : {}),
+  },
+  inputWrapperFocused: {
+    borderColor: "#b9d7ff",
+    shadowColor: "rgba(59, 130, 246, 0.22)",
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 24,
+    elevation: 8,
   },
   textInputScrollWrapper: {
     position: "relative",

@@ -1,4 +1,5 @@
 import type { AgentFeature, AgentModelDefinition } from "@getpaseo/protocol/agent-types";
+import { translateNow } from "@/i18n/translate";
 
 export type ExplainedAgentControl = "mode" | "model" | "thinking";
 export type FeatureHighlightColor = "blue" | "default" | "green" | "yellow";
@@ -6,11 +7,11 @@ export type FeatureHighlightColor = "blue" | "default" | "green" | "yellow";
 export function getAgentControlHint(selector: ExplainedAgentControl): string {
   switch (selector) {
     case "thinking":
-      return "Thinking mode";
+      return translateNow("composer.agentControls.hint.thinking");
     case "model":
-      return "Change model";
+      return translateNow("composer.agentControls.hint.model");
     case "mode":
-      return "Change permission mode";
+      return translateNow("composer.agentControls.hint.mode");
     default:
       throw new Error("unreachable");
   }
@@ -70,6 +71,11 @@ function formatControlLabel(option: ControlLabelInput, splitHyphen: boolean): st
 }
 
 export function formatAgentModeLabel(mode: ControlLabelInput): string {
+  const compact = (mode.label ?? mode.id).replace(/[\s_-]+/g, "").toLowerCase();
+  const localized = getLocalizedAgentModeLabel(compact);
+  if (localized) {
+    return localized;
+  }
   return formatControlLabel(mode, mode.label == null);
 }
 
@@ -79,10 +85,54 @@ export function formatThinkingOptionLabel(option: ControlLabelInput): string {
   const compactLabel = rawLabel.replace(/[\s_-]+/g, "").toLowerCase();
 
   if (compactId === "xhigh" || compactLabel === "xhigh") {
-    return "Extra high";
+    return translateNow("composer.thinking.extraHigh");
+  }
+
+  const localized = getLocalizedThinkingOptionLabel(compactLabel || compactId);
+  if (localized) {
+    return localized;
   }
 
   return formatControlLabel(option, true);
+}
+
+function getLocalizedAgentModeLabel(compact: string): string | null {
+  switch (compact) {
+    case "defaultpermissions":
+    case "default":
+      return translateNow("composer.agentMode.defaultPermissions");
+    case "readonly":
+    case "read":
+      return translateNow("composer.agentMode.readOnly");
+    case "autoaccept":
+    case "autoacceptedits":
+      return translateNow("composer.agentMode.autoAccept");
+    case "planmode":
+      return translateNow("composer.agentMode.plan");
+    default:
+      return null;
+  }
+}
+
+function getLocalizedThinkingOptionLabel(compact: string): string | null {
+  switch (compact) {
+    case "minimal":
+      return translateNow("composer.thinking.minimal");
+    case "low":
+      return translateNow("composer.thinking.low");
+    case "medium":
+      return translateNow("composer.thinking.medium");
+    case "high":
+      return translateNow("composer.thinking.high");
+    case "extra":
+    case "extrahigh":
+      return translateNow("composer.thinking.extraHigh");
+    case "auto":
+    case "default":
+      return translateNow("composer.thinking.auto");
+    default:
+      return null;
+  }
 }
 
 function findModelById(
@@ -147,7 +197,10 @@ function resolveModelDisplay(
   return {
     activeModelId: selectedModel?.id ?? preferredModelId ?? null,
     displayModel:
-      selectedModel?.label ?? preferredModelId ?? fallbackModel?.label ?? "Unknown model",
+      selectedModel?.label ??
+      preferredModelId ??
+      fallbackModel?.label ??
+      translateNow("composer.agentControls.unknownModel"),
   };
 }
 
@@ -163,7 +216,7 @@ function resolveThinkingDisplay(
     return formatThinkingOptionLabel({ id: selectedThinkingId });
   }
 
-  return "Unknown";
+  return translateNow("composer.agentControls.unknown");
 }
 
 export function resolveAgentModelSelection(input: {

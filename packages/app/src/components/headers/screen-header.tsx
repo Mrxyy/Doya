@@ -2,8 +2,9 @@ import { useMemo, type ReactNode } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { View, type StyleProp, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
 import {
+  HEADER_HORIZONTAL_PADDING,
   HEADER_INNER_HEIGHT,
   HEADER_INNER_HEIGHT_MOBILE,
   HEADER_TOP_PADDING_MOBILE,
@@ -37,13 +38,11 @@ export function ScreenHeader({
   windowControlsPaddingRole = "header",
   onRowLayout,
 }: ScreenHeaderProps) {
-  const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
   const isMobile = useIsCompactFormFactor();
   const padding = useWindowControlsPadding(windowControlsPaddingRole);
   // Only add extra padding on mobile for better touch targets; on desktop, only use safe area insets
   const topPadding = isMobile ? HEADER_TOP_PADDING_MOBILE : 0;
-  const baseHorizontalPadding = theme.spacing[2];
 
   const innerStyle = useMemo(
     () => [styles.inner, { paddingTop: insets.top + topPadding }],
@@ -53,12 +52,12 @@ export function ScreenHeader({
     () => [
       styles.row,
       {
-        paddingLeft: baseHorizontalPadding + padding.left,
-        paddingRight: baseHorizontalPadding + padding.right,
+        paddingLeft: HEADER_HORIZONTAL_PADDING + padding.left,
+        paddingRight: HEADER_HORIZONTAL_PADDING + padding.right,
       },
       borderless && styles.borderless,
     ],
-    [baseHorizontalPadding, padding.left, padding.right, borderless],
+    [padding.left, padding.right, borderless],
   );
   const leftCombinedStyle = useMemo(() => [styles.left, leftStyle], [leftStyle]);
   const rightCombinedStyle = useMemo(() => [styles.right, rightStyle], [rightStyle]);

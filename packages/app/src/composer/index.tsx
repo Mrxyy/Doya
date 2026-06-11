@@ -145,7 +145,9 @@ function resolveIsDesktopWebBreakpoint(isMobile: boolean): boolean {
 }
 
 function resolveMessagePlaceholder(isDesktopWebBreakpoint: boolean): string {
-  return isDesktopWebBreakpoint ? DESKTOP_MESSAGE_PLACEHOLDER : MOBILE_MESSAGE_PLACEHOLDER;
+  return isDesktopWebBreakpoint
+    ? translateNow("composer.placeholder.desktop")
+    : translateNow("composer.placeholder.mobile");
 }
 
 function resolveGithubSearchEnabled(
@@ -734,8 +736,6 @@ interface ComposerProps {
 }
 
 const EMPTY_ARRAY: readonly QueuedMessage[] = [];
-const DESKTOP_MESSAGE_PLACEHOLDER = "Message the agent, tag @files, or use /commands and /skills";
-const MOBILE_MESSAGE_PLACEHOLDER = "Message, @files, /commands";
 const StableMessageInput = memo(MessageInput);
 
 function resolveContextWindowValues(
@@ -765,7 +765,9 @@ function ComposerCancelButton({
   isCancellingAgent,
   agentInterruptKeys,
 }: ComposerCancelButtonProps) {
-  const accessibilityLabel = isCancellingAgent ? "Canceling agent" : "Stop agent";
+  const accessibilityLabel = isCancellingAgent
+    ? translateNow("composer.action.cancelingAgent")
+    : translateNow("composer.action.stopAgent");
   const icon = isCancellingAgent ? (
     <ActivityIndicator size="small" color="white" />
   ) : (
@@ -1726,8 +1728,8 @@ export function Composer({
     [sendError],
   );
   const githubEmptyText = githubSearchResultsQuery.isFetching
-    ? "Searching..."
-    : "No results found.";
+    ? translateNow("composer.github.searching")
+    : translateNow("composer.github.noResults");
   const autocompleteVisible = autocomplete.isVisible && isPaneFocused;
 
   return (
