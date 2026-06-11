@@ -325,7 +325,7 @@ No prefix (`v`), no extra text. The parser matches the first `## X.Y.Z` line to 
 
 ## Changelog voice
 
-The changelog is shown on the Paseo homepage. Write it for **end users**, not developers.
+The changelog is shown on the Doya homepage. Write it for **end users**, not developers.
 
 - **Frame everything from the user's perspective.** Describe what changed in the app, not what changed in the code. Users care that "workspaces load instantly" — not that a component no longer remounts.
 - **Never mention component names, internal modules, or implementation details.** No `WorkingIndicator`, no `accumulatedUsage`, no `reconcileAndEmitWorkspaceUpdates`. Also no "virtualized lists", no "remount", no "memoization", no "debounced", no "fuzzy ranking", no "controlled input", no "uncontrolled input" — these are implementation words masquerading as user-facing copy.

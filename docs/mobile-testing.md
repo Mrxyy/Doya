@@ -92,7 +92,7 @@ For async elements, use `extendedWaitUntil`:
 
 Two reusable flows handle Expo dev client screens after launch:
 
-- `flows/launch.yaml` — handles dev launcher, dismisses dev menu, asserts "Welcome to Paseo"
+- `flows/launch.yaml` — handles dev launcher, dismisses dev menu, asserts "Welcome to Doya"
 - `flows/dev-client.yaml` — same but without asserting a particular app route
 
 ### Reach the composer

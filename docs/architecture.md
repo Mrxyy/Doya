@@ -1,8 +1,8 @@
 # Architecture
 
-Paseo is a client-server system for monitoring and controlling local AI coding agents. The daemon runs on your machine, manages agent processes, and streams their output in real time over WebSocket. Clients (mobile app, CLI, desktop app) connect to the daemon to observe and interact with agents.
+Doya is a client-server system for monitoring and controlling local AI coding agents. The daemon runs on your machine, manages agent processes, and streams their output in real time over WebSocket. Clients (mobile app, CLI, desktop app) connect to the daemon to observe and interact with agents.
 
-Your code never leaves your machine. Paseo is local-first.
+Your code never leaves your machine. Doya is local-first.
 
 ## System overview
 
@@ -52,7 +52,7 @@ through the normal project/workspace and agent lifecycle. See
 
 ### `packages/server` — The daemon
 
-The heart of Paseo. A Node.js process that:
+The heart of Doya. A Node.js process that:
 
 - Listens for WebSocket connections from clients
 - Manages agent lifecycle (create, run, stop, resume, archive)
@@ -256,7 +256,7 @@ The built-in, user-facing providers are Claude Code, Codex, Copilot, OpenCode, a
 
 All providers:
 
-- Handle their own authentication (Paseo does not manage API keys)
+- Handle their own authentication (Doya does not manage API keys)
 - Support session resume via persistence handles
 - Map tool calls to a normalized `ToolCallDetail` type
 - Expose provider-specific modes (plan, default, full-access)

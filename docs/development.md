@@ -204,7 +204,7 @@ For tighter loops, you can rebuild a single workspace:
 
 ## CLI reference
 
-Use `npm run cli` to run the in-repo CLI from source (`npx tsx packages/cli/src/index.ts`). The globally installed `paseo` binary on macOS is a symlink into the installed Paseo desktop app, not this checkout — use it to drive the desktop's built-in daemon, but use `npm run cli` when you want to talk to the CLI you are editing.
+Use `npm run cli` to run the in-repo CLI from source (`npx tsx packages/cli/src/index.ts`). The globally installed `paseo` binary on macOS is a symlink into the installed Doya desktop app, not this checkout — use it to drive the desktop's built-in daemon, but use `npm run cli` when you want to talk to the CLI you are editing.
 
 ```bash
 npm run cli -- ls -a -g              # List all agents globally
@@ -271,7 +271,7 @@ PWA install metadata lives in `packages/app/public/manifest.json` and is linked
 from `packages/app/public/index.html`. Keep the install icons in `public/` so
 Cloudflare serves them from stable root URLs after `expo export`.
 
-Do not add service-worker caching casually. Paseo is a live control surface for
+Do not add service-worker caching casually. Doya is a live control surface for
 agents, and an aggressive service worker can strand installed users on stale web
 code. If offline behavior becomes a product requirement, add it deliberately
 with an update strategy and test the installed-app upgrade path.

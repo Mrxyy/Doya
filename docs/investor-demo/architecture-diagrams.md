@@ -1,8 +1,8 @@
 # 架构图
 
-![Paseo 架构总览](./paseo-architecture-overview.png)
+![Doya 架构总览](./paseo-architecture-overview.png)
 
-![Paseo 多端构建与运行时流向](./paseo-multiplatform-architecture-flow-cn-v2.png)
+![Doya 多端构建与运行时流向](./paseo-multiplatform-architecture-flow-cn-v2.png)
 
 ## 1. 产品闭环图
 
@@ -41,7 +41,7 @@ flowchart TB
   end
 
   subgraph LocalMode["个人 / 开源版：本地 daemon"]
-    LocalDaemon["Paseo daemon<br/>账号 / 项目 / 会话 / agent 编排"]
+    LocalDaemon["Doya daemon<br/>账号 / 项目 / 会话 / agent 编排"]
     LocalWorkspace["本机项目目录<br/>代码 / Git / 终端 / 依赖"]
     LocalAgents["本机 agent 进程<br/>Codex / Claude / Copilot / OpenCode"]
   end
@@ -280,7 +280,7 @@ flowchart LR
     Code["代码仓库"]
     Key["模型账号 / API Key"]
     Env["开发环境<br/>依赖 / 终端 / Git"]
-    Runtime["Paseo 执行服务"]
+    Runtime["Doya 执行服务"]
     Agent["Agent 进程"]
   end
 
