@@ -102,6 +102,7 @@ Cross-platform React Native app that connects to one or more daemons.
 - Composer UI and submit/draft behavior live in `packages/app/src/composer/`; screens and panels should integrate it from there instead of dropping composer internals into `components/`, `hooks/`, or `screens/workspace/`
 - Timeline reducers in `timeline/session-stream-reducers.ts` handle compaction, gap detection, sequence-based deduplication
 - Timeline sync correctness is documented in [docs/timeline-sync.md](timeline-sync.md): live streams are for immediacy, `fetch_agent_timeline_request` is authoritative, and catch-up is paged but complete.
+- Messages that mix full agent prompts with special rendered chat UI use [Paseo Message Markup](paseo-message-markup.md).
 - Voice features: dictation (STT) and voice agent (realtime)
 
 ### `packages/cli` — Command-line client
