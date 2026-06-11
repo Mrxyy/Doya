@@ -42,6 +42,10 @@ In any worktree-style or portless setup, never assume default ports.
 `npm run dev:desktop` starts Electron with Chromium remote debugging enabled on
 `http://127.0.0.1:9223` so renderer CPU profiles can be captured through CDP.
 Override the port with `PASEO_ELECTRON_REMOTE_DEBUGGING_PORT` when `9223` is busy.
+The script clears `ELECTRON_RUN_AS_NODE` for the Electron UI process so agent or
+packaging environments that set it do not make Electron run as plain Node.
+The desktop main process ignores `write EPIPE` from console logging so a closed
+terminal pipe does not surface as an Electron main-process crash dialog.
 
 ### React render profiling
 

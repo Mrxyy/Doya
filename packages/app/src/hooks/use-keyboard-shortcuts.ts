@@ -34,14 +34,12 @@ export function useKeyboardShortcuts({
   toggleAgentList,
   toggleBothSidebars,
   toggleFocusMode,
-  cycleTheme,
 }: {
   enabled: boolean;
   isMobile: boolean;
   toggleAgentList: () => void;
   toggleBothSidebars?: () => void;
   toggleFocusMode?: () => void;
-  cycleTheme?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -84,7 +82,6 @@ export function useKeyboardShortcuts({
       "toggle-agent-list": toggleAgentList,
       "toggle-both-sidebars": toggleBothSidebars,
       "toggle-focus-mode": toggleFocusMode,
-      "cycle-theme": cycleTheme,
     };
 
     const performShortcutAction = (action: ShortcutAction, event: KeyboardEvent): boolean => {
@@ -274,7 +271,6 @@ export function useKeyboardShortcuts({
     };
   }, [
     bindings,
-    cycleTheme,
     enabled,
     activeWorkspaceSelection,
     isMobile,

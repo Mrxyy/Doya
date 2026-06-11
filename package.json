@@ -72,7 +72,7 @@
     "android:clean": "npm run android:clean --workspace=@getpaseo/app",
     "ios": "npm run ios --workspace=@getpaseo/app",
     "web": "npm run web --workspace=@getpaseo/app",
-    "dev:desktop": "npm run dev --workspace=@getpaseo/desktop",
+    "dev:desktop": " npm run dev --workspace=@getpaseo/desktop",
     "dev:win:desktop": "npm run dev:win --workspace=@getpaseo/desktop",
     "build:desktop": "npm run build:app-deps && npm run build:server-deps && npm run build --workspace=@getpaseo/server && cd packages/app && cross-env PASEO_WEB_PLATFORM=electron npx expo export --platform web && cd ../.. && npm run build --workspace=@getpaseo/desktop --",
     "db:query": "npm run db:query --workspace=@getpaseo/server --",

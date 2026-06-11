@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
 import log from "electron-log/main";
-import { resolvePaseoHome, spawnProcess } from "@getpaseo/server";
 import {
   copyAttachmentFileToManagedStorage,
   deleteManagedAttachmentFile,
@@ -24,6 +23,7 @@ import {
   uninstallSkills,
   updateSkills,
 } from "../integrations/skills/index.js";
+import { resolvePaseoHome, spawnProcess } from "../system/paseo-runtime.js";
 import {
   openLocalTransportSession,
   sendLocalTransportMessage,

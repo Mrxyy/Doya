@@ -33,12 +33,12 @@ function makeDeps(
 }
 
 describe("loadAppSettingsFromStorage", () => {
-  it("defaults theme to auto when storage is empty", async () => {
+  it("defaults theme to light when storage is empty", async () => {
     const deps = makeDeps();
 
     const result = await loadAppSettingsFromStorage(deps);
 
-    expect(result.theme).toBe("auto");
+    expect(result.theme).toBe("light");
   });
 
   it("seeds storage with the client defaults when nothing is persisted", async () => {
@@ -76,7 +76,7 @@ describe("loadAppSettingsFromStorage", () => {
     expect(result.terminalScrollbackLines).toBe(1_000_000);
   });
 
-  it("migrates the legacy theme key into the new settings object", async () => {
+  it("ignores the legacy theme key and forces light", async () => {
     const deps = makeDeps({
       storage: createInMemoryKeyValueStorage({
         [LEGACY_SETTINGS_KEY]: JSON.stringify({
@@ -91,7 +91,7 @@ describe("loadAppSettingsFromStorage", () => {
 
     expect(result).toEqual({
       ...DEFAULT_CLIENT_SETTINGS,
-      theme: "dark",
+      theme: "light",
     });
     expect(deps.storage.entries.get(APP_SETTINGS_KEY)).toBe(JSON.stringify(result));
   });
@@ -214,6 +214,28 @@ describe("saveAppSettings", () => {
       JSON.stringify({
         ...DEFAULT_CLIENT_SETTINGS,
         terminalScrollbackLines: 42_000,
+      }),
+    );
+  });
+
+  it("forces light when saving a different theme", async () => {
+    const deps = makeDeps({
+      storage: createInMemoryKeyValueStorage({
+        [APP_SETTINGS_KEY]: JSON.stringify(DEFAULT_CLIENT_SETTINGS),
+      }),
+    });
+    const queryClient = new QueryClient();
+
+    await saveAppSettings({
+      queryClient,
+      updates: { theme: "dark" },
+      deps,
+    });
+
+    expect(deps.storage.entries.get(APP_SETTINGS_KEY)).toBe(
+      JSON.stringify({
+        ...DEFAULT_CLIENT_SETTINGS,
+        theme: "light",
       }),
     );
   });

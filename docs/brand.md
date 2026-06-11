@@ -43,9 +43,9 @@ Supporting variants:
 - `packages/app/assets/icons/doya-light.svg` — light-background tile variant matching the primary filled style
 - `packages/app/assets/icons/doya-light-24.png` — derived 24x24 light-background PNG
 
-The primary logo has a full light-green background. Use the filled mark by default.
+The primary logo has a rounded light-green tile background. Use the filled mark by default.
 
-Use the monochrome variant only when the mark must inherit surrounding UI color. Do not use transparent primary logo files for normal brand surfaces, and do not round the primary logo background if that would leave transparent corners.
+Use the monochrome variant only when the mark must inherit surrounding UI color. Do not use transparent primary logo files for normal brand surfaces except for the rounded tile corners required by the brand mark.
 
 ---
 
@@ -68,7 +68,7 @@ Avoid purple gradients, dark cyberpunk styling, beige/brown dominance, robot fac
 
 ## Sizing
 
-The source SVG uses a `24 x 24` viewBox and is designed to be legible at 24px.
+The source SVG uses a `24 x 24` viewBox and is designed to be legible at 24px. Filled logo variants use an inset `21.2 x 21.2` rounded tile with a `4.8` viewBox-unit corner radius so the mark reads like a modern Apple-style app icon without looking larger than neighboring icons. Keep the sprout mark scaled to about `72%` of the source shape so it has Apple-style optical padding next to other app icons.
 
 Minimum practical sizes:
 
@@ -100,6 +100,8 @@ rsvg-convert -w 1024 -h 1024 packages/app/assets/icons/doya-app-icon.svg -o pack
 rsvg-convert -w 24 -h 24 packages/app/assets/icons/doya-mono.svg -o packages/app/assets/icons/doya-mono-24.png
 rsvg-convert -w 24 -h 24 packages/app/assets/icons/doya-light.svg -o packages/app/assets/icons/doya-light-24.png
 ```
+
+Keep app, website, and desktop icon assets visually in sync. The desktop `icon.ico` and `icon.icns`, website favicon files, app PWA icons, and dynamic favicon status PNGs are all derived from the same rounded tile mark.
 
 Do not hand-edit derived PNGs.
 

@@ -20,7 +20,30 @@ const SERVER_PACKAGE_NAME = "@getpaseo/server";
 const esmRequire = createRequire(__filename);
 
 function resolveServerPackageInfo(): PackageInfo {
-  const serverExportPath = esmRequire.resolve(SERVER_PACKAGE_NAME);
+  let serverExportPath: string;
+  try {
+    serverExportPath = esmRequire.resolve(SERVER_PACKAGE_NAME);
+  } catch (error) {
+    if (app.isPackaged) {
+      throw error;
+    }
+    const serverPackageJsonPath = path.resolve(
+      __dirname,
+      "..",
+      "..",
+      "..",
+      "server",
+      "package.json",
+    );
+    return {
+      root: path.dirname(
+        assertPathExists({
+          label: "Server package root",
+          filePath: serverPackageJsonPath,
+        }),
+      ),
+    };
+  }
   return findPackageRootFromResolvedPath({
     resolvedPath: serverExportPath,
     packageName: SERVER_PACKAGE_NAME,
@@ -70,7 +93,7 @@ export function resolveDaemonRunnerEntrypoint(): NodeEntrypointSpec {
       label: "Daemon runner source",
       filePath: path.join(serverPackage.root, "scripts", "supervisor-entrypoint.ts"),
     }),
-    execArgv: ["--import", "tsx"],
+    execArgv: ["--conditions", "source", "--import", "tsx"],
   };
 }
 

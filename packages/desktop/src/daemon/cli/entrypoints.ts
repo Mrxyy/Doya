@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { app } from "electron";
@@ -41,20 +40,12 @@ export function resolveExternalCliEntrypoint(): NodeEntrypointSpec {
   }
 
   const cliRoot = resolveCliPackageRoot();
-  const distEntry = path.join(cliRoot, "dist", "index.js");
-  if (existsSync(distEntry)) {
-    return {
-      entryPath: distEntry,
-      execArgv: [],
-    };
-  }
-
   return {
     entryPath: assertPathExists({
       label: "External CLI source entrypoint",
       filePath: path.join(cliRoot, "src", "index.ts"),
     }),
-    execArgv: ["--import", "tsx"],
+    execArgv: ["--conditions", "source", "--import", "tsx"],
   };
 }
 

@@ -76,7 +76,7 @@ import {
 import { getDaemonStartService } from "@/runtime/daemon-start-service";
 import { applyAppearance } from "@/screens/settings/appearance/apply-appearance";
 import { usePanelStore } from "@/stores/panel-store";
-import { THEME_TO_UNISTYLES, type ThemeName } from "@/styles/theme";
+import { THEME_TO_UNISTYLES } from "@/styles/theme";
 import type { HostProfile } from "@/types/host-connection";
 import { resolveActiveHost } from "@/utils/active-host";
 import { toggleDesktopSidebarsWithCheckoutIntent } from "@/utils/desktop-sidebar-toggle";
@@ -389,15 +389,12 @@ interface AppContainerProps {
   chromeEnabled?: boolean;
 }
 
-const THEME_CYCLE_ORDER: ThemeName[] = ["dark", "zinc", "midnight", "claude", "ghostty", "light"];
-
 function AppContainer({
   children,
   selectedAgentId,
   chromeEnabled: chromeEnabledOverride,
 }: AppContainerProps) {
   const daemons = useHosts();
-  const { settings, updateSettings } = useAppSettings();
   const toggleMobileAgentList = usePanelStore((state) => state.toggleMobileAgentList);
   const toggleDesktopAgentList = usePanelStore((state) => state.toggleDesktopAgentList);
   const openDesktopAgentList = usePanelStore((state) => state.openDesktopAgentList);
@@ -405,12 +402,6 @@ function AppContainer({
   const closeDesktopFileExplorer = usePanelStore((state) => state.closeDesktopFileExplorer);
   const toggleFocusMode = usePanelStore((state) => state.toggleFocusMode);
   const isFocusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
-
-  const cycleTheme = useCallback(() => {
-    const currentIndex = THEME_CYCLE_ORDER.indexOf(settings.theme as ThemeName);
-    const nextIndex = (currentIndex + 1) % THEME_CYCLE_ORDER.length;
-    void updateSettings({ theme: THEME_CYCLE_ORDER[nextIndex] });
-  }, [settings.theme, updateSettings]);
 
   const isCompactLayout = useIsCompactFormFactor();
   useCompactWebViewportZoomLock(isCompactLayout);
@@ -448,7 +439,6 @@ function AppContainer({
     toggleAgentList,
     toggleBothSidebars: toggleDesktopSidebars,
     toggleFocusMode,
-    cycleTheme,
   });
 
   useActiveWorktreeNewAction();
@@ -616,16 +606,12 @@ function ProvidersWrapper({ children }: { children: ReactNode }) {
   const { settings, isLoading: settingsLoading } = useAppSettings();
   const { upsertConnectionFromOfferUrl } = useHostMutations();
 
-  // Apply theme setting on mount and when it changes
+  // The product is intentionally light-only; stored theme values are ignored.
   useEffect(() => {
     if (settingsLoading) return;
-    if (settings.theme === "auto") {
-      UnistylesRuntime.setAdaptiveThemes(true);
-    } else {
-      UnistylesRuntime.setAdaptiveThemes(false);
-      UnistylesRuntime.setTheme(THEME_TO_UNISTYLES[settings.theme]);
-    }
-  }, [settingsLoading, settings.theme]);
+    UnistylesRuntime.setAdaptiveThemes(false);
+    UnistylesRuntime.setTheme(THEME_TO_UNISTYLES.light);
+  }, [settingsLoading]);
 
   // Apply font / size / syntax appearance settings on mount and when they change.
   // Sibling to the theme effect above; order is irrelevant because both patch all

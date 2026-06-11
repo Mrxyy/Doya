@@ -1,6 +1,39 @@
 process.emitWarning = (() => {}) as typeof process.emitWarning;
 
 import log from "electron-log/main";
+
+function isBrokenPipeError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = "code" in error ? (error as NodeJS.ErrnoException).code : undefined;
+  return code === "EPIPE" || error.message.includes("write EPIPE");
+}
+
+function rethrowAsync(error: unknown): void {
+  setTimeout(() => {
+    throw error;
+  }, 0);
+}
+
+function ignoreBrokenPipeStreamErrors(stream: NodeJS.WriteStream): void {
+  stream.on("error", (error) => {
+    if (isBrokenPipeError(error)) return;
+    rethrowAsync(error);
+  });
+}
+
+ignoreBrokenPipeStreamErrors(process.stdout);
+ignoreBrokenPipeStreamErrors(process.stderr);
+
+const consoleWrite = log.transports.console.writeFn.bind(log.transports.console);
+log.transports.console.writeFn = (options) => {
+  try {
+    consoleWrite(options);
+  } catch (error) {
+    if (isBrokenPipeError(error)) return;
+    throw error;
+  }
+};
+
 log.transports.console.level = "info";
 log.initialize({ spyRendererConsole: true });
 

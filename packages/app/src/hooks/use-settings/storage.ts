@@ -1,7 +1,7 @@
 import { isSyntaxThemeId, type SyntaxThemeId } from "@getpaseo/highlight";
 import type { QueryClient } from "@tanstack/react-query";
 import type { DesktopSettings } from "@/desktop/settings/desktop-settings";
-import { THEME_TO_UNISTYLES, type ThemeName } from "@/styles/theme";
+import type { ThemeName } from "@/styles/theme";
 
 export const APP_SETTINGS_KEY = "@paseo:app-settings";
 export const APP_SETTINGS_QUERY_KEY = ["app-settings"];
@@ -12,7 +12,7 @@ export type ReleaseChannel = "stable" | "beta";
 export type ServiceUrlBehavior = "ask" | "in-app" | "external";
 export type LanguageSetting = "system" | "en" | "zh";
 
-const VALID_THEMES = new Set<string>([...Object.keys(THEME_TO_UNISTYLES), "auto"]);
+const FORCED_THEME: ThemeName = "light";
 const VALID_SERVICE_URL_BEHAVIORS = new Set<ServiceUrlBehavior>(["ask", "in-app", "external"]);
 export const DEFAULT_TERMINAL_SCROLLBACK_LINES = 10_000;
 export const MIN_TERMINAL_SCROLLBACK_LINES = 0;
@@ -44,7 +44,7 @@ export interface Settings extends AppSettings {
 }
 
 export const DEFAULT_CLIENT_SETTINGS: AppSettings = {
-  theme: "auto",
+  theme: FORCED_THEME,
   language: "zh",
   sendBehavior: "interrupt",
   serviceUrlBehavior: "ask",
@@ -89,7 +89,7 @@ export async function saveAppSettings(input: {
   const current =
     input.queryClient.getQueryData<AppSettings>(APP_SETTINGS_QUERY_KEY) ??
     (await loadAppSettingsFromStorage(input.deps));
-  const next = { ...current, ...input.updates };
+  const next = { ...current, ...input.updates, theme: FORCED_THEME };
   input.queryClient.setQueryData<AppSettings>(APP_SETTINGS_QUERY_KEY, next);
   await input.deps.storage.setItem(APP_SETTINGS_KEY, JSON.stringify(next));
 }
@@ -99,15 +99,14 @@ export async function loadAppSettingsFromStorage(deps: SettingsDeps): Promise<Ap
     const stored = await deps.storage.getItem(APP_SETTINGS_KEY);
     if (stored) {
       const parsed = JSON.parse(stored) as Partial<AppSettings>;
-      return { ...DEFAULT_CLIENT_SETTINGS, ...pickAppSettings(parsed) };
+      return { ...DEFAULT_CLIENT_SETTINGS, ...pickAppSettings(parsed), theme: FORCED_THEME };
     }
 
     const legacyStored = await deps.storage.getItem(LEGACY_SETTINGS_KEY);
     if (legacyStored) {
-      const legacyParsed = JSON.parse(legacyStored) as Record<string, unknown>;
       const next = {
         ...DEFAULT_CLIENT_SETTINGS,
-        ...pickAppSettingsFromLegacy(legacyParsed),
+        theme: FORCED_THEME,
       } satisfies AppSettings;
       await deps.storage.setItem(APP_SETTINGS_KEY, JSON.stringify(next));
       return next;
@@ -149,9 +148,6 @@ export async function loadSettingsFromStorage(deps: SettingsDeps): Promise<Setti
 
 function pickAppSettings(stored: Partial<AppSettings>): Partial<AppSettings> {
   const result: Partial<AppSettings> = {};
-  if (typeof stored.theme === "string" && VALID_THEMES.has(stored.theme)) {
-    result.theme = stored.theme;
-  }
   if (stored.language === "system" || stored.language === "en" || stored.language === "zh") {
     result.language = stored.language;
   }
@@ -192,14 +188,6 @@ function pickAppSettings(stored: Partial<AppSettings>): Partial<AppSettings> {
   }
   if (typeof stored.syntaxTheme === "string" && isSyntaxThemeId(stored.syntaxTheme)) {
     result.syntaxTheme = stored.syntaxTheme;
-  }
-  return result;
-}
-
-function pickAppSettingsFromLegacy(legacy: Record<string, unknown>): Partial<AppSettings> {
-  const result: Partial<AppSettings> = {};
-  if (legacy.theme === "dark" || legacy.theme === "light" || legacy.theme === "auto") {
-    result.theme = legacy.theme;
   }
   return result;
 }

@@ -23,8 +23,7 @@ export interface ShortcutRoutingInput {
 export type ShortcutCallbackName =
   | "toggle-agent-list"
   | "toggle-both-sidebars"
-  | "toggle-focus-mode"
-  | "cycle-theme";
+  | "toggle-focus-mode";
 
 export type ShortcutAction =
   | { kind: "none" }
@@ -67,7 +66,6 @@ const SIMPLE_CALLBACKS: Record<string, ShortcutCallbackName> = {
   "sidebar.toggle.left": "toggle-agent-list",
   "sidebar.toggle.both": "toggle-both-sidebars",
   "view.toggle.focus": "toggle-focus-mode",
-  "theme.cycle": "cycle-theme",
 };
 
 const MESSAGE_INPUT_DISPATCH: Record<

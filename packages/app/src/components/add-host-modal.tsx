@@ -527,7 +527,11 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
             onPress={handleTogglePasswordVisibility}
             disabled={isSaving}
             accessibilityRole="button"
-            accessibilityLabel={isPasswordVisible ? "Hide password" : "Show password"}
+            accessibilityLabel={
+              isPasswordVisible
+                ? translateNow("ui.hide.password.96wdc7")
+                : translateNow("ui.show.password.2bn67u")
+            }
             testID="direct-password-visibility-toggle"
           >
             <PasswordIcon size={18} color={theme.colors.foregroundMuted} />
@@ -541,7 +545,11 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
           onPress={handleToggleAdvanced}
           disabled={isSaving}
           accessibilityRole="button"
-          accessibilityLabel={isAdvancedOpen ? "Hide advanced" : "Show advanced"}
+          accessibilityLabel={
+            isAdvancedOpen
+              ? translateNow("ui.hide.advanced.8x9icx")
+              : translateNow("ui.show.advanced.1xl5o2")
+          }
           testID="direct-host-advanced-toggle"
         >
           <AdvancedIcon size={16} color={theme.colors.foregroundMuted} />
@@ -587,7 +595,7 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
           leftIcon={connectIcon}
           testID="direct-host-submit"
         >
-          {isSaving ? "Connecting..." : "Connect"}
+          {isSaving ? translateNow("ui.connecting.3a3c5m") : translateNow("ui.connect.22iux")}
         </Button>
       </View>
     </AdaptiveModalSheet>
