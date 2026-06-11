@@ -9,7 +9,7 @@ import {
   clearCommandCenterFocusRestoreElement,
   takeCommandCenterFocusRestoreElement,
 } from "@/utils/command-center-focus-restore";
-import { buildHostOpenProjectRoute, buildSettingsRoute } from "@/utils/host-routes";
+import { buildHostHomeRoute, buildSettingsRoute } from "@/utils/host-routes";
 import type { ShortcutKey } from "@/utils/format-shortcut";
 import { chordStringToShortcutKeys } from "@/keyboard/shortcut-string";
 import { getBindingIdForAction, getDefaultKeysForAction } from "@/keyboard/keyboard-shortcuts";
@@ -164,7 +164,7 @@ export function useCommandCenter() {
 
   const homeRoute = useMemo<Href | undefined>(() => {
     if (!routeActiveServerId) return undefined;
-    return buildHostOpenProjectRoute(routeActiveServerId) as Href;
+    return buildHostHomeRoute(routeActiveServerId) as Href;
   }, [routeActiveServerId]);
 
   const actionItems = useMemo(() => {
@@ -234,7 +234,7 @@ export function useCommandCenter() {
       clearCommandCenterFocusRestoreElement();
       setOpen(false);
       if (action.id === "new-agent") {
-        if (activeServerId) router.push(buildHostOpenProjectRoute(activeServerId) as Href);
+        if (activeServerId) router.push(buildHostHomeRoute(activeServerId) as Href);
         return;
       }
       if (!action.route) {

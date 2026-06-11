@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
-import { View, Text, Pressable } from "react-native";
+import { ActivityIndicator, View, Text, Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
-import { MessagesSquare, Plug, Smartphone } from "lucide-react-native";
+import { ArrowRight, MessagesSquare, Plug, Smartphone, Sparkles } from "lucide-react-native";
+import Svg, { Circle, Ellipse, Path } from "react-native-svg";
 import { AdaptiveModalSheet, AdaptiveTextInput } from "@/components/adaptive-modal-sheet";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
 import { MenuHeader } from "@/components/headers/menu-header";
@@ -14,28 +15,68 @@ import {
   HEADER_INNER_HEIGHT_MOBILE,
   HEADER_TOP_PADDING_MOBILE,
 } from "@/constants/layout";
+import { isDev, isWeb } from "@/constants/platform";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
-import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { buildHostHomeRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import {
   createAccountProject,
   loadAccountBootstrapSession,
   loginAccountUserWithSms,
   refreshAccountBootstrapSession,
+  registerAccountUser,
   saveAccountBootstrapSession,
   sendAccountSmsCode,
   type AccountBootstrapSession,
-  type AccountProjectRecord,
 } from "@/account/account-api";
-import {
-  accountProjectDisplayName,
-  applyAccountProjectDisplay,
-} from "@/account/account-workspace-display";
+import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
 import { useOpenProject } from "@/hooks/use-open-project";
 import { useI18n, translateNow } from "@/i18n/i18n";
 
 const FULL_WIDTH_STYLE = { width: "100%" } as const;
+const AUTH_BUTTON_GRADIENT_KEYFRAME_ID = "paseo-auth-button-gradient-keyframes";
+const AUTH_BUTTON_GRADIENT_ANIMATION_NAME = "paseo-auth-button-gradient";
+const AUTH_PET_FLOAT_ANIMATION_NAME = "paseo-auth-pet-float";
+const AUTH_BUTTON_GRADIENT_KEYFRAME_CSS = `
+  @keyframes ${AUTH_BUTTON_GRADIENT_ANIMATION_NAME} {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+  @keyframes ${AUTH_PET_FLOAT_ANIMATION_NAME} {
+    0%, 100% {
+      transform: translateY(0px) rotate(-2deg);
+    }
+    50% {
+      transform: translateY(-8px) rotate(2deg);
+    }
+  }
+`;
+type AccountAuthMode = "sms" | "email";
+
+function ensureAuthButtonGradientKeyframes() {
+  if (!isWeb || typeof document === "undefined") {
+    return;
+  }
+  const existing = document.getElementById(AUTH_BUTTON_GRADIENT_KEYFRAME_ID);
+  if (existing) {
+    if (existing.textContent !== AUTH_BUTTON_GRADIENT_KEYFRAME_CSS) {
+      existing.textContent = AUTH_BUTTON_GRADIENT_KEYFRAME_CSS;
+    }
+    return;
+  }
+  const styleElement = document.createElement("style");
+  styleElement.id = AUTH_BUTTON_GRADIENT_KEYFRAME_ID;
+  styleElement.textContent = AUTH_BUTTON_GRADIENT_KEYFRAME_CSS;
+  document.head.appendChild(styleElement);
+}
 
 export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const { t } = useI18n();
@@ -47,8 +88,12 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null>(null);
   const [isAccountProjectOpen, setIsAccountProjectOpen] = useState(false);
   const [hasLoadedAccount, setHasLoadedAccount] = useState(false);
+  const [accountEmail, setAccountEmail] = useState("");
   const [accountPhone, setAccountPhone] = useState("");
   const [accountSmsCode, setAccountSmsCode] = useState("");
+  const [accountAuthMode, setAccountAuthMode] = useState<AccountAuthMode>(() =>
+    isDev ? "email" : "sms",
+  );
   const [isSendingSmsCode, setIsSendingSmsCode] = useState(false);
   const accountWorkspaceName = t("account.workspace.defaultName");
   const [accountProjectName, setAccountProjectName] = useState(() =>
@@ -57,15 +102,6 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
   const accountProjectHeader = useMemo(() => ({ title: t("account.project.modalTitle") }), [t]);
-  const accountProjects = useMemo(
-    () =>
-      accountSession
-        ? accountSession.projects.filter(
-            (project) => project.workspaceId === accountSession.workspace.workspaceId,
-          )
-        : [],
-    [accountSession],
-  );
 
   const isCompactLayout = useIsCompactFormFactor();
 
@@ -86,9 +122,11 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
             await saveAccountBootstrapSession(refreshed);
           }
           setAccountSession(refreshed);
+          setAccountEmail(refreshed?.user.email ?? stored?.user.email ?? "");
           setAccountPhone(refreshed?.user.phone ?? stored?.user.phone ?? "");
         } catch {
           setAccountSession(stored ? { ...stored, projects: [] } : null);
+          setAccountEmail(stored?.user.email ?? "");
           setAccountPhone(stored?.user.phone ?? "");
           if (stored) {
             setAccountError(t("openProject.error.sessionKept"));
@@ -123,6 +161,7 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const handleSaveAccountSession = useCallback(async (session: AccountBootstrapSession) => {
     await saveAccountBootstrapSession(session);
     setAccountSession(session);
+    setAccountEmail(session.user.email);
     setAccountPhone(session.user.phone ?? "");
   }, []);
 
@@ -151,13 +190,41 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
           displayName: accountWorkspaceName,
         });
         await handleSaveAccountSession(session);
+        router.replace(buildHostHomeRoute(serverId));
       } catch (caught) {
         setAccountError(caught instanceof Error ? caught.message : t("openProject.error.login"));
       } finally {
         setAccountBusy(false);
       }
     })();
-  }, [handleSaveAccountSession, accountPhone, accountSmsCode, accountWorkspaceName, t]);
+  }, [
+    handleSaveAccountSession,
+    accountPhone,
+    accountSmsCode,
+    accountWorkspaceName,
+    router,
+    serverId,
+    t,
+  ]);
+
+  const handleDevEmailLoginAccount = useCallback(() => {
+    setAccountBusy(true);
+    setAccountError(null);
+    void (async () => {
+      try {
+        const session = await registerAccountUser({
+          email: accountEmail,
+          displayName: accountWorkspaceName,
+        });
+        await handleSaveAccountSession(session);
+        router.replace(buildHostHomeRoute(serverId));
+      } catch (caught) {
+        setAccountError(caught instanceof Error ? caught.message : t("openProject.error.login"));
+      } finally {
+        setAccountBusy(false);
+      }
+    })();
+  }, [handleSaveAccountSession, accountEmail, accountWorkspaceName, router, serverId, t]);
 
   const handleCreateAccountProject = useCallback(() => {
     if (!accountSession) return;
@@ -201,36 +268,6 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
     })();
   }, [handleSaveAccountSession, accountProjectName, accountSession, openProject, t]);
 
-  const handleOpenAccountProjectRecord = useCallback(
-    (project: AccountProjectRecord) => {
-      if (!accountSession) return;
-      setAccountBusy(true);
-      setAccountError(null);
-      void (async () => {
-        try {
-          const opened = await openProject(project.cwd, {
-            transformWorkspace: (workspace) =>
-              applyAccountProjectDisplay({
-                workspace,
-                session: accountSession,
-                project,
-              }),
-          });
-          if (!opened) {
-            throw new Error(t("openProject.error.openProjectDaemon"));
-          }
-        } catch (caught) {
-          setAccountError(
-            caught instanceof Error ? caught.message : t("openProject.error.openProject"),
-          );
-        } finally {
-          setAccountBusy(false);
-        }
-      })();
-    },
-    [accountSession, openProject, t],
-  );
-
   if (!hasLoadedAccount) {
     return (
       <View style={styles.container}>
@@ -246,68 +283,23 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   if (!accountSession) {
     return (
       <View style={styles.container}>
-        <MenuHeader borderless />
-        <View style={styles.authContent}>
-          <TitlebarDragRegion />
-          <View style={styles.authPanel}>
-            <PaseoLogo size={52} />
-            <View style={styles.authTitleGroup}>
-              <Text style={styles.authTitle}>{t("openProject.accountAuth.title")}</Text>
-              <Text style={styles.authSubtitle}>{t("openProject.accountAuth.subtitle")}</Text>
-            </View>
-            <View style={styles.sheetStack}>
-              <Text style={styles.fieldLabel}>{t("openProject.accountAuth.phone")}</Text>
-              <AdaptiveTextInput
-                testID="workspace-auth-phone"
-                accessibilityLabel={t("openProject.accountAuth.phone")}
-                value={accountPhone}
-                onChangeText={setAccountPhone}
-                placeholder={translateNow("openProject.accountAuth.phonePlaceholder")}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="phone-pad"
-                style={styles.sheetInput}
-              />
-              <Text style={styles.fieldLabel}>{t("openProject.accountAuth.code")}</Text>
-              <AdaptiveTextInput
-                testID="workspace-auth-code"
-                accessibilityLabel={t("openProject.accountAuth.code")}
-                value={accountSmsCode}
-                onChangeText={setAccountSmsCode}
-                placeholder={translateNow("openProject.accountAuth.codePlaceholder")}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="number-pad"
-                style={styles.sheetInput}
-              />
-              {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
-              <View style={styles.sheetActions}>
-                <Button
-                  variant="secondary"
-                  style={FULL_WIDTH_STYLE}
-                  loading={isSendingSmsCode}
-                  disabled={accountBusy || isSendingSmsCode || !accountPhone.trim()}
-                  onPress={handleSendAccountSmsCode}
-                >
-                  {t("openProject.accountAuth.sendCode")}
-                </Button>
-                <Button
-                  style={FULL_WIDTH_STYLE}
-                  loading={accountBusy}
-                  disabled={
-                    accountBusy ||
-                    isSendingSmsCode ||
-                    !accountPhone.trim() ||
-                    !accountSmsCode.trim()
-                  }
-                  onPress={handleLoginAccount}
-                >
-                  {t("openProject.accountAuth.loginOrRegister")}
-                </Button>
-              </View>
-            </View>
-          </View>
-        </View>
+        <MenuHeader style={styles.authHeaderBar} />
+        <AuthLoginScreen
+          accountAuthMode={accountAuthMode}
+          accountBusy={accountBusy}
+          accountEmail={accountEmail}
+          accountError={accountError}
+          accountPhone={accountPhone}
+          accountSmsCode={accountSmsCode}
+          isSendingSmsCode={isSendingSmsCode}
+          onAuthModeChange={setAccountAuthMode}
+          onEmailChange={setAccountEmail}
+          onEmailLogin={handleDevEmailLoginAccount}
+          onPhoneChange={setAccountPhone}
+          onSmsCodeChange={setAccountSmsCode}
+          onSmsCodeSend={handleSendAccountSmsCode}
+          onSmsLogin={handleLoginAccount}
+        />
       </View>
     );
   }
@@ -347,23 +339,6 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
               testID="open-project-pair-device"
             />
           ) : null}
-        </View>
-        <View style={styles.projectSection}>
-          <Text style={styles.sectionTitle}>{t("openProject.projects.title")}</Text>
-          {accountProjects.length === 0 ? (
-            <Text style={styles.emptyProjectText}>{t("account.project.empty")}</Text>
-          ) : (
-            <View style={styles.projectList}>
-              {accountProjects.map((project) => (
-                <AccountProjectTile
-                  key={project.projectId}
-                  project={project}
-                  onOpen={handleOpenAccountProjectRecord}
-                  disabled={accountBusy}
-                />
-              ))}
-            </View>
-          )}
         </View>
       </View>
       <PairDeviceModal
@@ -412,32 +387,6 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   );
 }
 
-function AccountProjectTile({
-  project,
-  onOpen,
-  disabled,
-}: {
-  project: AccountProjectRecord;
-  onOpen: (project: AccountProjectRecord) => void;
-  disabled?: boolean;
-}) {
-  const handlePress = useCallback(() => {
-    onOpen(project);
-  }, [onOpen, project]);
-  const { t } = useI18n();
-
-  return (
-    <HomeTile
-      icon={MessagesSquare}
-      title={accountProjectDisplayName(project.displayName)}
-      description={t("account.project.description")}
-      onPress={handlePress}
-      disabled={disabled}
-      testID={`account-project-${project.projectId}`}
-    />
-  );
-}
-
 interface HomeTileProps {
   icon: ComponentType<{ size: number; color: string }>;
   title: string;
@@ -447,6 +396,408 @@ interface HomeTileProps {
   accent?: boolean;
   disabled?: boolean;
   status?: string | null;
+}
+
+interface AuthLoginScreenProps {
+  accountAuthMode: AccountAuthMode;
+  accountBusy: boolean;
+  accountEmail: string;
+  accountError: string | null;
+  accountPhone: string;
+  accountSmsCode: string;
+  isSendingSmsCode: boolean;
+  onAuthModeChange: (mode: AccountAuthMode) => void;
+  onEmailChange: (email: string) => void;
+  onEmailLogin: () => void;
+  onPhoneChange: (phone: string) => void;
+  onSmsCodeChange: (code: string) => void;
+  onSmsCodeSend: () => void;
+  onSmsLogin: () => void;
+}
+
+function AuthLoginScreen(props: AuthLoginScreenProps) {
+  return (
+    <View style={styles.authContent}>
+      <TitlebarDragRegion />
+      <View style={styles.authCard}>
+        <View style={styles.authHeader}>
+          <View style={styles.authHeaderTop}>
+            <View style={styles.authLogoBadge}>
+              <PaseoLogo size={48} />
+            </View>
+            <AuthHeroArt />
+          </View>
+          <View style={styles.authTitleGroup}>
+            <Text style={styles.authTitle}>{translateNow("openProject.accountAuth.title")}</Text>
+            <Text style={styles.authSubtitle}>
+              {translateNow("openProject.accountAuth.subtitle")}
+            </Text>
+          </View>
+        </View>
+        <LoginFormPanel {...props} />
+        <AuthPetIllustration />
+      </View>
+    </View>
+  );
+}
+
+function LoginFormPanel({
+  accountAuthMode,
+  accountBusy,
+  accountEmail,
+  accountError,
+  accountPhone,
+  accountSmsCode,
+  isSendingSmsCode,
+  onAuthModeChange,
+  onEmailChange,
+  onEmailLogin,
+  onPhoneChange,
+  onSmsCodeChange,
+  onSmsCodeSend,
+  onSmsLogin,
+}: AuthLoginScreenProps) {
+  const shouldUseEmail = accountAuthMode === "email" && isDev;
+  const formContent = shouldUseEmail ? (
+    <EmailLoginForm
+      accountEmail={accountEmail}
+      accountError={accountError}
+      onEmailChange={onEmailChange}
+    />
+  ) : (
+    <SmsLoginForm
+      accountError={accountError}
+      accountPhone={accountPhone}
+      accountSmsCode={accountSmsCode}
+      isSendingSmsCode={isSendingSmsCode}
+      onPhoneChange={onPhoneChange}
+      onSmsCodeChange={onSmsCodeChange}
+      onSmsCodeSend={onSmsCodeSend}
+    />
+  );
+  const canSubmitEmail = Boolean(accountEmail.trim());
+  const canSubmitSms = Boolean(accountPhone.trim()) && Boolean(accountSmsCode.trim());
+  const isSubmitDisabled =
+    accountBusy ||
+    (!shouldUseEmail && isSendingSmsCode) ||
+    (shouldUseEmail ? !canSubmitEmail : !canSubmitSms);
+  const handleSubmit = shouldUseEmail ? onEmailLogin : onSmsLogin;
+
+  return (
+    <View style={styles.authFormShell}>
+      <AuthModeTabs accountAuthMode={accountAuthMode} onAuthModeChange={onAuthModeChange} />
+      <View style={styles.authFieldsBlock}>{formContent}</View>
+      <View style={styles.sheetActions}>
+        <AuthPrimaryButton loading={accountBusy} disabled={isSubmitDisabled} onPress={handleSubmit}>
+          {translateNow("openProject.accountAuth.loginOrRegister")}
+        </AuthPrimaryButton>
+      </View>
+    </View>
+  );
+}
+
+function AuthHeroArt() {
+  const { theme } = useUnistyles();
+
+  return (
+    <View style={styles.authHeroArt} pointerEvents="none">
+      <View style={styles.authHeroBackCard} />
+      <View style={styles.authHeroFrontCard}>
+        <MessagesSquare size={18} color={theme.colors.palette.blue[500]} />
+        <View style={styles.authHeroLines}>
+          <View style={styles.authHeroLineLong} />
+          <View style={styles.authHeroLineShort} />
+        </View>
+      </View>
+      <View style={styles.authHeroSpark}>
+        <Sparkles size={14} color={theme.colors.palette.purple[500]} />
+      </View>
+    </View>
+  );
+}
+
+function AuthPetIllustration() {
+  return (
+    <View style={styles.authPetIllustration} pointerEvents="none">
+      <Svg width="100%" height="100%" viewBox="0 0 170 150">
+        <Ellipse cx="102" cy="125" rx="42" ry="9" fill="#e5e7eb" opacity={0.42} />
+        <Path
+          d="M74 40 C90 6 130 12 140 47 C167 58 160 101 125 106 C107 134 63 121 63 88 C38 71 45 46 74 40 Z"
+          fill="#e7d9ff"
+        />
+        <Path
+          d="M73 43 C88 16 124 18 134 49 C154 60 149 91 122 96 C105 119 72 110 72 84 C52 70 55 50 73 43 Z"
+          fill="#f1eaff"
+        />
+        <Circle cx="95" cy="67" r="5" fill="#111827" />
+        <Circle cx="123" cy="67" r="5" fill="#111827" />
+        <Path
+          d="M105 82 C110 87 116 87 121 82"
+          stroke="#8b5cf6"
+          strokeLinecap="round"
+          strokeWidth="3"
+          fill="none"
+        />
+        <Path d="M68 50 L43 38 L57 64 Z" fill="#ddc8ff" />
+        <Path d="M134 50 L157 35 L147 64 Z" fill="#ddc8ff" />
+        <Path
+          d="M124 30 C135 29 145 37 148 49"
+          stroke="#ffffff"
+          strokeLinecap="round"
+          strokeWidth="6"
+          opacity={0.74}
+          fill="none"
+        />
+        <Path
+          d="M35 83 C45 63 72 67 78 89 C95 96 92 122 71 126 C59 143 31 134 31 112 C14 101 18 87 35 83 Z"
+          fill="#fff2b8"
+        />
+        <Path
+          d="M39 86 C48 72 67 75 72 91 C84 98 81 115 67 118 C58 130 39 124 39 110 C27 101 29 90 39 86 Z"
+          fill="#fff8d8"
+        />
+        <Circle cx="51" cy="97" r="3.8" fill="#111827" />
+        <Circle cx="66" cy="96" r="3.8" fill="#111827" />
+        <Path
+          d="M55 107 C58 110 62 110 65 107"
+          stroke="#d97706"
+          strokeLinecap="round"
+          strokeWidth="2"
+          fill="none"
+        />
+        <Path d="M34 90 L20 83 L28 99 Z" fill="#fde68a" />
+        <Path d="M70 90 L84 81 L78 100 Z" fill="#fde68a" />
+        <Path
+          d="M31 37 L35 46 L44 50 L35 54 L31 63 L27 54 L18 50 L27 46 Z"
+          fill="#bfdbfe"
+          opacity={0.86}
+        />
+        <Path
+          d="M145 111 L148 118 L155 121 L148 124 L145 131 L142 124 L135 121 L142 118 Z"
+          fill="#c4b5fd"
+          opacity={0.82}
+        />
+      </Svg>
+    </View>
+  );
+}
+
+function AuthPrimaryButton({
+  children,
+  disabled,
+  loading,
+  onPress,
+}: {
+  children: string;
+  disabled: boolean;
+  loading: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useUnistyles();
+  const [hovered, setHovered] = useState(false);
+  useEffect(() => {
+    ensureAuthButtonGradientKeyframes();
+  }, []);
+  const handleHoverIn = useCallback(() => setHovered(true), []);
+  const handleHoverOut = useCallback(() => setHovered(false), []);
+  const accessibilityState = useMemo(() => ({ disabled, busy: loading }), [disabled, loading]);
+  const textStyle = useMemo(
+    () => [styles.authPrimaryButtonText, disabled ? styles.authPrimaryButtonTextDisabled : null],
+    [disabled],
+  );
+  const iconColor = disabled ? theme.colors.foregroundMuted : theme.colors.palette.white;
+  const buttonStyle = useCallback(
+    ({ pressed }: { pressed: boolean }) => [
+      styles.authPrimaryButton,
+      hovered && !disabled ? styles.authPrimaryButtonHovered : null,
+      pressed && !disabled ? styles.authPrimaryButtonPressed : null,
+      disabled ? styles.authPrimaryButtonDisabled : null,
+    ],
+    [hovered, disabled],
+  );
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={accessibilityState}
+      disabled={disabled || loading}
+      onHoverIn={handleHoverIn}
+      onHoverOut={handleHoverOut}
+      onPress={onPress}
+      style={buttonStyle}
+    >
+      {disabled ? (
+        <View style={styles.authPrimaryButtonDisabledBackground} />
+      ) : (
+        <View style={styles.authPrimaryButtonGradient} />
+      )}
+      <View style={styles.authPrimaryButtonContent}>
+        {loading ? (
+          <ActivityIndicator size="small" color={iconColor} />
+        ) : (
+          <>
+            <Text style={textStyle}>{children}</Text>
+            <ArrowRight size={17} color={iconColor} />
+          </>
+        )}
+      </View>
+    </Pressable>
+  );
+}
+
+function AuthModeTabs({
+  accountAuthMode,
+  onAuthModeChange,
+}: {
+  accountAuthMode: AccountAuthMode;
+  onAuthModeChange: (mode: AccountAuthMode) => void;
+}) {
+  const handleSmsPress = useCallback(() => onAuthModeChange("sms"), [onAuthModeChange]);
+  const handleEmailPress = useCallback(() => onAuthModeChange("email"), [onAuthModeChange]);
+
+  return (
+    <View style={styles.authTabs}>
+      {isDev ? (
+        <>
+          <AuthModeTab
+            active={accountAuthMode === "email"}
+            label={translateNow("openProject.accountAuth.emailTab")}
+            onPress={handleEmailPress}
+          />
+          <View style={styles.authTabDividerWrap}>
+            <View style={styles.authTabDivider} />
+          </View>
+        </>
+      ) : null}
+      <AuthModeTab
+        active={accountAuthMode === "sms"}
+        label={translateNow("openProject.accountAuth.smsTab")}
+        onPress={handleSmsPress}
+      />
+    </View>
+  );
+}
+
+function AuthModeTab({
+  active,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  const textStyle = useMemo(
+    () => [styles.authTabText, active ? styles.authTabTextActive : null],
+    [active],
+  );
+
+  return (
+    <Pressable onPress={onPress} style={styles.authTab}>
+      <Text style={textStyle}>{label}</Text>
+      {active ? <View style={styles.authTabIndicator} /> : null}
+    </Pressable>
+  );
+}
+
+function RequiredFieldLabel({ label }: { label: string }) {
+  return (
+    <Text style={styles.fieldLabel}>
+      <Text style={styles.fieldRequired}>* </Text>
+      {label}
+    </Text>
+  );
+}
+
+function EmailLoginForm({
+  accountEmail,
+  accountError,
+  onEmailChange,
+}: {
+  accountEmail: string;
+  accountError: string | null;
+  onEmailChange: (email: string) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <View style={styles.sheetStack}>
+      <RequiredFieldLabel label={t("openProject.accountAuth.email")} />
+      <AdaptiveTextInput
+        testID="workspace-auth-email"
+        accessibilityLabel={t("openProject.accountAuth.email")}
+        value={accountEmail}
+        onChangeText={onEmailChange}
+        placeholder="you@example.com"
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        style={styles.sheetInput}
+      />
+      {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
+    </View>
+  );
+}
+
+function SmsLoginForm({
+  accountError,
+  accountPhone,
+  accountSmsCode,
+  isSendingSmsCode,
+  onPhoneChange,
+  onSmsCodeChange,
+  onSmsCodeSend,
+}: {
+  accountError: string | null;
+  accountPhone: string;
+  accountSmsCode: string;
+  isSendingSmsCode: boolean;
+  onPhoneChange: (phone: string) => void;
+  onSmsCodeChange: (code: string) => void;
+  onSmsCodeSend: () => void;
+}) {
+  const { t } = useI18n();
+  const codeInputStyle = useMemo(() => [styles.sheetInput, styles.codeInput], []);
+
+  return (
+    <View style={styles.sheetStack}>
+      <RequiredFieldLabel label={t("openProject.accountAuth.phone")} />
+      <AdaptiveTextInput
+        testID="workspace-auth-phone"
+        accessibilityLabel={t("openProject.accountAuth.phone")}
+        value={accountPhone}
+        onChangeText={onPhoneChange}
+        placeholder={translateNow("openProject.accountAuth.phonePlaceholder")}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="phone-pad"
+        style={styles.sheetInput}
+      />
+      <RequiredFieldLabel label={t("openProject.accountAuth.code")} />
+      <View style={styles.codeRow}>
+        <AdaptiveTextInput
+          testID="workspace-auth-code"
+          accessibilityLabel={t("openProject.accountAuth.code")}
+          value={accountSmsCode}
+          onChangeText={onSmsCodeChange}
+          placeholder={translateNow("openProject.accountAuth.codePlaceholder")}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="number-pad"
+          style={codeInputStyle}
+        />
+        <Button
+          variant="secondary"
+          loading={isSendingSmsCode}
+          disabled={isSendingSmsCode || !accountPhone.trim()}
+          onPress={onSmsCodeSend}
+        >
+          {t("openProject.accountAuth.sendCode")}
+        </Button>
+      </View>
+      {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
+    </View>
+  );
 }
 
 function HomeTile({
@@ -522,16 +873,166 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#fcfcfc",
     padding: theme.spacing[6],
     paddingBottom: {
       xs: HEADER_INNER_HEIGHT_MOBILE + HEADER_TOP_PADDING_MOBILE + theme.spacing[6],
       md: HEADER_INNER_HEIGHT + theme.spacing[6],
     },
   },
-  authPanel: {
+  authHeaderBar: {
+    backgroundColor: "#fcfcfc",
+  },
+  authCard: {
+    position: "relative",
     width: "100%",
-    maxWidth: 420,
+    maxWidth: 480,
+    height: { xs: "auto", md: 628 },
+    paddingTop: 48,
+    paddingRight: 40,
+    paddingBottom: 40,
+    paddingLeft: 40,
+    alignItems: "flex-start",
+    borderRadius: 16,
+    backgroundColor: theme.colors.surface0,
+    borderWidth: 0,
+    ...(isWeb
+      ? {
+          boxShadow: "0 8px 20px 0 rgba(0, 0, 0, 0.05)",
+        }
+      : {
+          shadowColor: theme.colors.palette.black,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.05,
+          shadowRadius: 20,
+          elevation: 2,
+        }),
     gap: theme.spacing[6],
+    overflow: "hidden",
+  },
+  authHeader: {
+    gap: theme.spacing[5],
+    alignSelf: "stretch",
+    zIndex: 1,
+  },
+  authHeaderTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    alignSelf: "stretch",
+  },
+  authLogoBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface0,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...(isWeb
+      ? {
+          boxShadow: "0 10px 22px 0 rgba(30, 134, 255, 0.08)",
+        }
+      : {
+          shadowColor: theme.colors.palette.blue[500],
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.08,
+          shadowRadius: 22,
+        }),
+  },
+  authHeroArt: {
+    position: "relative",
+    width: 124,
+    height: 78,
+  },
+  authHeroBackCard: {
+    position: "absolute",
+    top: 8,
+    right: 4,
+    width: 86,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#f4edff",
+    transform: [{ rotate: "6deg" }],
+  },
+  authHeroFrontCard: {
+    position: "absolute",
+    top: 18,
+    right: 18,
+    width: 92,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#eef6ff",
+    borderWidth: 1,
+    borderColor: "#d7e8ff",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[3],
+  },
+  authHeroLines: {
+    flex: 1,
+    gap: 5,
+  },
+  authHeroLineLong: {
+    width: "100%",
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: "#bdd8ff",
+  },
+  authHeroLineShort: {
+    width: "62%",
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: "#d9c8ff",
+  },
+  authHeroSpark: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#eadfff",
+    ...(isWeb
+      ? {
+          boxShadow: "0 8px 18px 0 rgba(123, 88, 255, 0.12)",
+        }
+      : {
+          shadowColor: theme.colors.palette.purple[500],
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.12,
+          shadowRadius: 18,
+        }),
+  },
+  authFormShell: {
+    flex: { xs: 0, md: 1 },
+    alignSelf: "stretch",
+    gap: theme.spacing[6],
+    zIndex: 1,
+  },
+  authPetIllustration: {
+    position: "absolute",
+    left: -16,
+    bottom: -14,
+    width: 150,
+    height: 132,
+    opacity: 0.9,
+    zIndex: 0,
+    ...(isWeb
+      ? {
+          animation: `${AUTH_PET_FLOAT_ANIMATION_NAME} 5.5s ease-in-out infinite`,
+          transformOrigin: "50% 80%",
+        }
+      : null),
+  },
+  authFieldsBlock: {
+    gap: theme.spacing[4],
   },
   authTitleGroup: {
     gap: theme.spacing[2],
@@ -546,6 +1047,42 @@ const styles = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.sm,
     lineHeight: 20,
   },
+  authTabs: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  authTab: {
+    minHeight: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+    flexShrink: 0,
+  },
+  authTabText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+    flexShrink: 0,
+  },
+  authTabTextActive: {
+    color: theme.colors.foreground,
+  },
+  authTabIndicator: {
+    width: 16,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: theme.colors.palette.blue[500],
+  },
+  authTabDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: theme.colors.foregroundMuted,
+    opacity: theme.opacity[40],
+  },
+  authTabDividerWrap: {
+    width: 42,
+    alignItems: "center",
+  },
   logo: {
     marginBottom: theme.spacing[8],
   },
@@ -556,25 +1093,6 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
-    gap: theme.spacing[3],
-  },
-  projectSection: {
-    width: "100%",
-    maxWidth: 452,
-    marginTop: theme.spacing[6],
-    gap: theme.spacing[3],
-  },
-  sectionTitle: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-  },
-  emptyProjectText: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-  },
-  projectList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: theme.spacing[3],
   },
   tile: {
@@ -627,18 +1145,26 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },
+  fieldRequired: {
+    color: theme.colors.palette.red[500],
+  },
   sheetInput: {
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.surface0,
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[3],
   },
-  sheetHint: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
+  codeRow: {
+    flexDirection: { xs: "column", md: "row" },
+    gap: theme.spacing[1],
+    alignItems: "stretch",
+  },
+  codeInput: {
+    flex: 1,
   },
   errorText: {
     color: theme.colors.destructive,
@@ -647,5 +1173,96 @@ const styles = StyleSheet.create((theme) => ({
   sheetActions: {
     gap: theme.spacing[2],
     marginTop: theme.spacing[1],
+  },
+  authPrimaryButton: {
+    position: "relative",
+    height: 48,
+    width: "100%",
+    borderRadius: 12,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.palette.blue[600],
+    transform: [{ scale: 1 }],
+    ...(isWeb
+      ? {
+          boxShadow: "0 10px 22px 0 rgba(89, 117, 255, 0.16)",
+          transition: "transform 160ms ease, box-shadow 160ms ease",
+        }
+      : {
+          shadowColor: theme.colors.palette.blue[500],
+          shadowOffset: { width: 0, height: 10 },
+          shadowOpacity: 0.16,
+          shadowRadius: 22,
+        }),
+  },
+  authPrimaryButtonHovered: {
+    transform: [{ translateY: -1 }, { scale: 1.01 }],
+    ...(isWeb
+      ? {
+          boxShadow: "0 14px 28px 0 rgba(89, 117, 255, 0.24)",
+        }
+      : null),
+  },
+  authPrimaryButtonPressed: {
+    transform: [{ translateY: 1 }, { scale: 0.99 }],
+    ...(isWeb
+      ? {
+          boxShadow: "0 6px 14px 0 rgba(89, 117, 255, 0.16)",
+        }
+      : null),
+  },
+  authPrimaryButtonDisabled: {
+    transform: [{ scale: 1 }],
+    ...(isWeb
+      ? {
+          boxShadow: "none",
+        }
+      : {
+          shadowOpacity: 0,
+          elevation: 0,
+        }),
+  },
+  authPrimaryButtonDisabledBackground: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 12,
+    backgroundColor: theme.colors.surface3,
+  },
+  authPrimaryButtonGradient: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 12,
+    backgroundColor: "#1769ff",
+    ...(isWeb
+      ? {
+          backgroundImage: "linear-gradient(96deg, #1769ff 0%, #4f8dff 56%, #a76dff 100%)",
+          backgroundSize: "220% 100%",
+          backgroundPosition: "0% 50%",
+          animation: `${AUTH_BUTTON_GRADIENT_ANIMATION_NAME} 4.8s ease-in-out infinite`,
+        }
+      : null),
+  },
+  authPrimaryButtonContent: {
+    position: "relative",
+    zIndex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing[2],
+  },
+  authPrimaryButtonText: {
+    color: theme.colors.palette.white,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+  },
+  authPrimaryButtonTextDisabled: {
+    color: theme.colors.foregroundMuted,
   },
 }));

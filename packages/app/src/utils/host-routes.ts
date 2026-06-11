@@ -347,6 +347,22 @@ export function buildHostSessionsRoute(serverId: string) {
   return `${base}/sessions` as const;
 }
 
+export function buildHostHomeRoute(serverId: string) {
+  const base = buildHostRootRoute(serverId);
+  if (base === "/") {
+    return "/" as const;
+  }
+  return `${base}/home` as const;
+}
+
+export function buildHostLoginRoute(serverId: string) {
+  const base = buildHostRootRoute(serverId);
+  if (base === "/") {
+    return "/" as const;
+  }
+  return `${base}/login` as const;
+}
+
 export function buildHostOpenProjectRoute(serverId: string) {
   const base = buildHostRootRoute(serverId);
   if (base === "/") {
@@ -463,10 +479,16 @@ export function mapPathnameToServer(pathname: string, nextServerId: string) {
     return buildSettingsHostRoute(normalized);
   }
   if (suffix.startsWith("sessions")) {
-    return `${base}/sessions` as const;
+    return `${base}/home` as const;
+  }
+  if (suffix.startsWith("home")) {
+    return `${base}/home` as const;
+  }
+  if (suffix.startsWith("login")) {
+    return `${base}/login` as const;
   }
   if (suffix.startsWith("open-project")) {
-    return `${base}/open-project` as const;
+    return `${base}/home` as const;
   }
   const workspaceRoute = parseHostWorkspaceRouteFromPathname(pathname);
   if (workspaceRoute) {

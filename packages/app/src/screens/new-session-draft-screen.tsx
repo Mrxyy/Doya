@@ -47,7 +47,7 @@ import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-
 import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
 import { encodeImages } from "@/utils/encode-images";
-import { buildHostAgentDetailRoute } from "@/utils/host-routes";
+import { buildHostAgentDetailRoute, buildHostLoginRoute } from "@/utils/host-routes";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
@@ -195,7 +195,7 @@ export function NewSessionDraftScreen({
   accountSession,
 }: {
   serverId: string;
-  accountSession: AccountBootstrapSession;
+  accountSession: AccountBootstrapSession | null;
 }) {
   const { t } = useI18n();
   const toast = useToast();
@@ -209,6 +209,7 @@ export function NewSessionDraftScreen({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
+  const accountWorkspaceCwd = accountSession?.workspace.runtime?.cwd ?? "";
   const draft = useAgentInputDraft({
     draftKey: `new-session:${serverId}`,
     composer: {
@@ -217,11 +218,9 @@ export function NewSessionDraftScreen({
       onlineServerIds: isConnected ? [serverId] : [],
       initialValues: {
         provider: "codex",
-        ...(accountSession.workspace.runtime?.cwd
-          ? { workingDir: accountSession.workspace.runtime.cwd }
-          : {}),
+        ...(accountWorkspaceCwd ? { workingDir: accountWorkspaceCwd } : {}),
       },
-      lockedWorkingDir: accountSession.workspace.runtime?.cwd,
+      lockedWorkingDir: accountWorkspaceCwd || undefined,
     },
   });
   const composerState = draft.composerState;
@@ -243,13 +242,18 @@ export function NewSessionDraftScreen({
         toast.error(t("openProject.error.openProjectDaemon"));
         return;
       }
+      if (!accountSession) {
+        toast.error(t("home.newSession.loginRequired"));
+        router.push(buildHostLoginRoute(serverId));
+        return;
+      }
       const provider = composerState.selectedProvider;
       if (!provider) {
         toast.error(t("openProject.error.selectModel"));
         return;
       }
       const submitText = resolveHomeSubmitText(payload, aiCreationContext);
-      if (!submitText.displayText && payload.attachments.length === 0) {
+      if (!hasHomeSubmitContent(submitText, payload.attachments)) {
         return;
       }
       setIsSubmitting(true);
@@ -391,7 +395,7 @@ export function NewSessionDraftScreen({
         {
           text,
           attachments: [],
-          cwd: accountSession.workspace.runtime?.cwd ?? "",
+          cwd: accountWorkspaceCwd,
         },
         suggestion.aiCreationMode
           ? {
@@ -401,7 +405,7 @@ export function NewSessionDraftScreen({
           : undefined,
       );
     },
-    [accountSession.workspace.runtime?.cwd, handleSubmit],
+    [accountWorkspaceCwd, handleSubmit],
   );
 
   return (
@@ -427,7 +431,7 @@ export function NewSessionDraftScreen({
                 onChangeText={draft.setText}
                 attachments={draft.attachments}
                 onChangeAttachments={draft.setAttachments}
-                cwd={accountSession.workspace.runtime?.cwd ?? ""}
+                cwd={accountWorkspaceCwd}
                 clearDraft={draft.clear}
                 onAddImages={handleAddImagesCallback}
                 autoFocus
@@ -441,6 +445,13 @@ export function NewSessionDraftScreen({
       </View>
     </FileDropZone>
   );
+}
+
+function hasHomeSubmitContent(
+  submitText: { displayText: string },
+  attachments: readonly unknown[],
+): boolean {
+  return Boolean(submitText.displayText || attachments.length > 0);
 }
 
 function NewSessionHomeHeader({ left, onShare }: { left?: ReactNode; onShare: () => void }) {

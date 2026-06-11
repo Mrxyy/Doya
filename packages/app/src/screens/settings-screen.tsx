@@ -91,7 +91,7 @@ import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { useWebScrollbarStyle } from "@/hooks/use-web-scrollbar-style";
 import { useI18n, translateNow } from "@/i18n/i18n";
 import {
-  buildHostOpenProjectRoute,
+  buildHostHomeRoute,
   buildProjectsSettingsRoute,
   buildSettingsHostSectionRoute,
   buildSettingsSectionRoute,
@@ -1027,7 +1027,7 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
       return;
     }
     if (anyOnlineServerId) {
-      router.replace(buildHostOpenProjectRoute(anyOnlineServerId));
+      router.replace(buildHostHomeRoute(anyOnlineServerId));
       return;
     }
     router.replace("/");

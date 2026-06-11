@@ -182,11 +182,7 @@ import { isAbsolutePath } from "@/utils/path";
 import { useIsCompactFormFactor, supportsDesktopPaneSplits } from "@/constants/layout";
 import { getIsElectron, isNative, isWeb } from "@/constants/platform";
 import { useContainerWidthBelow } from "@/hooks/use-container-width";
-import {
-  buildHostOpenProjectRoute,
-  buildHostRootRoute,
-  buildSettingsHostRoute,
-} from "@/utils/host-routes";
+import { buildHostRootRoute, buildSettingsHostRoute } from "@/utils/host-routes";
 import { canCreateWorkspaceTerminal } from "@/screens/workspace/terminals/state";
 import { useWorkspaceTerminals } from "@/screens/workspace/terminals/use-workspace-terminals";
 import {
@@ -1613,8 +1609,9 @@ function WorkspaceScreenContent({
     void (async () => {
       const accountSession = await loadAccountBootstrapSession();
       if (!accountSession) {
-        if (!disposed && normalizedServerId) {
-          router.replace(buildHostOpenProjectRoute(normalizedServerId) as Href);
+        if (!disposed) {
+          setAccountSessionForWorkspace(null);
+          setAccountProjectForWorkspace(null);
         }
         return;
       }

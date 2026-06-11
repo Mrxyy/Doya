@@ -1,6 +1,6 @@
-import { useLocalSearchParams } from "expo-router";
+import { Redirect, useLocalSearchParams } from "expo-router";
 import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
-import { SessionsScreen } from "@/screens/sessions-screen";
+import { buildHostHomeRoute } from "@/utils/host-routes";
 
 export default function HostAgentsRoute() {
   return (
@@ -14,5 +14,5 @@ function HostAgentsRouteContent() {
   const params = useLocalSearchParams<{ serverId?: string }>();
   const serverId = typeof params.serverId === "string" ? params.serverId : "";
 
-  return <SessionsScreen serverId={serverId} />;
+  return <Redirect href={buildHostHomeRoute(serverId)} />;
 }

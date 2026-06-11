@@ -14,6 +14,7 @@ interface MenuHeaderProps {
   title?: string;
   rightContent?: ReactNode;
   borderless?: boolean;
+  style?: StyleProp<ViewStyle>;
 }
 
 interface SidebarMenuToggleProps {
@@ -65,6 +66,7 @@ export function SidebarMenuToggle({
   }, [toggleAgentListForLayout, isMobile]);
 
   const accessibilityState = useMemo(() => ({ expanded: isOpen }), [isOpen]);
+  const buttonStyle = useMemo(() => [styles.sidebarToggleButton, style], [style]);
 
   return (
     <HeaderToggleButton
@@ -74,7 +76,7 @@ export function SidebarMenuToggle({
       tooltipSide={tooltipSide}
       testID={testID}
       nativeID={nativeID}
-      style={[styles.sidebarToggleButton, style]}
+      style={buttonStyle}
       accessible
       accessibilityRole="button"
       accessibilityLabel={isOpen ? "Close menu" : "Open menu"}
@@ -89,7 +91,7 @@ export function SidebarMenuToggle({
   );
 }
 
-export function MenuHeader({ title, rightContent, borderless }: MenuHeaderProps) {
+export function MenuHeader({ title, rightContent, borderless, style }: MenuHeaderProps) {
   return (
     <ScreenHeader
       left={
@@ -99,6 +101,7 @@ export function MenuHeader({ title, rightContent, borderless }: MenuHeaderProps)
         </>
       }
       right={rightContent}
+      style={style}
       leftStyle={styles.left}
       borderless={borderless}
     />

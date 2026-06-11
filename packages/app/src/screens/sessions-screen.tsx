@@ -10,7 +10,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { AgentList } from "@/components/agent-list";
 import { useAgentHistory } from "@/hooks/use-agent-history";
 import { useI18n } from "@/i18n/i18n";
-import { buildHostOpenProjectRoute } from "@/utils/host-routes";
+import { buildHostHomeRoute } from "@/utils/host-routes";
 
 export function SessionsScreen({ serverId }: { serverId: string }) {
   const isFocused = useIsFocused();
@@ -50,7 +50,7 @@ function SessionsScreenContent({ serverId }: { serverId: string }) {
   }, [agents]);
 
   const handleBack = useCallback(() => {
-    router.navigate(buildHostOpenProjectRoute(serverId));
+    router.navigate(buildHostHomeRoute(serverId));
   }, [serverId]);
 
   const listFooterComponent = useMemo(

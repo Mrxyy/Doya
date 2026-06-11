@@ -2,7 +2,9 @@ import { router, usePathname } from "expo-router";
 import { Home, LogOut, MessagesSquare, Settings, UserRound, X } from "lucide-react-native";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  type ComponentType,
   Pressable,
+  ScrollView,
   StyleSheet as RNStyleSheet,
   Text,
   useWindowDimensions,
@@ -20,21 +22,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { PaseoLogo } from "@/components/icons/paseo-logo";
-import { SidebarHeaderRow } from "@/components/sidebar/sidebar-header-row";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Shortcut } from "@/components/ui/shortcut";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { useSidebarAnimation } from "@/contexts/sidebar-animation-context";
 import { clearAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
 import { useAccountWorkspaceMetadata } from "@/account/use-account-workspace-metadata";
-import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
+import type { AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { useSidebarShortcutModel } from "@/hooks/use-sidebar-shortcut-model";
 import {
   type SidebarProjectEntry,
@@ -52,10 +51,11 @@ import { resolveActiveHost } from "@/utils/active-host";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
 import {
   buildHostAiCreationRoute,
-  buildHostOpenProjectRoute,
-  buildHostSessionsRoute,
+  buildHostHomeRoute,
+  buildHostLoginRoute,
   buildSettingsRoute,
 } from "@/utils/host-routes";
+import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
@@ -74,6 +74,8 @@ interface SidebarSharedProps {
   activeServerId: string | null;
   accountSession: AccountBootstrapSession | null;
   projects: SidebarProjectEntry[];
+  agents: AggregatedAgent[];
+  isAgentHistoryInitialLoad: boolean;
   isInitialLoad: boolean;
   isRevalidating: boolean;
   isManualRefresh: boolean;
@@ -88,7 +90,6 @@ interface SidebarSharedProps {
   addProjectLabel: string;
   aiCreationLabel: string;
   emptyProjectHint: string;
-  sessionsLabel: string;
   handleHome: () => void;
   handleSettings: () => void;
 }
@@ -140,7 +141,6 @@ export const LeftSidebar = memo(function LeftSidebar({
   const addProjectLabel = t("sidebar.addProject");
   const aiCreationLabel = t("sidebar.aiCreation");
   const emptyProjectHint = t("sidebar.addProject.empty");
-  const sessionsLabel = t("common.sessions");
 
   const [isManualRefresh, setIsManualRefresh] = useState(false);
 
@@ -158,12 +158,12 @@ export const LeftSidebar = memo(function LeftSidebar({
   const handleOpenProjectMobile = useCallback(() => {
     if (!activeServerId) return;
     showMobileAgent();
-    router.push(buildHostOpenProjectRoute(activeServerId));
+    router.push(buildHostHomeRoute(activeServerId));
   }, [activeServerId, showMobileAgent]);
 
   const handleOpenProjectDesktop = useCallback(() => {
     if (!activeServerId) return;
-    router.push(buildHostOpenProjectRoute(activeServerId));
+    router.push(buildHostHomeRoute(activeServerId));
   }, [activeServerId]);
 
   const handleAiCreationMobile = useCallback(() => {
@@ -189,23 +189,23 @@ export const LeftSidebar = memo(function LeftSidebar({
   const handleHomeMobile = useCallback(() => {
     if (!activeServerId) return;
     showMobileAgent();
-    router.push(buildHostOpenProjectRoute(activeServerId));
+    router.push(buildHostHomeRoute(activeServerId));
   }, [activeServerId, showMobileAgent]);
 
   const handleHomeDesktop = useCallback(() => {
     if (!activeServerId) return;
-    router.push(buildHostOpenProjectRoute(activeServerId));
+    router.push(buildHostHomeRoute(activeServerId));
   }, [activeServerId]);
 
   const handleAccountLoginMobile = useCallback(() => {
     if (!activeServerId) return;
     showMobileAgent();
-    router.push(buildHostOpenProjectRoute(activeServerId));
+    router.push(buildHostLoginRoute(activeServerId));
   }, [activeServerId, showMobileAgent]);
 
   const handleAccountLoginDesktop = useCallback(() => {
     if (!activeServerId) return;
-    router.push(buildHostOpenProjectRoute(activeServerId));
+    router.push(buildHostLoginRoute(activeServerId));
   }, [activeServerId]);
 
   const handleAccountLogoutMobile = useCallback(() => {
@@ -213,7 +213,7 @@ export const LeftSidebar = memo(function LeftSidebar({
     void (async () => {
       await clearAccountBootstrapSession();
       showMobileAgent();
-      router.push(buildHostOpenProjectRoute(activeServerId));
+      router.push(buildHostHomeRoute(activeServerId));
     })();
   }, [activeServerId, showMobileAgent]);
 
@@ -221,7 +221,7 @@ export const LeftSidebar = memo(function LeftSidebar({
     if (!activeServerId) return;
     void (async () => {
       await clearAccountBootstrapSession();
-      router.push(buildHostOpenProjectRoute(activeServerId));
+      router.push(buildHostHomeRoute(activeServerId));
     })();
   }, [activeServerId]);
 
@@ -229,7 +229,7 @@ export const LeftSidebar = memo(function LeftSidebar({
     if (!activeServerId) {
       return;
     }
-    router.push(buildHostSessionsRoute(activeServerId));
+    router.push(buildHostHomeRoute(activeServerId));
   }, [activeServerId]);
 
   const sharedProps = {
@@ -237,6 +237,8 @@ export const LeftSidebar = memo(function LeftSidebar({
     activeServerId,
     accountSession,
     projects,
+    agents: [],
+    isAgentHistoryInitialLoad: false,
     isInitialLoad,
     isRevalidating,
     isManualRefresh,
@@ -247,7 +249,6 @@ export const LeftSidebar = memo(function LeftSidebar({
     addProjectLabel,
     aiCreationLabel,
     emptyProjectHint,
-    sessionsLabel,
   };
 
   if (isCompactLayout) {
@@ -316,21 +317,6 @@ function FooterIconButton({
         />
       )}
     </Pressable>
-  );
-}
-
-function AddProjectTooltipContent({
-  label,
-  newAgentKeys,
-}: {
-  label: string;
-  newAgentKeys: ReturnType<typeof useShortcutKeys>;
-}) {
-  return (
-    <View style={styles.tooltipRow}>
-      <Text style={styles.tooltipText}>{label}</Text>
-      {newAgentKeys ? <Shortcut chord={newAgentKeys} /> : null}
-    </View>
   );
 }
 
@@ -428,8 +414,6 @@ function ConversationBrandHeader({ onPress }: { onPress: () => void }) {
 function SidebarFooter({
   theme,
   accountSession,
-  handleOpenProject,
-  addProjectLabel,
   handleAccountLogin,
   handleAccountLogout,
   handleHome,
@@ -437,14 +421,11 @@ function SidebarFooter({
 }: {
   theme: SidebarTheme;
   accountSession: AccountBootstrapSession | null;
-  handleOpenProject: () => void;
-  addProjectLabel: string;
   handleAccountLogin: () => void;
   handleAccountLogout: () => void;
   handleHome: () => void;
   handleSettings: () => void;
 }) {
-  const newAgentKeys = useShortcutKeys("new-agent");
   return (
     <View style={styles.sidebarFooter}>
       <View style={styles.footerHostSlot}>
@@ -454,39 +435,144 @@ function SidebarFooter({
           onLogout={handleAccountLogout}
         />
       </View>
-      <View style={styles.footerIconRow}>
-        {accountSession ? null : (
-          <Tooltip delayDuration={300}>
-            <TooltipTrigger asChild>
-              <FooterIconButton
-                onPress={handleOpenProject}
-                testID="sidebar-add-project"
-                accessibilityLabel={addProjectLabel}
-                icon={MessagesSquare}
-                theme={theme}
-              />
-            </TooltipTrigger>
-            <TooltipContent side="top" align="center" offset={8}>
-              <AddProjectTooltipContent label={addProjectLabel} newAgentKeys={newAgentKeys} />
-            </TooltipContent>
-          </Tooltip>
-        )}
-        <FooterIconButton
-          onPress={handleHome}
-          testID="sidebar-home"
-          accessibilityLabel={translateNow("ui.home.1cc1r")}
-          icon={Home}
-          theme={theme}
-        />
-        <FooterIconButton
-          onPress={handleSettings}
-          testID="sidebar-settings"
-          accessibilityLabel={translateNow("ui.settings.osmo8z")}
-          icon={Settings}
-          theme={theme}
-        />
-      </View>
+      {accountSession ? (
+        <View style={styles.footerIconRow}>
+          <FooterIconButton
+            onPress={handleHome}
+            testID="sidebar-home"
+            accessibilityLabel={translateNow("ui.home.1cc1r")}
+            icon={Home}
+            theme={theme}
+          />
+          <FooterIconButton
+            onPress={handleSettings}
+            testID="sidebar-settings"
+            accessibilityLabel={translateNow("ui.settings.osmo8z")}
+            icon={Settings}
+            theme={theme}
+          />
+        </View>
+      ) : null}
     </View>
+  );
+}
+
+function AnonymousConversationList({
+  agents,
+  onAddProject,
+  onAiCreation,
+  addProjectLabel,
+  aiCreationLabel,
+  emptyProjectHint,
+  onConversationPress,
+}: {
+  agents: AggregatedAgent[];
+  onAddProject: () => void;
+  onAiCreation: () => void;
+  addProjectLabel: string;
+  aiCreationLabel: string;
+  emptyProjectHint: string;
+  onConversationPress?: () => void;
+}) {
+  return (
+    <View style={styles.anonymousConversationContainer}>
+      <View style={styles.anonymousConversationHeader}>
+        <AnonymousSidebarAction
+          icon={MessagesSquare}
+          label={addProjectLabel}
+          onPress={onAddProject}
+        />
+        <AnonymousSidebarAction icon={UserRound} label={aiCreationLabel} onPress={onAiCreation} />
+        <Text style={styles.anonymousHistoryLabel}>
+          {translateNow("sidebar.historyConversations")}
+        </Text>
+      </View>
+      <ScrollView
+        style={styles.anonymousConversationScroll}
+        contentContainerStyle={styles.anonymousConversationScrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {agents.length === 0 ? (
+          <View style={styles.anonymousEmptyContainer}>
+            <Text style={styles.anonymousEmptyTitle}>{translateNow("account.project.empty")}</Text>
+            <Text style={styles.anonymousEmptyText}>{emptyProjectHint}</Text>
+          </View>
+        ) : (
+          agents.map((agent) => (
+            <AnonymousConversationRow
+              key={`${agent.serverId}:${agent.id}`}
+              agent={agent}
+              onConversationPress={onConversationPress}
+            />
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+function AnonymousSidebarAction({
+  icon: Icon,
+  label,
+  onPress,
+}: {
+  icon: ComponentType<{ size: number; color: string }>;
+  label: string;
+  onPress: () => void;
+}) {
+  const { theme } = useUnistyles();
+  const actionStyle = useCallback(
+    ({ hovered = false, pressed }: { hovered?: boolean; pressed: boolean }) => [
+      styles.anonymousAction,
+      (hovered || pressed) && styles.anonymousActionActive,
+    ],
+    [],
+  );
+
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={actionStyle}>
+      <Icon size={theme.iconSize.md} color={theme.colors.foreground} />
+      <Text style={styles.anonymousActionText} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function AnonymousConversationRow({
+  agent,
+  onConversationPress,
+}: {
+  agent: AggregatedAgent;
+  onConversationPress?: () => void;
+}) {
+  const { theme } = useUnistyles();
+  const title = agent.title?.trim() || translateNow("account.project.defaultName");
+  const handlePress = useCallback(() => {
+    onConversationPress?.();
+    navigateToAgent({
+      serverId: agent.serverId,
+      agentId: agent.id,
+      pin: Boolean(agent.archivedAt),
+    });
+  }, [agent.archivedAt, agent.id, agent.serverId, onConversationPress]);
+  const rowStyle = useCallback(
+    ({ hovered = false, pressed }: { hovered?: boolean; pressed: boolean }) => [
+      styles.anonymousConversationRow,
+      (hovered || pressed) && styles.anonymousConversationRowActive,
+    ],
+    [],
+  );
+
+  return (
+    <Pressable accessibilityRole="button" onPress={handlePress} style={rowStyle}>
+      <View style={styles.anonymousConversationIcon}>
+        <MessagesSquare size={14} color={theme.colors.foregroundMuted} />
+      </View>
+      <Text style={styles.anonymousConversationTitle} numberOfLines={1}>
+        {title}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -507,7 +593,8 @@ function MobileSidebar({
   addProjectLabel,
   aiCreationLabel,
   emptyProjectHint,
-  sessionsLabel,
+  agents,
+  isAgentHistoryInitialLoad,
   handleAccountLogin,
   handleAccountLogout,
   handleHome,
@@ -518,8 +605,6 @@ function MobileSidebar({
   closeToAgent,
   handleViewMoreNavigate,
 }: MobileSidebarProps) {
-  const pathname = usePathname();
-  const isSessionsActive = pathname.includes("/sessions");
   const {
     translateX,
     backdropOpacity,
@@ -532,6 +617,49 @@ function MobileSidebar({
   } = useSidebarAnimation();
   const closeTouchStartX = useSharedValue(0);
   const closeTouchStartY = useSharedValue(0);
+
+  const handleWorkspacePress = useCallback(() => {
+    closeToAgent();
+  }, [closeToAgent]);
+
+  let conversationListContent;
+  if (accountSession && isInitialLoad) {
+    conversationListContent = <SidebarAgentListSkeleton />;
+  } else if (accountSession) {
+    conversationListContent = (
+      <SidebarWorkspaceList
+        serverId={activeServerId}
+        accountSession={accountSession}
+        collapsedProjectKeys={collapsedProjectKeys}
+        onToggleProjectCollapsed={toggleProjectCollapsed}
+        shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
+        projects={projects}
+        isRefreshing={isManualRefresh && isRevalidating}
+        onRefresh={handleRefresh}
+        onWorkspacePress={handleWorkspacePress}
+        onAddProject={handleOpenProject}
+        onAiCreation={handleAiCreation}
+        addProjectLabel={addProjectLabel}
+        aiCreationLabel={aiCreationLabel}
+        emptyProjectHint={emptyProjectHint}
+        parentGestureRef={closeGestureRef}
+      />
+    );
+  } else if (isAgentHistoryInitialLoad) {
+    conversationListContent = <SidebarAgentListSkeleton />;
+  } else {
+    conversationListContent = (
+      <AnonymousConversationList
+        agents={agents}
+        onAddProject={handleOpenProject}
+        onAiCreation={handleAiCreation}
+        addProjectLabel={addProjectLabel}
+        aiCreationLabel={aiCreationLabel}
+        emptyProjectHint={emptyProjectHint}
+        onConversationPress={handleWorkspacePress}
+      />
+    );
+  }
 
   const handleCloseFromGesture = useCallback(() => {
     gestureAnimatingRef.current = true;
@@ -554,10 +682,6 @@ function MobileSidebar({
     translateX,
     windowWidth,
   ]);
-
-  const handleWorkspacePress = useCallback(() => {
-    closeToAgent();
-  }, [closeToAgent]);
 
   const closeGesture = useMemo(
     () =>
@@ -684,17 +808,7 @@ function MobileSidebar({
       <GestureDetector gesture={closeGesture} touchAction="pan-y">
         <Animated.View style={mobileSidebarStyle} pointerEvents="auto">
           <View style={styles.sidebarContent} pointerEvents="auto">
-            {accountSession ? (
-              <ConversationBrandHeader onPress={handleViewMore} />
-            ) : (
-              <SidebarHeaderRow
-                icon={MessagesSquare}
-                label={sessionsLabel}
-                onPress={handleViewMore}
-                isActive={isSessionsActive}
-                testID="sidebar-sessions"
-              />
-            )}
+            <ConversationBrandHeader onPress={handleViewMore} />
             <Pressable
               style={styles.mobileCloseButton}
               onPress={closeToAgent}
@@ -715,33 +829,11 @@ function MobileSidebar({
               )}
             </Pressable>
 
-            {isInitialLoad ? (
-              <SidebarAgentListSkeleton />
-            ) : (
-              <SidebarWorkspaceList
-                serverId={activeServerId}
-                accountSession={accountSession}
-                collapsedProjectKeys={collapsedProjectKeys}
-                onToggleProjectCollapsed={toggleProjectCollapsed}
-                shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
-                projects={projects}
-                isRefreshing={isManualRefresh && isRevalidating}
-                onRefresh={handleRefresh}
-                onWorkspacePress={handleWorkspacePress}
-                onAddProject={handleOpenProject}
-                onAiCreation={handleAiCreation}
-                addProjectLabel={addProjectLabel}
-                aiCreationLabel={aiCreationLabel}
-                emptyProjectHint={emptyProjectHint}
-                parentGestureRef={closeGestureRef}
-              />
-            )}
+            {conversationListContent}
 
             <SidebarFooter
               theme={theme}
               accountSession={accountSession}
-              handleOpenProject={handleOpenProject}
-              addProjectLabel={addProjectLabel}
               handleAccountLogin={handleAccountLogin}
               handleAccountLogout={handleAccountLogout}
               handleHome={handleHome}
@@ -771,7 +863,8 @@ function DesktopSidebar({
   addProjectLabel,
   aiCreationLabel,
   emptyProjectHint,
-  sessionsLabel,
+  agents,
+  isAgentHistoryInitialLoad,
   handleAccountLogin,
   handleAccountLogout,
   handleHome,
@@ -780,8 +873,41 @@ function DesktopSidebar({
   isOpen,
   handleViewMore,
 }: DesktopSidebarProps) {
-  const pathname = usePathname();
-  const isSessionsActive = pathname.includes("/sessions");
+  let conversationListContent;
+  if (accountSession && isInitialLoad) {
+    conversationListContent = <SidebarAgentListSkeleton />;
+  } else if (accountSession) {
+    conversationListContent = (
+      <SidebarWorkspaceList
+        serverId={activeServerId}
+        accountSession={accountSession}
+        collapsedProjectKeys={collapsedProjectKeys}
+        onToggleProjectCollapsed={toggleProjectCollapsed}
+        shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
+        projects={projects}
+        isRefreshing={isManualRefresh && isRevalidating}
+        onRefresh={handleRefresh}
+        onAddProject={handleOpenProject}
+        onAiCreation={handleAiCreation}
+        addProjectLabel={addProjectLabel}
+        aiCreationLabel={aiCreationLabel}
+        emptyProjectHint={emptyProjectHint}
+      />
+    );
+  } else if (isAgentHistoryInitialLoad) {
+    conversationListContent = <SidebarAgentListSkeleton />;
+  } else {
+    conversationListContent = (
+      <AnonymousConversationList
+        agents={agents}
+        onAddProject={handleOpenProject}
+        onAiCreation={handleAiCreation}
+        addProjectLabel={addProjectLabel}
+        aiCreationLabel={aiCreationLabel}
+        emptyProjectHint={emptyProjectHint}
+      />
+    );
+  }
   const padding = useWindowControlsPadding("sidebar");
   const sidebarWidth = usePanelStore((state) => state.sidebarWidth);
   const setSidebarWidth = usePanelStore((state) => state.setSidebarWidth);
@@ -850,46 +976,16 @@ function DesktopSidebar({
         <View style={styles.sidebarDragArea}>
           <TitlebarDragRegion />
           {padding.top > 0 ? <View style={paddingTopSpacerStyle} /> : null}
-          {accountSession ? (
-            <ConversationBrandHeader onPress={handleViewMore} />
-          ) : (
-            <SidebarHeaderRow
-              icon={MessagesSquare}
-              label={sessionsLabel}
-              onPress={handleViewMore}
-              isActive={isSessionsActive}
-              testID="sidebar-sessions"
-            />
-          )}
+          <ConversationBrandHeader onPress={handleViewMore} />
         </View>
 
-        {isInitialLoad ? (
-          <SidebarAgentListSkeleton />
-        ) : (
-          <SidebarWorkspaceList
-            serverId={activeServerId}
-            accountSession={accountSession}
-            collapsedProjectKeys={collapsedProjectKeys}
-            onToggleProjectCollapsed={toggleProjectCollapsed}
-            shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
-            projects={projects}
-            isRefreshing={isManualRefresh && isRevalidating}
-            onRefresh={handleRefresh}
-            onAddProject={handleOpenProject}
-            onAiCreation={handleAiCreation}
-            addProjectLabel={addProjectLabel}
-            aiCreationLabel={aiCreationLabel}
-            emptyProjectHint={emptyProjectHint}
-          />
-        )}
+        {conversationListContent}
 
         <SidebarCalloutSlot />
 
         <SidebarFooter
           theme={theme}
           accountSession={accountSession}
-          handleOpenProject={handleOpenProject}
-          addProjectLabel={addProjectLabel}
           handleAccountLogin={handleAccountLogin}
           handleAccountLogout={handleAccountLogout}
           handleHome={handleHome}
@@ -941,6 +1037,99 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.surfaceSidebar,
+  },
+  anonymousConversationContainer: {
+    flex: 1,
+    minHeight: 0,
+  },
+  anonymousConversationHeader: {
+    gap: 3,
+    paddingHorizontal: theme.spacing[3],
+    paddingTop: theme.spacing[1],
+    paddingBottom: theme.spacing[3],
+  },
+  anonymousAction: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+    paddingHorizontal: theme.spacing[2],
+    borderRadius: 10,
+  },
+  anonymousActionActive: {
+    backgroundColor: theme.colors.surfaceSidebarHover,
+  },
+  anonymousActionText: {
+    flex: 1,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "500",
+    lineHeight: 22,
+  },
+  anonymousHistoryLabel: {
+    paddingHorizontal: theme.spacing[2],
+    paddingTop: theme.spacing[3],
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    fontWeight: "500",
+    lineHeight: 18,
+  },
+  anonymousConversationScroll: {
+    flex: 1,
+  },
+  anonymousConversationScrollContent: {
+    paddingHorizontal: theme.spacing[3],
+    paddingBottom: theme.spacing[4],
+  },
+  anonymousConversationRow: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+    paddingHorizontal: theme.spacing[2],
+    borderRadius: 10,
+  },
+  anonymousConversationRowActive: {
+    backgroundColor: theme.colors.surfaceSidebarHover,
+  },
+  anonymousConversationIcon: {
+    width: 22,
+    height: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+  },
+  anonymousConversationTitle: {
+    flex: 1,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "500",
+    lineHeight: 22,
+  },
+  anonymousEmptyContainer: {
+    marginHorizontal: theme.spacing[2],
+    marginTop: theme.spacing[4],
+    paddingTop: theme.spacing[6],
+    paddingBottom: theme.spacing[4],
+    paddingHorizontal: theme.spacing[4],
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.surface0,
+    alignItems: "center",
+    gap: theme.spacing[3],
+  },
+  anonymousEmptyTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
+    textAlign: "center",
+  },
+  anonymousEmptyText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    textAlign: "center",
   },
   desktopSidebarBorder: {
     borderRightWidth: 1,

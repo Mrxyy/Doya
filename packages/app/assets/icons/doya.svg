@@ -1,0 +1,7 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Doya</title>
+  <path d="M12 16.7V9.2" stroke="#2E7D42" stroke-width="2.25" stroke-linecap="round"/>
+  <path d="M11.9 9.5C8.7 9.1 6.9 7.4 6.4 4.8c3.3-.2 5.4 1.2 6.2 4.1" fill="#43C463"/>
+  <path d="M12.1 9.5c3.2-.4 5-2.1 5.5-4.7-3.3-.2-5.4 1.2-6.2 4.1" fill="#9BDB45"/>
+  <path d="M8.3 18.1c0-2 1.6-3.5 3.7-3.5s3.7 1.5 3.7 3.5c0 1.2-1.1 1.9-3.7 1.9s-3.7-.7-3.7-1.9Z" fill="#D0A13A"/>
+</svg>

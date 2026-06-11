@@ -111,7 +111,11 @@ import {
 import { useRecommendedProjectPaths, useWorkspaceFields } from "@/stores/session-store-hooks";
 import { buildAiCreationTitle } from "@/utils/ai-creation-display";
 import { encodeImages } from "@/utils/encode-images";
-import { buildHostAgentDetailRoute, buildHostOpenProjectRoute } from "@/utils/host-routes";
+import {
+  buildHostAgentDetailRoute,
+  buildHostHomeRoute,
+  buildHostLoginRoute,
+} from "@/utils/host-routes";
 import { useImageAttachmentPicker } from "@/hooks/use-image-attachment-picker";
 import { useFileAttachmentPicker } from "@/hooks/use-file-attachment-picker";
 import type { PickedImageAttachmentInput } from "@/hooks/image-attachment-picker";
@@ -1524,7 +1528,7 @@ export function AiCreationScreen({
     toggleDesktopAgentList();
   }, [isCompact, toggleDesktopAgentList, toggleMobileAgentList]);
   const handleNewSession = useCallback(() => {
-    router.push(buildHostOpenProjectRoute(serverId));
+    router.push(buildHostHomeRoute(serverId));
   }, [router, serverId]);
   const conversationEditTitle = getConversationEditTitle(initialEditState.references[0]);
   const selectionPreviewUri = initialEditState.previewUri ?? undefined;
@@ -1932,6 +1936,12 @@ export function AiCreationScreen({
         setConversationEditImages([]);
         setSelectionMode(false);
         router.push(buildHostAgentDetailRoute(serverId, editTargetAgentId));
+        return;
+      }
+
+      if (!accountSession) {
+        toast.error(t("aiCreation.error.loginRequired"));
+        router.push(buildHostLoginRoute(serverId));
         return;
       }
 

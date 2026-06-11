@@ -22,7 +22,7 @@ import { isNative } from "@/constants/platform";
 import { getDesktopHost, isElectronRuntime } from "@/desktop/host";
 import { isImeComposingKeyboardEvent } from "@/utils/keyboard-ime";
 import { useActiveServerId } from "@/hooks/use-active-server-id";
-import { buildHostOpenProjectRoute } from "@/utils/host-routes";
+import { buildHostHomeRoute } from "@/utils/host-routes";
 import {
   navigateToLastWorkspace,
   useActiveWorkspaceSelection,
@@ -108,7 +108,7 @@ export function useKeyboardShortcuts({
           router.push(action.route as Parameters<typeof router.push>[0]);
           return true;
         case "open-project-picker":
-          if (activeServerId) router.push(buildHostOpenProjectRoute(activeServerId));
+          if (activeServerId) router.push(buildHostHomeRoute(activeServerId));
           return true;
         case "callback":
           callbacksByName[action.name]?.();
