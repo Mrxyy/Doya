@@ -73,13 +73,14 @@ function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
     if (!host) {
       return;
     }
+    const renderTarget = host;
 
     let canceled = false;
     const renderVersion = renderVersionRef.current + 1;
     renderVersionRef.current = renderVersion;
     const renderHost = document.createElement("div");
     setState({ status: "loading" });
-    host.replaceChildren();
+    renderTarget.replaceChildren();
 
     async function renderDocx() {
       try {
@@ -92,7 +93,7 @@ function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
         if (canceled || renderVersionRef.current !== renderVersion) {
           return;
         }
-        host.replaceChildren(...Array.from(renderHost.childNodes));
+        renderTarget.replaceChildren(...Array.from(renderHost.childNodes));
         setState({ status: "ready" });
       } catch (error) {
         if (canceled || renderVersionRef.current !== renderVersion) {
@@ -110,7 +111,7 @@ function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
 
     return () => {
       canceled = true;
-      host.replaceChildren();
+      renderTarget.replaceChildren();
     };
   }, [bytes]);
 

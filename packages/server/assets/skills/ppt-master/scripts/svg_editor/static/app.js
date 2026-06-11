@@ -27,7 +27,7 @@
             btn_add_annotation: "Add annotation",
             label_annotations_on_slide: "Annotations on this slide",
             btn_submit_annotations: "Apply changes",
-            btn_exit_preview: "Exit preview",
+            btn_exit_preview: "Apply annotations",
             modal_submit: "Submit",
             modal_cancel: "Cancel",
             empty_waiting_slides: "Waiting for generated slides...",
@@ -56,11 +56,11 @@
             warn_svg_no_dims: "SVG is missing width/height attributes. Please ask the AI to strictly follow shared-standards.md §4 and include width & height in the SVG root element.",
             slide_error_tooltip: "Failed to parse this slide: ",
             reload_banner: "This slide was updated on disk. Click to reload.",
-            modal_confirm_submit: "Apply staged attribute edits and annotations to disk?\n\nThe preview service will keep running. Click Exit preview when you want to stop it.",
+            modal_confirm_submit: "Apply staged attribute edits and annotations to disk?\n\nThe preview service will keep running.",
             modal_success_submit: "Changes saved to svg_output.\n\nReturn to the chat to re-export the PPTX or apply AI-needed annotations. The preview service is still running.",
-            modal_confirm_exit: "Exit preview and stop the local server?\n\nUnapplied edits and annotations will be discarded.",
-            modal_success_exit: "Preview stopped.\n\nYou can close this tab and return to the chat.",
-            modal_stopping: "Stopping preview server...",
+            modal_confirm_exit: "Save staged edits and annotations, then ask the AI to apply the annotations and re-export the PPTX?",
+            modal_success_exit: "Annotations saved. Asking the AI to apply them now...",
+            modal_stopping: "Saving annotations...",
             lang_toggle_title: "Switch language",
             nav_first: "First slide (Home)",
             nav_prev: "Previous slide (←)",
@@ -89,7 +89,7 @@
             btn_add_annotation: "添加标注",
             label_annotations_on_slide: "本页标注",
             btn_submit_annotations: "应用修改",
-            btn_exit_preview: "退出预览",
+            btn_exit_preview: "应用标注",
             modal_submit: "提交",
             modal_cancel: "取消",
             empty_waiting_slides: "正在等待生成幻灯片……",
@@ -118,11 +118,11 @@
             warn_svg_no_dims: "SVG 缺少 width/height 属性，预览可能异常。请让 AI 严格遵守 shared-standards.md §4 规范，在 SVG 根元素中补全 width 和 height。",
             slide_error_tooltip: "该幻灯片解析失败:",
             reload_banner: "当前页已在磁盘上更新,点此重新加载。",
-            modal_confirm_submit: "确认将暂存属性修改和标注写入磁盘?\n\n预览服务会继续运行。需要关闭时请点击退出预览。",
+            modal_confirm_submit: "确认将暂存属性修改和标注写入磁盘?\n\n预览服务会继续运行。",
             modal_success_submit: "修改已保存到 svg_output。\n\n请回到对话窗口重新导出 PPTX，或让 AI 应用需要判断的标注。预览服务仍在运行。",
-            modal_confirm_exit: "退出预览并停止本地服务?\n\n未应用的属性修改和标注将被丢弃。",
-            modal_success_exit: "预览已停止。\n\n可以关闭本标签页并回到对话窗口。",
-            modal_stopping: "正在停止预览服务……",
+            modal_confirm_exit: "保存暂存修改和标注，然后让 AI 应用这些标注并重新导出 PPTX?",
+            modal_success_exit: "标注已保存，正在让 AI 应用这些修改……",
+            modal_stopping: "正在保存标注……",
             lang_toggle_title: "切换语言",
             nav_first: "第一页 (Home)",
             nav_prev: "上一页 (←)",
@@ -225,6 +225,8 @@
     var editStackCount    = {};     // {name: staged edit count} — mirrors backend PENDING_EDITS
     var savedHintShown    = false;  // show the "staged edit" hint once per session
     var annotationsDirty  = false;  // unsaved annotations added/removed this session
+    var staticVersion     = null;   // {index.html, style.css, app.js} mtimes for dev hot refresh
+    var staticPollTimer   = null;
 
     // Staged edits live in server memory until "Apply changes"; the server can
     // still idle-timeout or be killed and drop them. Warn before the tab leaves
@@ -235,6 +237,42 @@
             return editStackCount[k] > 0;
         });
     }
+    function notifyApplyAnnotations() {
+        var message = {
+            source: "paseo-ppt-preview",
+            type: "paseo:ppt-preview:apply-annotations",
+            href: window.location.href
+        };
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage(message, "*");
+        }
+        if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === "function") {
+            window.ReactNativeWebView.postMessage(JSON.stringify(message), window.location.origin);
+        }
+    }
+    function closeApplyAnnotationsModal() {
+        modalConfirm.textContent = t("modal_submit");
+        modalOverlay.style.display = "none";
+    }
+    function refreshCurrentSlideAfterApplyAnnotations() {
+        if (!currentSlide) {
+            loadSlides();
+            return;
+        }
+        var item = slideListEl.querySelector('.slide-item[data-name="' + cssAttr(currentSlide) + '"]');
+        selectSlide(currentSlide, item || undefined);
+        loadSlides();
+    }
+    window.addEventListener("message", function (event) {
+        var message = event.data || {};
+        if (
+            message.source === "paseo" &&
+            message.type === "paseo:ppt-preview:apply-annotations-complete"
+        ) {
+            closeApplyAnnotationsModal();
+            refreshCurrentSlideAfterApplyAnnotations();
+        }
+    });
     window.addEventListener("beforeunload", function (e) {
         if (!hasUnsavedWork()) return undefined;
         e.preventDefault();
@@ -1401,16 +1439,33 @@
             modalConfirm.style.display = "none";
             modalCancel.style.display = "none";
             modalMessage.textContent = t("modal_stopping");
-            fetch("/api/shutdown", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ reason: "exit-preview" })
-            })
-                .then(function () {
+
+            drainDirectEdits()
+                .then(function () { return fetch("/api/save-all", { method: "POST" }); })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data.error) {
+                        modalMessage.textContent = t("err_save") + data.error;
+                        modalConfirm.style.display = "";
+                        modalCancel.style.display = "";
+                        return undefined;
+                    }
                     modalMessage.textContent = t("modal_success_exit");
+                    editStackCount = {};
+                    savedHintShown = false;
+                    annotationsDirty = false;
+                    updateUndoButton();
+                    if (currentSlide) {
+                        var item = slideListEl.querySelector('.slide-item[data-name="' + cssAttr(currentSlide) + '"]');
+                        selectSlide(currentSlide, item || undefined);
+                    }
+                    notifyApplyAnnotations();
+                    return undefined;
                 })
-                .catch(function () {
-                    modalMessage.textContent = t("modal_success_exit");
+                .catch(function (err) {
+                    modalMessage.textContent = t("err_save") + err;
+                    modalConfirm.style.display = "";
+                    modalCancel.style.display = "";
                 });
             return;
         }
@@ -1558,6 +1613,50 @@
         slidePollTimer = window.setInterval(function () {
             loadSlides();
         }, 2000);
+    }
+
+    function reloadStylesheet(version) {
+        var link = document.querySelector('link[rel="stylesheet"][href^="/static/style.css"]');
+        if (!link) {
+            return;
+        }
+        var next = document.createElement("link");
+        next.rel = "stylesheet";
+        next.href = "/static/style.css?v=" + encodeURIComponent(version);
+        next.onload = function () {
+            link.remove();
+        };
+        next.onerror = function () {
+            next.remove();
+        };
+        link.parentNode.insertBefore(next, link.nextSibling);
+    }
+
+    function handleStaticVersion(data) {
+        var files = data && data.files;
+        if (!files) return;
+        if (!staticVersion) {
+            staticVersion = files;
+            return;
+        }
+        var styleChanged = files["style.css"] !== staticVersion["style.css"];
+        staticVersion = files;
+        if (styleChanged) {
+            reloadStylesheet(files["style.css"] || Date.now());
+        }
+    }
+
+    function checkStaticVersion() {
+        return fetch("/api/static-version", { cache: "no-store" })
+            .then(function (res) { return res.json(); })
+            .then(handleStaticVersion)
+            .catch(function () {});
+    }
+
+    function startStaticPolling() {
+        if (staticPollTimer) return;
+        checkStaticVersion();
+        staticPollTimer = window.setInterval(checkStaticVersion, 1000);
     }
 
     // ---- Direct-edit undo + save hint --------------------------------
@@ -2472,6 +2571,7 @@
     loadConfig().then(function () {
         loadSlides();
         startSlidePolling();
+        startStaticPolling();
     });
     initRubberBand();
     initKeyboardShortcuts();

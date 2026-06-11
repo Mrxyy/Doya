@@ -961,21 +961,21 @@ body {
 #panel-right {
     width: 320px;
     min-width: 320px;
-    padding: 16px;
+    padding: 18px;
 }
 
 #panel-left .panel-header,
 #panel-right .panel-header {
-    padding: 0 10px 14px;
+    padding: 0 8px 16px;
     border-bottom: 0;
     color: var(--paseo-text);
-    font-size: 18px;
+    font-size: 17px;
     line-height: 24px;
-    font-weight: 650;
+    font-weight: 620;
 }
 
 #panel-right .panel-header {
-    padding-right: 64px;
+    padding-right: 58px;
 }
 
 #slide-list {
@@ -1177,7 +1177,7 @@ body {
 
 #selection-info,
 #annotation-input {
-    padding: 14px 0;
+    padding: 12px 0;
     border-bottom: 1px solid var(--paseo-border);
 }
 
@@ -1189,7 +1189,7 @@ body {
     font-size: 12px;
     letter-spacing: 0;
     text-transform: none;
-    font-weight: 650;
+    font-weight: 600;
 }
 
 #selected-element {
@@ -1210,11 +1210,12 @@ body {
 .annotation-item .ann-tag {
     background: var(--paseo-muted-surface);
     border: 1px solid var(--paseo-border);
-    border-radius: 8px;
+    border-radius: 9px;
 }
 
 #selected-element .el-tag {
     color: #2563eb;
+    padding: 4px 10px;
 }
 
 #annotation-text,
@@ -1230,7 +1231,7 @@ body {
 }
 
 #annotation-text {
-    min-height: 92px;
+    min-height: 86px;
     padding: 12px 14px;
     font-size: 14px;
     line-height: 21px;
@@ -1246,8 +1247,7 @@ body {
     color: var(--paseo-faint);
 }
 
-#btn-add-annotation,
-#btn-save,
+#btn-exit-preview,
 #modal-confirm {
     color: #ffffff;
     background: var(--paseo-accent);
@@ -1260,22 +1260,44 @@ body {
         transform 0.16s ease;
 }
 
-#btn-add-annotation:hover,
-#btn-save:hover,
+#btn-exit-preview:hover,
 #modal-confirm:hover {
     background: var(--paseo-accent-hover);
     box-shadow: 0 16px 30px rgba(31, 122, 82, 0.24);
 }
 
-#btn-add-annotation:active,
-#btn-save:active,
+#btn-exit-preview:active,
 #modal-confirm:active {
     transform: translateY(1px);
     background: #145b3d;
 }
 
+#btn-add-annotation {
+    color: var(--paseo-accent);
+    background: rgba(31, 122, 82, 0.08);
+    border: 1px solid rgba(31, 122, 82, 0.22);
+    border-radius: 12px;
+    box-shadow: none;
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease,
+        color 0.16s ease,
+        transform 0.16s ease;
+}
+
+#btn-add-annotation:hover {
+    color: var(--paseo-accent-hover);
+    background: rgba(31, 122, 82, 0.12);
+    border-color: rgba(31, 122, 82, 0.30);
+}
+
+#btn-add-annotation:active {
+    transform: translateY(1px);
+    background: rgba(31, 122, 82, 0.16);
+}
+
 #annotation-list {
-    padding: 14px 0;
+    padding: 14px 0 10px;
 }
 
 #annotations {
@@ -1311,25 +1333,81 @@ body {
 }
 
 #preview-actions {
-    padding: 16px 0 0;
-    gap: 12px;
+    padding: 14px 0 0;
+    gap: 9px;
+    border-top: 1px solid var(--paseo-border);
 }
 
 .btn-lang-toggle {
-    top: 16px;
-    right: 16px;
-    min-width: 42px;
-    height: 34px;
-    padding: 0 12px;
+    top: 18px;
+    right: 18px;
+    min-width: 40px;
+    height: 32px;
+    padding: 0 10px;
     font-size: 13px;
+    border-radius: 10px;
 }
 
 #btn-save,
 #btn-exit-preview,
 .btn-undo {
-    min-height: 48px;
-    font-size: 15px;
-    font-weight: 650;
+    min-height: 44px;
+    font-size: 14px;
+    font-weight: 620;
+    transition:
+        background 0.16s ease,
+        border-color 0.16s ease,
+        color 0.16s ease,
+        box-shadow 0.16s ease,
+        transform 0.16s ease;
+}
+
+.btn-undo {
+    order: 1;
+}
+
+#btn-exit-preview {
+    order: 2;
+    color: var(--paseo-accent);
+    background: rgba(31, 122, 82, 0.08);
+    border: 1px solid rgba(31, 122, 82, 0.22);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+#btn-exit-preview:hover {
+    color: var(--paseo-accent-hover);
+    background: rgba(31, 122, 82, 0.12);
+    border-color: rgba(31, 122, 82, 0.30);
+    box-shadow: 0 8px 18px rgba(31, 122, 82, 0.12);
+    transform: translateY(-1px);
+}
+
+#btn-exit-preview:active {
+    background: rgba(31, 122, 82, 0.16);
+    box-shadow: 0 2px 6px rgba(31, 122, 82, 0.10);
+    transform: translateY(0);
+}
+
+#btn-save {
+    order: 3;
+    color: #ffffff;
+    background: #25322d;
+    border: 1px solid rgba(15, 23, 42, 0.18);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.14);
+}
+
+#btn-save:hover {
+    color: #ffffff;
+    background: #1f2b26;
+    border-color: rgba(15, 23, 42, 0.28);
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.20);
+    transform: translateY(-1px);
+}
+
+#btn-save:active {
+    transform: translateY(0);
+    background: #1a241f;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18);
 }
 
 #modal-overlay {
@@ -1352,12 +1430,62 @@ body {
     border-bottom: 1px solid var(--paseo-border);
 }
 
+#element-props {
+    margin-top: 10px;
+    max-height: min(320px, 32vh);
+    padding-right: 4px;
+}
+
+.prop-table {
+    border-collapse: separate;
+    border-spacing: 0 6px;
+}
+
+.prop-table tr {
+    border-bottom: 0;
+}
+
+.prop-table td {
+    padding: 0;
+    vertical-align: middle;
+}
+
+.prop-table .prop-key {
+    width: 42%;
+    padding-right: 10px;
+    color: var(--paseo-subtle);
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.prop-table .prop-val {
+    color: var(--paseo-text);
+    font-size: 13px;
+    line-height: 18px;
+}
+
 .prop-table .prop-color {
     border-color: var(--paseo-border-strong);
 }
 
 input.prop-edit-color {
     background: var(--paseo-surface);
+}
+
+input.prop-edit-number,
+input.prop-edit-geo,
+input.prop-edit-multi-geo,
+input.prop-edit-color-text,
+input.prop-edit-attr,
+input.prop-edit-batch,
+select.prop-edit-batch,
+select.prop-edit-select {
+    min-height: 32px;
+    color: var(--paseo-text);
+    background: var(--paseo-surface);
+    border: 1px solid var(--paseo-border-strong);
+    border-radius: 999px;
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.035);
 }
 
 .btn-select-group {

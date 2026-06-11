@@ -432,6 +432,22 @@ def create_app(
             'live': app.config['LIVE_MODE'],
         })
 
+    @app.route('/api/static-version')
+    def get_static_version():
+        static_dir = Path(app.static_folder)
+        files = {}
+        for name in ('index.html', 'style.css', 'app.js'):
+            path = static_dir / name
+            try:
+                files[name] = path.stat().st_mtime
+            except OSError:
+                files[name] = None
+        version_values = [value for value in files.values() if value is not None]
+        return jsonify({
+            'version': max(version_values) if version_values else 0,
+            'files': files,
+        })
+
     @app.route('/images/<path:filename>')
     def serve_image(filename: str):
         """Serve images referenced by SVGs as `../images/*.png`.
