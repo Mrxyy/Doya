@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import Animated, {
-  cancelAnimation,
   Easing,
+  Extrapolation,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
-import MaskedView from "@react-native-masked-view/masked-view";
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import * as Clipboard from "expo-clipboard";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { BookOpen, Copy, RotateCw, TriangleAlert } from "lucide-react-native";
@@ -18,7 +20,7 @@ import { DoyaLogo } from "@/components/icons/doya-logo";
 import { Button } from "@/components/ui/button";
 import { getDesktopDaemonLogs, type DesktopDaemonLogs } from "@/desktop/daemon/desktop-daemon";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
-import { isNative, isWeb } from "@/constants/platform";
+import { isWeb } from "@/constants/platform";
 import { useWebScrollbarStyle } from "@/hooks/use-web-scrollbar-style";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
 import { translateNow } from "@/i18n/i18n";
@@ -34,8 +36,14 @@ const GITHUB_ISSUE_URL = "https://github.com/getpaseo/paseo/issues/new";
 const DOCS_URL = "https://paseo.sh/docs";
 
 const LOGO_SIZE = 96;
-const SHIMMER_PEAK_WIDTH = 120;
-const SHIMMER_DURATION_MS = 1800;
+const LOGO_GROWTH_DURATION_MS = 1800;
+const LOGO_GROWTH_PAUSE_MS = 450;
+const DOYA_LOGO_COLORS = {
+  stem: "#2E7D42",
+  leftLeaf: "#43C463",
+  rightLeaf: "#9BDB45",
+  seed: "#D0A13A",
+} as const;
 
 function openGithubIssue(): void {
   void openExternalUrl(GITHUB_ISSUE_URL);
@@ -45,139 +53,130 @@ function openDocs(): void {
   void openExternalUrl(DOCS_URL);
 }
 
-const WEB_SPLASH_SHIMMER_KEYFRAME_ID = "doya-splash-shimmer-keyframes";
-const WEB_SPLASH_SHIMMER_ANIMATION_NAME = "doya-splash-shimmer";
-const DOYA_LOGO_MASK_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='${LOGO_SIZE}' height='${LOGO_SIZE}' viewBox='0 0 24 24'><path d='M12 16.9V9.2' stroke='black' stroke-width='2.2' stroke-linecap='round'/><path d='M11.9 9.5C8.8 9.2 7 7.6 6.3 5.1c3.2-.3 5.2 1.1 6.2 3.8'/><path d='M12.1 9.5c3.1-.3 4.9-1.9 5.6-4.4-3.2-.3-5.2 1.1-6.2 3.8'/><path d='M8.3 18.1c0-2 1.6-3.5 3.7-3.5s3.7 1.5 3.7 3.5c0 1.2-1.1 1.9-3.7 1.9s-3.7-.7-3.7-1.9Z'/></svg>`;
-
-const WEB_SPLASH_SHIMMER_KEYFRAME_CSS = `
-  @keyframes ${WEB_SPLASH_SHIMMER_ANIMATION_NAME} {
-    0% {
-      background-position: -${LOGO_SIZE + SHIMMER_PEAK_WIDTH}px 0;
-    }
-    100% {
-      background-position: ${LOGO_SIZE + SHIMMER_PEAK_WIDTH}px 0;
-    }
-  }
-`;
-
-let webSplashShimmerRegistered = false;
-
-function ensureWebSplashShimmerKeyframes() {
-  if (isNative) {
-    return;
-  }
-  if (webSplashShimmerRegistered) {
-    return;
-  }
-  const existing = document.getElementById(WEB_SPLASH_SHIMMER_KEYFRAME_ID);
-  if (existing) {
-    webSplashShimmerRegistered = true;
-    return;
-  }
-  const styleElement = document.createElement("style");
-  styleElement.id = WEB_SPLASH_SHIMMER_KEYFRAME_ID;
-  styleElement.textContent = WEB_SPLASH_SHIMMER_KEYFRAME_CSS;
-  document.head.appendChild(styleElement);
-  webSplashShimmerRegistered = true;
-}
-
-function LogoShimmer() {
-  const { theme } = useUnistyles();
-
-  if (isWeb) {
-    return <WebLogoShimmer color={theme.colors.foreground} />;
-  }
-
-  return <NativeLogoShimmer color={theme.colors.foreground} />;
-}
-
-function WebLogoShimmer({ color }: { color: string }) {
-  useEffect(() => {
-    ensureWebSplashShimmerKeyframes();
-  }, []);
-
-  const shimmerStyle = useMemo(
-    () => ({
-      width: LOGO_SIZE,
-      height: LOGO_SIZE,
-      WebkitMaskImage: `url("data:image/svg+xml,${encodeURIComponent(DOYA_LOGO_MASK_SVG)}")`,
-      WebkitMaskSize: "contain",
-      WebkitMaskRepeat: "no-repeat",
-      WebkitMaskPosition: "center",
-      background: `linear-gradient(90deg, ${color} 0%, ${color}88 40%, ${color}FF 50%, ${color}88 60%, ${color} 100%)`,
-      backgroundSize: `${LOGO_SIZE + SHIMMER_PEAK_WIDTH * 2}px ${LOGO_SIZE}px`,
-      animationName: WEB_SPLASH_SHIMMER_ANIMATION_NAME,
-      animationDuration: `${SHIMMER_DURATION_MS}ms`,
-      animationTimingFunction: "linear",
-      animationIterationCount: "infinite",
-    }),
-    [color],
-  );
-
-  return <View style={shimmerStyle as never} />;
-}
-
-function NativeLogoShimmer({ color }: { color: string }) {
-  const shimmerTranslateX = useSharedValue(-SHIMMER_PEAK_WIDTH);
+function LogoGrowth() {
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    shimmerTranslateX.value = -SHIMMER_PEAK_WIDTH;
-    shimmerTranslateX.value = withRepeat(
-      withTiming(LOGO_SIZE + SHIMMER_PEAK_WIDTH, {
-        duration: SHIMMER_DURATION_MS,
-        easing: Easing.linear,
-      }),
+    progress.value = 0;
+    progress.value = withRepeat(
+      withSequence(
+        withTiming(1, {
+          duration: LOGO_GROWTH_DURATION_MS,
+          easing: Easing.out(Easing.cubic),
+        }),
+        withDelay(
+          LOGO_GROWTH_PAUSE_MS,
+          withTiming(0, {
+            duration: 1,
+            easing: Easing.linear,
+          }),
+        ),
+      ),
       -1,
       false,
     );
-    return () => {
-      cancelAnimation(shimmerTranslateX);
+  }, [progress]);
+
+  const seedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(progress.value, [0, 0.08, 1], [1, 1, 1], Extrapolation.CLAMP);
+    const scale = interpolate(
+      progress.value,
+      [0, 0.12, 0.24, 1],
+      [0.9, 1.08, 1, 1],
+      Extrapolation.CLAMP,
+    );
+
+    return {
+      opacity,
+      transform: [
+        { translateY: interpolate(progress.value, [0, 0.2], [8, 0], Extrapolation.CLAMP) },
+        { scale },
+      ],
     };
-  }, [shimmerTranslateX]);
+  });
 
-  const peakStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: shimmerTranslateX.value }],
-  }));
+  const stemStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(progress.value, [0.14, 0.22, 1], [0, 1, 1], Extrapolation.CLAMP);
+    const scaleY = interpolate(progress.value, [0.18, 0.44], [0.08, 1], Extrapolation.CLAMP);
 
-  const trackStyle = useMemo(
-    () => [styles.nativeShimmerTrack, { width: LOGO_SIZE, height: LOGO_SIZE }],
-    [],
+    return {
+      opacity,
+      transformOrigin: "50% 70%",
+      transform: [{ scaleY }],
+    };
+  });
+
+  const leftLeafStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(progress.value, [0.38, 0.48, 1], [0, 1, 1], Extrapolation.CLAMP);
+    const scale = interpolate(progress.value, [0.4, 0.62], [0.42, 1], Extrapolation.CLAMP);
+    const rotate = interpolate(progress.value, [0.4, 0.62], [18, 0], Extrapolation.CLAMP);
+
+    return {
+      opacity,
+      transformOrigin: "50% 45%",
+      transform: [{ scale }, { rotate: `${rotate}deg` }],
+    };
+  });
+
+  const rightLeafStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(progress.value, [0.46, 0.56, 1], [0, 1, 1], Extrapolation.CLAMP);
+    const scale = interpolate(progress.value, [0.48, 0.7], [0.42, 1], Extrapolation.CLAMP);
+    const rotate = interpolate(progress.value, [0.48, 0.7], [-18, 0], Extrapolation.CLAMP);
+
+    return {
+      opacity,
+      transformOrigin: "50% 45%",
+      transform: [{ scale }, { rotate: `${rotate}deg` }],
+    };
+  });
+  const seedCombinedStyle = useMemo(() => [styles.logoGrowthLayer, seedStyle], [seedStyle]);
+  const stemCombinedStyle = useMemo(() => [styles.logoGrowthLayer, stemStyle], [stemStyle]);
+  const leftLeafCombinedStyle = useMemo(
+    () => [styles.logoGrowthLayer, leftLeafStyle],
+    [leftLeafStyle],
   );
-
-  const peakCombinedStyle = useMemo(
-    () => [styles.nativeShimmerPeak, peakStyle, { width: SHIMMER_PEAK_WIDTH, height: LOGO_SIZE }],
-    [peakStyle],
-  );
-
-  const maskElement = useMemo(
-    () => (
-      <View style={styles.shimmerMask}>
-        <DoyaLogo size={LOGO_SIZE} color="#000000" />
-      </View>
-    ),
-    [],
+  const rightLeafCombinedStyle = useMemo(
+    () => [styles.logoGrowthLayer, rightLeafStyle],
+    [rightLeafStyle],
   );
 
   return (
-    <MaskedView style={trackStyle} maskElement={maskElement}>
-      <View style={trackStyle}>
-        <View style={styles.nativeShimmerBase}>
-          <DoyaLogo size={LOGO_SIZE} color={color} />
-        </View>
-        <Animated.View style={peakCombinedStyle}>
-          <Svg width="100%" height="100%" preserveAspectRatio="none">
-            <Defs>
-              <SvgLinearGradient id="splashShimmer" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
-                <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.4" />
-                <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#splashShimmer)" />
-          </Svg>
-        </Animated.View>
-      </View>
-    </MaskedView>
+    <View style={styles.logoGrowth}>
+      <Animated.View style={seedCombinedStyle}>
+        <Svg width={LOGO_SIZE} height={LOGO_SIZE} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M8.3 18.1c0-2 1.6-3.5 3.7-3.5s3.7 1.5 3.7 3.5c0 1.2-1.1 1.9-3.7 1.9s-3.7-.7-3.7-1.9Z"
+            fill={DOYA_LOGO_COLORS.seed}
+          />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={stemCombinedStyle}>
+        <Svg width={LOGO_SIZE} height={LOGO_SIZE} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M12 16.9V9.2"
+            stroke={DOYA_LOGO_COLORS.stem}
+            strokeWidth={2.2}
+            strokeLinecap="round"
+          />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={leftLeafCombinedStyle}>
+        <Svg width={LOGO_SIZE} height={LOGO_SIZE} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M11.9 9.5C8.8 9.2 7 7.6 6.3 5.1c3.2-.3 5.2 1.1 6.2 3.8"
+            fill={DOYA_LOGO_COLORS.leftLeaf}
+          />
+        </Svg>
+      </Animated.View>
+      <Animated.View style={rightLeafCombinedStyle}>
+        <Svg width={LOGO_SIZE} height={LOGO_SIZE} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M12.1 9.5c3.1-.3 4.9-1.9 5.6-4.4-3.2-.3-5.2 1.1-6.2 3.8"
+            fill={DOYA_LOGO_COLORS.rightLeaf}
+          />
+        </Svg>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -275,25 +274,15 @@ const styles = StyleSheet.create((theme) => ({
     gap: theme.spacing[3],
     flexWrap: "wrap",
   },
-  shimmerMask: {
+  logoGrowth: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
-    alignItems: "center",
-    justifyContent: "center",
   },
-  nativeShimmerTrack: {
-    overflow: "hidden",
-  },
-  nativeShimmerBase: {
+  logoGrowthLayer: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-  },
-  nativeShimmerPeak: {
-    position: "absolute",
-    top: 0,
     bottom: 0,
   },
 }));
@@ -395,7 +384,7 @@ export function StartupSplashScreen({ bootstrapState }: StartupSplashScreenProps
     return (
       <View testID="startup-splash" style={styles.container}>
         <TitlebarDragRegion />
-        <LogoShimmer />
+        <LogoGrowth />
       </View>
     );
   }

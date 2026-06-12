@@ -54,6 +54,7 @@ import {
   FileSymlink,
   Pencil,
   Presentation,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -107,6 +108,7 @@ import type { AttachmentMetadata } from "@/attachments/types";
 import { Button } from "@/components/ui/button";
 import { filterUserMessageDisplayAttachments } from "@/components/user-message-attachments";
 import {
+  getPaseoMessageVisibleText,
   parsePaseoMessageCard,
   parsePaseoMessageRenderParts,
   type PaseoMessageCard,
@@ -377,6 +379,12 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     minWidth: 0,
     flexShrink: 1,
   },
+  paseoBubble: {
+    backgroundColor: "transparent",
+    borderRadius: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
   text: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
@@ -481,64 +489,378 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     lineHeight: 14,
   },
   paseoCard: {
-    width: 320,
+    width: 620,
     maxWidth: "100%",
+    minHeight: 176,
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    paddingLeft: 22,
+    paddingRight: 24,
+    paddingVertical: 20,
     gap: theme.spacing[3],
+    shadowColor: "#000000",
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  paseoCardResult: {
+    width: 620,
+    minHeight: 116,
+    paddingLeft: 34,
+    paddingVertical: 16,
+    gap: theme.spacing[2],
+  },
+  paseoCardStripe: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
   },
   paseoCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[3],
+    paddingRight: 148,
+  },
+  paseoCardHeaderResult: {
+    gap: theme.spacing[2],
+    paddingRight: 110,
+    paddingLeft: 2,
   },
   paseoCardIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: theme.borderRadius.lg,
+    width: 48,
+    height: 48,
+    borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(31, 122, 82, 0.12)",
+    borderWidth: theme.borderWidth[1],
+  },
+  paseoCardIconBoxResult: {
+    width: 40,
+    height: 40,
+    borderRadius: theme.borderRadius.md,
+    marginLeft: 2,
   },
   paseoCardTitleGroup: {
     flex: 1,
     minWidth: 0,
   },
+  paseoCardResultTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    minWidth: 0,
+  },
   paseoCardTitle: {
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
+    fontSize: theme.fontSize.lg,
     fontWeight: theme.fontWeight.medium,
-    lineHeight: 20,
+    lineHeight: 24,
+    marginBottom: 1,
+  },
+  paseoCardTitleResult: {
+    flexShrink: 1,
+    fontSize: theme.fontSize.base,
+    lineHeight: 22,
+    marginBottom: 0,
   },
   paseoCardKind: {
     color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 18,
+    flexShrink: 1,
+  },
+  paseoCardMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    minWidth: 0,
+  },
+  paseoCardBadge: {
+    borderRadius: theme.borderRadius.full,
+    borderWidth: theme.borderWidth[1],
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: 1,
+  },
+  paseoCardBadgeText: {
     fontSize: theme.fontSize.xs,
-    lineHeight: 16,
-    marginTop: 2,
+    fontWeight: theme.fontWeight.semibold,
+    lineHeight: 14,
   },
   paseoCardSummary: {
     color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    lineHeight: 22,
+    paddingRight: 148,
+  },
+  paseoCardSummaryResult: {
+    color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 20,
+    paddingRight: 112,
   },
   paseoCardFieldList: {
-    gap: theme.spacing[1],
+    gap: 3,
+    paddingRight: 132,
+    marginTop: 2,
+  },
+  paseoCardFieldListResult: {
+    paddingRight: 112,
+    marginTop: 0,
   },
   paseoCardFieldRow: {
     flexDirection: "row",
-    gap: theme.spacing[2],
+    alignItems: "flex-start",
+    gap: theme.spacing[3],
     minWidth: 0,
   },
   paseoCardFieldLabel: {
     color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.xs,
-    lineHeight: 18,
-    minWidth: 44,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+    minWidth: 38,
   },
   paseoCardFieldValue: {
     flex: 1,
     minWidth: 0,
     color: theme.colors.foreground,
-    fontSize: theme.fontSize.xs,
-    lineHeight: 18,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+  },
+  paseoCardIllustration: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: 154,
+    height: 154,
+    opacity: 1,
+  },
+  paseoCardIllustrationResult: {
+    width: 126,
+    height: 112,
+    opacity: 0.82,
+  },
+  paseoCardHalo: {
+    position: "absolute",
+    right: -50,
+    top: -58,
+    width: 196,
+    height: 196,
+    borderRadius: 98,
+  },
+  paseoCardIllustrationPlate: {
+    position: "absolute",
+    right: 18,
+    top: 24,
+    width: 98,
+    height: 88,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+  },
+  paseoCardAccentWash: {
+    position: "absolute",
+    right: -40,
+    bottom: -30,
+    width: 178,
+    height: 112,
+    borderTopLeftRadius: 90,
+  },
+  paseoCardDecorRail: {
+    position: "absolute",
+    right: 17,
+    bottom: 16,
+    width: 104,
+    height: 32,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    gap: 4,
+    opacity: 0.72,
+  },
+  paseoCardDecorRailLine: {
+    height: 4,
+    borderRadius: 3,
+  },
+  paseoCardDecorRailLineShort: {
+    width: "58%",
+  },
+  paseoCardDecorRailLineLong: {
+    width: "86%",
+  },
+  paseoCardDecorDots: {
+    position: "absolute",
+    right: 30,
+    bottom: 58,
+    flexDirection: "row",
+    gap: 4,
+  },
+  paseoCardDecorDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 3,
+  },
+  paseoCardMiniDoc: {
+    position: "absolute",
+    right: 32,
+    top: 31,
+    width: 58,
+    height: 72,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    backgroundColor: "rgba(255, 255, 255, 0.86)",
+    paddingHorizontal: 7,
+    paddingTop: 24,
+    gap: 5,
+  },
+  paseoCardMiniDocFold: {
+    position: "absolute",
+    right: -1,
+    top: -1,
+    width: 16,
+    height: 16,
+    borderBottomLeftRadius: theme.borderRadius.sm,
+    borderWidth: theme.borderWidth[1],
+  },
+  paseoCardMiniBadge: {
+    position: "absolute",
+    left: 7,
+    top: 7,
+    borderRadius: 5,
+    borderWidth: theme.borderWidth[1],
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  paseoCardMiniBadgeText: {
+    color: "#ffffff",
+    fontSize: 7,
+    fontWeight: theme.fontWeight.semibold,
+    lineHeight: 9,
+  },
+  paseoCardMiniLine: {
+    height: 4,
+    borderRadius: 2,
+  },
+  paseoCardMiniLineShort: {
+    width: "58%",
+  },
+  paseoCardMiniLineLong: {
+    width: "86%",
+  },
+  paseoCardMiniSlide: {
+    position: "absolute",
+    right: 27,
+    top: 34,
+    width: 82,
+    height: 58,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    backgroundColor: "rgba(255, 255, 255, 0.84)",
+    padding: 7,
+    gap: 5,
+  },
+  paseoCardMiniSlideBar: {
+    width: "54%",
+    height: 5,
+    borderRadius: 3,
+  },
+  paseoCardMiniTypeText: {
+    position: "absolute",
+    right: 7,
+    top: 6,
+    fontSize: 7,
+    fontWeight: theme.fontWeight.semibold,
+    lineHeight: 9,
+  },
+  paseoCardMiniSlideRow: {
+    flexDirection: "row",
+    gap: 4,
+    alignItems: "flex-end",
+    marginTop: 2,
+  },
+  paseoCardMiniSlideColumn: {
+    width: 7,
+    borderRadius: 3,
+  },
+  paseoCardMiniSheet: {
+    position: "absolute",
+    right: 27,
+    top: 32,
+    width: 82,
+    height: 62,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    backgroundColor: "rgba(255, 255, 255, 0.84)",
+    paddingHorizontal: 7,
+    paddingBottom: 6,
+    paddingTop: 18,
+    gap: 4,
+  },
+  paseoCardMiniSheetHeader: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    height: 14,
+    borderTopLeftRadius: theme.borderRadius.md,
+    borderTopRightRadius: theme.borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paseoCardMiniSheetHeaderText: {
+    color: "#ffffff",
+    fontSize: 7,
+    fontWeight: theme.fontWeight.semibold,
+    lineHeight: 9,
+  },
+  paseoCardMiniSheetRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  paseoCardMiniSheetCell: {
+    width: 13,
+    height: 7,
+    borderRadius: 2,
+  },
+  paseoCardMiniImage: {
+    position: "absolute",
+    right: 27,
+    top: 32,
+    width: 82,
+    height: 62,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    backgroundColor: "rgba(255, 255, 255, 0.84)",
+    overflow: "hidden",
+  },
+  paseoCardMiniImageSun: {
+    position: "absolute",
+    right: 9,
+    top: 8,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+  },
+  paseoCardMiniImageFrame: {
+    position: "absolute",
+    left: 8,
+    top: 8,
+    width: 22,
+    height: 16,
+    borderRadius: 4,
+    borderWidth: theme.borderWidth[1],
+  },
+  paseoCardMiniImageHill: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 18,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
   },
   copyButton: {
     alignSelf: "center",
@@ -650,8 +972,14 @@ function isAbsoluteFilePath(path: string): boolean {
 
 function getPathFileName(path: string): string | null {
   const normalized = path.trim().replace(/\\/gu, "/");
-  const fileName = normalized.split("/").filter(Boolean).pop()?.trim();
-  return fileName || null;
+  const parts = normalized.split("/");
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const fileName = parts[index]?.trim();
+    if (fileName) {
+      return fileName;
+    }
+  }
+  return null;
 }
 
 function inferImageMimeType(fileName: string): string {
@@ -685,12 +1013,10 @@ function UserMessageAttachmentThumbnail({
   image,
   client,
   workspaceRoot,
-  serverId,
 }: {
   image: UserMessageImageAttachment;
   client?: DaemonClient | null;
   workspaceRoot?: string;
-  serverId?: string;
 }) {
   const isWorkspaceImage = isWorkspaceUserMessageImage(image);
   const attachmentUri = useAttachmentPreviewUrl(isWorkspaceImage ? null : image);
@@ -712,7 +1038,6 @@ function UserMessageAttachmentThumbnail({
   }, [client, image, isWorkspaceImage, workspaceRoot]);
   const uri = isWorkspaceImage ? workspaceUri : attachmentUri;
   const imageSource = useMemo(() => ({ uri: uri ?? "" }), [uri]);
-  debugger;
   if (!uri) {
     return <View style={userMessageStylesheet.imageThumbnailPlaceholder} />;
   }
@@ -883,14 +1208,16 @@ function UserMessageStructuredAttachment({ attachment }: { attachment: AgentAtta
   const label = getUserMessageAttachmentLabel(attachment);
   const visual = getUserMessageAttachmentVisual(attachment);
   const Icon = visual.Icon;
+  const iconBoxStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.structuredAttachmentIconBox,
+      { backgroundColor: visual.backgroundColor },
+    ],
+    [visual.backgroundColor],
+  );
   return (
     <View style={userMessageStylesheet.structuredAttachmentCard}>
-      <View
-        style={[
-          userMessageStylesheet.structuredAttachmentIconBox,
-          { backgroundColor: visual.backgroundColor },
-        ]}
-      >
+      <View style={iconBoxStyle}>
         <Icon size={18} color={visual.color} strokeWidth={2.2} />
       </View>
       <Text style={userMessageStylesheet.structuredAttachmentText} numberOfLines={1}>
@@ -911,30 +1238,536 @@ function getPaseoMessageKindLabel(kind: string): string {
       return "PPT 标注任务";
     case "ppt.apply_annotations.result":
       return "PPT 标注结果";
+    case "document.apply_annotations":
+      return "文件标注任务";
+    case "document.apply_annotations.result":
+      return "文件标注结果";
     default:
+      if (kind.startsWith("ai_creation.") && kind.endsWith(".result")) {
+        return "AI 创作结果";
+      }
+      if (kind.startsWith("ai_creation.")) {
+        return "AI 创作任务";
+      }
       return kind;
   }
 }
 
-function UserMessagePaseoCard({ card }: { card: PaseoMessageCard }) {
+type PaseoMessageCardIllustrationKind = "image" | "slides" | "pdf" | "word" | "sheet" | "generic";
+
+const PASEO_SLIDE_COLUMN_HEIGHTS = [16, 24, 11] as const;
+const PASEO_SHEET_ROWS = [0, 1, 2, 3] as const;
+const PASEO_SHEET_COLUMNS = [0, 1, 2] as const;
+
+interface PaseoMessageCardVisual {
+  Icon: LucideIcon;
+  badge: string;
+  accent: string;
+  accentMuted: string;
+  iconBackground: string;
+  iconBorder: string;
+  cardBackground: string;
+  borderColor: string;
+  stripeColor: string;
+  haloColor: string;
+  illustration: PaseoMessageCardIllustrationKind;
+}
+
+function getPaseoMessageCardVisual(card: PaseoMessageCard): PaseoMessageCardVisual {
+  const fileType = getPaseoMessageCardFileType(card);
+  if (card.kind.includes(".spreadsheet.") || fileType === "xlsx" || fileType === "csv") {
+    return {
+      Icon: FileSpreadsheet,
+      badge: fileType === "csv" ? "CSV" : "XLSX",
+      accent: "#137a4b",
+      accentMuted: "rgba(19, 122, 75, 0.66)",
+      iconBackground: "rgba(19, 122, 75, 0.12)",
+      iconBorder: "rgba(19, 122, 75, 0.22)",
+      cardBackground: "#fbfdfc",
+      borderColor: "rgba(19, 122, 75, 0.18)",
+      stripeColor: "#1f9d63",
+      haloColor: "rgba(31, 157, 99, 0.08)",
+      illustration: "sheet",
+    };
+  }
+
+  if (card.kind.includes(".slides.") || card.kind.startsWith("ppt.") || fileType === "pptx") {
+    return {
+      Icon: Presentation,
+      badge: "PPTX",
+      accent: "#b35a18",
+      accentMuted: "rgba(179, 90, 24, 0.64)",
+      iconBackground: "rgba(179, 90, 24, 0.12)",
+      iconBorder: "rgba(179, 90, 24, 0.22)",
+      cardBackground: "#fffdf9",
+      borderColor: "rgba(179, 90, 24, 0.18)",
+      stripeColor: "#e67e22",
+      haloColor: "rgba(230, 126, 34, 0.08)",
+      illustration: "slides",
+    };
+  }
+
+  if (card.kind.includes(".document.pdf.") || fileType === "pdf") {
+    return {
+      Icon: FileText,
+      badge: "PDF",
+      accent: "#c2413a",
+      accentMuted: "rgba(194, 65, 58, 0.62)",
+      iconBackground: "rgba(194, 65, 58, 0.11)",
+      iconBorder: "rgba(194, 65, 58, 0.2)",
+      cardBackground: "#fffdfd",
+      borderColor: "rgba(194, 65, 58, 0.17)",
+      stripeColor: "#e0524b",
+      haloColor: "rgba(224, 82, 75, 0.08)",
+      illustration: "pdf",
+    };
+  }
+
+  if (card.kind.includes(".document.word.") || fileType === "docx") {
+    return {
+      Icon: FileText,
+      badge: "DOCX",
+      accent: "#2f63c7",
+      accentMuted: "rgba(47, 99, 199, 0.62)",
+      iconBackground: "rgba(47, 99, 199, 0.11)",
+      iconBorder: "rgba(47, 99, 199, 0.2)",
+      cardBackground: "#fbfdff",
+      borderColor: "rgba(47, 99, 199, 0.16)",
+      stripeColor: "#4d7ee8",
+      haloColor: "rgba(77, 126, 232, 0.08)",
+      illustration: "word",
+    };
+  }
+
+  if (card.kind.startsWith("document.apply_annotations")) {
+    return {
+      Icon: FileText,
+      badge: "FILE",
+      accent: "#475569",
+      accentMuted: "rgba(71, 85, 105, 0.58)",
+      iconBackground: "rgba(71, 85, 105, 0.12)",
+      iconBorder: "rgba(71, 85, 105, 0.16)",
+      cardBackground: "#f8fafc",
+      borderColor: "rgba(71, 85, 105, 0.14)",
+      stripeColor: "#475569",
+      haloColor: "rgba(71, 85, 105, 0.08)",
+      illustration: "word",
+    };
+  }
+
+  if (card.kind.includes(".image.") || fileType === "image") {
+    return {
+      Icon: FileImage,
+      badge: "IMG",
+      accent: "#9b4fb8",
+      accentMuted: "rgba(155, 79, 184, 0.6)",
+      iconBackground: "rgba(155, 79, 184, 0.11)",
+      iconBorder: "rgba(155, 79, 184, 0.2)",
+      cardBackground: "#fffaff",
+      borderColor: "rgba(155, 79, 184, 0.16)",
+      stripeColor: "#b862d6",
+      haloColor: "rgba(184, 98, 214, 0.08)",
+      illustration: "image",
+    };
+  }
+
+  return {
+    Icon: Sparkles,
+    badge: "AI",
+    accent: "#5f6472",
+    accentMuted: "rgba(95, 100, 114, 0.58)",
+    iconBackground: "rgba(95, 100, 114, 0.12)",
+    iconBorder: "rgba(95, 100, 114, 0.16)",
+    cardBackground: "#f8f8fa",
+    borderColor: "rgba(95, 100, 114, 0.14)",
+    stripeColor: "#5f6472",
+    haloColor: "rgba(95, 100, 114, 0.08)",
+    illustration: "generic",
+  };
+}
+
+function getPaseoMessageCardFileType(
+  card: PaseoMessageCard,
+): "image" | "pptx" | "pdf" | "docx" | "xlsx" | "csv" | null {
+  const haystack = [card.kind, card.title, card.summary, ...card.fields.map((field) => field.value)]
+    .join(" ")
+    .toLowerCase();
+  if (/\.(png|jpe?g|webp|gif|avif|svg)\b/.test(haystack) || haystack.includes("图片")) {
+    return "image";
+  }
+  if (/\.pptx?\b/.test(haystack) || haystack.includes("ppt")) {
+    return "pptx";
+  }
+  if (/\.pdf\b/.test(haystack)) {
+    return "pdf";
+  }
+  if (/\.docx?\b/.test(haystack) || haystack.includes("word")) {
+    return "docx";
+  }
+  if (/\.xlsx?\b/.test(haystack) || haystack.includes("excel") || haystack.includes("表格")) {
+    return "xlsx";
+  }
+  if (/\.csv\b/.test(haystack)) {
+    return "csv";
+  }
+  return null;
+}
+
+function PaseoCardIllustration({
+  visual,
+  isResult,
+}: {
+  visual: PaseoMessageCardVisual;
+  isResult: boolean;
+}) {
+  const haloStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardHalo, { backgroundColor: visual.haloColor }],
+    [visual.haloColor],
+  );
+  const washStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardAccentWash, { backgroundColor: visual.haloColor }],
+    [visual.haloColor],
+  );
+  const plateStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardIllustrationPlate,
+      { backgroundColor: visual.iconBackground, borderColor: visual.borderColor },
+    ],
+    [visual.borderColor, visual.iconBackground],
+  );
+  const illustrationStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardIllustration,
+      isResult ? userMessageStylesheet.paseoCardIllustrationResult : null,
+    ],
+    [isResult],
+  );
+
   return (
-    <View style={userMessageStylesheet.paseoCard}>
-      <View style={userMessageStylesheet.paseoCardHeader}>
-        <View style={userMessageStylesheet.paseoCardIconBox}>
-          <Presentation size={20} color="#1f7a52" strokeWidth={2.2} />
+    <View style={illustrationStyle} pointerEvents="none">
+      <View style={washStyle} />
+      <View style={haloStyle} />
+      <View style={plateStyle} />
+      {visual.illustration === "sheet" ? <PaseoSheetIllustration visual={visual} /> : null}
+      {visual.illustration === "slides" ? <PaseoSlidesIllustration visual={visual} /> : null}
+      {visual.illustration === "image" ? <PaseoImageIllustration visual={visual} /> : null}
+      {visual.illustration === "pdf" || visual.illustration === "word" ? (
+        <PaseoDocumentIllustration visual={visual} />
+      ) : null}
+      {visual.illustration === "generic" ? <PaseoDocumentIllustration visual={visual} /> : null}
+      <PaseoCardDecor visual={visual} />
+    </View>
+  );
+}
+
+function PaseoCardDecor({ visual }: { visual: PaseoMessageCardVisual }) {
+  const railStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardDecorRail,
+      { backgroundColor: visual.iconBackground, borderColor: visual.borderColor },
+    ],
+    [visual.borderColor, visual.iconBackground],
+  );
+  const longLineStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardDecorRailLine,
+      userMessageStylesheet.paseoCardDecorRailLineLong,
+      { backgroundColor: visual.accentMuted },
+    ],
+    [visual.accentMuted],
+  );
+  const shortLineStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardDecorRailLine,
+      userMessageStylesheet.paseoCardDecorRailLineShort,
+      { backgroundColor: visual.iconBackground },
+    ],
+    [visual.iconBackground],
+  );
+  const dotStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardDecorDot, { backgroundColor: visual.accentMuted }],
+    [visual.accentMuted],
+  );
+
+  return (
+    <>
+      <View style={userMessageStylesheet.paseoCardDecorDots}>
+        <View style={dotStyle} />
+        <View style={dotStyle} />
+        <View style={dotStyle} />
+      </View>
+      <View style={railStyle}>
+        <View style={longLineStyle} />
+        <View style={shortLineStyle} />
+      </View>
+    </>
+  );
+}
+
+function PaseoDocumentIllustration({ visual }: { visual: PaseoMessageCardVisual }) {
+  const docStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardMiniDoc, { borderColor: visual.borderColor }],
+    [visual.borderColor],
+  );
+  const foldStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardMiniDocFold,
+      { backgroundColor: visual.iconBackground, borderColor: visual.borderColor },
+    ],
+    [visual.borderColor, visual.iconBackground],
+  );
+  const accentLineStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardMiniLine,
+      userMessageStylesheet.paseoCardMiniLineLong,
+      { backgroundColor: visual.accent },
+    ],
+    [visual.accent],
+  );
+  const mutedLongLineStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardMiniLine,
+      userMessageStylesheet.paseoCardMiniLineLong,
+      { backgroundColor: visual.iconBackground },
+    ],
+    [visual.iconBackground],
+  );
+  const mutedShortLineStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardMiniLine,
+      userMessageStylesheet.paseoCardMiniLineShort,
+      { backgroundColor: visual.iconBackground },
+    ],
+    [visual.iconBackground],
+  );
+  const badgeStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardMiniBadge,
+      { backgroundColor: visual.accent, borderColor: visual.borderColor },
+    ],
+    [visual.accent, visual.borderColor],
+  );
+
+  return (
+    <View style={docStyle}>
+      <View style={foldStyle} />
+      <View style={badgeStyle}>
+        <Text style={userMessageStylesheet.paseoCardMiniBadgeText}>{visual.badge}</Text>
+      </View>
+      <View style={accentLineStyle} />
+      <View style={mutedLongLineStyle} />
+      <View style={mutedShortLineStyle} />
+    </View>
+  );
+}
+
+function PaseoSlidesIllustration({ visual }: { visual: PaseoMessageCardVisual }) {
+  const slideStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardMiniSlide, { borderColor: visual.borderColor }],
+    [visual.borderColor],
+  );
+  const barStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardMiniSlideBar, { backgroundColor: visual.accent }],
+    [visual.accent],
+  );
+  const columnStyles = useMemo(
+    () =>
+      PASEO_SLIDE_COLUMN_HEIGHTS.map((height) => [
+        userMessageStylesheet.paseoCardMiniSlideColumn,
+        { height, backgroundColor: visual.iconBackground },
+      ]),
+    [visual.iconBackground],
+  );
+  const typeTextStyle = useMemo<StyleProp<TextStyle>>(
+    () => [userMessageStylesheet.paseoCardMiniTypeText, { color: visual.accent }],
+    [visual.accent],
+  );
+
+  return (
+    <View style={slideStyle}>
+      <View style={barStyle} />
+      <Text style={typeTextStyle}>{visual.badge}</Text>
+      <View style={userMessageStylesheet.paseoCardMiniSlideRow}>
+        {columnStyles.map((columnStyle, index) => (
+          <View key={PASEO_SLIDE_COLUMN_HEIGHTS[index]} style={columnStyle} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function PaseoSheetIllustration({ visual }: { visual: PaseoMessageCardVisual }) {
+  const sheetStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardMiniSheet, { borderColor: visual.borderColor }],
+    [visual.borderColor],
+  );
+  const cellStyles = useMemo(
+    () =>
+      PASEO_SHEET_ROWS.map((row) =>
+        PASEO_SHEET_COLUMNS.map((column) => [
+          userMessageStylesheet.paseoCardMiniSheetCell,
+          {
+            backgroundColor: row === 0 || column === 0 ? visual.accent : visual.iconBackground,
+            opacity: row === 0 || column === 0 ? 0.72 : 1,
+          },
+        ]),
+      ),
+    [visual.accent, visual.iconBackground],
+  );
+  const headerStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardMiniSheetHeader, { backgroundColor: visual.accent }],
+    [visual.accent],
+  );
+
+  return (
+    <View style={sheetStyle}>
+      <View style={headerStyle}>
+        <Text style={userMessageStylesheet.paseoCardMiniSheetHeaderText}>{visual.badge}</Text>
+      </View>
+      {PASEO_SHEET_ROWS.map((row) => (
+        <View key={row} style={userMessageStylesheet.paseoCardMiniSheetRow}>
+          {PASEO_SHEET_COLUMNS.map((column) => (
+            <View key={column} style={cellStyles[row][column]} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function PaseoImageIllustration({ visual }: { visual: PaseoMessageCardVisual }) {
+  const imageStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardMiniImage, { borderColor: visual.borderColor }],
+    [visual.borderColor],
+  );
+  const sunStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardMiniImageSun, { backgroundColor: visual.accent }],
+    [visual.accent],
+  );
+  const hillStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardMiniImageHill,
+      { backgroundColor: visual.iconBackground },
+    ],
+    [visual.iconBackground],
+  );
+  const frameStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardMiniImageFrame, { borderColor: visual.accentMuted }],
+    [visual.accentMuted],
+  );
+
+  return (
+    <View style={imageStyle}>
+      <View style={sunStyle} />
+      <View style={frameStyle} />
+      <View style={hillStyle} />
+    </View>
+  );
+}
+
+function UserMessagePaseoCard({ card }: { card: PaseoMessageCard }) {
+  const isResult = card.kind.endsWith(".result");
+  const visual = getPaseoMessageCardVisual(card);
+  const Icon = visual.Icon;
+  const cardStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCard,
+      isResult ? userMessageStylesheet.paseoCardResult : null,
+      { backgroundColor: visual.cardBackground, borderColor: visual.borderColor },
+    ],
+    [isResult, visual.borderColor, visual.cardBackground],
+  );
+  const iconBoxStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardIconBox,
+      isResult ? userMessageStylesheet.paseoCardIconBoxResult : null,
+      { backgroundColor: visual.iconBackground, borderColor: visual.iconBorder },
+    ],
+    [isResult, visual.iconBackground, visual.iconBorder],
+  );
+  const stripeStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [userMessageStylesheet.paseoCardStripe, { backgroundColor: visual.stripeColor }],
+    [visual.stripeColor],
+  );
+  const badgeStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardBadge,
+      { backgroundColor: visual.iconBackground, borderColor: visual.iconBorder },
+    ],
+    [visual.iconBackground, visual.iconBorder],
+  );
+  const badgeTextStyle = useMemo<StyleProp<TextStyle>>(
+    () => [userMessageStylesheet.paseoCardBadgeText, { color: visual.accent }],
+    [visual.accent],
+  );
+  const headerStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardHeader,
+      isResult ? userMessageStylesheet.paseoCardHeaderResult : null,
+    ],
+    [isResult],
+  );
+  const resultTitleStyle = useMemo<StyleProp<TextStyle>>(
+    () => [userMessageStylesheet.paseoCardTitle, userMessageStylesheet.paseoCardTitleResult],
+    [],
+  );
+  const summaryStyle = useMemo<StyleProp<TextStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardSummary,
+      isResult ? userMessageStylesheet.paseoCardSummaryResult : null,
+    ],
+    [isResult],
+  );
+  const fieldListStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.paseoCardFieldList,
+      isResult ? userMessageStylesheet.paseoCardFieldListResult : null,
+    ],
+    [isResult],
+  );
+
+  return (
+    <View style={cardStyle}>
+      <View style={stripeStyle} />
+      <PaseoCardIllustration visual={visual} isResult={isResult} />
+      <View style={headerStyle}>
+        <View style={iconBoxStyle}>
+          <Icon size={isResult ? 20 : 22} color={visual.accent} strokeWidth={2.2} />
         </View>
         <View style={userMessageStylesheet.paseoCardTitleGroup}>
-          <Text style={userMessageStylesheet.paseoCardTitle} numberOfLines={1}>
-            {card.title}
-          </Text>
-          <Text style={userMessageStylesheet.paseoCardKind} numberOfLines={1}>
-            {getPaseoMessageKindLabel(card.kind)}
-          </Text>
+          {isResult ? (
+            <View style={userMessageStylesheet.paseoCardResultTitleRow}>
+              <Text style={resultTitleStyle} numberOfLines={1}>
+                {card.title}
+              </Text>
+              <View style={badgeStyle}>
+                <Text style={badgeTextStyle} numberOfLines={1}>
+                  {visual.badge}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <>
+              <Text style={userMessageStylesheet.paseoCardTitle} numberOfLines={1}>
+                {card.title}
+              </Text>
+              <View style={userMessageStylesheet.paseoCardMetaRow}>
+                <Text style={userMessageStylesheet.paseoCardKind} numberOfLines={1}>
+                  {getPaseoMessageKindLabel(card.kind)}
+                </Text>
+                <View style={badgeStyle}>
+                  <Text style={badgeTextStyle} numberOfLines={1}>
+                    {visual.badge}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
       </View>
-      <Text style={userMessageStylesheet.paseoCardSummary}>{card.summary}</Text>
+      <Text style={summaryStyle}>{card.summary}</Text>
       {card.fields.length > 0 ? (
-        <View style={userMessageStylesheet.paseoCardFieldList}>
+        <View style={fieldListStyle}>
           {card.fields.map((field) => (
             <View key={field.name} style={userMessageStylesheet.paseoCardFieldRow}>
               <Text style={userMessageStylesheet.paseoCardFieldLabel}>{field.label}</Text>
@@ -946,6 +1779,22 @@ function UserMessagePaseoCard({ card }: { card: PaseoMessageCard }) {
         </View>
       ) : null}
     </View>
+  );
+}
+
+function shouldUsePaseoCardBubble(input: {
+  hasPaseoCard: boolean;
+  shouldRenderRawText: boolean;
+  hasImages: boolean;
+  hasAttachments: boolean;
+  hasSelectionPreview: boolean;
+}): boolean {
+  return (
+    input.hasPaseoCard &&
+    !input.shouldRenderRawText &&
+    !input.hasImages &&
+    !input.hasAttachments &&
+    !input.hasSelectionPreview
   );
 }
 
@@ -978,11 +1827,19 @@ export const UserMessage = memo(function UserMessage({
     () => filterUserMessageDisplayAttachments({ images: displayImages, attachments }),
     [attachments, displayImages],
   );
-  const hasText = message.trim().length > 0;
+  const visibleMessage = useMemo(() => getPaseoMessageVisibleText(message), [message]);
+  const hasText = visibleMessage.trim().length > 0 || message.trim().length > 0;
   const paseoCard = useMemo(() => parsePaseoMessageCard(message), [message]);
-  const shouldRenderRawText = hasText && !paseoCard;
+  const shouldRenderRawText = visibleMessage.trim().length > 0 && !paseoCard;
   const hasImages = displayImages.length > 0;
   const hasAttachments = displayAttachments.length > 0;
+  const shouldUsePaseoBubble = shouldUsePaseoCardBubble({
+    hasPaseoCard: Boolean(paseoCard),
+    shouldRenderRawText,
+    hasImages,
+    hasAttachments,
+    hasSelectionPreview: Boolean(selectionPreviewUri),
+  });
   const showTrailingRow = hasText && (isCompact || isNative || isHovered);
   const formattedTimestamp = useMemo(
     () => formatMessageTimestamp(new Date(timestamp)),
@@ -1034,6 +1891,13 @@ export const UserMessage = memo(function UserMessage({
     ],
     [showTrailingRow],
   );
+  const bubbleStyle = useMemo(
+    () => [
+      userMessageStylesheet.bubble,
+      shouldUsePaseoBubble ? userMessageStylesheet.paseoBubble : null,
+    ],
+    [shouldUsePaseoBubble],
+  );
 
   return (
     <View style={containerStyle} testID="user-message">
@@ -1042,7 +1906,7 @@ export const UserMessage = memo(function UserMessage({
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
       >
-        <View style={userMessageStylesheet.bubble}>
+        <View style={bubbleStyle}>
           {selectionPreviewUri ? (
             <UserMessageSelectionReference
               previewUri={selectionPreviewUri}
@@ -1061,7 +1925,6 @@ export const UserMessage = memo(function UserMessage({
                     image={image}
                     client={client}
                     workspaceRoot={workspaceRoot}
-                    serverId={serverId}
                   />
                 </View>
               ))}
@@ -1081,7 +1944,7 @@ export const UserMessage = memo(function UserMessage({
           {paseoCard ? <UserMessagePaseoCard card={paseoCard} /> : null}
           {shouldRenderRawText ? (
             <Text selectable style={userMessageStylesheet.text}>
-              {message}
+              {visibleMessage}
             </Text>
           ) : null}
         </View>
@@ -1175,7 +2038,12 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   }, []);
 
   const durationLabel = useMemo(
-    () => (durationMs !== undefined ? `Worked for ${formatDuration(durationMs)}` : ""),
+    () =>
+      durationMs !== undefined
+        ? translateNow("message.footer.workedForDuration", {
+            duration: formatDuration(durationMs),
+          })
+        : "",
     [durationMs],
   );
   const timestampLabel = useMemo(

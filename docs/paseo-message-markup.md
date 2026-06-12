@@ -15,9 +15,11 @@ same text before rendering.
 - Hide operational details from the default chat UI without deleting them.
 - Allow normal prose and renderable UI blocks to be interleaved.
 - Let assistant replies use the same markup for result cards.
-- Let selected prompts require an explicit assistant task target before work
-  starts, so Paseo can show a waiting state and suppress noisy progress text
+- Let assistant replies declare an explicit task target at the start of the
+  response, so Paseo can show a waiting state and suppress noisy progress text
   until the final result arrives.
+- Keep rendering deterministic: each message item is rendered from its own raw
+  `text` only, without using neighboring items, metadata, or fallback guesses.
 
 ## When To Use It
 
@@ -52,6 +54,33 @@ Do not use it for:
 
 When adding a feature that uses this markup, update or use the
 `paseo-message-markup` skill so future agents generate the same shape.
+
+## Recommended Workflow Kinds
+
+Use markup for UI-triggered workflows where a short visible action expands into a
+long agent prompt. Current high-confidence kinds:
+
+- `ppt.apply_annotations`: apply saved PPT preview annotations and export a new
+  editable PPTX. Expected target: `goal="modify_pptx"`, `text="修改 PPTX"`.
+- `document.apply_annotations`: apply saved preview annotations to a DOCX, PDF,
+  XLS/XLSX, or CSV file. Expected target: `goal="modify_docx"`,
+  `goal="modify_pdf"`, or `goal="modify_spreadsheet"`, `text="修改文件"`.
+- `ai_creation.image.generate`: generate an image. Expected target:
+  `goal="generate_image"`, `text="生成图片"`.
+- `ai_creation.image.edit`: edit an image. Expected target:
+  `goal="edit_image"`, `text="编辑图片"`.
+- `ai_creation.slides.create`: create a PPTX deck. Expected target:
+  `goal="create_pptx"`, `text="创建 PPT"`.
+- `ai_creation.document.pdf.create`: create a PDF. Expected target:
+  `goal="create_pdf"`, `text="创建 PDF"`.
+- `ai_creation.document.word.create`: create a DOCX. Expected target:
+  `goal="create_docx"`, `text="创建 Word"`.
+- `ai_creation.spreadsheet.create`: create a spreadsheet. Expected target:
+  `goal="create_spreadsheet"`, `text="创建表格"`.
+
+Do not use markup for ordinary composer text, generic transport paths, metadata
+generation prompts, provider adapter prompts, or app-only data the AI should
+never see.
 
 ## Format
 
@@ -218,18 +247,41 @@ understand intent. It is not visible UI copy.
 
 ## Rendering Rules
 
-The app renderer should:
+The app renderer must be item-local.
 
-- Hide `paseo-meta` by default.
-- Treat `paseo-expected-target` as request metadata. It is hidden by default.
-- Treat a matching `paseo-target` as a task handshake. Show a waiting state for
-  its `id` and `goal`; do not treat it as a final answer.
-- Accept `paseo-target` only when it matches an earlier `paseo-expected-target`
-  by `kind`, `goal`, `id`, and inner text.
-- Render recognized `paseo-ui` blocks from `paseo-ui-content`.
-- Hide `paseo-ai` and `paseo-reply` by default.
-- After a `paseo-target`, the renderer may collapse ordinary assistant progress
-  text for the same turn until it sees a matching final/result `paseo-ui` block.
+Each timeline item is rendered from that item's own raw `text` only. Do not use
+neighboring user/assistant items, agent labels, provider history, persisted
+message-display metadata, or heuristic fallback reconstruction to decide how an
+item should render. Do not rewrite one item based on another item.
+
+User message rendering:
+
+- If the user item itself contains a recognized `paseo-ui` block, render that
+  block from its own `paseo-ui-content`.
+- Hide hidden protocol sections from that same user item, such as `paseo-meta`,
+  `paseo-expected-target`, `paseo-ai`, and `paseo-reply`.
+- If the user item itself has no recognized renderable markup, render it as
+  ordinary text.
+- Do not synthesize or recover a user card from an assistant response.
+
+Assistant message rendering:
+
+- Only the assistant item itself can trigger the waiting state.
+- A user-authored `paseo-expected-target` only defines the required handshake;
+  it is not a renderer trigger by itself.
+- The waiting-state trigger is valid only when the assistant item's text, after
+  leading whitespace, starts with a complete
+  `<paseo-target ...>...</paseo-target>` block.
+- A `paseo-target` that appears later in the assistant text, or after any normal
+  prefix text, must not trigger waiting-state rendering.
+- Treat a leading `paseo-target` as an execution-state marker, not as a final
+  answer.
+- After a leading `paseo-target`, the renderer may collapse ordinary assistant
+  progress text in that turn until it sees a final artifact/result in later
+  assistant item text.
+
+General renderer rules:
+
 - Preserve a raw/source view for debugging and auditing.
 - Escape all parsed text. Never execute markup content as HTML or JavaScript.
 - Fall back to normal text rendering if parsing fails or `kind` is unknown.
@@ -237,6 +289,111 @@ The app renderer should:
 The renderer should treat hidden sections as presentation-only hidden. Hidden
 does not mean secret: the full text is still in the timeline, logs, raw view, and
 the agent prompt.
+
+This item-local rule is important because provider/adapter canonical timelines
+may represent user messages as the user's visible input instead of the full
+agent-facing prompt. UI rendering must therefore avoid relying on another item
+to recover hidden protocol text.
+
+## Document Preview Annotation Pattern
+
+Use `document.apply_annotations` when a user marks up a rendered DOCX, PDF,
+XLS/XLSX, or CSV preview and asks the current agent to apply those changes.
+
+Document preview annotations require a concrete `sourceAgentId`. The UI may
+carry it from files opened from agent output or, when a file is opened from the
+file tree while an agent pane is focused, from that focused agent. If no source
+agent is known, show an unavailable state instead of guessing; sending a
+document-edit prompt to the wrong agent is worse than hiding the action.
+
+The prompt must tell the agent both what the user wrote and where the user marked
+the document. Natural-language instructions alone are not enough. Put the
+machine-readable locator payload in `paseo-ai`, usually as JSON.
+
+Each annotation should include:
+
+- `target.kind`: the preview kind, such as `docx`, `pdf`, `xlsx`, or `csv`.
+  Legacy `.xls` previews use `xlsx` as the spreadsheet kind.
+- `target.label`: short user-visible label, such as `Budget!C12` or
+  `Word selected text`.
+- `target.locator`: stable location hints. Prefer semantic anchors over pixels.
+- `target.context`: nearby selected/current text or cell value when available.
+- `instruction`: the user's requested change for that target.
+
+Recommended locator shapes:
+
+- Spreadsheet: `{ type: "cell", sheet, cell, row, column }`. The sheet name and
+  cell address are the primary target.
+- DOCX: `{ type: "selection" | "element", pageNumber, path, clickedPath }`,
+  plus selected text or nearby paragraph text in `context`. `path` is the nearest
+  semantic block; optional `clickedPath` points to the exact inline/rendered
+  element.
+- PDF: `{ type: "selection" | "point", pageNumber, x, y }`, plus selected text
+  in `context` when available. `pageNumber` is the user-visible 1-based page
+  number. Coordinates are normalized page-relative preview hints, not the only
+  source of truth.
+
+The agent instructions should require in-place editing of the exact current file
+path whenever practical, because the open preview hot-refreshes by refetching
+that same path. They should also require preserving unrelated content, formulas,
+charts, images, page structure, and formatting unless a specific annotation asks
+otherwise. If in-place editing is impractical for the format or risks corrupting
+the original, the agent may create a clearly named updated file in the same
+workspace, say so in the result summary, and return that path.
+
+The reply contract should request a final
+`<paseo-ui kind="document.apply_annotations.result" render="result-card">`
+block. The result card should use the same `id` as the request and include:
+
+- `paseo-title`: a short completion title.
+- `paseo-summary`: what changed.
+- `paseo-field name="updated_file"`: the workspace-relative path to the updated
+  file. For in-place edits, this must be the original file path.
+
+Example request fields:
+
+```xml
+<paseo-expected-target
+  version="1"
+  kind="document.apply_annotations"
+  goal="modify_spreadsheet"
+  id="msg_123"
+  text="修改文件"
+  desc="Exact target handshake that the assistant must emit before doing any work."
+/>
+
+<paseo-ui
+  version="1"
+  kind="document.apply_annotations"
+  render="card"
+  visibility="summary"
+  id="msg_123"
+  desc="A renderable task card for applying saved document preview annotations."
+>
+  <paseo-ui-content desc="User-visible card content.">
+    <paseo-title desc="Title shown in the user message card.">应用文件标注</paseo-title>
+    <paseo-summary desc="Short summary.">根据预览中保存的标注修改表格文件</paseo-summary>
+    <paseo-field name="file" label="文件" desc="Workspace-relative file path.">output/spreadsheets/budget.xlsx</paseo-field>
+    <paseo-field name="annotation_count" label="标注数" desc="Number of saved preview annotations.">2</paseo-field>
+  </paseo-ui-content>
+
+  <paseo-ai desc="Task instructions the AI must follow.">
+Annotations JSON:
+[
+  {
+    "index": 1,
+    "target": {
+      "kind": "xlsx",
+      "label": "Summary!C12",
+      "locator": { "type": "cell", "sheet": "Summary", "cell": "C12", "row": 12, "column": 3 },
+      "context": "$12,000"
+    },
+    "instruction": "改成红色并加粗"
+  }
+]
+  </paseo-ai>
+</paseo-ui>
+```
 
 ## Agent Rules
 
@@ -256,11 +413,11 @@ The agent sees the full message. The meta block instructs the agent to:
 
 ## Task Handshake
 
-The optional task handshake gives Paseo a reliable marker before the agent begins
-a selected workflow. This is useful when the assistant may emit many ordinary
-progress messages before the final answer. Instead of rendering those messages as
-regular chat content, the app can show a waiting animation for the declared
-target.
+The optional task handshake tells the assistant to emit a target marker before it
+begins a selected workflow. This is useful when the assistant may emit many
+ordinary progress messages before the final answer. For rendering, the target
+marker is recognized only from the assistant item that starts with
+`paseo-target`.
 
 Request-authored expected target:
 
@@ -296,12 +453,15 @@ Rules:
 - `paseo-target` is an execution-state marker, not user-facing final content.
 - The `kind`, `goal`, `id`, and inner text must match `paseo-expected-target`.
 - The final `paseo-ui kind="*.result"` should reuse the same `id`.
+- The app enters waiting mode only if an assistant item itself starts with the
+  `paseo-target` block after leading whitespace.
 - Until the final result arrives, the app may render a waiting animation and
-  collapse ordinary assistant text emitted after the target.
+  collapse ordinary assistant text emitted after that leading target.
 - If the turn fails or is canceled before a final result, the app should exit the
   waiting state and render the error/canceled state normally.
-- If no matching `paseo-target` arrives, the app should not enter target waiting
-  mode. It may still render a later matching result block normally.
+- If no leading assistant `paseo-target` arrives, the app should not enter target
+  waiting mode. It may still render later result markup normally from the item
+  that contains it.
 
 ## Security
 

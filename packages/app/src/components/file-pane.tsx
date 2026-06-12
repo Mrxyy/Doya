@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { FileReadResult } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient, FileReadResult } from "@getpaseo/client/internal/daemon-client";
 import Markdown, { MarkdownIt } from "react-native-markdown-display";
 import {
   ActivityIndicator,
   Image as RNImage,
   ScrollView as RNScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
@@ -15,6 +16,7 @@ import { useSessionStore, type ExplorerFile } from "@/stores/session-store";
 import { useWebScrollViewScrollbar } from "@/components/use-web-scrollbar";
 import { useWebScrollbarStyle } from "@/hooks/use-web-scrollbar-style";
 import { highlightCode, type HighlightToken } from "@getpaseo/highlight";
+import { Button } from "@/components/ui/button";
 import { syntaxTokenStyleFor } from "@/styles/syntax-token-styles";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import { lineNumberGutterWidth } from "@/components/code-insets";
@@ -26,11 +28,30 @@ import type { AttachmentMetadata } from "@/attachments/types";
 import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-url";
 import { persistAttachmentFromBytes } from "@/attachments/service";
 import { createPreviewAttachmentId, getFileNameFromPath } from "@/attachments/utils";
-import { DocumentViewer, type DocumentViewerKind } from "@/components/document-viewer";
+import {
+  DocumentViewer,
+  type DocumentAnnotationTarget,
+  type DocumentViewerKind,
+} from "@/components/document-viewer";
 import { explorerFileFromReadResult } from "@/file-explorer/read-result";
 import { resolveFilePreviewReadTarget } from "@/file-explorer/preview-target";
 import type { WorkspaceFileLocation } from "@/workspace/file-open";
 import { translateNow } from "@/i18n/i18n";
+import {
+  shouldPollDocumentAnnotationPreview,
+  transitionDocumentAnnotationApplyPhase,
+  type DocumentAnnotationApplyPhase,
+} from "@/utils/document-annotation-apply-phase";
+import { beginDocumentAnnotationApplyRequest } from "@/utils/document-annotation-apply-request";
+import { resolveDocumentAnnotationAvailability } from "@/utils/document-annotation-availability";
+import {
+  getDocumentAnnotationControllerView,
+  initialDocumentAnnotationControllerState,
+  reduceDocumentAnnotationControllerState,
+  type PendingDocumentAnnotation,
+} from "@/utils/document-annotation-controller";
+import { createDocumentPreviewRevision } from "@/utils/document-preview-revision";
+import { resolveDocumentViewerKind } from "@/utils/document-viewer-kind";
 
 interface CodeLineProps {
   tokens: HighlightToken[];
@@ -43,11 +64,16 @@ interface FilePreviewBodyProps {
   preview: ExplorerFile | null;
   documentBytes: Uint8Array | null;
   documentKind: DocumentViewerKind | null;
+  documentPreviewRevision: string | null;
+  documentAnnotationMode: boolean;
+  pendingDocumentAnnotationTargets: DocumentAnnotationTarget[];
+  selectedDocumentAnnotationTarget: DocumentAnnotationTarget | null;
   isLoading: boolean;
   showDesktopWebScrollbar: boolean;
   isMobile: boolean;
   location: WorkspaceFileLocation;
   imagePreviewUri: string | null;
+  onDocumentAnnotationTargetSelect: (target: DocumentAnnotationTarget) => void;
 }
 
 function trimNonEmpty(value: string | null | undefined): string | null {
@@ -61,6 +87,25 @@ function trimNonEmpty(value: string | null | undefined): string | null {
 interface FileLineSelection {
   lineStart: number;
   lineEnd: number;
+}
+
+interface DocumentAnnotationController {
+  annotationMode: boolean;
+  selectedAnnotationTarget: DocumentAnnotationTarget | null;
+  annotationInstruction: string;
+  pendingAnnotations: PendingDocumentAnnotation[];
+  applyPhase: DocumentAnnotationApplyPhase;
+  hasPendingAnnotations: boolean;
+  canAddAnnotation: boolean;
+  canApplyAnnotations: boolean;
+  modeButtonLabel: string;
+  modeButtonVariant: "default" | "outline";
+  setAnnotationInstruction: (value: string) => void;
+  toggleAnnotationMode: () => void;
+  selectTarget: (target: DocumentAnnotationTarget) => void;
+  addAnnotation: () => void;
+  removeAnnotation: (id: string) => void;
+  applyAnnotations: () => void;
 }
 
 function formatFileSize({ size }: { size: number }): string {
@@ -127,39 +172,39 @@ async function createFilePanePreview(file: FileReadResult | null): Promise<{
   };
 }
 
-function resolveDocumentViewerKind(input: {
-  path: string;
-  mimeType: string | null | undefined;
-}): DocumentViewerKind | null {
-  const normalizedPath = input.path.toLowerCase();
-  const mimeType = input.mimeType?.toLowerCase() ?? "";
-  if (normalizedPath.endsWith(".pdf") || mimeType === "application/pdf") {
-    return "pdf";
+type FilePanePreviewData = Awaited<ReturnType<typeof createFilePanePreview>> & {
+  error: string | null;
+};
+
+type FilePaneReadTarget = NonNullable<ReturnType<typeof resolveFilePreviewReadTarget>>;
+
+function createFilePaneUnavailablePreview(error: string): FilePanePreviewData {
+  return {
+    file: null,
+    imageAttachment: null,
+    documentBytes: null,
+    documentKind: null,
+    error,
+  };
+}
+
+async function readFilePanePreview(input: {
+  client: DaemonClient | null;
+  readTarget: FilePaneReadTarget | null;
+}): Promise<FilePanePreviewData> {
+  const { client, readTarget } = input;
+  if (!client || !readTarget) {
+    return createFilePaneUnavailablePreview(translateNow("ui.host.is.not.connected.n90cm6"));
   }
-  if (
-    normalizedPath.endsWith(".docx") ||
-    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ) {
-    return "docx";
+  try {
+    const file = await client.readFile(readTarget.cwd, readTarget.path);
+    const preview = await createFilePanePreview(file);
+    return { ...preview, error: null };
+  } catch (error) {
+    return createFilePaneUnavailablePreview(
+      error instanceof Error ? error.message : "Failed to load file",
+    );
   }
-  if (
-    normalizedPath.endsWith(".pptx") ||
-    mimeType === "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-  ) {
-    return "pptx";
-  }
-  if (normalizedPath.endsWith(".csv") || mimeType === "text/csv") {
-    return "csv";
-  }
-  if (
-    normalizedPath.endsWith(".xlsx") ||
-    normalizedPath.endsWith(".xls") ||
-    mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-    mimeType === "application/vnd.ms-excel"
-  ) {
-    return "xlsx";
-  }
-  return null;
 }
 
 function clampLineSelection(input: {
@@ -251,18 +296,22 @@ function FilePreviewBody({
   preview,
   documentBytes,
   documentKind,
+  documentPreviewRevision,
+  documentAnnotationMode,
+  pendingDocumentAnnotationTargets,
+  selectedDocumentAnnotationTarget,
   isLoading,
   showDesktopWebScrollbar,
   isMobile,
   location,
   imagePreviewUri,
+  onDocumentAnnotationTargetSelect,
 }: FilePreviewBodyProps) {
   const { theme } = useUnistyles();
   const filePath = location.path;
   const markdownStyles = useMemo(() => createMarkdownStyles(theme), [theme]);
   const markdownParser = useMemo(() => MarkdownIt({ typographer: true, linkify: true }), []);
-  const isMarkdownFile =
-    preview?.kind === "text" && isRenderedMarkdownFile(filePath) && !location.lineStart;
+  const isMarkdownFile = isRenderedMarkdownPreview({ filePath, location, preview });
 
   const previewScrollRef = useRef<RNScrollView>(null);
   const webScrollbarStyle = useWebScrollbarStyle();
@@ -271,7 +320,7 @@ function FilePreviewBody({
   });
 
   const highlightedLines = useMemo(() => {
-    if (!preview || preview.kind !== "text" || isMarkdownFile) {
+    if (!shouldHighlightTextPreview({ isMarkdownFile, preview })) {
       return null;
     }
 
@@ -332,10 +381,15 @@ function FilePreviewBody({
   if (documentBytes && documentKind) {
     return (
       <DocumentViewer
+        key={documentPreviewRevision ?? `${documentKind}:${filePath}`}
         kind={documentKind}
         bytes={documentBytes}
         mimeType={preview.mimeType ?? "application/octet-stream"}
         fileName={filePath.split("/").findLast(Boolean) ?? filePath}
+        annotationMode={documentAnnotationMode}
+        pendingAnnotationTargets={pendingDocumentAnnotationTargets}
+        selectedAnnotationTarget={selectedDocumentAnnotationTarget}
+        onAnnotationTargetSelect={onDocumentAnnotationTargetSelect}
       />
     );
   }
@@ -377,11 +431,7 @@ function FilePreviewBody({
             tokens={tokens}
             lineNumber={lineNumber}
             gutterWidth={gutterWidth}
-            highlighted={
-              Boolean(lineSelection) &&
-              lineNumber >= (lineSelection?.lineStart ?? 0) &&
-              lineNumber <= (lineSelection?.lineEnd ?? 0)
-            }
+            highlighted={isLineNumberSelected(lineSelection, lineNumber)}
           />
         ))}
       </View>
@@ -458,12 +508,402 @@ function FilePreviewBody({
   );
 }
 
+function isRenderedMarkdownPreview(input: {
+  filePath: string;
+  location: WorkspaceFileLocation;
+  preview: ExplorerFile | null;
+}): boolean {
+  return Boolean(
+    input.preview?.kind === "text" &&
+    isRenderedMarkdownFile(input.filePath) &&
+    !input.location.lineStart,
+  );
+}
+
+function shouldHighlightTextPreview(input: {
+  isMarkdownFile: boolean;
+  preview: ExplorerFile | null;
+}): input is { isMarkdownFile: false; preview: ExplorerFile & { kind: "text" } } {
+  return Boolean(input.preview && input.preview.kind === "text" && !input.isMarkdownFile);
+}
+
+function isLineNumberSelected(
+  lineSelection: { lineStart: number; lineEnd: number } | null,
+  lineNumber: number,
+): boolean {
+  return Boolean(
+    lineSelection && lineNumber >= lineSelection.lineStart && lineNumber <= lineSelection.lineEnd,
+  );
+}
+
+function useDocumentAnnotationController(input: {
+  appendOptimisticUserMessageToAgentStream: ReturnType<
+    typeof useSessionStore.getState
+  >["appendOptimisticUserMessageToAgentStream"];
+  client: DaemonClient | null;
+  documentKind: DocumentViewerKind | null | undefined;
+  filePath: string;
+  onApplied: () => Promise<string | null>;
+  previewRevision: string | null;
+  serverId: string;
+  sourceAgentId?: string;
+  sourceAgentStatus: string | null;
+}): DocumentAnnotationController {
+  const {
+    appendOptimisticUserMessageToAgentStream,
+    client,
+    documentKind,
+    filePath,
+    onApplied,
+    previewRevision,
+    serverId,
+    sourceAgentId,
+    sourceAgentStatus,
+  } = input;
+  const [state, dispatch] = useReducer(
+    reduceDocumentAnnotationControllerState,
+    initialDocumentAnnotationControllerState,
+  );
+  const applyBaseRevisionRef = useRef<string | null>(null);
+  const view = useMemo(() => getDocumentAnnotationControllerView(state), [state]);
+
+  useEffect(() => {
+    applyBaseRevisionRef.current = null;
+    dispatch({ type: "reset" });
+  }, [filePath]);
+
+  useEffect(() => {
+    const transition = transitionDocumentAnnotationApplyPhase({
+      phase: state.applyPhase,
+      sourceAgentStatus,
+    });
+    if (transition.phase !== state.applyPhase) {
+      dispatch({ type: "set_apply_phase", phase: transition.phase });
+    }
+    if (transition.shouldRefreshPreview) {
+      void onApplied().then((nextRevision) => {
+        if (
+          nextRevision &&
+          applyBaseRevisionRef.current &&
+          nextRevision !== applyBaseRevisionRef.current
+        ) {
+          applyBaseRevisionRef.current = null;
+          dispatch({ type: "clear_after_apply_success" });
+        }
+        return undefined;
+      });
+    }
+  }, [onApplied, sourceAgentStatus, state.applyPhase]);
+
+  useEffect(() => {
+    if (!shouldPollDocumentAnnotationPreview(state.applyPhase)) {
+      return;
+    }
+    let inFlight = false;
+    const interval = setInterval(() => {
+      if (inFlight) {
+        return;
+      }
+      inFlight = true;
+      void onApplied()
+        .then((nextRevision) => {
+          if (
+            nextRevision &&
+            applyBaseRevisionRef.current &&
+            nextRevision !== applyBaseRevisionRef.current
+          ) {
+            applyBaseRevisionRef.current = null;
+            dispatch({ type: "clear_after_apply_success" });
+          }
+          return undefined;
+        })
+        .finally(() => {
+          inFlight = false;
+        });
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [onApplied, state.applyPhase]);
+
+  const toggleAnnotationMode = useCallback(() => {
+    dispatch({ type: "toggle_mode" });
+  }, []);
+
+  const selectTarget = useCallback((target: DocumentAnnotationTarget) => {
+    dispatch({ type: "select_target", target });
+  }, []);
+
+  const addAnnotation = useCallback(() => {
+    dispatch({ type: "add_annotation", id: `${Date.now()}-${state.pendingAnnotations.length}` });
+  }, [state.pendingAnnotations.length]);
+
+  const removeAnnotation = useCallback((id: string) => {
+    dispatch({ type: "remove_annotation", id });
+  }, []);
+
+  const applyAnnotations = useCallback(() => {
+    if (!client || !sourceAgentId || !documentKind || state.pendingAnnotations.length === 0) {
+      return;
+    }
+    const request = beginDocumentAnnotationApplyRequest({
+      appendOptimisticUserMessageToAgentStream,
+      client,
+      documentKind,
+      filePath,
+      annotations: state.pendingAnnotations,
+      serverId,
+      sourceAgentId,
+      sourceAgentStatus,
+    });
+    applyBaseRevisionRef.current = previewRevision;
+    dispatch({ type: "set_apply_phase", phase: request.phase });
+    void request.sendPromise
+      .then(() => {
+        return undefined;
+      })
+      .catch(() => {
+        dispatch({ type: "set_apply_phase", phase: "idle" });
+        return undefined;
+      });
+  }, [
+    appendOptimisticUserMessageToAgentStream,
+    client,
+    documentKind,
+    filePath,
+    serverId,
+    sourceAgentId,
+    sourceAgentStatus,
+    previewRevision,
+    state.pendingAnnotations,
+  ]);
+
+  return {
+    annotationMode: state.annotationMode,
+    selectedAnnotationTarget: state.selectedAnnotationTarget,
+    annotationInstruction: state.annotationInstruction,
+    pendingAnnotations: state.pendingAnnotations,
+    applyPhase: state.applyPhase,
+    hasPendingAnnotations: view.hasPendingAnnotations,
+    canAddAnnotation: view.canAddAnnotation,
+    canApplyAnnotations: view.canApplyAnnotations,
+    modeButtonLabel: view.modeButtonLabel,
+    modeButtonVariant: view.modeButtonVariant,
+    setAnnotationInstruction: (instruction) => dispatch({ type: "set_instruction", instruction }),
+    toggleAnnotationMode,
+    selectTarget,
+    addAnnotation,
+    removeAnnotation,
+    applyAnnotations,
+  };
+}
+
+function DocumentAnnotationPanel({
+  controller,
+  documentKind,
+  isMobile,
+}: {
+  controller: DocumentAnnotationController;
+  documentKind: DocumentViewerKind | null | undefined;
+  isMobile: boolean;
+}) {
+  const panelStyle = useMemo(
+    () => [styles.annotationPanel, isMobile ? styles.annotationPanelCompact : null],
+    [isMobile],
+  );
+  const annotationHint = getDocumentAnnotationHint({
+    annotationMode: controller.annotationMode,
+    documentKind,
+  });
+
+  return (
+    <View style={panelStyle} testID="document-annotation-panel">
+      <View style={styles.annotationHeader}>
+        <Text style={styles.annotationTitle}>标注修改</Text>
+        <Button
+          onPress={controller.toggleAnnotationMode}
+          size="xs"
+          testID="document-annotation-mode-button"
+          variant={controller.modeButtonVariant}
+        >
+          {controller.modeButtonLabel}
+        </Button>
+      </View>
+      <Text style={styles.annotationHint}>{annotationHint}</Text>
+      <View style={styles.annotationTargetBox}>
+        <Text style={styles.annotationTargetLabel}>当前位置</Text>
+        <Text
+          style={styles.annotationTargetText}
+          numberOfLines={3}
+          testID="document-annotation-selected-target"
+        >
+          {formatAnnotationTarget(controller.selectedAnnotationTarget)}
+        </Text>
+      </View>
+      <TextInput
+        multiline
+        value={controller.annotationInstruction}
+        onChangeText={controller.setAnnotationInstruction}
+        placeholder="描述希望 AI 如何修改这里..."
+        style={styles.annotationInput}
+        testID="document-annotation-instruction-input"
+      />
+      <Button
+        disabled={!controller.canAddAnnotation}
+        onPress={controller.addAnnotation}
+        size="md"
+        testID="document-annotation-add-button"
+        variant="default"
+      >
+        添加标注
+      </Button>
+      <View style={styles.annotationList} testID="document-annotation-list">
+        {controller.pendingAnnotations.length === 0 ? (
+          <Text style={styles.annotationEmpty}>暂无标注</Text>
+        ) : (
+          controller.pendingAnnotations.map((annotation) => (
+            <DocumentAnnotationListItem
+              key={annotation.id}
+              annotation={annotation}
+              onRemove={controller.removeAnnotation}
+            />
+          ))
+        )}
+      </View>
+      <Button
+        disabled={!controller.canApplyAnnotations}
+        loading={controller.applyPhase !== "idle"}
+        onPress={controller.applyAnnotations}
+        size="lg"
+        testID="document-annotation-apply-button"
+        variant="secondary"
+      >
+        {controller.applyPhase === "idle" ? "应用标注" : "等待 AI 完成..."}
+      </Button>
+    </View>
+  );
+}
+
+function getDocumentAnnotationHint(input: {
+  annotationMode: boolean;
+  documentKind: DocumentViewerKind | null | undefined;
+}): string {
+  if (input.documentKind === "pdf") {
+    return input.annotationMode
+      ? "使用顶部 Annotate 工具创建或选择标注。"
+      : "开启后用 PDF 顶部 Annotate 工具标出要修改的位置。";
+  }
+  return input.annotationMode ? "在预览中点击单元格、文字或页面位置。" : "开启后选择要修改的位置。";
+}
+
+function DocumentAnnotationApplyOverlay({ phase }: { phase: DocumentAnnotationApplyPhase }) {
+  return (
+    <View style={styles.annotationApplyOverlay} testID="document-annotation-apply-overlay">
+      <View style={styles.annotationApplyOverlayCard}>
+        <ActivityIndicator size="small" />
+        <Text style={styles.annotationApplyOverlayTitle}>正在应用标注</Text>
+        <Text style={styles.annotationApplyOverlayText}>
+          {phase === "waiting"
+            ? "标注已发送给 AI，等待开始处理。"
+            : "AI 正在修改文件，完成后会自动刷新预览。"}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function DocumentAnnotationUnavailablePanel({ isMobile }: { isMobile: boolean }) {
+  const panelStyle = useMemo(
+    () => [styles.annotationPanel, isMobile ? styles.annotationPanelCompact : null],
+    [isMobile],
+  );
+
+  return (
+    <View style={panelStyle} testID="document-annotation-unavailable-panel">
+      <View style={styles.annotationHeader}>
+        <Text style={styles.annotationTitle}>标注修改</Text>
+      </View>
+      <View style={styles.annotationTargetBox}>
+        <Text style={styles.annotationTargetLabel}>暂不可用</Text>
+        <Text style={styles.annotationTargetText}>
+          从 agent 输出或当前 agent 旁的文件树打开文件后，可以把标注发送给对应 agent 应用修改。
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function DocumentAnnotationListItem({
+  annotation,
+  onRemove,
+}: {
+  annotation: PendingDocumentAnnotation;
+  onRemove: (id: string) => void;
+}) {
+  const handleRemove = useCallback(() => onRemove(annotation.id), [annotation.id, onRemove]);
+  return (
+    <View style={styles.annotationItem} testID="document-annotation-item">
+      <Text style={styles.annotationItemTitle} numberOfLines={1}>
+        {annotation.target.label}
+      </Text>
+      <Text style={styles.annotationItemText} numberOfLines={2}>
+        {annotation.instruction}
+      </Text>
+      <Button
+        onPress={handleRemove}
+        size="xs"
+        style={styles.annotationRemoveButton}
+        testID="document-annotation-remove-button"
+        textStyle={styles.annotationRemoveButtonText}
+        variant="ghost"
+      >
+        删除
+      </Button>
+    </View>
+  );
+}
+
+function formatAnnotationTarget(target: DocumentAnnotationTarget | null): string {
+  if (!target) {
+    return "未选择";
+  }
+  return `${target.label}${target.context ? ` · ${target.context}` : ""}`;
+}
+
+function useFilePanePreviewQuery(input: {
+  client: DaemonClient | null;
+  readTarget: FilePaneReadTarget | null;
+  serverId: string;
+}) {
+  const { client, readTarget, serverId } = input;
+  return useQuery({
+    queryKey: ["workspaceFile", serverId, readTarget?.cwd ?? null, readTarget?.path ?? null],
+    enabled: Boolean(client && readTarget),
+    queryFn: () => readFilePanePreview({ client, readTarget }),
+    staleTime: 5_000,
+    refetchOnMount: true,
+  });
+}
+
+function getFilePanePreviewRevision(data: FilePanePreviewData | undefined): string | null {
+  if (!data?.file || !data.documentKind || !data.documentBytes) {
+    return null;
+  }
+  return createDocumentPreviewRevision({
+    path: data.file.path,
+    size: data.file.size,
+    modifiedAt: data.file.modifiedAt,
+    documentKind: data.documentKind,
+    bytes: data.documentBytes,
+  });
+}
+
 export function FilePane({
   serverId,
+  sourceAgentId,
   workspaceRoot,
   location,
 }: {
   serverId: string;
+  sourceAgentId?: string;
   workspaceRoot: string;
   location: WorkspaceFileLocation;
 }) {
@@ -471,6 +911,20 @@ export function FilePane({
   const showDesktopWebScrollbar = isWeb && !isMobile;
 
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
+  const appendOptimisticUserMessageToAgentStream = useSessionStore(
+    (state) => state.appendOptimisticUserMessageToAgentStream,
+  );
+  const sourceAgentStatus = useSessionStore((state) => {
+    if (!sourceAgentId) {
+      return null;
+    }
+    const session = state.sessions[serverId];
+    return (
+      session?.agents.get(sourceAgentId)?.status ??
+      session?.agentDetails.get(sourceAgentId)?.status ??
+      null
+    );
+  });
   const normalizedWorkspaceRoot = useMemo(() => workspaceRoot.trim(), [workspaceRoot]);
   const normalizedFilePath = useMemo(() => trimNonEmpty(location.path), [location.path]);
   const readTarget = useMemo(
@@ -484,43 +938,47 @@ export function FilePane({
     [normalizedFilePath, normalizedWorkspaceRoot],
   );
 
-  const query = useQuery({
-    queryKey: ["workspaceFile", serverId, readTarget?.cwd ?? null, readTarget?.path ?? null],
-    enabled: Boolean(client && readTarget),
-    queryFn: async () => {
-      if (!client || !readTarget) {
-        return {
-          file: null as ExplorerFile | null,
-          imageAttachment: null,
-          documentBytes: null,
-          documentKind: null,
-          error: translateNow("ui.host.is.not.connected.n90cm6"),
-        };
-      }
-      try {
-        const file = await client.readFile(readTarget.cwd, readTarget.path);
-        const preview = await createFilePanePreview(file);
-        return {
-          file: preview.file,
-          imageAttachment: preview.imageAttachment,
-          documentBytes: preview.documentBytes,
-          documentKind: preview.documentKind,
-          error: null,
-        };
-      } catch (error) {
-        return {
-          file: null,
-          imageAttachment: null,
-          documentBytes: null,
-          documentKind: null,
-          error: error instanceof Error ? error.message : "Failed to load file",
-        };
-      }
-    },
-    staleTime: 5_000,
-    refetchOnMount: true,
-  });
+  const query = useFilePanePreviewQuery({ client, readTarget, serverId });
   const imagePreviewUri = useAttachmentPreviewUrl(query.data?.imageAttachment ?? null);
+  const annotationAvailability = resolveDocumentAnnotationAvailability({
+    documentKind: query.data?.documentKind,
+    sourceAgentId,
+  });
+  const shouldEnableDocumentAnnotation = annotationAvailability.state === "enabled";
+  const shouldShowDocumentAnnotationUnavailable = annotationAvailability.state === "missing-agent";
+
+  const handleAppliedAnnotations = useCallback(async () => {
+    const result = await query.refetch();
+    return getFilePanePreviewRevision(result.data);
+  }, [query]);
+  const previewRevision = useMemo(() => getFilePanePreviewRevision(query.data), [query.data]);
+  const previewAndAnnotationStyle = useMemo(
+    () => [
+      styles.previewAndAnnotationContainer,
+      isMobile ? styles.previewAndAnnotationContainerCompact : null,
+    ],
+    [isMobile],
+  );
+  const annotationController = useDocumentAnnotationController({
+    appendOptimisticUserMessageToAgentStream,
+    client,
+    documentKind: query.data?.documentKind,
+    filePath: location.path,
+    onApplied: handleAppliedAnnotations,
+    previewRevision,
+    serverId,
+    sourceAgentId,
+    sourceAgentStatus,
+  });
+  const documentAnnotationMode = shouldEnableDocumentAnnotation
+    ? annotationController.annotationMode
+    : false;
+  const pendingDocumentAnnotationTargets = useMemo(
+    () => annotationController.pendingAnnotations.map((annotation) => annotation.target),
+    [annotationController.pendingAnnotations],
+  );
+  const shouldShowApplyOverlay =
+    shouldEnableDocumentAnnotation && annotationController.applyPhase !== "idle";
 
   return (
     <View style={styles.container} testID="workspace-file-pane">
@@ -530,16 +988,38 @@ export function FilePane({
         </View>
       ) : null}
 
-      <FilePreviewBody
-        preview={query.data?.file ?? null}
-        documentBytes={query.data?.documentBytes ?? null}
-        documentKind={query.data?.documentKind ?? null}
-        isLoading={query.isFetching}
-        showDesktopWebScrollbar={showDesktopWebScrollbar}
-        isMobile={isMobile}
-        location={location}
-        imagePreviewUri={imagePreviewUri}
-      />
+      <View style={previewAndAnnotationStyle}>
+        <View style={styles.previewSurface}>
+          <FilePreviewBody
+            preview={query.data?.file ?? null}
+            documentBytes={query.data?.documentBytes ?? null}
+            documentKind={query.data?.documentKind ?? null}
+            documentPreviewRevision={previewRevision}
+            documentAnnotationMode={documentAnnotationMode}
+            pendingDocumentAnnotationTargets={pendingDocumentAnnotationTargets}
+            selectedDocumentAnnotationTarget={annotationController.selectedAnnotationTarget}
+            isLoading={query.isFetching}
+            showDesktopWebScrollbar={showDesktopWebScrollbar}
+            isMobile={isMobile}
+            location={location}
+            imagePreviewUri={imagePreviewUri}
+            onDocumentAnnotationTargetSelect={annotationController.selectTarget}
+          />
+          {shouldShowApplyOverlay ? (
+            <DocumentAnnotationApplyOverlay phase={annotationController.applyPhase} />
+          ) : null}
+        </View>
+        {shouldEnableDocumentAnnotation ? (
+          <DocumentAnnotationPanel
+            controller={annotationController}
+            documentKind={query.data?.documentKind}
+            isMobile={isMobile}
+          />
+        ) : null}
+        {shouldShowDocumentAnnotationUnavailable ? (
+          <DocumentAnnotationUnavailablePanel isMobile={isMobile} />
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -549,6 +1029,14 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     minHeight: 0,
     backgroundColor: theme.colors.surface0,
+  },
+  previewAndAnnotationContainer: {
+    flex: 1,
+    minHeight: 0,
+    flexDirection: "row",
+  },
+  previewAndAnnotationContainerCompact: {
+    flexDirection: "column",
   },
   centerState: {
     flex: 1,
@@ -576,6 +1064,17 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },
+  previewSurface: {
+    flex: 1,
+    minHeight: 0,
+    position: "relative",
+    zIndex: 0,
+    ...(isWeb
+      ? {
+          isolation: "isolate",
+        }
+      : null),
+  },
   previewScrollContainer: {
     flex: 1,
     minHeight: 0,
@@ -599,5 +1098,136 @@ const styles = StyleSheet.create((theme) => ({
   previewImage: {
     width: "100%",
     height: 420,
+  },
+  annotationPanel: {
+    width: 300,
+    borderLeftWidth: theme.borderWidth[1],
+    borderLeftColor: theme.colors.border,
+    backgroundColor: theme.colors.surface1,
+    padding: theme.spacing[4],
+    gap: theme.spacing[3],
+  },
+  annotationPanelCompact: {
+    width: "100%",
+    maxHeight: 360,
+    borderLeftWidth: 0,
+    borderTopWidth: theme.borderWidth[1],
+    borderTopColor: theme.colors.border,
+  },
+  annotationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing[2],
+  },
+  annotationTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.lg,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  annotationHint: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+  },
+  annotationTargetBox: {
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+    padding: theme.spacing[3],
+    gap: theme.spacing[1],
+  },
+  annotationTargetLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  annotationTargetText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+  },
+  annotationInput: {
+    minHeight: 104,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+    color: theme.colors.foreground,
+    padding: theme.spacing[3],
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+    textAlignVertical: "top",
+  },
+  annotationList: {
+    flex: 1,
+    minHeight: 0,
+    gap: theme.spacing[2],
+  },
+  annotationEmpty: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  annotationItem: {
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+    padding: theme.spacing[3],
+    gap: theme.spacing[1],
+  },
+  annotationItemTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  annotationItemText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 18,
+  },
+  annotationRemoveButton: {
+    alignSelf: "flex-start",
+    marginLeft: -theme.spacing[3],
+  },
+  annotationRemoveButtonText: {
+    color: theme.colors.destructive,
+  },
+  annotationApplyOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: theme.spacing[4],
+    backgroundColor: "rgba(248, 250, 252, 0.76)",
+    zIndex: 2147483647,
+    elevation: 24,
+  },
+  annotationApplyOverlayCard: {
+    width: "100%",
+    maxWidth: 360,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+    padding: theme.spacing[4],
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  annotationApplyOverlayTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.semibold,
+    textAlign: "center",
+  },
+  annotationApplyOverlayText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+    textAlign: "center",
   },
 }));

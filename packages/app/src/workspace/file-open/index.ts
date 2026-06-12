@@ -6,11 +6,15 @@ export interface WorkspaceFileLocation {
   lineEnd?: number;
 }
 
-export type WorkspaceFileTabTarget = { kind: "file" } & WorkspaceFileLocation;
+export type WorkspaceFileTabTarget = {
+  kind: "file";
+  sourceAgentId?: string;
+} & WorkspaceFileLocation;
 
 export interface WorkspaceFileOpenRequest {
   location: WorkspaceFileLocation;
   disposition: OpenFileDisposition;
+  sourceAgentId?: string;
 }
 
 export function normalizeWorkspaceFileLocation(
@@ -35,20 +39,26 @@ export function normalizeWorkspaceFileLocation(
 }
 
 export function workspaceFileLocationsEqual(
-  left: WorkspaceFileLocation,
-  right: WorkspaceFileLocation,
+  left: WorkspaceFileLocation & { sourceAgentId?: string },
+  right: WorkspaceFileLocation & { sourceAgentId?: string },
 ): boolean {
   return (
-    left.path === right.path && left.lineStart === right.lineStart && left.lineEnd === right.lineEnd
+    left.path === right.path &&
+    left.lineStart === right.lineStart &&
+    left.lineEnd === right.lineEnd &&
+    left.sourceAgentId === right.sourceAgentId
   );
 }
 
 export function createWorkspaceFileTabTarget(
   location: WorkspaceFileLocation,
+  options?: { sourceAgentId?: string | null },
 ): WorkspaceFileTabTarget {
+  const sourceAgentId = options?.sourceAgentId?.trim();
   return {
     kind: "file",
     ...location,
+    ...(sourceAgentId ? { sourceAgentId } : {}),
   };
 }
 

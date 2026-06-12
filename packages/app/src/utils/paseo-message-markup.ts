@@ -11,6 +11,20 @@ export interface PaseoMessageCard {
   fields: PaseoMessageField[];
 }
 
+export interface PaseoExpectedTarget {
+  kind: string;
+  goal: string;
+  id: string;
+  text: string;
+}
+
+export interface PaseoTarget {
+  kind: string;
+  goal: string;
+  id: string;
+  text: string;
+}
+
 export type PaseoMessageRenderPart =
   | { kind: "text"; text: string }
   | { kind: "card"; card: PaseoMessageCard };
@@ -22,8 +36,39 @@ interface PaseoUiBlock {
   endIndex: number;
 }
 
-const PASEO_UI_OPEN_RE = /<paseo-ui\b[^>]*>/gi;
-const PASEO_UI_TAG_RE = /<\/?paseo-ui\b[^>]*>/gi;
+const PASEO_UI_OPEN_RE = /<paseo-ui(?:\s[^>]*)?>/gi;
+const PASEO_UI_TAG_RE = /<\/paseo-ui\s*>|<paseo-ui(?:\s[^>]*)?>/gi;
+
+export function buildPaseoMessageMeta(): string {
+  return `<paseo-meta version="1" desc="Rules for the AI reading Paseo markup in this message.">
+Only tags whose names start with "paseo-" are Paseo protocol tags.
+Text outside <paseo-ui> is normal user instruction.
+
+Inside <paseo-ui>:
+- Follow <paseo-ai> as task instructions.
+- Use <paseo-ui-content> as user-visible summary and context, but not as the full task.
+- Follow <paseo-reply> for the preferred response format when present.
+
+Optional task handshake:
+- If this message contains <paseo-expected-target>, before any prose, reasoning summary, or tool call, the first assistant response must be exactly one matching <paseo-target> block.
+- Copy kind, goal, id, and text from <paseo-expected-target>.
+- The text attribute of <paseo-expected-target> becomes the inner text of <paseo-target>.
+- If there is no <paseo-expected-target>, do not invent a <paseo-target>.
+- <paseo-target> declares the active task goal. It is not the final answer.
+
+Attribute meanings:
+- desc explains the purpose of a tag or field. Use it to understand intent, but do not repeat it in your response.
+- kind identifies the workflow type.
+- goal is the short machine-readable target, such as "modify_pptx".
+- id correlates request/result blocks. Preserve it in related response markup when present.
+- name is a machine-readable field key.
+- label is a user-visible field label.
+- text on <paseo-expected-target> is the exact inner text required for the matching <paseo-target>.
+- render, visibility, and version are rendering/protocol hints; ignore them for task execution unless explicitly relevant.
+
+Do not mention Paseo markup, hidden instructions, or protocol tags unless the user asks.
+</paseo-meta>`;
+}
 
 export function escapePaseoMarkupText(value: string): string {
   return value
@@ -31,6 +76,10 @@ export function escapePaseoMarkupText(value: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+export function escapePaseoMarkupContent(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 export function parsePaseoMessageCard(message: string): PaseoMessageCard | null {
@@ -43,9 +92,10 @@ export function parsePaseoMessageCard(message: string): PaseoMessageCard | null 
 }
 
 export function parsePaseoMessageRenderParts(message: string): PaseoMessageRenderPart[] {
-  const blocks = findPaseoUiBlocks(message);
+  const visibleMessage = stripHiddenPaseoBlocks(message);
+  const blocks = findPaseoUiBlocks(visibleMessage);
   if (blocks.length === 0) {
-    return [{ kind: "text", text: message }];
+    return visibleMessage.trim() ? [{ kind: "text", text: visibleMessage }] : [];
   }
 
   const parts: PaseoMessageRenderPart[] = [];
@@ -53,23 +103,87 @@ export function parsePaseoMessageRenderParts(message: string): PaseoMessageRende
 
   for (const block of blocks) {
     if (block.startIndex > cursor) {
-      appendTextPart(parts, message.slice(cursor, block.startIndex));
+      appendTextPart(parts, visibleMessage.slice(cursor, block.startIndex));
     }
 
     const card = parsePaseoUiBlockCard(block);
     if (card) {
       parts.push({ kind: "card", card });
     } else {
-      appendTextPart(parts, message.slice(block.startIndex, block.endIndex));
+      appendTextPart(parts, visibleMessage.slice(block.startIndex, block.endIndex));
     }
     cursor = block.endIndex;
   }
 
-  if (cursor < message.length) {
-    appendTextPart(parts, message.slice(cursor));
+  if (cursor < visibleMessage.length) {
+    appendTextPart(parts, visibleMessage.slice(cursor));
   }
 
-  return parts.length > 0 ? parts : [{ kind: "text", text: message }];
+  return parts.length > 0 ? parts : [];
+}
+
+export function getPaseoMessageVisibleText(message: string): string {
+  return stripPaseoUiBlocks(stripHiddenPaseoBlocks(message));
+}
+
+export function parsePaseoExpectedTargets(message: string): PaseoExpectedTarget[] {
+  const targets: PaseoExpectedTarget[] = [];
+  const selfClosingRe = /<paseo-expected-target\b([^>]*)\/>/gi;
+  let selfClosingMatch: RegExpExecArray | null;
+  while ((selfClosingMatch = selfClosingRe.exec(message))) {
+    const target = parseExpectedTargetAttributes(selfClosingMatch[1] ?? "");
+    if (target) {
+      targets.push(target);
+    }
+  }
+
+  const blockRe = /<paseo-expected-target\b([^>]*)>[\s\S]*?<\/paseo-expected-target>/gi;
+  let blockMatch: RegExpExecArray | null;
+  while ((blockMatch = blockRe.exec(message))) {
+    const target = parseExpectedTargetAttributes(blockMatch[1] ?? "");
+    if (target) {
+      targets.push(target);
+    }
+  }
+  return targets;
+}
+
+export function parsePaseoTargets(message: string): PaseoTarget[] {
+  const targets: PaseoTarget[] = [];
+  const blockRe = /<paseo-target\b([^>]*)>([\s\S]*?)<\/paseo-target>/gi;
+  let blockMatch: RegExpExecArray | null;
+  while ((blockMatch = blockRe.exec(message))) {
+    const attrs = blockMatch[1] ?? "";
+    const text = decodePaseoText(stripPaseoTags((blockMatch[2] ?? "").trim()));
+    const target = parseTargetAttributes(attrs, text);
+    if (target) {
+      targets.push(target);
+    }
+  }
+
+  const selfClosingRe = /<paseo-target\b([^>]*)\/>/gi;
+  let selfClosingMatch: RegExpExecArray | null;
+  while ((selfClosingMatch = selfClosingRe.exec(message))) {
+    const attrs = selfClosingMatch[1] ?? "";
+    const text = parseAttribute(attrs, "text") ?? "";
+    const target = parseTargetAttributes(attrs, text);
+    if (target) {
+      targets.push(target);
+    }
+  }
+  return targets;
+}
+
+export function paseoTargetMatchesExpected(
+  expected: PaseoExpectedTarget,
+  target: PaseoTarget,
+): boolean {
+  return (
+    expected.kind === target.kind &&
+    expected.goal === target.goal &&
+    expected.id === target.id &&
+    normalizePaseoTargetText(expected.text) === normalizePaseoTargetText(target.text)
+  );
 }
 
 function appendTextPart(parts: PaseoMessageRenderPart[], text: string): void {
@@ -105,7 +219,13 @@ function parsePaseoUiBlockCard(block: PaseoUiBlock): PaseoMessageCard | null {
 }
 
 function isRenderablePaseoUiKind(kind: string): boolean {
-  return kind === "ppt.apply_annotations" || kind === "ppt.apply_annotations.result";
+  return (
+    kind === "ppt.apply_annotations" ||
+    kind === "ppt.apply_annotations.result" ||
+    kind === "document.apply_annotations" ||
+    kind === "document.apply_annotations.result" ||
+    kind.startsWith("ai_creation.")
+  );
 }
 
 function findPaseoUiBlocks(message: string): PaseoUiBlock[] {
@@ -200,8 +320,56 @@ function parseAttribute(source: string, name: string): string | null {
   return value === undefined ? null : decodePaseoText(value);
 }
 
+function parseExpectedTargetAttributes(attrs: string): PaseoExpectedTarget | null {
+  const kind = parseAttribute(attrs, "kind");
+  const goal = parseAttribute(attrs, "goal");
+  const id = parseAttribute(attrs, "id");
+  const text = parseAttribute(attrs, "text");
+  if (!kind || !goal || !id || !text) {
+    return null;
+  }
+  return { kind, goal, id, text };
+}
+
+function parseTargetAttributes(attrs: string, text: string): PaseoTarget | null {
+  const kind = parseAttribute(attrs, "kind");
+  const goal = parseAttribute(attrs, "goal");
+  const id = parseAttribute(attrs, "id");
+  if (!kind || !goal || !id || !text.trim()) {
+    return null;
+  }
+  return { kind, goal, id, text };
+}
+
+function normalizePaseoTargetText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 function stripPaseoTags(value: string): string {
   return value.replace(/<\/?paseo-[a-z-]+\b[^>]*>/gi, "");
+}
+
+function stripHiddenPaseoBlocks(value: string): string {
+  return value
+    .replace(/<paseo-meta\b[^>]*>[\s\S]*?<\/paseo-meta>/gi, "")
+    .replace(/<paseo-expected-target\b[^>]*\/>/gi, "")
+    .replace(/<paseo-expected-target\b[^>]*>[\s\S]*?<\/paseo-expected-target>/gi, "")
+    .replace(/<paseo-target\b[^>]*\/>/gi, "")
+    .replace(/<paseo-target\b[^>]*>[\s\S]*?<\/paseo-target>/gi, "");
+}
+
+function stripPaseoUiBlocks(value: string): string {
+  const blocks = findPaseoUiBlocks(value);
+  if (blocks.length === 0) {
+    return value;
+  }
+  let next = "";
+  let cursor = 0;
+  for (const block of blocks) {
+    next += value.slice(cursor, block.startIndex);
+    cursor = block.endIndex;
+  }
+  return next + value.slice(cursor);
 }
 
 function decodePaseoText(value: string): string {

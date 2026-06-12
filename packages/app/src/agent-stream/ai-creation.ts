@@ -1,8 +1,13 @@
 import type { StreamItem } from "@/types/stream";
-import type { AiCreationMessageDisplayEntry } from "@/stores/ai-creation-message-display-store";
+import {
+  parsePaseoExpectedTargets,
+  parsePaseoMessageCard,
+  parsePaseoTargets,
+  type PaseoExpectedTarget,
+  type PaseoTarget,
+} from "@/utils/paseo-message-markup";
 
 export const AI_CREATION_PLACEHOLDER_ID = "ai-creation-placeholder";
-const LEGACY_ZH_AI_CREATION_EDIT_PREFIX = "\u7f16\u8f91\u56fe\u7247\uff1a";
 
 const AI_CREATION_IMAGE_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:(?:[A-Za-z]:[\\/]|\/|\.{1,2}[\\/])?[\w.@~+-]+[\\/])+[^"'`\s)）]+?\.(?:png|jpe?g|webp|gif|avif|bmp|tiff?))(?:$|[\s"'`)）.,;，。])/gi;
@@ -12,57 +17,30 @@ const PPTX_PATH_PATTERN =
 const PPT_PREVIEW_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/svg_output\/?)(?:$|[\s"'`)）.,;，。])/gi;
 const DOCUMENT_PATH_PATTERN =
-  /(?:^|[\s"'`(（：:])((?:\.\/)?(?:(?:[\w.@~+-]+[\\/])+)?[^"'`\s)）]+?\.(?:pdf|docx|xlsx|csv))(?:$|[\s"'`)）.,;，。])/gi;
-
-export function isAiCreationLabels(labels: Record<string, string> | undefined): boolean {
-  return (
-    labels?.surface === "ai_creation" ||
-    labels?.intent === "imagegen" ||
-    labels?.intent === "image_edit" ||
-    labels?.intent === "ppt_creation" ||
-    labels?.intent === "pdf_creation" ||
-    labels?.intent === "word_creation" ||
-    labels?.intent === "spreadsheet_creation"
-  );
-}
-
-export type AiCreationIntent =
-  | "image"
-  | "image_edit"
-  | "ppt_creation"
-  | "pdf_creation"
-  | "word_creation"
-  | "spreadsheet_creation";
-
-function isDocumentCreationIntent(intent: AiCreationIntent | null | undefined): boolean {
-  return (
-    intent === "pdf_creation" || intent === "word_creation" || intent === "spreadsheet_creation"
-  );
-}
-
-export function getAiCreationIntent(
-  labels: Record<string, string> | undefined,
-): AiCreationIntent | null {
-  if (labels?.intent === "ppt_creation") {
-    return "ppt_creation";
-  }
-  if (labels?.intent === "image_edit") {
-    return "image_edit";
-  }
-  if (labels?.intent === "pdf_creation") {
-    return "pdf_creation";
-  }
-  if (labels?.intent === "word_creation") {
-    return "word_creation";
-  }
-  if (labels?.intent === "spreadsheet_creation") {
-    return "spreadsheet_creation";
-  }
-  if (labels?.surface === "ai_creation" || labels?.intent === "imagegen") {
-    return "image";
-  }
-  return null;
-}
+  /(?:^|[\s"'`(（：:])((?:\.\/)?(?:(?:[\w.@~+-]+[\\/])+)?[^"'`\s)）]+?\.(?:pdf|docx|xlsx?|csv))(?:$|[\s"'`)）.,;，。])/gi;
+const PPT_RESULT_KINDS = new Set([
+  "ppt.apply_annotations",
+  "ppt.apply_annotations.result",
+  "ai_creation.slides.create",
+]);
+const PPT_RESULT_GOALS = new Set(["create_pptx", "modify_pptx"]);
+const DOCUMENT_RESULT_KINDS = new Set([
+  "ai_creation.document.pdf.create",
+  "ai_creation.document.word.create",
+  "ai_creation.spreadsheet.create",
+  "document.apply_annotations",
+  "document.apply_annotations.result",
+]);
+const DOCUMENT_RESULT_GOALS = new Set([
+  "create_pdf",
+  "create_docx",
+  "create_spreadsheet",
+  "modify_pdf",
+  "modify_docx",
+  "modify_spreadsheet",
+]);
+const IMAGE_RESULT_KINDS = new Set(["ai_creation.image.generate", "ai_creation.image.edit"]);
+const IMAGE_RESULT_GOALS = new Set(["generate_image", "edit_image"]);
 
 function stripAiCreationImagePathToken(source: string): string | null {
   const trimmed = source
@@ -194,11 +172,19 @@ function normalizeAiCreationDocumentPathToken(source: string): string | null {
     .replace(/^`+|`+$/g, "")
     .replace(/^[.]\//, "")
     .replace(/[，。.,;；:：]+$/g, "");
-  return trimmed || null;
+  const withoutLabelPrefix = trimmed.replace(
+    /^.*[：:]\s*(?=(?:[./]|[\w.@~+-]+[\\/]|[^"'`\s)）\\/]+?\.(?:pdf|docx|xlsx?|csv)))/u,
+    "",
+  );
+  return withoutLabelPrefix || null;
 }
 
 function extractAiCreationDocumentSources(text: string): string[] {
   const sources: string[] = [];
+  const resultDisplay = extractDocumentAnnotationResultDisplay(text);
+  if (resultDisplay) {
+    sources.push(resultDisplay.path);
+  }
   for (const match of text.matchAll(DOCUMENT_PATH_PATTERN)) {
     const source = normalizeAiCreationDocumentPathToken(match[1] ?? "");
     if (source) {
@@ -206,6 +192,31 @@ function extractAiCreationDocumentSources(text: string): string[] {
     }
   }
   return sources;
+}
+
+export interface DocumentAnnotationResultDisplay {
+  path: string;
+  summary: string;
+  title: string;
+}
+
+export function extractDocumentAnnotationResultDisplay(
+  text: string,
+): DocumentAnnotationResultDisplay | null {
+  const card = parsePaseoMessageCard(text);
+  if (card?.kind !== "document.apply_annotations.result") {
+    return null;
+  }
+  const updatedFile = card.fields.find((field) => field.name === "updated_file")?.value;
+  const path = updatedFile ? normalizeAiCreationDocumentPathToken(updatedFile) : null;
+  if (!path) {
+    return null;
+  }
+  return {
+    path,
+    summary: card.summary,
+    title: card.title,
+  };
 }
 
 function extractAiCreationFinalDocumentMarkdown(text: string): string | null {
@@ -227,31 +238,6 @@ type StreamSource = "tail" | "head";
 interface TaggedStreamItem {
   item: StreamItem;
   source: StreamSource;
-}
-
-function findLastAiCreationAssistantResultItem(items: TaggedStreamItem[]): TaggedStreamItem | null {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const tagged = items[index];
-    const item = tagged?.item;
-    if (
-      item?.kind === "assistant_message" &&
-      extractAiCreationResultSources(item.text).length > 0
-    ) {
-      return tagged;
-    }
-  }
-  return null;
-}
-
-function findLastAiCreationPptxResultItem(items: TaggedStreamItem[]): TaggedStreamItem | null {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    const tagged = items[index];
-    const item = tagged?.item;
-    if (item?.kind === "assistant_message" && extractAiCreationPptxSources(item.text).length > 0) {
-      return tagged;
-    }
-  }
-  return null;
 }
 
 function splitAiCreationTurns(items: TaggedStreamItem[]): TaggedStreamItem[][] {
@@ -277,115 +263,53 @@ function pushTaggedItem(
   target[tagged.source].push(tagged.item);
 }
 
-function normalizeAiCreationDisplayText(text: string | undefined): string {
-  return (text ?? "")
-    .trim()
-    .replace(/：\s+/g, "：")
-    .replace(/:\s+/g, ":")
-    .replace(/\s+/g, "");
-}
-
-function isAiCreationEditDisplayText(text: string | undefined): boolean {
-  const normalized = normalizeAiCreationDisplayText(text).toLowerCase();
-  return (
-    normalized.startsWith(LEGACY_ZH_AI_CREATION_EDIT_PREFIX) || normalized.startsWith("editimage:")
-  );
-}
-
-function isAiCreationInternalEditPrompt(text: string | undefined): boolean {
-  const normalized = (text ?? "").trim();
-  return normalized.startsWith("Use the Codex imagegen skill for this guided image edit.");
-}
-
-function isAiCreationEditMetadata(metadata: AiCreationMessageDisplayEntry): boolean {
-  return Boolean(
-    metadata.selectionPreviewUri ||
-    metadata.selectionImage ||
-    isAiCreationEditDisplayText(metadata.text),
-  );
-}
-
-function canApplyAiCreationMetadataToUserMessage(
-  item: Extract<StreamItem, { kind: "user_message" }>,
-  metadata: AiCreationMessageDisplayEntry,
-): boolean {
-  const itemIsEdit =
-    isAiCreationEditDisplayText(item.text) || isAiCreationInternalEditPrompt(item.text);
-  const metadataIsEdit = isAiCreationEditMetadata(metadata);
-  if (metadataIsEdit) {
-    return itemIsEdit;
-  }
-  if (itemIsEdit) {
-    return isAiCreationEditDisplayText(metadata.text);
-  }
-  return true;
-}
-
-function isAiCreationDisplayTextMatch(
-  left: string | undefined,
-  right: string | undefined,
-): boolean {
-  const normalizedLeft = normalizeAiCreationDisplayText(left);
-  const normalizedRight = normalizeAiCreationDisplayText(right);
-  if (!normalizedLeft || !normalizedRight) {
-    return false;
-  }
-  return (
-    normalizedLeft === normalizedRight ||
-    normalizedLeft.includes(normalizedRight) ||
-    normalizedRight.includes(normalizedLeft)
-  );
-}
-
-function applyAiCreationDisplayMetadataToUserMessage(
-  item: Extract<StreamItem, { kind: "user_message" }>,
-  metadata: AiCreationMessageDisplayEntry,
-): Extract<StreamItem, { kind: "user_message" }> {
-  const hasSelectionReference = Boolean(metadata.selectionPreviewUri);
-  const metadataSelectionImage =
-    hasSelectionReference && isAiCreationEditDisplayText(item.text)
-      ? metadata.selectionImage
-      : undefined;
-  const metadataImages = metadataSelectionImage
-    ? metadata.images?.filter((image) => image.id !== metadataSelectionImage.id)
-    : metadata.images;
-
-  return {
-    ...item,
-    ...(metadata.text?.trim() ? { text: metadata.text } : {}),
-    ...(item.images || !metadataImages || metadataImages.length === 0
-      ? {}
-      : { images: metadataImages }),
-    ...(item.displayAttachments ||
-    !metadata.displayAttachments ||
-    metadata.displayAttachments.length === 0
-      ? {}
-      : { displayAttachments: metadata.displayAttachments }),
-    ...(item.selectionPreviewUri || !metadata.selectionPreviewUri
-      ? {}
-      : { selectionPreviewUri: metadata.selectionPreviewUri }),
-    ...(item.selectionImageSource || !metadataSelectionImage || !metadata.selectionImageSource
-      ? {}
-      : { selectionImageSource: metadata.selectionImageSource }),
-    ...(item.selectionImage || !metadataSelectionImage
-      ? {}
-      : { selectionImage: metadataSelectionImage }),
-  };
-}
-
-export function buildAiCreationPlaceholderItem(): StreamItem {
+export function buildAiCreationPlaceholderItem(target?: PaseoTarget): StreamItem {
   return {
     kind: "assistant_message",
     id: AI_CREATION_PLACEHOLDER_ID,
-    text: "",
+    text: target?.text ?? "",
     timestamp: new Date(0),
   };
 }
 
-function normalizeAiCreationTurn(input: {
+export function normalizeAiCreationStream(params: {
+  agentStatus: string;
+  tail: StreamItem[];
+  head: StreamItem[];
+}): { tail: StreamItem[]; head: StreamItem[] } {
+  const taggedItems: TaggedStreamItem[] = [
+    ...params.tail.map((item) => ({ item, source: "tail" as const })),
+    ...params.head.map((item) => ({ item, source: "head" as const })),
+  ];
+  if (taggedItems.length === 0) {
+    return { tail: params.tail, head: params.head };
+  }
+
+  const turns = splitAiCreationTurns(taggedItems);
+  const normalized = { tail: [] as StreamItem[], head: [] as StreamItem[] };
+  let changed = false;
+  turns.forEach((turn, index) => {
+    const result = normalizeHandshakeTurn({
+      turn,
+      isActiveRunningTurn: params.agentStatus === "running" && index === turns.length - 1,
+    });
+    changed = changed || result.changed;
+    for (const tagged of result.items) {
+      pushTaggedItem(normalized, tagged);
+    }
+  });
+  return changed ? normalized : { tail: params.tail, head: params.head };
+}
+
+function normalizeHandshakeTurn(input: {
   turn: TaggedStreamItem[];
   isActiveRunningTurn: boolean;
-}): TaggedStreamItem[] {
+}): { items: TaggedStreamItem[]; changed: boolean } {
+  const responseTarget = findResponseStartTarget(input.turn);
+  if (!responseTarget) {
+    return { items: input.turn, changed: false };
+  }
+
   const normalized: TaggedStreamItem[] = [];
   for (const tagged of input.turn) {
     if (tagged.item.kind === "user_message") {
@@ -393,169 +317,141 @@ function normalizeAiCreationTurn(input: {
     }
   }
 
-  if (input.isActiveRunningTurn) {
+  const finalTaggedResult = findLastHandshakeResultItem(input.turn, responseTarget);
+  if (input.isActiveRunningTurn || !finalTaggedResult) {
     normalized.push({
       source: "head",
-      item: buildAiCreationPlaceholderItem(),
+      item: buildAiCreationPlaceholderItem(responseTarget),
     });
-    return normalized;
+    return { items: normalized, changed: true };
   }
 
-  const finalResult = findLastAiCreationAssistantResultItem(input.turn);
-  const finalPptxResult = findLastAiCreationPptxResultItem(input.turn);
-  const finalTaggedResult = finalPptxResult ?? finalResult;
-  if (!finalTaggedResult || finalTaggedResult.item.kind !== "assistant_message") {
-    return normalized;
+  const finalItem = finalTaggedResult.item;
+  if (finalItem.kind !== "assistant_message") {
+    return { items: normalized, changed: true };
   }
-  const imageMarkdown = extractAiCreationFinalImageMarkdown(finalTaggedResult.item.text);
-  const pptxMarkdown = extractAiCreationFinalPptxMarkdown(finalTaggedResult.item.text);
-  const resultMarkdown = pptxMarkdown ?? imageMarkdown;
-  if (!resultMarkdown) {
-    return normalized;
+  const finalMarkdown = extractHandshakeFinalMarkdown(finalItem.text, responseTarget);
+  if (!finalMarkdown) {
+    return { items: normalized, changed: true };
   }
   normalized.push({
     source: finalTaggedResult.source,
-    item: { ...finalTaggedResult.item, text: resultMarkdown },
+    item: { ...finalItem, text: finalMarkdown },
   });
-  return normalized;
+  return { items: normalized, changed: true };
 }
 
-export function normalizeAiCreationStream(params: {
-  agentStatus: string;
-  tail: StreamItem[];
-  head: StreamItem[];
-  intent?: AiCreationIntent | null;
-}): { tail: StreamItem[]; head: StreamItem[] } {
-  if (params.intent === "ppt_creation") {
-    return normalizeFileCreationStream({
-      tail: params.tail,
-      head: params.head,
-      extractFinalMarkdown: extractAiCreationFinalPptxMarkdown,
-    });
+function findResponseStartTarget(items: TaggedStreamItem[]): PaseoTarget | null {
+  const firstAssistant = items
+    .filter(
+      (tagged) => tagged.item.kind === "assistant_message" && tagged.item.text.trim().length > 0,
+    )
+    .sort((left, right) => left.item.timestamp.getTime() - right.item.timestamp.getTime())[0];
+  if (!firstAssistant || firstAssistant.item.kind !== "assistant_message") {
+    return null;
   }
-
-  if (isDocumentCreationIntent(params.intent)) {
-    return normalizeFileCreationStream({
-      tail: params.tail,
-      head: params.head,
-      extractFinalMarkdown: extractAiCreationFinalDocumentMarkdown,
-    });
+  if (!firstAssistant.item.text.trimStart().startsWith("<paseo-target")) {
+    return null;
   }
-
-  const taggedItems: TaggedStreamItem[] = [
-    ...params.tail.map((item) => ({ item, source: "tail" as const })),
-    ...params.head.map((item) => ({ item, source: "head" as const })),
-  ];
-  if (taggedItems.length === 0) {
-    return params.agentStatus === "running"
-      ? { tail: [], head: [buildAiCreationPlaceholderItem()] }
-      : { tail: [], head: [] };
-  }
-
-  const turns = splitAiCreationTurns(taggedItems);
-  const normalized = { tail: [] as StreamItem[], head: [] as StreamItem[] };
-  turns.forEach((turn, index) => {
-    const isActiveRunningTurn = params.agentStatus === "running" && index === turns.length - 1;
-    for (const tagged of normalizeAiCreationTurn({ turn, isActiveRunningTurn })) {
-      pushTaggedItem(normalized, tagged);
-    }
-  });
-  return normalized;
-}
-
-function normalizeFileCreationStream(params: {
-  tail: StreamItem[];
-  head: StreamItem[];
-  extractFinalMarkdown: (text: string) => string | null;
-}): {
-  tail: StreamItem[];
-  head: StreamItem[];
-} {
-  const normalizeItems = (items: StreamItem[]) =>
-    items.map((item) => {
-      if (item.kind !== "assistant_message") {
-        return item;
-      }
-      const finalMarkdown = params.extractFinalMarkdown(item.text);
-      return finalMarkdown ? { ...item, text: finalMarkdown } : item;
-    });
-  return {
-    tail: normalizeItems(params.tail),
-    head: normalizeItems(params.head),
-  };
-}
-
-export function applyAiCreationMessageDisplayMetadata(
-  items: StreamItem[],
-  metadataEntries: readonly AiCreationMessageDisplayEntry[],
-): StreamItem[] {
-  if (metadataEntries.length === 0) {
-    return items;
-  }
-  const metadataByMessageId = new Map(
-    metadataEntries.map((entry) => [entry.messageId, entry] as const),
+  return (
+    parsePaseoTargets(firstAssistant.item.text)[0] ??
+    parsePartialPaseoTarget(firstAssistant.item.text) ??
+    findExpectedTargetFallback(items)
   );
-  const unmatchedByText = metadataEntries.filter((entry) => entry.text?.trim());
-  const unmatchedLegacy = metadataEntries.filter(
-    (entry) => !entry.text?.trim() && entry.allowOrderFallback !== false,
-  );
-  const consumeMetadataEntry = (entry: AiCreationMessageDisplayEntry) => {
-    const textIndex = unmatchedByText.indexOf(entry);
-    if (textIndex >= 0) {
-      unmatchedByText.splice(textIndex, 1);
-    }
-    const legacyIndex = unmatchedLegacy.indexOf(entry);
-    if (legacyIndex >= 0) {
-      unmatchedLegacy.splice(legacyIndex, 1);
-    }
-  };
-  let changed = false;
-  const next = items.map((item) => {
+}
+
+function findExpectedTargetFallback(items: TaggedStreamItem[]): PaseoTarget | null {
+  for (const tagged of items) {
+    const item = tagged.item;
     if (item.kind !== "user_message") {
-      return item;
+      continue;
     }
-    let metadata = metadataByMessageId.get(item.id);
-    if (metadata) {
-      consumeMetadataEntry(metadata);
-      if (!canApplyAiCreationMetadataToUserMessage(item, metadata)) {
-        metadata = undefined;
-      }
+    const expected = parsePaseoExpectedTargets(item.text)[0];
+    if (expected) {
+      return { kind: expected.kind, goal: expected.goal, id: expected.id, text: expected.text };
     }
-    if (!metadata) {
-      const textMatchIndex = unmatchedByText.findIndex(
-        (entry) =>
-          canApplyAiCreationMetadataToUserMessage(item, entry) &&
-          isAiCreationDisplayTextMatch(entry.text, item.text),
-      );
-      metadata = textMatchIndex >= 0 ? unmatchedByText.splice(textMatchIndex, 1)[0] : undefined;
+  }
+  return null;
+}
+
+function parsePartialPaseoTarget(text: string): PaseoTarget | null {
+  const trimmed = text.trimStart();
+  const openTagMatch = /^<paseo-target\b([^>]*)>/i.exec(trimmed);
+  if (!openTagMatch) {
+    return null;
+  }
+  const attrs = openTagMatch[1] ?? "";
+  const kind = parsePartialPaseoAttribute(attrs, "kind");
+  const goal = parsePartialPaseoAttribute(attrs, "goal");
+  const id = parsePartialPaseoAttribute(attrs, "id");
+  if (!kind || !goal || !id) {
+    return null;
+  }
+  const innerStart = openTagMatch[0].length;
+  const remaining = trimmed.slice(innerStart);
+  const closingStart = remaining.search(/<\/paseo-target\s*>/i);
+  const rawText =
+    closingStart >= 0 ? remaining.slice(0, closingStart) : remaining.replace(/<\/?$/u, "");
+  const targetText =
+    decodePartialPaseoText(rawText.trim()) || parsePartialPaseoAttribute(attrs, "text") || "";
+  return { kind, goal, id, text: targetText };
+}
+
+function parsePartialPaseoAttribute(source: string, name: string): string | null {
+  const match = new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i").exec(source);
+  return match ? decodePartialPaseoText(match[2] ?? "") : null;
+}
+
+function decodePartialPaseoText(value: string): string {
+  return value
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+function findLastHandshakeResultItem(
+  items: TaggedStreamItem[],
+  expected: PaseoExpectedTarget,
+): TaggedStreamItem | null {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const tagged = items[index];
+    const item = tagged?.item;
+    if (item?.kind === "assistant_message" && extractHandshakeFinalMarkdown(item.text, expected)) {
+      return tagged;
     }
-    if (
-      !metadata &&
-      !item.images &&
-      !item.selectionImage &&
-      (isAiCreationEditDisplayText(item.text) || isAiCreationInternalEditPrompt(item.text))
-    ) {
-      const orderedTextMatchIndex = unmatchedByText.findIndex(
-        (entry) =>
-          entry.allowOrderFallback !== false &&
-          canApplyAiCreationMetadataToUserMessage(item, entry),
-      );
-      metadata =
-        orderedTextMatchIndex >= 0
-          ? unmatchedByText.splice(orderedTextMatchIndex, 1)[0]
-          : unmatchedLegacy.find((entry) => canApplyAiCreationMetadataToUserMessage(item, entry));
-      if (metadata) {
-        consumeMetadataEntry(metadata);
-      }
-    }
-    if (!metadata) {
-      return item;
-    }
-    const updated = applyAiCreationDisplayMetadataToUserMessage(item, metadata);
-    if (updated !== item) {
-      changed = true;
-    }
-    return updated;
-  });
-  return changed ? next : items;
+  }
+  return null;
+}
+
+function extractHandshakeFinalMarkdown(text: string, expected: PaseoExpectedTarget): string | null {
+  const resultCardText = extractHandshakeResultCardText(text, expected);
+  if (resultCardText) {
+    return resultCardText;
+  }
+  if (PPT_RESULT_KINDS.has(expected.kind) || PPT_RESULT_GOALS.has(expected.goal)) {
+    return extractAiCreationFinalPptxMarkdown(text);
+  }
+  if (DOCUMENT_RESULT_KINDS.has(expected.kind) || DOCUMENT_RESULT_GOALS.has(expected.goal)) {
+    return extractAiCreationFinalDocumentMarkdown(text);
+  }
+  if (IMAGE_RESULT_KINDS.has(expected.kind) || IMAGE_RESULT_GOALS.has(expected.goal)) {
+    return extractAiCreationFinalImageMarkdown(text);
+  }
+  return null;
+}
+
+function extractHandshakeResultCardText(
+  text: string,
+  expected: PaseoExpectedTarget,
+): string | null {
+  const card = parsePaseoMessageCard(text);
+  if (!card) {
+    return null;
+  }
+  if (expected.kind === "document.apply_annotations") {
+    return card.kind === "document.apply_annotations.result" ? text.trim() : null;
+  }
+  return null;
 }

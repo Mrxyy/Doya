@@ -4,11 +4,22 @@ import { translateNow } from "@/i18n/i18n";
 
 export type DocumentViewerKind = "pdf" | "docx" | "pptx" | "csv" | "xlsx";
 
+export interface DocumentAnnotationTarget {
+  kind: DocumentViewerKind;
+  label: string;
+  locator: Record<string, string | number | boolean>;
+  context?: string;
+}
+
 export interface DocumentViewerProps {
   kind: DocumentViewerKind;
   bytes: Uint8Array;
   mimeType: string;
   fileName: string;
+  annotationMode?: boolean;
+  selectedAnnotationTarget?: DocumentAnnotationTarget | null;
+  pendingAnnotationTargets?: DocumentAnnotationTarget[];
+  onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
 }
 
 export function DocumentViewer({ fileName }: DocumentViewerProps) {

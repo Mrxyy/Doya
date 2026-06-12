@@ -527,17 +527,22 @@ function coerceWorkspaceTabTarget(raw: Record<string, unknown>): WorkspaceTabTar
     });
   }
   if (kind === "file" && typeof raw.path === "string") {
-    return normalizeWorkspaceTabTarget({
-      kind: "file",
-      path: raw.path,
-      lineStart: typeof raw.lineStart === "number" ? raw.lineStart : undefined,
-      lineEnd: typeof raw.lineEnd === "number" ? raw.lineEnd : undefined,
-    });
+    return coerceWorkspaceFileTabTarget(raw);
   }
   if (kind === "setup" && typeof raw.workspaceId === "string") {
     return normalizeWorkspaceTabTarget({ kind: "setup", workspaceId: raw.workspaceId });
   }
   return null;
+}
+
+function coerceWorkspaceFileTabTarget(raw: Record<string, unknown>): WorkspaceTabTarget | null {
+  return normalizeWorkspaceTabTarget({
+    kind: "file",
+    path: String(raw.path),
+    lineStart: typeof raw.lineStart === "number" ? raw.lineStart : undefined,
+    lineEnd: typeof raw.lineEnd === "number" ? raw.lineEnd : undefined,
+    sourceAgentId: typeof raw.sourceAgentId === "string" ? raw.sourceAgentId : undefined,
+  });
 }
 
 function migrateSingleTab(rawTab: unknown, now: number): WorkspaceTab | null {

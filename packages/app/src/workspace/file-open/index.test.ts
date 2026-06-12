@@ -46,6 +46,20 @@ describe("workspace file tab targets", () => {
     });
   });
 
+  it("preserves the source agent on file tab targets", () => {
+    expect(
+      createWorkspaceFileTabTarget(
+        { path: "output/report.docx", lineStart: 4 },
+        { sourceAgentId: "agent-1" },
+      ),
+    ).toEqual({
+      kind: "file",
+      path: "output/report.docx",
+      lineStart: 4,
+      sourceAgentId: "agent-1",
+    });
+  });
+
   it("compares full location equality", () => {
     expect(
       workspaceFileLocationsEqual(
@@ -57,6 +71,12 @@ describe("workspace file tab targets", () => {
       workspaceFileLocationsEqual(
         { path: "src/app.ts", lineStart: 12 },
         { path: "src/app.ts", lineStart: 13 },
+      ),
+    ).toBe(false);
+    expect(
+      workspaceFileLocationsEqual(
+        { path: "src/app.ts", sourceAgentId: "agent-1" },
+        { path: "src/app.ts", sourceAgentId: "agent-2" },
       ),
     ).toBe(false);
   });

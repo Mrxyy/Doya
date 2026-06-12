@@ -39,7 +39,14 @@ function FilePanel() {
       </View>
     );
   }
-  return <FilePane serverId={serverId} workspaceRoot={workspaceDirectory} location={target} />;
+  return (
+    <FilePane
+      serverId={serverId}
+      sourceAgentId={target.sourceAgentId}
+      workspaceRoot={workspaceDirectory}
+      location={target}
+    />
+  );
 }
 
 export const filePanelRegistration: PanelRegistration<"file"> = {

@@ -1022,16 +1022,23 @@ function SheetAgentControlsContent(props: SheetAgentControlsContentProps) {
       ) : null}
 
       {hasFeatures ? (
-        <Pressable
-          onPress={handleOpenFeatures}
-          disabled={disabled}
-          style={featuresButtonStyle}
-          accessibilityRole="button"
-          accessibilityLabel={translateNow("ui.open.agent.features.boy25q")}
-          testID="agent-controls-features"
-        >
-          <Settings2 size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
-        </Pressable>
+        <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+          <TooltipTrigger asChild triggerRefProp="ref">
+            <Pressable
+              onPress={handleOpenFeatures}
+              disabled={disabled}
+              style={featuresButtonStyle}
+              accessibilityRole="button"
+              accessibilityLabel={translateNow("ui.open.agent.features.boy25q")}
+              testID="agent-controls-features"
+            >
+              <Settings2 size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
+            </Pressable>
+          </TooltipTrigger>
+          <TooltipContent side="top" align="center" offset={8}>
+            <Text style={styles.tooltipText}>{translateNow("ui.features.1vajrkt")}</Text>
+          </TooltipContent>
+        </Tooltip>
       ) : null}
 
       {hasThinking ? (

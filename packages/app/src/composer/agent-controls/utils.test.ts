@@ -18,9 +18,27 @@ describe("getAgentControlHint", () => {
 });
 
 describe("feature metadata helpers", () => {
+  it("localizes known feature tooltips", () => {
+    expect(
+      getFeatureTooltip({
+        id: "fast_mode",
+        label: "Fast",
+        tooltip: "Toggle fast mode",
+      }),
+    ).toBe("Toggle fast mode");
+    expect(
+      getFeatureTooltip({
+        id: "plan_mode",
+        label: "Plan",
+        tooltip: "Toggle plan mode",
+      }),
+    ).toBe("Toggle plan mode");
+  });
+
   it("prefers explicit feature tooltip copy", () => {
     expect(
       getFeatureTooltip({
+        id: "custom",
         label: "Plan",
         tooltip: "Toggle plan mode",
       }),
@@ -30,6 +48,7 @@ describe("feature metadata helpers", () => {
   it("falls back to the feature label when no tooltip is provided", () => {
     expect(
       getFeatureTooltip({
+        id: "custom",
         label: "Custom",
       }),
     ).toBe("Custom");
@@ -64,7 +83,7 @@ describe("formatAgentModeLabel", () => {
   });
 
   it("splits compact mode ids when no provider label is available", () => {
-    expect(formatAgentModeLabel({ id: "auto-review" })).toBe("Auto review");
+    expect(formatAgentModeLabel({ id: "auto-review" })).toBe("Auto-review");
   });
 });
 

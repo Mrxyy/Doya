@@ -2202,16 +2202,31 @@ function WorkspaceScreenContent({
       if (!location) {
         return;
       }
-      const tabId = openWorkspaceTabFocused(persistenceKey, createWorkspaceFileTabTarget(location));
+      const tabId = openWorkspaceTabFocused(
+        persistenceKey,
+        createWorkspaceFileTabTarget(location, {
+          sourceAgentId: focusedPaneAgentId,
+        }),
+      );
       if (tabId) {
         navigateToTabId(tabId);
       }
     },
-    [isMobile, navigateToTabId, openWorkspaceTabFocused, persistenceKey, showMobileAgent],
+    [
+      focusedPaneAgentId,
+      isMobile,
+      navigateToTabId,
+      openWorkspaceTabFocused,
+      persistenceKey,
+      showMobileAgent,
+    ],
   );
 
   const handleOpenFileFromChat = useCallback(
-    (location: WorkspaceFileLocation, options?: { parentTabId?: string | null }) => {
+    (
+      location: WorkspaceFileLocation,
+      options?: { parentTabId?: string | null; sourceAgentId?: string },
+    ) => {
       const normalizedLocation = normalizeWorkspaceFileLocation(location);
       if (!normalizedLocation) {
         return;
@@ -2222,7 +2237,9 @@ function WorkspaceScreenContent({
       if (!persistenceKey) {
         return;
       }
-      const target = createWorkspaceFileTabTarget(normalizedLocation);
+      const target = createWorkspaceFileTabTarget(normalizedLocation, {
+        sourceAgentId: options?.sourceAgentId,
+      });
       const tabId = options?.parentTabId
         ? openWorkspaceChildTabFocused(persistenceKey, target, options.parentTabId)
         : openWorkspaceTabFocused(persistenceKey, target);
@@ -2245,17 +2262,31 @@ function WorkspaceScreenContent({
       location: WorkspaceFileLocation;
       sourcePaneId?: string;
       parentTabId?: string | null;
+      sourceAgentId?: string;
     }) => {
       const location = normalizeWorkspaceFileLocation(input.location);
       if (!location) {
         return;
       }
-      if (!persistenceKey || isMobile || !input.sourcePaneId) {
-        handleOpenFileFromChat(location, { parentTabId: input.parentTabId });
+      if (!persistenceKey) {
+        return;
+      }
+      if (isMobile || !input.sourcePaneId) {
+        const target = createWorkspaceFileTabTarget(location, {
+          sourceAgentId: input.sourceAgentId,
+        });
+        const tabId = input.parentTabId
+          ? openWorkspaceChildTabFocused(persistenceKey, target, input.parentTabId)
+          : openWorkspaceTabFocused(persistenceKey, target);
+        if (tabId) {
+          navigateToTabId(tabId);
+        }
         return;
       }
 
-      const target: WorkspaceTabTarget = createWorkspaceFileTabTarget(location);
+      const target: WorkspaceTabTarget = createWorkspaceFileTabTarget(location, {
+        sourceAgentId: input.sourceAgentId,
+      });
       const placement = resolveSideFileOpenPlacement({
         layout: workspaceLayout,
         sourcePaneId: input.sourcePaneId,
@@ -2279,7 +2310,6 @@ function WorkspaceScreenContent({
       }
     },
     [
-      handleOpenFileFromChat,
       isMobile,
       focusWorkspacePane,
       navigateToTabId,
@@ -2311,10 +2341,11 @@ function WorkspaceScreenContent({
         location: request.location,
         sourcePaneId: paneId ?? undefined,
         parentTabId,
+        sourceAgentId: request.sourceAgentId,
       });
       return;
     }
-    handleOpenFileFromChat(request.location, { parentTabId });
+    handleOpenFileFromChat(request.location, { parentTabId, sourceAgentId: request.sourceAgentId });
   });
 
   const [hoveredCloseTabKey, setHoveredCloseTabKey] = useState<string | null>(null);

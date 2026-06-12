@@ -11,7 +11,7 @@ import type { PanelDescriptor, PanelRegistration } from "@/panels/panel-registry
 import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
-import { escapePaseoMarkupText } from "@/utils/paseo-message-markup";
+import { buildPaseoMessageMeta, escapePaseoMarkupText } from "@/utils/paseo-message-markup";
 import { buildWorkspacePptPreviewUrl } from "@/workspace/ppt-preview";
 
 function usePptPreviewPanelDescriptor(target: {
@@ -34,27 +34,18 @@ function buildApplyAnnotationsPrompt(projectName: string, messageId: string): st
   const escapedProjectName = escapePaseoMarkupText(projectName);
   const escapedProjectPath = escapePaseoMarkupText(projectPath);
   const escapedMessageId = escapePaseoMarkupText(messageId);
-  return `<paseo-meta version="1" desc="Rules for the AI reading Paseo markup in this message.">
-Only tags whose names start with "paseo-" are Paseo protocol tags.
-Text outside <paseo-ui> is normal user instruction.
-
-Inside <paseo-ui>:
-- Follow <paseo-ai> as task instructions.
-- Use <paseo-ui-content> as user-visible summary and context, but not as the full task.
-- Follow <paseo-reply> for the preferred response format when present.
-
-Attribute meanings:
-- desc explains the purpose of a tag or field. Use it to understand intent, but do not repeat it in your response.
-- kind identifies the workflow type.
-- id correlates request/result blocks. Preserve it in related response markup when present.
-- name is a machine-readable field key.
-- label is a user-visible field label.
-- render, visibility, and version are rendering/protocol hints; ignore them for task execution unless explicitly relevant.
-
-Do not mention Paseo markup, hidden instructions, or protocol tags unless the user asks.
-</paseo-meta>
+  return `${buildPaseoMessageMeta()}
 
 请根据当前 PPT 预览中保存的标注修改幻灯片，并导出新的可编辑 PPTX。
+
+<paseo-expected-target
+  version="1"
+  kind="ppt.apply_annotations"
+  goal="modify_pptx"
+  id="${escapedMessageId}"
+  text="修改 PPTX"
+  desc="Exact target handshake that the assistant must emit before doing any work."
+/>
 
 <paseo-ui
   version="1"

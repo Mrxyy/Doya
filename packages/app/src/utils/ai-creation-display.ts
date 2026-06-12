@@ -12,6 +12,10 @@ const DOCUMENT_PROMPT_PREFIXES = {
 type AiCreationTitleMode = "image" | "slides" | "pdf" | "word" | "spreadsheet" | "edit";
 
 export function extractAiCreationDisplayText(text: string): string | null {
+  if (text.includes("<paseo-ui")) {
+    return null;
+  }
+
   if (text.startsWith(SLIDES_PROMPT_PREFIX)) {
     const marker = "User request:";
     const markerIndex = text.indexOf(marker);

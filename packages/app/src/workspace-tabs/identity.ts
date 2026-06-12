@@ -153,7 +153,7 @@ export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): st
   if (target.kind === "setup") {
     return `setup_${target.workspaceId}`;
   }
-  return `file_${target.path}`;
+  return `file_${target.sourceAgentId ? `${target.sourceAgentId}_` : ""}${target.path}`;
 }
 
 function trimNonEmpty(value: string | null | undefined): string | null {
@@ -168,7 +168,10 @@ function normalizeFileTabTarget(
   value: Extract<WorkspaceTabTarget, { kind: "file" }>,
 ): WorkspaceTabTarget | null {
   const location = normalizeWorkspaceFileLocation(value);
-  return location ? { kind: "file", ...location } : null;
+  const sourceAgentId = trimOptionalString(value.sourceAgentId);
+  return location
+    ? { kind: "file", ...location, ...(sourceAgentId ? { sourceAgentId } : {}) }
+    : null;
 }
 
 function trimOptionalString(value: string | null | undefined): string | null {

@@ -1,11 +1,41 @@
-import { PptxViewer } from "@aiden0z/pptx-renderer";
-import { PDFViewer } from "@embedpdf/react-pdf-viewer";
-import { renderAsync } from "docx-preview";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import {
+  default as React,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type CSSProperties,
+  type MouseEvent,
+} from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import * as XLSX from "xlsx";
-import { translateNow } from "@/i18n/i18n";
+import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
+import type { DocumentAnnotationTarget } from "@/components/document-viewer";
+import {
+  buildDocxAnnotationTargetFromClick,
+  buildSpreadsheetAnnotationTargetFromClick,
+} from "@/utils/document-annotation-event-targets";
+import {
+  buildPdfBuiltinAnnotationTarget,
+  columnNameFromIndex,
+} from "@/utils/document-annotation-target";
+import {
+  parseSpreadsheetPreview,
+  SPREADSHEET_MAX_COLUMNS,
+  SPREADSHEET_MAX_ROWS,
+} from "@/utils/spreadsheet-preview";
+import type { PluginRegistry } from "@embedpdf/react-pdf-viewer";
+import type { I18nCapability, UICapability } from "@embedpdf/snippet";
+import type {
+  AnnotationCapability,
+  AnnotationDocumentState,
+  AnnotationEvent,
+  SidebarAnnotationEntry,
+  TrackedAnnotation,
+} from "@embedpdf/plugin-annotation";
+import { getSidebarAnnotationsWithReplies } from "@embedpdf/plugin-annotation";
 
 export type DocumentViewerKind = "pdf" | "docx" | "pptx" | "csv" | "xlsx";
 
@@ -14,22 +44,51 @@ export interface DocumentViewerProps {
   bytes: Uint8Array;
   mimeType: string;
   fileName: string;
+  annotationMode?: boolean;
+  selectedAnnotationTarget?: DocumentAnnotationTarget | null;
+  pendingAnnotationTargets?: DocumentAnnotationTarget[];
+  onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
 }
 
 type RenderState = { status: "idle" | "loading" | "ready" } | { status: "error"; message: string };
+type PdfViewerComponent = ComponentType<{
+  config: {
+    src: string;
+    theme: { preference: "system" };
+    tabBar: "never";
+    disabledCategories: string[];
+    i18n: {
+      defaultLocale: string;
+      fallbackLocale: string;
+    };
+  };
+  onReady?: (registry: PluginRegistry) => void;
+  style?: CSSProperties;
+}>;
+type PptxViewerInstance = InstanceType<
+  typeof import("@aiden0z/pptx-renderer").PptxViewer
+>;
 
-interface SpreadsheetPreview {
-  sheetNames: string[];
-  activeSheetName: string;
-  rows: string[][];
-  rowCount: number;
-  columnCount: number;
-  truncatedRows: boolean;
-  truncatedColumns: boolean;
-}
-
-const SPREADSHEET_MAX_ROWS = 500;
-const SPREADSHEET_MAX_COLUMNS = 80;
+const PDF_SHAPES_ONLY_DISABLED_CATEGORIES = [
+  "mode-view",
+  "mode-annotate",
+  "mode-insert",
+  "mode-form",
+  "mode-redact",
+  "mode-shapes",
+  "annotation-markup",
+  "annotation-comment",
+  "annotation-link",
+  "annotation-style",
+  "annotation-widget-edit",
+  "annotation-redaction",
+  "annotation-delete",
+  "panel-annotation-style",
+  "stamp",
+  "insert",
+  "form",
+  "redaction",
+];
 
 function createDocumentBlobUrl(input: { bytes: Uint8Array; mimeType: string }): string {
   return URL.createObjectURL(new Blob([getArrayBuffer(input.bytes)], { type: input.mimeType }));
@@ -41,29 +100,257 @@ function getArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 
 function useDocumentBlobUrl(input: { bytes: Uint8Array; mimeType: string }): string | null {
   const [url, setUrl] = useState<string | null>(null);
+  const { bytes, mimeType } = input;
 
   useEffect(() => {
-    const nextUrl = createDocumentBlobUrl(input);
+    const nextUrl = createDocumentBlobUrl({ bytes, mimeType });
     setUrl(nextUrl);
     return () => URL.revokeObjectURL(nextUrl);
-  }, [input.bytes, input.mimeType]);
+  }, [bytes, mimeType]);
 
   return url;
 }
 
-function PdfDocumentViewer({ bytes, mimeType }: Pick<DocumentViewerProps, "bytes" | "mimeType">) {
+function PdfDocumentViewer({
+  annotationMode,
+  bytes,
+  mimeType,
+  onAnnotationTargetSelect,
+}: Pick<DocumentViewerProps, "annotationMode" | "bytes" | "mimeType" | "onAnnotationTargetSelect">) {
+  const { locale } = useI18n();
+  const embedPdfLocale = getEmbedPdfLocale(locale);
   const url = useDocumentBlobUrl({ bytes, mimeType });
-  if (!url) {
+  const [embedPdfRegistry, setEmbedPdfRegistry] = useState<PluginRegistry | null>(null);
+  const onAnnotationTargetSelectRef = useRef(onAnnotationTargetSelect);
+  const [PdfViewerComponent, setPdfViewerComponent] = useState<PdfViewerComponent | null>(null);
+  const pdfConfig = useMemo(
+    () => ({
+      src: url ?? "",
+      theme: { preference: "system" as const },
+      tabBar: "never" as const,
+      disabledCategories: PDF_SHAPES_ONLY_DISABLED_CATEGORIES,
+      i18n: {
+        defaultLocale: embedPdfLocale,
+        fallbackLocale: "en",
+      },
+    }),
+    [embedPdfLocale, url],
+  );
+
+  useEffect(() => {
+    onAnnotationTargetSelectRef.current = onAnnotationTargetSelect;
+  }, [onAnnotationTargetSelect]);
+
+  useEffect(() => {
+    let canceled = false;
+    void import("@embedpdf/react-pdf-viewer").then((module) => {
+      if (!canceled) {
+        setPdfViewerComponent(() => module.PDFViewer as PdfViewerComponent);
+      }
+      return undefined;
+    });
+    return () => {
+      canceled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const registry = embedPdfRegistry;
+    if (!registry || !PdfViewerComponent) {
+      return;
+    }
+    const annotation = getEmbedPdfCapability<AnnotationCapability>(registry, "annotation");
+    if (!annotation) {
+      return;
+    }
+
+    const selectAnnotationTarget = (tracked: TrackedAnnotation | null | undefined) => {
+      if (!tracked) {
+        return;
+      }
+      const target = buildPdfTargetFromTrackedAnnotation({
+        registry,
+        state: annotation.getState(),
+        tracked,
+      });
+      if (target) {
+        onAnnotationTargetSelectRef.current?.(target);
+      }
+    };
+    const handleStateChange = (event: { state?: AnnotationDocumentState }) => {
+      const state = event.state ?? annotation.getState();
+      const selectedUid = state.selectedUids.at(-1);
+      if (selectedUid) {
+        const target = buildPdfTargetFromTrackedAnnotation({
+          registry,
+          state,
+          tracked: state.byUid[selectedUid],
+        });
+        if (target) {
+          onAnnotationTargetSelectRef.current?.(target);
+        }
+      }
+    };
+
+    const unsubscribeState = annotation.onStateChange(handleStateChange);
+    const unsubscribeEvents = annotation.onAnnotationEvent((event: AnnotationEvent) => {
+      if (event.type === "create" || event.type === "update") {
+        const state = annotation.getState();
+        const tracked = annotation.getAnnotationById(event.annotation.id) ?? {
+          commitState: "dirty" as const,
+          object: event.annotation,
+        };
+        const target = buildPdfTargetFromTrackedAnnotation({
+          registry,
+          state,
+          tracked,
+        });
+        if (target) {
+          onAnnotationTargetSelectRef.current?.(target);
+        }
+      }
+    });
+
+    selectAnnotationTarget(annotation.getSelectedAnnotations().at(-1));
+
+    return () => {
+      unsubscribeState();
+      unsubscribeEvents();
+    };
+  }, [embedPdfRegistry, PdfViewerComponent]);
+
+  const handlePdfReady = useCallback(
+    (registry: PluginRegistry) => {
+      setEmbedPdfRegistry(registry);
+      setPdfShapesToolbarVisibility(registry, Boolean(annotationMode));
+      setEmbedPdfLocale(registry, embedPdfLocale);
+    },
+    [annotationMode, embedPdfLocale],
+  );
+
+  useEffect(() => {
+    if (!embedPdfRegistry) {
+      return;
+    }
+    setPdfShapesToolbarVisibility(embedPdfRegistry, Boolean(annotationMode));
+  }, [annotationMode, embedPdfRegistry]);
+
+  if (!url || !PdfViewerComponent) {
     return <DocumentLoadingState label={translateNow("ui.loading.pdf")} />;
   }
   return (
-    <div style={webStyles.fill}>
-      <PDFViewer config={{ src: url, theme: { preference: "system" } }} style={webStyles.fill} />
+    <div data-testid="document-pdf-preview" style={webStyles.fill}>
+      <PdfViewerComponent config={pdfConfig} style={webStyles.fill} onReady={handlePdfReady} />
     </div>
   );
 }
 
-function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
+function getEmbedPdfCapability<T>(registry: PluginRegistry, pluginId: string): T | null {
+  return (registry.getPlugin(pluginId)?.provides?.() as T | undefined) ?? null;
+}
+
+function getEmbedPdfLocale(locale: Locale): string {
+  return locale === "zh" ? "zh-CN" : "en";
+}
+
+function setEmbedPdfLocale(registry: PluginRegistry, locale: string): void {
+  getEmbedPdfCapability<I18nCapability>(registry, "i18n")?.setLocale(locale);
+}
+
+function setPdfShapesToolbarVisibility(registry: PluginRegistry, visible: boolean): void {
+  const ui = getEmbedPdfCapability<UICapability>(registry, "ui");
+  const documentId = registry.getStore().getState().core.activeDocumentId ?? undefined;
+  if (!ui || !documentId) {
+    return;
+  }
+  if (!visible) {
+    ui.forDocument(documentId).closeToolbarSlot("top", "secondary");
+    return;
+  }
+  ui.setActiveToolbar("top", "secondary", "shapes-toolbar", documentId);
+}
+
+function getEmbedPdfPageSize(
+  registry: PluginRegistry,
+  pageIndex: number,
+): { width: number; height: number } | null {
+  const state = registry.getStore().getState();
+  const documentId = state.core.activeDocumentId ?? undefined;
+  const page = documentId ? state.core.documents[documentId]?.document?.pages?.[pageIndex] : null;
+  const width = page?.size?.width;
+  const height = page?.size?.height;
+  return typeof width === "number" && typeof height === "number" && width > 0 && height > 0
+    ? { width, height }
+    : null;
+}
+
+function buildPdfTargetFromTrackedAnnotation(input: {
+  registry: PluginRegistry;
+  state: AnnotationDocumentState;
+  tracked: TrackedAnnotation | null | undefined;
+}): DocumentAnnotationTarget | null {
+  if (!input.tracked) {
+    return null;
+  }
+  const sidebarEntry = findSidebarAnnotationEntry(input.state, input.tracked);
+  const primaryAnnotation = sidebarEntry?.annotation.object ?? input.tracked.object;
+  const target = buildPdfBuiltinAnnotationTarget({
+    annotation: primaryAnnotation,
+    pageSize: getEmbedPdfPageSize(input.registry, primaryAnnotation.pageIndex),
+  });
+  if (!target) {
+    return null;
+  }
+  const replyText = normalizePdfReplyContents(sidebarEntry?.replies ?? []);
+  if (!replyText) {
+    return target;
+  }
+  return {
+    ...target,
+    context: target.context ? `${target.context}; replies=${replyText}` : `replies=${replyText}`,
+  };
+}
+
+function findSidebarAnnotationEntry(
+  state: AnnotationDocumentState,
+  tracked: TrackedAnnotation,
+): SidebarAnnotationEntry | null {
+  const annotationId = tracked.object.id;
+  return (
+    getSidebarAnnotationsWithReplies(state).find((entry) => {
+      if (entry.annotation.object.id === annotationId) {
+        return true;
+      }
+      if (entry.replies.some((reply) => reply.object.id === annotationId)) {
+        return true;
+      }
+      return entry.groupMembers?.some((member) => member.object.id === annotationId) ?? false;
+    }) ?? null
+  );
+}
+
+function normalizePdfReplyContents(replies: TrackedAnnotation[]): string {
+  return replies
+    .map((reply) => reply.object.contents?.replace(/\s+/g, " ").trim() ?? "")
+    .filter(Boolean)
+    .join(" | ")
+    .slice(0, 1000);
+}
+
+function DocxDocumentViewer({
+  bytes,
+  annotationMode,
+  pendingAnnotationTargets,
+  selectedAnnotationTarget,
+  onAnnotationTargetSelect,
+}: Pick<
+  DocumentViewerProps,
+  | "annotationMode"
+  | "bytes"
+  | "onAnnotationTargetSelect"
+  | "pendingAnnotationTargets"
+  | "selectedAnnotationTarget"
+>) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const renderVersionRef = useRef(0);
   const [state, setState] = useState<RenderState>({ status: "idle" });
@@ -84,6 +371,7 @@ function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
 
     async function renderDocx() {
       try {
+        const { renderAsync } = await import("docx-preview");
         await renderAsync(getArrayBuffer(bytes), renderHost, undefined, {
           className: "paseo-docx",
           inWrapper: true,
@@ -115,24 +403,118 @@ function DocxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
     };
   }, [bytes]);
 
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || state.status !== "ready") {
+      return;
+    }
+    updateDocxAnnotationHighlights({
+      root: host,
+      selectedAnnotationTarget,
+      pendingAnnotationTargets: pendingAnnotationTargets ?? [],
+    });
+  }, [pendingAnnotationTargets, selectedAnnotationTarget, state.status]);
+
+  const handleClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (!annotationMode || !onAnnotationTargetSelect || !hostRef.current) {
+        return;
+      }
+      const target = buildDocxAnnotationTargetFromClick({
+        root: hostRef.current,
+        eventTarget: event.target,
+      });
+      if (!target) {
+        return;
+      }
+      onAnnotationTargetSelect(target);
+    },
+    [annotationMode, onAnnotationTargetSelect],
+  );
+
   return (
-    <div style={webStyles.docxRoot}>
+    <div data-testid="document-docx-preview" style={webStyles.docxRoot}>
       {state.status === "idle" || state.status === "loading" ? (
         <DocumentLoadingOverlay label={translateNow("ui.loading.docx")} />
       ) : null}
       {state.status === "error" ? <DocumentErrorOverlay message={state.message} /> : null}
       <div
         aria-label={translateNow("ui.docx.preview.title")}
+        data-testid="document-docx-host"
         ref={hostRef}
-        style={webStyles.docxHost}
+        style={annotationMode ? webStyles.docxHostAnnotatable : webStyles.docxHost}
+        onClick={handleClick}
       />
     </div>
   );
 }
 
+function updateDocxAnnotationHighlights(input: {
+  root: HTMLElement;
+  selectedAnnotationTarget?: DocumentAnnotationTarget | null;
+  pendingAnnotationTargets: DocumentAnnotationTarget[];
+}): void {
+  input.root
+    .querySelectorAll<HTMLElement>("[data-paseo-docx-annotation-state]")
+    .forEach(clearDocxAnnotationHighlight);
+
+  for (const target of input.pendingAnnotationTargets) {
+    const element = findDocxAnnotationElement(input.root, target);
+    if (element) {
+      applyDocxAnnotationHighlight(element, "pending");
+    }
+  }
+
+  const selectedElement = findDocxAnnotationElement(input.root, input.selectedAnnotationTarget);
+  if (selectedElement) {
+    applyDocxAnnotationHighlight(selectedElement, "selected");
+  }
+}
+
+function findDocxAnnotationElement(
+  root: HTMLElement,
+  target: DocumentAnnotationTarget | null | undefined,
+): HTMLElement | null {
+  if (!target || target.kind !== "docx") {
+    return null;
+  }
+  const path = typeof target.locator.path === "string" ? target.locator.path : "";
+  if (!path) {
+    return null;
+  }
+  try {
+    const element = root.querySelector(path);
+    return element instanceof HTMLElement ? element : null;
+  } catch {
+    return null;
+  }
+}
+
+function applyDocxAnnotationHighlight(element: HTMLElement, state: "selected" | "pending"): void {
+  element.dataset.paseoDocxAnnotationState = state;
+  element.style.borderRadius = "4px";
+  if (state === "selected") {
+    element.style.outline = "2px solid rgba(32, 116, 74, 0.72)";
+    element.style.outlineOffset = "2px";
+    element.style.backgroundColor = "rgba(32, 116, 74, 0.12)";
+    return;
+  }
+  element.style.boxShadow = "inset 0 0 0 2px rgba(32, 116, 74, 0.34)";
+  element.style.backgroundColor = "rgba(32, 116, 74, 0.07)";
+}
+
+function clearDocxAnnotationHighlight(element: HTMLElement): void {
+  delete element.dataset.paseoDocxAnnotationState;
+  element.style.outline = "";
+  element.style.outlineOffset = "";
+  element.style.boxShadow = "";
+  element.style.backgroundColor = "";
+  element.style.borderRadius = "";
+}
+
 function PptxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
   const hostRef = useRef<HTMLDivElement | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -142,25 +524,34 @@ function PptxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
     }
 
     const abortController = new AbortController();
-    const viewer = new PptxViewer(host, {
-      fitMode: "contain",
-      zoomPercent: 100,
-      scrollContainer: host,
-    });
     setIsLoading(true);
-    setError(null);
+    setRenderError(null);
+    let viewer: PptxViewerInstance | null = null;
 
-    void viewer
-      .open(getArrayBuffer(bytes), {
-        renderMode: "list",
-        listOptions: { windowed: true, showSlideLabels: true },
-        signal: abortController.signal,
-      })
-      .catch((error) => {
+    void import("@aiden0z/pptx-renderer")
+      .then(({ PptxViewer }) => {
         if (abortController.signal.aborted) {
           return;
         }
-        setError(error instanceof Error ? error.message : translateNow("ui.failed.to.render.pptx"));
+        const nextViewer = new PptxViewer(host, {
+          fitMode: "contain",
+          zoomPercent: 100,
+          scrollContainer: host,
+        });
+        viewer = nextViewer;
+        return nextViewer.open(getArrayBuffer(bytes), {
+          renderMode: "list",
+          listOptions: { windowed: true, showSlideLabels: true },
+          signal: abortController.signal,
+        });
+      })
+      .catch((openError) => {
+        if (abortController.signal.aborted) {
+          return;
+        }
+        setRenderError(
+          openError instanceof Error ? openError.message : translateNow("ui.failed.to.render.pptx"),
+        );
       })
       .finally(() => {
         if (!abortController.signal.aborted) {
@@ -170,7 +561,7 @@ function PptxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
 
     return () => {
       abortController.abort();
-      viewer.destroy();
+      viewer?.destroy();
       host.replaceChildren();
     };
   }, [bytes]);
@@ -178,65 +569,25 @@ function PptxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
   return (
     <div style={webStyles.pptxFrame}>
       {isLoading ? <DocumentLoadingOverlay label={translateNow("ui.loading.pptx")} /> : null}
-      {error ? <DocumentErrorOverlay message={error} /> : null}
+      {renderError ? <DocumentErrorOverlay message={renderError} /> : null}
       <div ref={hostRef} style={webStyles.pptxHost} />
     </div>
   );
 }
 
-function parseSpreadsheetPreview(input: {
-  kind: Extract<DocumentViewerKind, "csv" | "xlsx">;
-  bytes: Uint8Array;
-  activeSheetName?: string;
-}): SpreadsheetPreview {
-  const workbook =
-    input.kind === "csv"
-      ? XLSX.read(new TextDecoder().decode(input.bytes), { type: "string", raw: true })
-      : XLSX.read(input.bytes, { type: "array", cellDates: true });
-  const sheetNames = workbook.SheetNames;
-  const activeSheetName =
-    input.activeSheetName && sheetNames.includes(input.activeSheetName)
-      ? input.activeSheetName
-      : (sheetNames[0] ?? "Sheet1");
-  const sheet = workbook.Sheets[activeSheetName];
-  if (!sheet) {
-    return {
-      sheetNames,
-      activeSheetName,
-      rows: [],
-      rowCount: 0,
-      columnCount: 0,
-      truncatedRows: false,
-      truncatedColumns: false,
-    };
-  }
-
-  const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-    header: 1,
-    blankrows: false,
-    defval: "",
-    raw: false,
-  });
-  const columnCount = rawRows.reduce((max, row) => Math.max(max, row.length), 0);
-  const rows = rawRows
-    .slice(0, SPREADSHEET_MAX_ROWS)
-    .map((row) => row.slice(0, SPREADSHEET_MAX_COLUMNS).map((cell) => String(cell ?? "")));
-  return {
-    sheetNames,
-    activeSheetName,
-    rows,
-    rowCount: rawRows.length,
-    columnCount,
-    truncatedRows: rawRows.length > SPREADSHEET_MAX_ROWS,
-    truncatedColumns: columnCount > SPREADSHEET_MAX_COLUMNS,
-  };
-}
-
 function SpreadsheetDocumentViewer({
   kind,
   bytes,
+  annotationMode,
+  pendingAnnotationTargets,
+  selectedAnnotationTarget,
+  onAnnotationTargetSelect,
 }: Pick<DocumentViewerProps, "bytes"> & {
   kind: Extract<DocumentViewerKind, "csv" | "xlsx">;
+  annotationMode?: boolean;
+  selectedAnnotationTarget?: DocumentAnnotationTarget | null;
+  pendingAnnotationTargets?: DocumentAnnotationTarget[];
+  onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
 }) {
   const [activeSheetName, setActiveSheetName] = useState<string | undefined>(undefined);
   const preview = useMemo(
@@ -245,8 +596,39 @@ function SpreadsheetDocumentViewer({
   );
   const columnIndexes = useMemo(
     () =>
-      Array.from({ length: Math.min(preview.columnCount, SPREADSHEET_MAX_COLUMNS) }, (_, i) => i),
-    [preview.columnCount],
+      Array.from(
+        { length: Math.min(preview.columnCount, SPREADSHEET_MAX_COLUMNS) },
+        (_, index) => preview.startColumnIndex + index,
+      ),
+    [preview.columnCount, preview.startColumnIndex],
+  );
+  const keyedRows = useMemo(
+    () =>
+      preview.rows.map((row) => ({
+        key: `${row.sheetRowIndex + 1}:${row.cells
+          .slice(0, 8)
+          .map((cell) => cell.text)
+          .join("\u0000")}`,
+        cells: row.cells,
+        sheetRowIndex: row.sheetRowIndex,
+      })),
+    [preview.rows],
+  );
+  const handleTableClick = useCallback(
+    (event: MouseEvent<HTMLTableElement>) => {
+      if (!annotationMode || !onAnnotationTargetSelect) {
+        return;
+      }
+      const target = buildSpreadsheetAnnotationTargetFromClick({
+        kind,
+        sheetName: preview.activeSheetName,
+        eventTarget: event.target,
+      });
+      if (target) {
+        onAnnotationTargetSelect(target);
+      }
+    },
+    [annotationMode, kind, onAnnotationTargetSelect, preview.activeSheetName],
   );
 
   if (preview.rowCount === 0 || preview.columnCount === 0) {
@@ -254,22 +636,16 @@ function SpreadsheetDocumentViewer({
   }
 
   return (
-    <div style={webStyles.spreadsheetRoot}>
+    <div data-testid="document-spreadsheet-preview" style={webStyles.spreadsheetRoot}>
       {preview.sheetNames.length > 1 ? (
         <div style={webStyles.sheetTabs}>
           {preview.sheetNames.map((sheetName) => (
-            <button
+            <SpreadsheetSheetTab
               key={sheetName}
-              type="button"
-              style={
-                sheetName === preview.activeSheetName
-                  ? webStyles.sheetTabActive
-                  : webStyles.sheetTab
-              }
-              onClick={() => setActiveSheetName(sheetName)}
-            >
-              {sheetName}
-            </button>
+              active={sheetName === preview.activeSheetName}
+              sheetName={sheetName}
+              onSelect={setActiveSheetName}
+            />
           ))}
         </div>
       ) : null}
@@ -286,32 +662,150 @@ function SpreadsheetDocumentViewer({
           : ""}
       </div>
       <div style={webStyles.spreadsheetScroller}>
-        <table style={webStyles.spreadsheetTable}>
+        <table
+          data-testid="document-spreadsheet-table"
+          style={webStyles.spreadsheetTable}
+          onClick={handleTableClick}
+        >
           <thead>
             <tr>
               <th style={webStyles.cornerHeaderCell} />
               {columnIndexes.map((columnIndex) => (
                 <th key={columnIndex} style={webStyles.columnHeaderCell}>
-                  {columnIndex + 1}
+                  {columnNameFromIndex(columnIndex)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {preview.rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                <th style={webStyles.rowHeaderCell}>{rowIndex + 1}</th>
-                {columnIndexes.map((columnIndex) => (
-                  <td key={columnIndex} style={webStyles.spreadsheetCell}>
-                    {row[columnIndex] ?? ""}
-                  </td>
-                ))}
+            {keyedRows.map(({ key, cells, sheetRowIndex }) => (
+              <tr key={key}>
+                <th style={webStyles.rowHeaderCell}>{sheetRowIndex + 1}</th>
+                {columnIndexes.map((columnIndex, displayColumnIndex) => {
+                  const cell = cells[displayColumnIndex];
+                  const annotationState = getSpreadsheetAnnotationCellState({
+                    kind,
+                    sheetName: preview.activeSheetName,
+                    rowIndex: sheetRowIndex,
+                    columnIndex,
+                    selectedAnnotationTarget,
+                    pendingAnnotationTargets: pendingAnnotationTargets ?? [],
+                  });
+                  return (
+                    <td
+                      key={columnIndex}
+                      data-annotation-state={annotationState}
+                      data-column-index={columnIndex}
+                      data-formatted-value={cell?.formattedValue ?? ""}
+                      data-formula={cell?.formula ?? ""}
+                      data-raw-value={cell?.rawValue ?? ""}
+                      data-row-index={sheetRowIndex}
+                      data-testid={formatSpreadsheetCellTestId({
+                        sheetName: preview.activeSheetName,
+                        columnIndex,
+                        rowIndex: sheetRowIndex,
+                      })}
+                      data-value={cell?.text ?? ""}
+                      style={getSpreadsheetCellStyle({
+                        annotationMode,
+                        annotationState,
+                      })}
+                    >
+                      {cell?.text ?? ""}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function getSpreadsheetAnnotationCellState(input: {
+  kind: Extract<DocumentViewerKind, "csv" | "xlsx">;
+  sheetName: string;
+  rowIndex: number;
+  columnIndex: number;
+  selectedAnnotationTarget?: DocumentAnnotationTarget | null;
+  pendingAnnotationTargets: DocumentAnnotationTarget[];
+}): "selected" | "pending" | "none" {
+  const isSelected = spreadsheetTargetMatchesCell(input.selectedAnnotationTarget, input);
+  if (isSelected) {
+    return "selected";
+  }
+  return input.pendingAnnotationTargets.some((target) =>
+    spreadsheetTargetMatchesCell(target, input),
+  )
+    ? "pending"
+    : "none";
+}
+
+function spreadsheetTargetMatchesCell(
+  target: DocumentAnnotationTarget | null | undefined,
+  cell: {
+    kind: Extract<DocumentViewerKind, "csv" | "xlsx">;
+    sheetName: string;
+    rowIndex: number;
+    columnIndex: number;
+  },
+): boolean {
+  if (!target || target.kind !== cell.kind) {
+    return false;
+  }
+  return (
+    target.locator.type === "cell" &&
+    target.locator.sheet === cell.sheetName &&
+    target.locator.row === cell.rowIndex + 1 &&
+    target.locator.column === cell.columnIndex + 1
+  );
+}
+
+function getSpreadsheetCellStyle(input: {
+  annotationMode?: boolean;
+  annotationState: "selected" | "pending" | "none";
+}): CSSProperties {
+  const baseStyle = input.annotationMode
+    ? webStyles.spreadsheetCellAnnotatable
+    : webStyles.spreadsheetCell;
+  if (input.annotationState === "selected") {
+    return { ...baseStyle, ...webStyles.spreadsheetCellSelected };
+  }
+  if (input.annotationState === "pending") {
+    return { ...baseStyle, ...webStyles.spreadsheetCellPending };
+  }
+  return baseStyle;
+}
+
+function formatSpreadsheetCellTestId(input: {
+  sheetName: string;
+  columnIndex: number;
+  rowIndex: number;
+}): string {
+  const safeSheetName = input.sheetName.replace(/[^A-Za-z0-9_-]+/g, "_");
+  return `document-spreadsheet-cell-${safeSheetName}-${columnNameFromIndex(input.columnIndex)}${input.rowIndex + 1}`;
+}
+
+function SpreadsheetSheetTab({
+  active,
+  sheetName,
+  onSelect,
+}: {
+  active: boolean;
+  sheetName: string;
+  onSelect: (sheetName: string) => void;
+}) {
+  const handleClick = useCallback(() => onSelect(sheetName), [onSelect, sheetName]);
+  return (
+    <button
+      type="button"
+      style={active ? webStyles.sheetTabActive : webStyles.sheetTab}
+      onClick={handleClick}
+    >
+      {sheetName}
+    </button>
   );
 }
 
@@ -349,18 +843,50 @@ function DocumentErrorOverlay({ message }: { message: string }) {
   );
 }
 
-export function DocumentViewer({ kind, bytes, mimeType }: DocumentViewerProps) {
+export function DocumentViewer({
+  kind,
+  bytes,
+  mimeType,
+  annotationMode,
+  pendingAnnotationTargets,
+  selectedAnnotationTarget,
+  onAnnotationTargetSelect,
+}: DocumentViewerProps) {
   const stableBytes = useMemo(() => bytes, [bytes]);
   if (kind === "pdf") {
-    return <PdfDocumentViewer bytes={stableBytes} mimeType={mimeType} />;
+    return (
+      <PdfDocumentViewer
+        annotationMode={annotationMode}
+        bytes={stableBytes}
+        mimeType={mimeType}
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />
+    );
   }
   if (kind === "docx") {
-    return <DocxDocumentViewer bytes={stableBytes} />;
+    return (
+      <DocxDocumentViewer
+        annotationMode={annotationMode}
+        bytes={stableBytes}
+        pendingAnnotationTargets={pendingAnnotationTargets}
+        selectedAnnotationTarget={selectedAnnotationTarget}
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />
+    );
   }
   if (kind === "pptx") {
     return <PptxDocumentViewer bytes={stableBytes} />;
   }
-  return <SpreadsheetDocumentViewer kind={kind} bytes={stableBytes} />;
+  return (
+    <SpreadsheetDocumentViewer
+      annotationMode={annotationMode}
+      kind={kind}
+      bytes={stableBytes}
+      pendingAnnotationTargets={pendingAnnotationTargets}
+      selectedAnnotationTarget={selectedAnnotationTarget}
+      onAnnotationTargetSelect={onAnnotationTargetSelect}
+    />
+  );
 }
 
 const webStyles = {
@@ -368,6 +894,12 @@ const webStyles = {
     width: "100%",
     height: "100%",
     minHeight: 0,
+  },
+  fillAnnotatable: {
+    width: "100%",
+    height: "100%",
+    minHeight: 0,
+    cursor: "crosshair",
   },
   docxRoot: {
     position: "relative",
@@ -383,6 +915,14 @@ const webStyles = {
     minHeight: 0,
     overflow: "auto",
     padding: "24px 0",
+  },
+  docxHostAnnotatable: {
+    width: "100%",
+    height: "100%",
+    minHeight: 0,
+    overflow: "auto",
+    padding: "24px 0",
+    cursor: "crosshair",
   },
   pptxFrame: {
     position: "relative",
@@ -497,6 +1037,28 @@ const webStyles = {
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+  },
+  spreadsheetCellAnnotatable: {
+    minWidth: 120,
+    maxWidth: 280,
+    padding: "6px 8px",
+    color: "#18181b",
+    background: "#fff",
+    borderRight: "1px solid #e4e4e7",
+    borderBottom: "1px solid #e4e4e7",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    cursor: "crosshair",
+  },
+  spreadsheetCellSelected: {
+    background: "rgba(32, 116, 74, 0.12)",
+    outline: "2px solid rgba(32, 116, 74, 0.72)",
+    outlineOffset: -2,
+  },
+  spreadsheetCellPending: {
+    background: "rgba(32, 116, 74, 0.07)",
+    boxShadow: "inset 0 0 0 2px rgba(32, 116, 74, 0.34)",
   },
 } satisfies Record<string, CSSProperties>;
 

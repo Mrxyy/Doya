@@ -25,7 +25,11 @@ export function normalizeModelId(modelId: string | null | undefined): string | n
   return normalized;
 }
 
-export function getFeatureTooltip(feature: Pick<AgentFeature, "label" | "tooltip">): string {
+export function getFeatureTooltip(feature: Pick<AgentFeature, "id" | "label" | "tooltip">): string {
+  const localized = getLocalizedFeatureTooltip(feature);
+  if (localized) {
+    return localized;
+  }
   return feature.tooltip ?? feature.label;
 }
 
@@ -107,6 +111,10 @@ function getLocalizedAgentModeLabel(compact: string): string | null {
     case "autoaccept":
     case "autoacceptedits":
       return translateNow("composer.agentMode.autoAccept");
+    case "autoreview":
+      return translateNow("composer.agentMode.autoReview");
+    case "fullaccess":
+      return translateNow("composer.agentMode.fullAccess");
     case "planmode":
       return translateNow("composer.agentMode.plan");
     default:
@@ -130,6 +138,19 @@ function getLocalizedThinkingOptionLabel(compact: string): string | null {
     case "auto":
     case "default":
       return translateNow("composer.thinking.auto");
+    default:
+      return null;
+  }
+}
+
+function getLocalizedFeatureTooltip(feature: Pick<AgentFeature, "id">): string | null {
+  switch (feature.id) {
+    case "fast_mode":
+      return translateNow("composer.agentFeature.fastMode.tooltip");
+    case "plan_mode":
+      return translateNow("composer.agentFeature.planMode.tooltip");
+    case "auto_accept":
+      return translateNow("composer.agentFeature.autoAccept.tooltip");
     default:
       return null;
   }

@@ -38,14 +38,14 @@ Current app icon source:
 
 Supporting variants:
 
-- `packages/app/assets/icons/doya-mono.svg` — monochrome `currentColor` icon for UI chrome
-- `packages/app/assets/icons/doya-mono-24.png` — derived 24x24 monochrome PNG
+- `packages/app/assets/icons/doya-mono.svg` — historical filename for the transparent brand-color sprout mark
+- `packages/app/assets/icons/doya-mono-24.png` — derived 24x24 transparent brand-color PNG
 - `packages/app/assets/icons/doya-light.svg` — light-background tile variant matching the primary filled style
 - `packages/app/assets/icons/doya-light-24.png` — derived 24x24 light-background PNG
 
 The primary logo has a rounded light-green tile background. Use the filled mark by default.
 
-Use the monochrome variant only when the mark must inherit surrounding UI color. Do not use transparent primary logo files for normal brand surfaces except for the rounded tile corners required by the brand mark.
+Use the transparent sprout mark only when the surrounding surface already supplies an appropriate background. Do not use transparent primary logo files for normal brand surfaces except for the rounded tile corners required by the brand mark.
 
 ---
 
@@ -60,7 +60,7 @@ Primary logo colors:
 | Right leaf | `#9BDB45` |
 | Seed       | `#D0A13A` |
 
-The monochrome variant inherits `currentColor` and should be used when the mark needs to match surrounding UI text or icon color.
+The transparent sprout mark uses the same brand colors without the tile background.
 
 Avoid purple gradients, dark cyberpunk styling, beige/brown dominance, robot faces, and code-symbol clutter in brand marks. The sprout is the identity.
 

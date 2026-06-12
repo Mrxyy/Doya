@@ -47,6 +47,7 @@ import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-
 import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
 import { encodeImages } from "@/utils/encode-images";
+import { buildPaseoMessageMeta, escapePaseoMarkupText } from "@/utils/paseo-message-markup";
 import { buildHostAgentDetailRoute, buildHostLoginRoute } from "@/utils/host-routes";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
@@ -81,12 +82,6 @@ const HOME_TITLE_GRADIENT_KEYFRAME_CSS = `
 `;
 
 type HomeAiCreationMode = "image" | "slides" | "pdf" | "word" | "spreadsheet";
-type HomeAiCreationIntent =
-  | "imagegen"
-  | "ppt_creation"
-  | "pdf_creation"
-  | "word_creation"
-  | "spreadsheet_creation";
 
 const HOME_AI_CREATION_RATIO = "16:9";
 const HOME_AI_CREATION_STYLE = "auto";
@@ -252,7 +247,16 @@ export function NewSessionDraftScreen({
         toast.error(t("openProject.error.selectModel"));
         return;
       }
-      const submitText = resolveHomeSubmitText(payload, aiCreationContext);
+      const clientMessageId = generateMessageId();
+      const effectiveAiCreationContext = resolveHomeAiCreationContext(
+        payload.text,
+        aiCreationContext,
+      );
+      const submitText = resolveHomeSubmitText(
+        payload,
+        effectiveAiCreationContext,
+        clientMessageId,
+      );
       if (!hasHomeSubmitContent(submitText, payload.attachments)) {
         return;
       }
@@ -306,7 +310,6 @@ export function NewSessionDraftScreen({
             }),
         });
         const images = await encodeImages(wirePayload.images);
-        const clientMessageId = generateMessageId();
         const config = buildWorkspaceDraftAgentConfig({
           provider: provider as AgentProvider,
           cwd: workspace.workspaceDirectory,
@@ -325,13 +328,12 @@ export function NewSessionDraftScreen({
           clientMessageId,
           ...(images && images.length > 0 ? { images } : {}),
           ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
-          ...buildHomeAiCreationLabels(aiCreationContext),
         });
         await saveAiCreationMessageDisplayMetadata({
           serverId,
           agentId: agent.id,
           messageId: clientMessageId,
-          text: submitText.displayText,
+          text: submitText.agentText,
           metadata: {
             images: wirePayload.displayImages,
             displayAttachments: wirePayload.displayAttachments,
@@ -344,7 +346,7 @@ export function NewSessionDraftScreen({
           agent.id,
           buildOptimisticUserMessage({
             id: clientMessageId,
-            text: submitText.displayText,
+            text: submitText.agentText,
             timestamp: new Date(),
             images: wirePayload.displayImages,
             attachments: wirePayload.attachments,
@@ -1085,6 +1087,7 @@ function clampSessionTitle(value: string): string {
 function resolveHomeSubmitText(
   payload: MessagePayload,
   aiCreationContext: HomeAiCreationSubmitContext | undefined,
+  messageId: string,
 ): { agentText: string; displayText: string } {
   const rawText = payload.text.trim();
   const displayText = aiCreationContext?.displayText.trim() || rawText;
@@ -1092,6 +1095,7 @@ function resolveHomeSubmitText(
     displayText,
     agentText: aiCreationContext
       ? buildHomeAiCreationPrompt({
+          messageId,
           mode: aiCreationContext.mode,
           prompt: displayText,
           referenceCount: payload.attachments.length,
@@ -1100,72 +1104,233 @@ function resolveHomeSubmitText(
   };
 }
 
-function buildHomeAiCreationLabels(aiCreationContext: HomeAiCreationSubmitContext | undefined): {
-  labels?: { surface: "ai_creation"; intent: HomeAiCreationIntent };
-} {
-  if (!aiCreationContext) {
-    return {};
-  }
-  return {
-    labels: {
-      surface: "ai_creation",
-      intent: getHomeAiCreationIntentForMode(aiCreationContext.mode),
-    },
-  };
+function resolveHomeAiCreationContext(
+  text: string,
+  explicitContext: HomeAiCreationSubmitContext | undefined,
+): HomeAiCreationSubmitContext | undefined {
+  return explicitContext ?? inferHomeAiCreationContextFromText(text);
 }
 
-function getHomeAiCreationIntentForMode(mode: HomeAiCreationMode): HomeAiCreationIntent {
-  if (mode === "slides") {
-    return "ppt_creation";
+function inferHomeAiCreationContextFromText(text: string): HomeAiCreationSubmitContext | undefined {
+  const displayText = text.trim();
+  if (!displayText) {
+    return undefined;
   }
-  if (mode === "pdf") {
-    return "pdf_creation";
+  const normalized = displayText.toLowerCase();
+  const mode = inferHomeAiCreationModeFromText(normalized);
+  return mode ? { mode, displayText } : undefined;
+}
+
+function inferHomeAiCreationModeFromText(normalizedText: string): HomeAiCreationMode | null {
+  if (
+    /(?:pptx?|幻灯片|演示文稿|路演稿|投资人路演|pitch\s*deck|slide\s*deck|presentation)/i.test(
+      normalizedText,
+    )
+  ) {
+    return "slides";
   }
-  if (mode === "word") {
-    return "word_creation";
+  if (/(?:xlsx?|excel|spreadsheet|电子表格|预算表|数据表|表格|公式)/i.test(normalizedText)) {
+    return "spreadsheet";
   }
-  if (mode === "spreadsheet") {
-    return "spreadsheet_creation";
+  if (/(?:pdf|白皮书|报告书)/i.test(normalizedText)) {
+    return "pdf";
   }
-  return "imagegen";
+  if (/(?:docx?|word|prd|需求文档|产品需求|文档|方案书)/i.test(normalizedText)) {
+    return "word";
+  }
+  if (
+    /(?:图片|图像|海报|插画|logo|头像|封面图|配图|image|poster|illustration)/i.test(normalizedText)
+  ) {
+    return "image";
+  }
+  return null;
 }
 
 function buildHomeAiCreationPrompt(input: {
+  messageId: string;
   mode: HomeAiCreationMode;
   prompt: string;
   referenceCount: number;
 }): string {
+  const baseInput = {
+    messageId: input.messageId,
+    mode: input.mode,
+    prompt: input.prompt,
+  };
   if (input.mode === "slides") {
-    return buildHomeSlidesPrompt({
-      prompt: input.prompt,
-      sourceFileCount: input.referenceCount,
+    return buildHomeAiCreationMarkupPrompt({
+      ...baseInput,
+      ratio: HOME_AI_CREATION_RATIO,
+      sourceCount: input.referenceCount,
+      aiInstructions: buildHomeSlidesPrompt({
+        prompt: input.prompt,
+        sourceFileCount: input.referenceCount,
+      }),
     });
   }
   if (input.mode === "pdf") {
-    return buildHomeDocumentCreationPrompt({
-      kind: "pdf",
-      prompt: input.prompt,
-      sourceFileCount: input.referenceCount,
+    return buildHomeAiCreationMarkupPrompt({
+      ...baseInput,
+      sourceCount: input.referenceCount,
+      aiInstructions: buildHomeDocumentCreationPrompt({
+        kind: "pdf",
+        prompt: input.prompt,
+        sourceFileCount: input.referenceCount,
+      }),
     });
   }
   if (input.mode === "word") {
-    return buildHomeDocumentCreationPrompt({
-      kind: "word",
-      prompt: input.prompt,
-      sourceFileCount: input.referenceCount,
+    return buildHomeAiCreationMarkupPrompt({
+      ...baseInput,
+      sourceCount: input.referenceCount,
+      aiInstructions: buildHomeDocumentCreationPrompt({
+        kind: "word",
+        prompt: input.prompt,
+        sourceFileCount: input.referenceCount,
+      }),
     });
   }
   if (input.mode === "spreadsheet") {
-    return buildHomeDocumentCreationPrompt({
-      kind: "spreadsheet",
-      prompt: input.prompt,
-      sourceFileCount: input.referenceCount,
+    return buildHomeAiCreationMarkupPrompt({
+      ...baseInput,
+      sourceCount: input.referenceCount,
+      aiInstructions: buildHomeDocumentCreationPrompt({
+        kind: "spreadsheet",
+        prompt: input.prompt,
+        sourceFileCount: input.referenceCount,
+      }),
     });
   }
-  return buildHomeImagegenPrompt({
-    prompt: input.prompt,
-    referenceCount: input.referenceCount,
+  return buildHomeAiCreationMarkupPrompt({
+    ...baseInput,
+    ratio: HOME_AI_CREATION_RATIO,
+    style: HOME_STYLE_PROMPT_LABELS[HOME_AI_CREATION_STYLE],
+    sourceCount: input.referenceCount,
+    aiInstructions: buildHomeImagegenPrompt({
+      prompt: input.prompt,
+      referenceCount: input.referenceCount,
+    }),
   });
+}
+
+function buildHomeAiCreationMarkupPrompt(input: {
+  messageId: string;
+  mode: HomeAiCreationMode;
+  prompt: string;
+  aiInstructions: string;
+  ratio?: string;
+  style?: string;
+  sourceCount?: number;
+}): string {
+  const config = getHomeAiCreationMarkupConfig(input.mode);
+  const escapedMessageId = escapePaseoMarkupText(input.messageId);
+  const escapedPrompt = escapePaseoMarkupText(input.prompt);
+  const fields = [
+    `<paseo-field name="request" label="需求" desc="Original user creation request.">${escapedPrompt}</paseo-field>`,
+    input.ratio
+      ? `<paseo-field name="ratio" label="比例" desc="Requested output aspect ratio.">${escapePaseoMarkupText(input.ratio)}</paseo-field>`
+      : null,
+    input.style
+      ? `<paseo-field name="style" label="风格" desc="Requested visual style.">${escapePaseoMarkupText(input.style)}</paseo-field>`
+      : null,
+    typeof input.sourceCount === "number" && input.sourceCount > 0
+      ? `<paseo-field name="source_count" label="素材数" desc="Number of attached source files or images.">${input.sourceCount}</paseo-field>`
+      : null,
+  ].filter((field): field is string => Boolean(field));
+
+  return `${buildPaseoMessageMeta()}
+
+${config.normalInstruction}
+
+<paseo-expected-target
+  version="1"
+  kind="${config.kind}"
+  goal="${config.goal}"
+  id="${escapedMessageId}"
+  text="${config.targetText}"
+  desc="Exact target handshake that the assistant must emit before doing any work."
+/>
+
+<paseo-ui
+  version="1"
+  kind="${config.kind}"
+  render="card"
+  visibility="summary"
+  id="${escapedMessageId}"
+  desc="${config.cardDesc}"
+>
+  <paseo-ui-content desc="User-visible card content. Paseo may render this instead of the full prompt.">
+    <paseo-title desc="Title shown in the user message card.">${config.title}</paseo-title>
+    <paseo-summary desc="Short user-visible summary of this task.">${escapedPrompt}</paseo-summary>
+    ${fields.join("\n    ")}
+  </paseo-ui-content>
+
+  <paseo-ai desc="Task instructions the AI must follow. Paseo may hide this section from the chat UI.">
+${escapePaseoMarkupText(input.aiInstructions)}
+  </paseo-ai>
+
+  <paseo-reply desc="Preferred response format. Paseo may render a matching result block specially.">
+Follow the final reply requirements in <paseo-ai>. Preserve the request id "${escapedMessageId}" if you emit a matching result block.
+  </paseo-reply>
+</paseo-ui>`;
+}
+
+function getHomeAiCreationMarkupConfig(mode: HomeAiCreationMode): {
+  kind: string;
+  goal: string;
+  targetText: string;
+  title: string;
+  normalInstruction: string;
+  cardDesc: string;
+} {
+  if (mode === "slides") {
+    return {
+      kind: "ai_creation.slides.create",
+      goal: "create_pptx",
+      targetText: "创建 PPT",
+      title: "创建 PPT",
+      normalInstruction: "请根据用户需求创建可编辑 PPTX。",
+      cardDesc: "A Paseo-renderable task card for an AI slide deck creation request.",
+    };
+  }
+  if (mode === "pdf") {
+    return {
+      kind: "ai_creation.document.pdf.create",
+      goal: "create_pdf",
+      targetText: "创建 PDF",
+      title: "创建 PDF",
+      normalInstruction: "请根据用户需求创建 PDF 文档。",
+      cardDesc: "A Paseo-renderable task card for an AI PDF creation request.",
+    };
+  }
+  if (mode === "word") {
+    return {
+      kind: "ai_creation.document.word.create",
+      goal: "create_docx",
+      targetText: "创建 Word",
+      title: "创建 Word",
+      normalInstruction: "请根据用户需求创建 Word 文档。",
+      cardDesc: "A Paseo-renderable task card for an AI Word document creation request.",
+    };
+  }
+  if (mode === "spreadsheet") {
+    return {
+      kind: "ai_creation.spreadsheet.create",
+      goal: "create_spreadsheet",
+      targetText: "创建表格",
+      title: "创建表格",
+      normalInstruction: "请根据用户需求创建电子表格。",
+      cardDesc: "A Paseo-renderable task card for an AI spreadsheet creation request.",
+    };
+  }
+  return {
+    kind: "ai_creation.image.generate",
+    goal: "generate_image",
+    targetText: "生成图片",
+    title: "生成图片",
+    normalInstruction: "请根据用户需求生成图片。",
+    cardDesc: "A Paseo-renderable task card for an AI image generation request.",
+  };
 }
 
 function buildHomeImagegenPrompt(input: { prompt: string; referenceCount: number }): string {

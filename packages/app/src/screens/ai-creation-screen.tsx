@@ -111,6 +111,7 @@ import {
 import { useRecommendedProjectPaths, useWorkspaceFields } from "@/stores/session-store-hooks";
 import { buildAiCreationTitle } from "@/utils/ai-creation-display";
 import { encodeImages } from "@/utils/encode-images";
+import { buildPaseoMessageMeta, escapePaseoMarkupText } from "@/utils/paseo-message-markup";
 import {
   buildHostAgentDetailRoute,
   buildHostHomeRoute,
@@ -1292,33 +1293,6 @@ function inferAspectRatioFromPrompt(prompt: string): AspectRatio | null {
   return match[1] as AspectRatio;
 }
 
-function getAiCreationIntentForMode(
-  mode: CreationMode,
-):
-  | "imagegen"
-  | "image_edit"
-  | "ppt_creation"
-  | "pdf_creation"
-  | "word_creation"
-  | "spreadsheet_creation" {
-  if (mode === "slides") {
-    return "ppt_creation";
-  }
-  if (mode === "edit") {
-    return "image_edit";
-  }
-  if (mode === "pdf") {
-    return "pdf_creation";
-  }
-  if (mode === "word") {
-    return "word_creation";
-  }
-  if (mode === "spreadsheet") {
-    return "spreadsheet_creation";
-  }
-  return "imagegen";
-}
-
 function getPromptPlaceholderKey(mode: Exclude<CreationMode, "edit">): TranslationKey {
   if (mode === "slides") {
     return "aiCreation.prompt.slidesPlaceholder";
@@ -1843,6 +1817,7 @@ export function AiCreationScreen({
           })
         : null;
       const initialPrompt = buildAiCreationPrompt({
+        messageId: clientMessageId,
         mode,
         prompt: trimmedPrompt,
         ratio,
@@ -1852,7 +1827,7 @@ export function AiCreationScreen({
         hasSelectionGuide,
       });
       if (editTargetAgentId) {
-        const userMessageText = buildAiCreationUserMessageText({ mode, prompt: trimmedPrompt });
+        const userMessageText = initialPrompt;
         const selectionImageForDisplay =
           hasSelectionGuide && submittedEditImage ? submittedEditImage : undefined;
         const hasSelectionReference = Boolean(selectionPreviewUri && selectionImageForDisplay);
@@ -2028,10 +2003,6 @@ export function AiCreationScreen({
           ? { images: initialImages }
           : {}),
         ...(fileAttachments && fileAttachments.length > 0 ? { attachments: fileAttachments } : {}),
-        labels: {
-          surface: "ai_creation",
-          intent: getAiCreationIntentForMode(mode),
-        },
       });
       const selectionImageForDisplay =
         mode === "edit" && hasSelectionGuide && submittedEditImage ? submittedEditImage : undefined;
@@ -2055,7 +2026,7 @@ export function AiCreationScreen({
           : mode === "image"
             ? submittedReferences
             : [];
-      const userMessageText = buildAiCreationUserMessageText({ mode, prompt: trimmedPrompt });
+      const userMessageText = initialPrompt;
       await saveAiCreationMessageDisplayMetadata({
         serverId,
         agentId: result.id,
@@ -3524,6 +3495,7 @@ async function createAiCreationWorkspace(
 }
 
 function buildAiCreationPrompt(input: {
+  messageId: string;
   mode: CreationMode;
   prompt: string;
   ratio: AspectRatio;
@@ -3532,49 +3504,212 @@ function buildAiCreationPrompt(input: {
   extraImageCount: number;
   hasSelectionGuide: boolean;
 }): string {
+  const baseInput = {
+    messageId: input.messageId,
+    mode: input.mode,
+    prompt: input.prompt,
+  };
   if (input.mode === "edit") {
-    return buildImageEditPrompt({
-      prompt: input.prompt,
+    return buildAiCreationMarkupPrompt({
+      ...baseInput,
       ratio: input.ratio,
-      style: input.style,
-      extraImageCount: input.extraImageCount,
-      hasSelectionGuide: input.hasSelectionGuide,
+      sourceCount: input.extraImageCount + 1,
+      aiInstructions: buildImageEditPrompt({
+        prompt: input.prompt,
+        ratio: input.ratio,
+        style: input.style,
+        extraImageCount: input.extraImageCount,
+        hasSelectionGuide: input.hasSelectionGuide,
+      }),
     });
   }
   if (input.mode === "slides") {
-    return buildSlidesPrompt({
-      prompt: input.prompt,
+    return buildAiCreationMarkupPrompt({
+      ...baseInput,
       ratio: input.ratio,
-      sourceFileCount: input.referenceCount,
+      sourceCount: input.referenceCount,
+      aiInstructions: buildSlidesPrompt({
+        prompt: input.prompt,
+        ratio: input.ratio,
+        sourceFileCount: input.referenceCount,
+      }),
     });
   }
   if (input.mode === "pdf") {
-    return buildDocumentCreationPrompt({
-      kind: "pdf",
-      prompt: input.prompt,
-      sourceFileCount: input.referenceCount,
+    return buildAiCreationMarkupPrompt({
+      ...baseInput,
+      sourceCount: input.referenceCount,
+      aiInstructions: buildDocumentCreationPrompt({
+        kind: "pdf",
+        prompt: input.prompt,
+        sourceFileCount: input.referenceCount,
+      }),
     });
   }
   if (input.mode === "word") {
-    return buildDocumentCreationPrompt({
-      kind: "word",
-      prompt: input.prompt,
-      sourceFileCount: input.referenceCount,
+    return buildAiCreationMarkupPrompt({
+      ...baseInput,
+      sourceCount: input.referenceCount,
+      aiInstructions: buildDocumentCreationPrompt({
+        kind: "word",
+        prompt: input.prompt,
+        sourceFileCount: input.referenceCount,
+      }),
     });
   }
   if (input.mode === "spreadsheet") {
-    return buildDocumentCreationPrompt({
-      kind: "spreadsheet",
-      prompt: input.prompt,
-      sourceFileCount: input.referenceCount,
+    return buildAiCreationMarkupPrompt({
+      ...baseInput,
+      sourceCount: input.referenceCount,
+      aiInstructions: buildDocumentCreationPrompt({
+        kind: "spreadsheet",
+        prompt: input.prompt,
+        sourceFileCount: input.referenceCount,
+      }),
     });
   }
-  return buildImagegenPrompt({
-    prompt: input.prompt,
+  return buildAiCreationMarkupPrompt({
+    ...baseInput,
     ratio: input.ratio,
-    style: input.style,
-    referenceCount: input.referenceCount,
+    style: STYLE_PROMPT_LABELS[input.style],
+    sourceCount: input.referenceCount,
+    aiInstructions: buildImagegenPrompt({
+      prompt: input.prompt,
+      ratio: input.ratio,
+      style: input.style,
+      referenceCount: input.referenceCount,
+    }),
   });
+}
+
+function buildAiCreationMarkupPrompt(input: {
+  messageId: string;
+  mode: CreationMode;
+  prompt: string;
+  aiInstructions: string;
+  ratio?: AspectRatio;
+  style?: string;
+  sourceCount?: number;
+}): string {
+  const config = getAiCreationMarkupConfig(input.mode);
+  const escapedMessageId = escapePaseoMarkupText(input.messageId);
+  const escapedPrompt = escapePaseoMarkupText(input.prompt);
+  const fields = [
+    `<paseo-field name="request" label="需求" desc="Original user creation request.">${escapedPrompt}</paseo-field>`,
+    input.ratio
+      ? `<paseo-field name="ratio" label="比例" desc="Requested output aspect ratio.">${escapePaseoMarkupText(input.ratio)}</paseo-field>`
+      : null,
+    input.style
+      ? `<paseo-field name="style" label="风格" desc="Requested visual style.">${escapePaseoMarkupText(input.style)}</paseo-field>`
+      : null,
+    typeof input.sourceCount === "number" && input.sourceCount > 0
+      ? `<paseo-field name="source_count" label="素材数" desc="Number of attached source files or images.">${input.sourceCount}</paseo-field>`
+      : null,
+  ].filter((field): field is string => Boolean(field));
+
+  return `${buildPaseoMessageMeta()}
+
+${config.normalInstruction}
+
+<paseo-expected-target
+  version="1"
+  kind="${config.kind}"
+  goal="${config.goal}"
+  id="${escapedMessageId}"
+  text="${config.targetText}"
+  desc="Exact target handshake that the assistant must emit before doing any work."
+/>
+
+<paseo-ui
+  version="1"
+  kind="${config.kind}"
+  render="card"
+  visibility="summary"
+  id="${escapedMessageId}"
+  desc="${config.cardDesc}"
+>
+  <paseo-ui-content desc="User-visible card content. Paseo may render this instead of the full prompt.">
+    <paseo-title desc="Title shown in the user message card.">${config.title}</paseo-title>
+    <paseo-summary desc="Short user-visible summary of this task.">${escapedPrompt}</paseo-summary>
+    ${fields.join("\n    ")}
+  </paseo-ui-content>
+
+  <paseo-ai desc="Task instructions the AI must follow. Paseo may hide this section from the chat UI.">
+${escapePaseoMarkupText(input.aiInstructions)}
+  </paseo-ai>
+
+  <paseo-reply desc="Preferred response format. Paseo may render a matching result block specially.">
+Follow the final reply requirements in <paseo-ai>. Preserve the request id "${escapedMessageId}" if you emit a matching result block.
+  </paseo-reply>
+</paseo-ui>`;
+}
+
+function getAiCreationMarkupConfig(mode: CreationMode): {
+  kind: string;
+  goal: string;
+  targetText: string;
+  title: string;
+  normalInstruction: string;
+  cardDesc: string;
+} {
+  if (mode === "edit") {
+    return {
+      kind: "ai_creation.image.edit",
+      goal: "edit_image",
+      targetText: "编辑图片",
+      title: "编辑图片",
+      normalInstruction: "请根据用户需求编辑图片。",
+      cardDesc: "A Paseo-renderable task card for an AI image editing request.",
+    };
+  }
+  if (mode === "slides") {
+    return {
+      kind: "ai_creation.slides.create",
+      goal: "create_pptx",
+      targetText: "创建 PPT",
+      title: "创建 PPT",
+      normalInstruction: "请根据用户需求创建可编辑 PPTX。",
+      cardDesc: "A Paseo-renderable task card for an AI slide deck creation request.",
+    };
+  }
+  if (mode === "pdf") {
+    return {
+      kind: "ai_creation.document.pdf.create",
+      goal: "create_pdf",
+      targetText: "创建 PDF",
+      title: "创建 PDF",
+      normalInstruction: "请根据用户需求创建 PDF 文档。",
+      cardDesc: "A Paseo-renderable task card for an AI PDF creation request.",
+    };
+  }
+  if (mode === "word") {
+    return {
+      kind: "ai_creation.document.word.create",
+      goal: "create_docx",
+      targetText: "创建 Word",
+      title: "创建 Word",
+      normalInstruction: "请根据用户需求创建 Word 文档。",
+      cardDesc: "A Paseo-renderable task card for an AI Word document creation request.",
+    };
+  }
+  if (mode === "spreadsheet") {
+    return {
+      kind: "ai_creation.spreadsheet.create",
+      goal: "create_spreadsheet",
+      targetText: "创建表格",
+      title: "创建表格",
+      normalInstruction: "请根据用户需求创建电子表格。",
+      cardDesc: "A Paseo-renderable task card for an AI spreadsheet creation request.",
+    };
+  }
+  return {
+    kind: "ai_creation.image.generate",
+    goal: "generate_image",
+    targetText: "生成图片",
+    title: "生成图片",
+    normalInstruction: "请根据用户需求生成图片。",
+    cardDesc: "A Paseo-renderable task card for an AI image generation request.",
+  };
 }
 
 function buildDocumentCreationPrompt(input: {
@@ -3760,12 +3895,6 @@ function buildImageEditPrompt(input: {
     );
   }
   return lines.join("\n");
-}
-
-function buildAiCreationUserMessageText(input: { mode: CreationMode; prompt: string }): string {
-  return input.mode === "edit"
-    ? translateNow("aiCreation.display.editMessage", { prompt: input.prompt })
-    : input.prompt;
 }
 
 function buildEditOptimisticImages(input: {
