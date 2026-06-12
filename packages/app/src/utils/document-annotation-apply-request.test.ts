@@ -32,6 +32,7 @@ describe("document annotation apply request", () => {
       serverId: "server-1",
       sourceAgentId: "agent-1",
       sourceAgentStatus: "idle",
+      defaultLocale: "zh",
       messageId: "msg_test",
       timestamp: new Date("2026-06-11T12:00:00Z"),
     });
@@ -80,6 +81,7 @@ describe("document annotation apply request", () => {
       serverId: "server-1",
       sourceAgentId: "agent-1",
       sourceAgentStatus: "running",
+      defaultLocale: "zh",
       messageId: "msg_running",
     });
 

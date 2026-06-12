@@ -16,6 +16,7 @@ describe("document annotation prompt", () => {
       messageId: "msg_1",
       filePath: "output/budget.xlsx",
       kind: "xlsx",
+      defaultLocale: "zh",
       annotations: [
         {
           target: {
@@ -74,6 +75,7 @@ describe("document annotation prompt", () => {
       messageId: "msg_pdf",
       filePath: "brief.pdf",
       kind: "pdf",
+      defaultLocale: "zh",
       annotations: [
         {
           target: {
@@ -113,6 +115,7 @@ describe("document annotation prompt", () => {
       messageId: "msg_docx",
       filePath: "prd.docx",
       kind: "docx",
+      defaultLocale: "zh",
       annotations: [
         {
           target: {
@@ -141,6 +144,7 @@ describe("document annotation prompt", () => {
       messageId: "msg_xls",
       filePath: "output/legacy-budget.xls",
       kind: "xlsx",
+      defaultLocale: "zh",
       annotations: [
         {
           target: {

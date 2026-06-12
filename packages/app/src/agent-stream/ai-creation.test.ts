@@ -37,6 +37,23 @@ function handshakeUserMessage(
   };
 }
 
+function aiCreationCardUserMessage(
+  id: string,
+  seed: number,
+  input: { kind: string; title: string; summary?: string },
+): Extract<StreamItem, { kind: "user_message" }> {
+  return {
+    ...userMessage(id, seed),
+    text: `<paseo-ui version="1" kind="${input.kind}" render="card" visibility="summary" id="${id}" desc="AI creation card.">
+  <paseo-ui-content desc="User-visible card content.">
+    <paseo-title desc="Title shown in the user message card.">${input.title}</paseo-title>
+    <paseo-summary desc="Short user-visible summary.">${input.summary ?? "Create it"}</paseo-summary>
+  </paseo-ui-content>
+  <paseo-ai desc="Task instructions.">Create it.</paseo-ai>
+</paseo-ui>`,
+  };
+}
+
 function assistantMessage(
   id: string,
   text: string,
@@ -58,6 +75,27 @@ function targetMessage(
   return assistantMessage(
     id,
     `<paseo-target version="1" kind="${input.kind}" goal="${input.goal}" id="${input.targetId}" desc="Active response target.">${input.text}</paseo-target>`,
+    seed,
+  );
+}
+
+function pptProgressMessage(
+  id: string,
+  seed: number,
+  input: { title: string; summary: string; previewPath?: string },
+): Extract<StreamItem, { kind: "assistant_message" }> {
+  const previewField = input.previewPath
+    ? `<paseo-field name="preview_path" label="预览" desc="Live PPT preview path.">${input.previewPath}</paseo-field>`
+    : "";
+  return assistantMessage(
+    id,
+    `<paseo-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" desc="Human-visible PPT creation progress.">
+  <paseo-ui-content desc="Visible progress content.">
+    <paseo-title desc="Progress title.">${input.title}</paseo-title>
+    <paseo-summary desc="Progress summary.">${input.summary}</paseo-summary>
+    ${previewField}
+  </paseo-ui-content>
+</paseo-ui>`,
     seed,
   );
 }
@@ -193,6 +231,84 @@ describe("normalizeAiCreationStream", () => {
 
     expect(result.tail.map((item) => item.id)).toEqual(["u1", "status", "shell-1"]);
     expect(result.head.map((item) => item.id)).toEqual(["progress"]);
+  });
+
+  it("hides slides creation internals without requiring a target handshake", () => {
+    const result = normalizeAiCreationStream({
+      agentStatus: "running",
+      tail: [
+        aiCreationCardUserMessage("u1", 1, {
+          kind: "ai_creation.slides.create",
+          title: "创建 PPT",
+        }),
+        assistantMessage("status-1", "我会读取 PPT Master 技能并准备依赖。", 2),
+        toolCall("shell-1", 3),
+        pptProgressMessage("preview", 4, {
+          title: "Preview ready",
+          summary: "The live preview is ready. Slides will appear as they are created.",
+          previewPath: "projects/seasonal_best_cities_ppt169_20260609/svg_output/",
+        }),
+        assistantMessage("status-2", "我会开始写入项目文件。", 5),
+        toolCall("shell-2", 6),
+        assistantMessage("legacy-slide-internal", "Slide saved: slide_01.svg", 7),
+        pptProgressMessage("slide-1", 8, {
+          title: "Slide 1 ready",
+          summary: "Cover is ready in the live preview.",
+        }),
+        pptProgressMessage("slide-2", 9, {
+          title: "Slide 2 ready",
+          summary: "Market Timing is ready in the live preview.",
+        }),
+      ],
+      head: [],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", "preview", "slide-1", "slide-2"]);
+    expect(result.head).toEqual([]);
+    expect(extractAiCreationPptPreviewPath(streamItemText(result.tail[1]))).toBe(
+      "projects/seasonal_best_cities_ppt169_20260609/svg_output/",
+    );
+    expect(parsePaseoMessageRenderParts(streamItemText(result.tail[2]))).toMatchObject([
+      { kind: "card", card: { kind: "ai_creation.slides.progress", title: "Slide 1 ready" } },
+    ]);
+    expect(parsePaseoMessageRenderParts(streamItemText(result.tail[3]))).toMatchObject([
+      { kind: "card", card: { kind: "ai_creation.slides.progress", title: "Slide 2 ready" } },
+    ]);
+  });
+
+  it("shows the final slides result without requiring a target handshake", () => {
+    const result = normalizeAiCreationStream({
+      agentStatus: "idle",
+      tail: [
+        aiCreationCardUserMessage("u1", 1, {
+          kind: "ai_creation.slides.create",
+          title: "创建 PPT",
+        }),
+        assistantMessage("status", "我会读取 PPT Master 技能。", 2),
+        toolCall("shell-1", 3),
+        pptProgressMessage("preview", 4, {
+          title: "Preview ready",
+          summary: "The live preview is ready.",
+          previewPath: "projects/seasonal_best_cities/svg_output/",
+        }),
+        pptProgressMessage("slide-1", 5, {
+          title: "Slide 1 ready",
+          summary: "Cover is ready in the live preview.",
+        }),
+        assistantMessage(
+          "final",
+          "projects/seasonal_best_cities/exports/seasonal-best-cities.pptx",
+          6,
+        ),
+      ],
+      head: [],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", "preview", "slide-1", "final"]);
+    expect(result.tail[3]).toMatchObject({
+      kind: "assistant_message",
+      text: "[projects/seasonal_best_cities/exports/seasonal-best-cities.pptx](projects/seasonal_best_cities/exports/seasonal-best-cities.pptx)",
+    });
   });
 
   it("preserves normal progress when the user message has no expected handshake", () => {

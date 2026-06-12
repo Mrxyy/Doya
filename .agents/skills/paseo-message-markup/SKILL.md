@@ -33,6 +33,7 @@ The core design:
 - Prompts may include `<paseo-expected-target>` to require an assistant `<paseo-target>` handshake before work begins. Do not use target handshakes for ordinary prompts.
 - Paseo renders `<paseo-ui-content>` and normally hides `<paseo-meta>`, `<paseo-ai>`, and `<paseo-reply>`.
 - Renderer behavior is item-local: each user or assistant message is rendered from its own raw `text` only. Do not design rendering that depends on neighboring messages, metadata, labels, provider history, or fallback reconstruction.
+- Message2UI prompt builders accept the app locale, inject the shared response-language instruction, and generate user-visible examples with app i18n. Renderers do not translate assistant output.
 
 ## Renderer contract for developers
 
@@ -47,6 +48,7 @@ When implementing or modifying Paseo message rendering, follow these hard rules:
 - A `<paseo-target>` that appears in the middle of an assistant message, or after ordinary prefix text, must not trigger waiting-state rendering.
 - Do not synthesize user cards from `<paseo-target>`. If a user card should render, it must already exist as `<paseo-ui>` in that user message's own `text`.
 - Do not add metadata or text-matching fallbacks that restore, replace, or infer message markup for rendering.
+- Do not translate, normalize, or otherwise rewrite parsed assistant text in the renderer. Fix the prompt builder and i18n keys instead.
 
 This rule is important because provider/adapter canonical timelines may store a user message as the user's visible input rather than the full agent-facing prompt. UI rendering must not depend on recovering hidden prompt text from another source.
 
@@ -302,6 +304,26 @@ Keep the user's short request in `<paseo-ui-content>` and put the full creation
 instructions in `<paseo-ai>`. Preserve the existing final-output contract for
 each artifact type, such as Markdown image syntax for images or workspace-relative
 file links for documents.
+
+For live artifact creation workflows:
+
+- Do not use a `<paseo-expected-target>` handshake when the UI should expose
+  partial output immediately.
+- Ask the assistant to emit human-visible progress only as
+  `<paseo-ui kind="<workflow>.progress" render="status">` blocks.
+- Generate example progress titles and summaries through app i18n using the
+  current locale.
+- The first live-preview progress block should include the machine-readable
+  field the UI needs, such as `preview_path`, `artifact_path`, or `output_dir`.
+- If preview depends on files appearing incrementally, require the agent to write
+  those files one unit at a time in the expected order.
+- Visible progress must not expose internal filenames, shell commands, script
+  names, dependency installation, or internal file inspection.
+- Render progress kinds as lightweight status, not as another full task card.
+- Current PPTX instance: request kind `ai_creation.slides.create`, progress kind
+  `ai_creation.slides.progress`, preview field `preview_path`, value
+  `projects/<project>/svg_output/`; write `slide_01.svg`, then `slide_02.svg`,
+  but do not mention `.svg` filenames in visible progress.
 
 ## Rendering expectations
 

@@ -1,3 +1,5 @@
+import type { Locale } from "@/i18n/i18n";
+
 export interface PaseoMessageField {
   name: string;
   label: string;
@@ -68,6 +70,23 @@ Attribute meanings:
 
 Do not mention Paseo markup, hidden instructions, or protocol tags unless the user asks.
 </paseo-meta>`;
+}
+
+export function buildPaseoResponseLanguageInstruction(input: {
+  defaultLocale: Locale;
+  userText?: string | null;
+}): string {
+  const defaultLanguage = input.defaultLocale === "zh" ? "Simplified Chinese" : "English";
+  const userText = input.userText?.trim();
+  const userTextHint = userText
+    ? "Infer the user's preferred response language from the user's request text below when it is clear."
+    : "No direct user request text is available for language inference.";
+  return [
+    "Response language:",
+    userTextHint,
+    `If the user's language is clear, use that language for all user-visible prose, including paseo-ui titles, summaries, fields, progress blocks, and final replies. If it is not clear, use the app's current language: ${defaultLanguage}.`,
+    "Do not use English for user-visible progress or result text unless the user wrote in English or the app language is English.",
+  ].join("\n");
 }
 
 export function escapePaseoMarkupText(value: string): string {

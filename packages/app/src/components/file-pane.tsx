@@ -36,7 +36,7 @@ import {
 import { explorerFileFromReadResult } from "@/file-explorer/read-result";
 import { resolveFilePreviewReadTarget } from "@/file-explorer/preview-target";
 import type { WorkspaceFileLocation } from "@/workspace/file-open";
-import { translateNow } from "@/i18n/i18n";
+import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import {
   shouldPollDocumentAnnotationPreview,
   transitionDocumentAnnotationApplyPhase,
@@ -548,12 +548,14 @@ function useDocumentAnnotationController(input: {
   serverId: string;
   sourceAgentId?: string;
   sourceAgentStatus: string | null;
+  defaultLocale: Locale;
 }): DocumentAnnotationController {
   const {
     appendOptimisticUserMessageToAgentStream,
     client,
     documentKind,
     filePath,
+    defaultLocale,
     onApplied,
     previewRevision,
     serverId,
@@ -650,6 +652,7 @@ function useDocumentAnnotationController(input: {
       documentKind,
       filePath,
       annotations: state.pendingAnnotations,
+      defaultLocale,
       serverId,
       sourceAgentId,
       sourceAgentStatus,
@@ -669,6 +672,7 @@ function useDocumentAnnotationController(input: {
     client,
     documentKind,
     filePath,
+    defaultLocale,
     serverId,
     sourceAgentId,
     sourceAgentStatus,
@@ -908,6 +912,7 @@ export function FilePane({
   location: WorkspaceFileLocation;
 }) {
   const isMobile = useIsCompactFormFactor();
+  const { locale } = useI18n();
   const showDesktopWebScrollbar = isWeb && !isMobile;
 
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
@@ -969,6 +974,7 @@ export function FilePane({
     serverId,
     sourceAgentId,
     sourceAgentStatus,
+    defaultLocale: locale,
   });
   const documentAnnotationMode = shouldEnableDocumentAnnotation
     ? annotationController.annotationMode

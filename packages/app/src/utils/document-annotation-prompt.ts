@@ -1,6 +1,8 @@
 import type { DocumentAnnotationTarget, DocumentViewerKind } from "@/components/document-viewer";
+import type { Locale } from "@/i18n/i18n";
 import {
   buildPaseoMessageMeta,
+  buildPaseoResponseLanguageInstruction,
   escapePaseoMarkupContent,
   escapePaseoMarkupText,
 } from "@/utils/paseo-message-markup";
@@ -15,12 +17,17 @@ export function buildApplyDocumentAnnotationsPrompt(input: {
   filePath: string;
   kind: DocumentViewerKind;
   annotations: DocumentAnnotationPromptAnnotation[];
+  defaultLocale: Locale;
 }): string {
   const escapedMessageId = escapePaseoMarkupText(input.messageId);
   const escapedFilePath = escapePaseoMarkupContent(input.filePath);
   const kindLabel = getDocumentKindLabel(input.kind);
   const goal = getDocumentAnnotationGoal(input.kind);
   const kindInstructions = getDocumentKindInstructions(input.kind);
+  const languageInstruction = buildPaseoResponseLanguageInstruction({
+    defaultLocale: input.defaultLocale,
+    userText: input.annotations.map((annotation) => annotation.instruction).join("\n"),
+  });
   const annotationsJson = JSON.stringify(
     input.annotations.map((annotation, index) => ({
       index: index + 1,
@@ -59,6 +66,8 @@ export function buildApplyDocumentAnnotationsPrompt(input: {
   </paseo-ui-content>
 
   <paseo-ai desc="Task instructions the AI must follow. Paseo may hide this section from the chat UI.">
+${escapePaseoMarkupText(languageInstruction)}
+
 Apply the saved document preview annotations to this workspace file:
 ${escapedFilePath}
 

@@ -109,20 +109,24 @@ packages/server
 - 前端打开的是 Doya URL，例如 `/ppt-preview/:agentId/:projectId`，不是 `localhost:5050`。
 - 移动端、桌面端、relay 远程访问都走 Doya 现有认证和传输。
 - 预览服务读取 `svg_output/`，所以 agent 每生成一页 SVG，预览即可刷新看到。
-- agent 在 Step 2 项目初始化后必须立即发送一次 `Preview: projects/<project>/svg_output/`，Doya 将其渲染成“打开预览”卡片；用户可在第一页生成前打开预览，后续页面会持续出现在同一个预览页中。
+- agent 在 Step 2 项目初始化后必须立即发送一次
+  `ai_creation.slides.progress` 协议块，字段
+  `preview_path=projects/<project>/svg_output/`；Doya 将其渲染成预览入口。
+  用户可在第一页生成前打开预览，后续页面会持续出现在同一个预览页中。
 - 直接编辑和 annotation 的语义保持 PPT Master 一致：浏览器内 staged，点击 Apply 后写回 `svg_output/`；PPTX 重新导出仍由 agent 走 `finalize_svg.py` + `svg_to_pptx.py`。
 - daemon 可做统一资源控制：限制同时打开的 preview tab、按 idle 清理内存状态、按 agent/archive 生命周期释放 registry。
 
-Doya 的外层 prompt 必须覆盖 PPT Master 原文的 live-preview auto-start 要求：
+Doya 外层 prompt 的实时预览覆盖规则：
 
 ```text
 Doya provides its own built-in slide preview service.
 Do not run PPT Master's scripts/svg_editor/server.py.
 Do not start Flask or open localhost preview ports.
 Continue writing generated SVG pages into projects/<project>/svg_output/.
-Doya will preview that directory through the daemon.
-Immediately after project initialization creates projects/<project>/svg_output/, send:
-Preview: projects/<project>/svg_output/
+Immediately after project initialization creates projects/<project>/svg_output/,
+send a <paseo-ui kind="ai_creation.slides.progress" render="status"> block with
+a localized title and a paseo-field named preview_path whose
+value is projects/<project>/svg_output/.
 Then continue without waiting for the user.
 ```
 
@@ -201,9 +205,10 @@ Doya provides its own built-in slide preview service.
 Do not run PPT Master's scripts/svg_editor/server.py.
 Do not start Flask or open localhost preview ports.
 Continue writing generated SVG pages into projects/<project>/svg_output/.
-Doya will preview that directory through the daemon.
-Immediately after project initialization creates projects/<project>/svg_output/, send:
-Preview: projects/<project>/svg_output/
+Immediately after project initialization creates projects/<project>/svg_output/,
+send a <paseo-ui kind="ai_creation.slides.progress" render="status"> block with
+a localized title and a paseo-field named preview_path whose
+value is projects/<project>/svg_output/.
 Then continue without waiting for the user.
 
 Only after the skill link exists, install its Python requirements if needed:
@@ -324,6 +329,10 @@ ppt_creation        → normalizeAiCreationSlidesStream
 - 首次 pip install 会慢，失败时由 agent 在详情页展示命令输出。
 - `ppt-master` 质量依赖强模型和长上下文，Doya 不应承诺“一次生成最终成品”。
 - 不要并行生成页面。PPT Master 明确要求 Executor 逐页串行生成 SVG，避免整套 deck 视觉漂移。
+- AI Creation PPT 创建请求不使用 target handshake；项目初始化后立即通过 `ai_creation.slides.progress` + `preview_path` 暴露预览。
+- Prompt builder 接收 app locale，用 i18n 生成进度示例，并注入“按用户问题语言，否则按 app locale 回复”的语言规则。
+- Renderer 只渲染协议内容，不翻译或改写 assistant 输出。
+- 用户可见进度不包含 SVG 文件名、`.svg`、shell 命令、脚本名、依赖安装或内部文件检查。
 - 不要把 PPT Master 改写成 daemon 内部服务；它应保持 agent skill 形态。
 - 不要另写 PPTX 生成器。Doya 只负责接入 agent、工作区、资料、状态和产物展示。
 

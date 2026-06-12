@@ -862,6 +862,68 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
   },
+  paseoProgressCard: {
+    width: 620,
+    maxWidth: "100%",
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    borderColor: "rgba(179, 90, 24, 0.14)",
+    backgroundColor: "rgba(255, 253, 249, 0.82)",
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[3],
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: theme.spacing[3],
+  },
+  paseoProgressIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(179, 90, 24, 0.1)",
+    borderWidth: theme.borderWidth[1],
+    borderColor: "rgba(179, 90, 24, 0.18)",
+    marginTop: 1,
+  },
+  paseoProgressBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  paseoProgressTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+    lineHeight: 21,
+  },
+  paseoProgressSummary: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+  },
+  paseoProgressFieldList: {
+    marginTop: theme.spacing[1],
+    gap: 2,
+  },
+  paseoProgressFieldRow: {
+    flexDirection: "row",
+    gap: theme.spacing[2],
+    minWidth: 0,
+  },
+  paseoProgressFieldLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    lineHeight: 17,
+    minWidth: 34,
+  },
+  paseoProgressFieldValue: {
+    flex: 1,
+    minWidth: 0,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    lineHeight: 17,
+  },
   copyButton: {
     alignSelf: "center",
     padding: theme.spacing[1],
@@ -1251,6 +1313,10 @@ function getPaseoMessageKindLabel(kind: string): string {
       }
       return kind;
   }
+}
+
+function isPaseoSlidesProgressCard(card: PaseoMessageCard): boolean {
+  return card.kind === "ai_creation.slides.progress";
 }
 
 type PaseoMessageCardIllustrationKind = "image" | "slides" | "pdf" | "word" | "sheet" | "generic";
@@ -1665,7 +1731,35 @@ function PaseoImageIllustration({ visual }: { visual: PaseoMessageCardVisual }) 
   );
 }
 
-function UserMessagePaseoCard({ card }: { card: PaseoMessageCard }) {
+function UserMessagePaseoProgressCard({ card }: { card: PaseoMessageCard }) {
+  return (
+    <View style={userMessageStylesheet.paseoProgressCard}>
+      <View style={userMessageStylesheet.paseoProgressIconBox}>
+        <CheckCircle size={16} color="#b35a18" strokeWidth={2.4} />
+      </View>
+      <View style={userMessageStylesheet.paseoProgressBody}>
+        <Text style={userMessageStylesheet.paseoProgressTitle} numberOfLines={1}>
+          {card.title}
+        </Text>
+        <Text style={userMessageStylesheet.paseoProgressSummary}>{card.summary}</Text>
+        {card.fields.length > 0 ? (
+          <View style={userMessageStylesheet.paseoProgressFieldList}>
+            {card.fields.map((field) => (
+              <View key={field.name} style={userMessageStylesheet.paseoProgressFieldRow}>
+                <Text style={userMessageStylesheet.paseoProgressFieldLabel}>{field.label}</Text>
+                <Text style={userMessageStylesheet.paseoProgressFieldValue} numberOfLines={1}>
+                  {field.value}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function UserMessagePaseoTaskCard({ card }: { card: PaseoMessageCard }) {
   const isResult = card.kind.endsWith(".result");
   const visual = getPaseoMessageCardVisual(card);
   const Icon = visual.Icon;
@@ -1780,6 +1874,14 @@ function UserMessagePaseoCard({ card }: { card: PaseoMessageCard }) {
       ) : null}
     </View>
   );
+}
+
+function UserMessagePaseoCard({ card }: { card: PaseoMessageCard }) {
+  if (isPaseoSlidesProgressCard(card)) {
+    return <UserMessagePaseoProgressCard card={card} />;
+  }
+
+  return <UserMessagePaseoTaskCard card={card} />;
 }
 
 function shouldUsePaseoCardBubble(input: {

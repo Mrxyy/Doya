@@ -1,4 +1,5 @@
 import type { DocumentViewerKind } from "@/components/document-viewer";
+import type { Locale } from "@/i18n/i18n";
 import {
   buildApplyDocumentAnnotationsPrompt,
   type DocumentAnnotationPromptAnnotation,
@@ -40,6 +41,7 @@ export interface BeginDocumentAnnotationApplyRequestInput {
   serverId: string;
   sourceAgentId: string;
   sourceAgentStatus: string | null;
+  defaultLocale: Locale;
   messageId?: string;
   timestamp?: Date;
 }
@@ -60,6 +62,7 @@ export function beginDocumentAnnotationApplyRequest(
     filePath: input.filePath,
     kind: input.documentKind,
     annotations: input.annotations,
+    defaultLocale: input.defaultLocale,
   });
   input.appendOptimisticUserMessageToAgentStream(
     input.serverId,

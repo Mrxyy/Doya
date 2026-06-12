@@ -93,7 +93,8 @@ import {
 import { isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
-import { translateNow, useI18n } from "@/i18n/i18n";
+import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
+import { translate } from "@/i18n/translate";
 import type { TranslationKey } from "@/i18n/translations";
 import { usePanelStore } from "@/stores/panel-store";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
@@ -111,7 +112,11 @@ import {
 import { useRecommendedProjectPaths, useWorkspaceFields } from "@/stores/session-store-hooks";
 import { buildAiCreationTitle } from "@/utils/ai-creation-display";
 import { encodeImages } from "@/utils/encode-images";
-import { buildPaseoMessageMeta, escapePaseoMarkupText } from "@/utils/paseo-message-markup";
+import {
+  buildPaseoMessageMeta,
+  buildPaseoResponseLanguageInstruction,
+  escapePaseoMarkupText,
+} from "@/utils/paseo-message-markup";
 import {
   buildHostAgentDetailRoute,
   buildHostHomeRoute,
@@ -129,6 +134,13 @@ import {
 
 type CreationMode = "image" | "slides" | "pdf" | "word" | "spreadsheet" | "edit";
 type CreationSurfaceMode = Exclude<CreationMode, "edit">;
+type AiCreationIntent =
+  | "imagegen"
+  | "image_edit"
+  | "ppt_creation"
+  | "pdf_creation"
+  | "word_creation"
+  | "spreadsheet_creation";
 type AspectRatio = "1:1" | "2:3" | "3:4" | "4:3" | "9:16" | "16:9";
 type VisualStyle =
   | "auto"
@@ -1252,6 +1264,25 @@ function usesWorkspaceFileReferences(mode: CreationMode): boolean {
   return mode === "slides" || mode === "pdf" || mode === "word" || mode === "spreadsheet";
 }
 
+function getAiCreationIntentForMode(mode: CreationMode): AiCreationIntent {
+  if (mode === "slides") {
+    return "ppt_creation";
+  }
+  if (mode === "edit") {
+    return "image_edit";
+  }
+  if (mode === "pdf") {
+    return "pdf_creation";
+  }
+  if (mode === "word") {
+    return "word_creation";
+  }
+  if (mode === "spreadsheet") {
+    return "spreadsheet_creation";
+  }
+  return "imagegen";
+}
+
 function attachmentMetadataToComposerAttachment(
   metadata: PreviewableAttachmentMetadata,
 ): UserComposerAttachment {
@@ -1318,7 +1349,7 @@ export function AiCreationScreen({
 }) {
   const router = useRouter();
   const { theme } = useUnistyles();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const toast = useToast();
   const isCompact = useIsCompactFormFactor();
   const client = useHostRuntimeClient(serverId);
@@ -1820,6 +1851,7 @@ export function AiCreationScreen({
         messageId: clientMessageId,
         mode,
         prompt: trimmedPrompt,
+        defaultLocale: locale,
         ratio,
         style,
         referenceCount: references.length,
@@ -1999,6 +2031,10 @@ export function AiCreationScreen({
         workspaceId: workspace.workspaceId,
         initialPrompt,
         clientMessageId,
+        labels: {
+          surface: "ai_creation",
+          intent: getAiCreationIntentForMode(mode),
+        },
         ...(!hasSelectionGuide && initialImages && initialImages.length > 0
           ? { images: initialImages }
           : {}),
@@ -3498,6 +3534,7 @@ function buildAiCreationPrompt(input: {
   messageId: string;
   mode: CreationMode;
   prompt: string;
+  defaultLocale: Locale;
   ratio: AspectRatio;
   style: VisualStyle;
   referenceCount: number;
@@ -3514,6 +3551,7 @@ function buildAiCreationPrompt(input: {
       ...baseInput,
       ratio: input.ratio,
       sourceCount: input.extraImageCount + 1,
+      defaultLocale: input.defaultLocale,
       aiInstructions: buildImageEditPrompt({
         prompt: input.prompt,
         ratio: input.ratio,
@@ -3528,10 +3566,13 @@ function buildAiCreationPrompt(input: {
       ...baseInput,
       ratio: input.ratio,
       sourceCount: input.referenceCount,
+      includeExpectedTarget: false,
+      defaultLocale: input.defaultLocale,
       aiInstructions: buildSlidesPrompt({
         prompt: input.prompt,
         ratio: input.ratio,
         sourceFileCount: input.referenceCount,
+        defaultLocale: input.defaultLocale,
       }),
     });
   }
@@ -3539,6 +3580,7 @@ function buildAiCreationPrompt(input: {
     return buildAiCreationMarkupPrompt({
       ...baseInput,
       sourceCount: input.referenceCount,
+      defaultLocale: input.defaultLocale,
       aiInstructions: buildDocumentCreationPrompt({
         kind: "pdf",
         prompt: input.prompt,
@@ -3550,6 +3592,7 @@ function buildAiCreationPrompt(input: {
     return buildAiCreationMarkupPrompt({
       ...baseInput,
       sourceCount: input.referenceCount,
+      defaultLocale: input.defaultLocale,
       aiInstructions: buildDocumentCreationPrompt({
         kind: "word",
         prompt: input.prompt,
@@ -3561,6 +3604,7 @@ function buildAiCreationPrompt(input: {
     return buildAiCreationMarkupPrompt({
       ...baseInput,
       sourceCount: input.referenceCount,
+      defaultLocale: input.defaultLocale,
       aiInstructions: buildDocumentCreationPrompt({
         kind: "spreadsheet",
         prompt: input.prompt,
@@ -3573,6 +3617,7 @@ function buildAiCreationPrompt(input: {
     ratio: input.ratio,
     style: STYLE_PROMPT_LABELS[input.style],
     sourceCount: input.referenceCount,
+    defaultLocale: input.defaultLocale,
     aiInstructions: buildImagegenPrompt({
       prompt: input.prompt,
       ratio: input.ratio,
@@ -3587,13 +3632,32 @@ function buildAiCreationMarkupPrompt(input: {
   mode: CreationMode;
   prompt: string;
   aiInstructions: string;
+  defaultLocale: Locale;
   ratio?: AspectRatio;
   style?: string;
   sourceCount?: number;
+  includeExpectedTarget?: boolean;
 }): string {
   const config = getAiCreationMarkupConfig(input.mode);
   const escapedMessageId = escapePaseoMarkupText(input.messageId);
   const escapedPrompt = escapePaseoMarkupText(input.prompt);
+  const languageInstruction = buildPaseoResponseLanguageInstruction({
+    defaultLocale: input.defaultLocale,
+    userText: input.prompt,
+  });
+  const expectedTarget =
+    input.includeExpectedTarget === false
+      ? ""
+      : `
+<paseo-expected-target
+  version="1"
+  kind="${config.kind}"
+  goal="${config.goal}"
+  id="${escapedMessageId}"
+  text="${config.targetText}"
+  desc="Exact target handshake that the assistant must emit before doing any work."
+/>
+`;
   const fields = [
     `<paseo-field name="request" label="需求" desc="Original user creation request.">${escapedPrompt}</paseo-field>`,
     input.ratio
@@ -3610,16 +3674,7 @@ function buildAiCreationMarkupPrompt(input: {
   return `${buildPaseoMessageMeta()}
 
 ${config.normalInstruction}
-
-<paseo-expected-target
-  version="1"
-  kind="${config.kind}"
-  goal="${config.goal}"
-  id="${escapedMessageId}"
-  text="${config.targetText}"
-  desc="Exact target handshake that the assistant must emit before doing any work."
-/>
-
+${expectedTarget}
 <paseo-ui
   version="1"
   kind="${config.kind}"
@@ -3635,6 +3690,8 @@ ${config.normalInstruction}
   </paseo-ui-content>
 
   <paseo-ai desc="Task instructions the AI must follow. Paseo may hide this section from the chat UI.">
+${escapePaseoMarkupText(languageInstruction)}
+
 ${escapePaseoMarkupText(input.aiInstructions)}
   </paseo-ai>
 
@@ -3768,19 +3825,43 @@ function buildSlidesPrompt(input: {
   prompt: string;
   ratio: AspectRatio;
   sourceFileCount: number;
+  defaultLocale: Locale;
 }): string {
   const format = input.ratio === "4:3" ? "ppt43" : "ppt169";
+  const previewReadyTitle = translate(
+    "aiCreation.progress.slidesPreviewReady",
+    input.defaultLocale,
+  );
+  const slideReadyTitle = translate("aiCreation.progress.slidesPageReady", input.defaultLocale, {
+    number: 1,
+  });
+  const coverReadySummary = translate("aiCreation.progress.slidesCoverReady", input.defaultLocale);
   const lines = [
     "You are creating a PowerPoint deck for the Paseo AI Creation slides surface.",
     "Paseo has already prepared the bundled PPT Master skill link at `.paseo/skills/ppt-master` before this agent starts.",
+    "This is an AI creation surface. Keep user-facing progress minimal.",
+    "Do not narrate skill reading, dependency installation, shell commands, file inspection, design reasoning, or implementation steps.",
+    'Human-visible progress protocol: before the final reply, only send progress by emitting a `<paseo-ui kind="ai_creation.slides.progress">` block.',
+    "Only mark information as human-visible when it helps the user follow PPT creation: preview readiness, deck outline, design direction, source processing, each slide becoming ready, export start, or PPTX readiness.",
+    "Do not expose implementation details in human-visible progress: no SVG, .svg filenames, shell commands, script names, dependency names, or internal file inspection.",
+    "All human-visible progress titles and summaries must follow the response-language instruction above. Do not copy English titles such as `Slide 1 ready`, `Deck outline ready`, or `Preview ready` when the response language is Chinese.",
+    "Use this protocol shape for progress:",
+    `<paseo-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" desc="Human-visible PPT creation progress."><paseo-ui-content desc="Visible progress content."><paseo-title desc="Progress title.">${slideReadyTitle}</paseo-title><paseo-summary desc="Progress summary.">${coverReadySummary}</paseo-summary></paseo-ui-content></paseo-ui>`,
+    "For preview readiness, include the preview path in a field named `preview_path` inside the same progress block.",
     "Do not search for PPT Master in other directories.",
     "Do not use web search for PPT Master.",
     "Do not git clone, fetch, or download PPT Master.",
     'If `.paseo/skills/ppt-master/SKILL.md` is missing, stop immediately and reply exactly: "PPT Master skill link missing: .paseo/skills/ppt-master/SKILL.md".',
     "Read `.paseo/skills/ppt-master/SKILL.md` and follow that workflow exactly.",
+    "Begin the PPT Master workflow immediately. Do not wait for a target handshake, confirmation, or user reply before creating the project.",
     "Paseo provides its own built-in slide preview service. Do not run PPT Master's `scripts/svg_editor/server.py`, do not start Flask, and do not open localhost preview ports yourself.",
-    "Continue writing all generated SVG pages into `projects/<project>/svg_output/`; Paseo will preview that directory through the daemon.",
-    "Immediately after project initialization creates `projects/<project>/svg_output/`, send one short progress message exactly like: `Preview: projects/<project>/svg_output/`. Then continue the PPT Master workflow without waiting for the user.",
+    `Streaming preview contract: after project initialization creates \`projects/<project>/\`, ensure \`projects/<project>/svg_output/\` exists even if it is still empty, then immediately send a human-visible progress block titled \`${previewReadyTitle}\` with a \`preview_path\` field set to \`projects/<project>/svg_output/\`.`,
+    "You must send the preview-ready progress block before generating or writing the first slide.",
+    "After sending preview progress, continue the PPT Master workflow without waiting for the user.",
+    "Write generated SVG pages into `projects/<project>/svg_output/` strictly one page at a time. Save `slide_01.svg` as soon as it is complete, then continue to `slide_02.svg`, and so on.",
+    "Do not batch-generate all slide SVG files before writing them to disk. Do not wait until all slides are ready before exposing the preview directory.",
+    `After each slide page is saved, send one human-visible progress block titled like \`${slideReadyTitle}\`, with a summary using the user-facing slide title, for example \`${coverReadySummary}\` Then continue with the next page.`,
+    "Paseo polls the preview directory and will show new slides as they appear.",
     "Only after the skill link exists, install Python requirements if needed: `pip install -r .paseo/skills/ppt-master/requirements.txt`.",
     "",
     "User request:",

@@ -5,13 +5,17 @@ import invariant from "tiny-invariant";
 import { StyleSheet } from "react-native-unistyles";
 import { PptPreviewFrame } from "@/components/ppt-preview-frame";
 import { useToast } from "@/contexts/toast-context";
-import { translateNow } from "@/i18n/i18n";
+import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import { usePaneContext } from "@/panels/pane-context";
 import type { PanelDescriptor, PanelRegistration } from "@/panels/panel-registry";
 import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
-import { buildPaseoMessageMeta, escapePaseoMarkupText } from "@/utils/paseo-message-markup";
+import {
+  buildPaseoMessageMeta,
+  buildPaseoResponseLanguageInstruction,
+  escapePaseoMarkupText,
+} from "@/utils/paseo-message-markup";
 import { buildWorkspacePptPreviewUrl } from "@/workspace/ppt-preview";
 
 function usePptPreviewPanelDescriptor(target: {
@@ -28,12 +32,20 @@ function usePptPreviewPanelDescriptor(target: {
   };
 }
 
-function buildApplyAnnotationsPrompt(projectName: string, messageId: string): string {
+function buildApplyAnnotationsPrompt(
+  projectName: string,
+  messageId: string,
+  defaultLocale: Locale,
+): string {
   const projectPath = `projects/${projectName}`;
   const projectPathArg = JSON.stringify(projectPath);
   const escapedProjectName = escapePaseoMarkupText(projectName);
   const escapedProjectPath = escapePaseoMarkupText(projectPath);
   const escapedMessageId = escapePaseoMarkupText(messageId);
+  const languageInstruction = buildPaseoResponseLanguageInstruction({
+    defaultLocale,
+    userText: null,
+  });
   return `${buildPaseoMessageMeta()}
 
 请根据当前 PPT 预览中保存的标注修改幻灯片，并导出新的可编辑 PPTX。
@@ -62,6 +74,8 @@ function buildApplyAnnotationsPrompt(projectName: string, messageId: string): st
   </paseo-ui-content>
 
   <paseo-ai desc="Task instructions the AI must follow. Paseo may hide this section from the chat UI.">
+${escapePaseoMarkupText(languageInstruction)}
+
 Apply the saved PPT preview annotations for project "${escapedProjectName}".
 
 Use the bundled PPT Master live-preview annotation workflow.
@@ -111,6 +125,7 @@ Project path for reference: ${escapedProjectPath}`;
 function PptPreviewPanel() {
   const { serverId, target } = usePaneContext();
   invariant(target.kind === "pptPreview", "PptPreviewPanel requires pptPreview target");
+  const { locale } = useI18n();
   const runtimeSnapshot = useHostRuntimeSnapshot(serverId);
   const activeConnection = runtimeSnapshot?.activeConnection ?? null;
   const client = runtimeSnapshot?.client ?? null;
@@ -150,7 +165,7 @@ function PptPreviewPanel() {
       connectedClient: NonNullable<typeof client>,
     ): Promise<void> {
       const messageId = generateMessageId();
-      const prompt = buildApplyAnnotationsPrompt(projectName, messageId);
+      const prompt = buildApplyAnnotationsPrompt(projectName, messageId, locale);
       appendOptimisticUserMessageToAgentStream(
         serverId,
         agentId,
@@ -182,6 +197,7 @@ function PptPreviewPanel() {
     agentStatus,
     appendOptimisticUserMessageToAgentStream,
     client,
+    locale,
     projectName,
     serverId,
     toast,

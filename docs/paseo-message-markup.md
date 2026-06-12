@@ -94,6 +94,17 @@ Every `paseo-*` tag should include a short `desc` attribute when practical. The
 `desc` attribute explains intent for the agent and for raw/debug views. It is not
 user-facing copy and should not be repeated in assistant output.
 
+Message2UI language contract:
+
+- Every message2ui prompt builder accepts the current app `Locale`.
+- The builder injects `buildPaseoResponseLanguageInstruction({ defaultLocale, userText })`
+  inside `paseo-ai`.
+- The instruction says: use the user's request language when clear; otherwise
+  use the app locale.
+- Any example user-visible copy embedded in the prompt is generated with
+  `translate(key, locale)`, not hard-coded English.
+- The renderer never translates or rewrites assistant `paseo-ui-content`.
+
 ```xml
 <paseo-meta version="1" desc="Rules for the AI reading Paseo markup in this message.">
 Only tags whose names start with "paseo-" are Paseo protocol tags.
@@ -285,6 +296,9 @@ General renderer rules:
 - Preserve a raw/source view for debugging and auditing.
 - Escape all parsed text. Never execute markup content as HTML or JavaScript.
 - Fall back to normal text rendering if parsing fails or `kind` is unknown.
+- Do not translate, normalize, or otherwise rewrite parsed assistant text in the
+  renderer. If assistant `paseo-ui` copy needs to be localized, fix the prompt
+  builder and i18n keys that caused the assistant to produce the wrong language.
 
 The renderer should treat hidden sections as presentation-only hidden. Hidden
 does not mean secret: the full text is still in the timeline, logs, raw view, and
@@ -294,6 +308,82 @@ This item-local rule is important because provider/adapter canonical timelines
 may represent user messages as the user's visible input instead of the full
 agent-facing prompt. UI rendering must therefore avoid relying on another item
 to recover hidden protocol text.
+
+## Live Artifact Progress
+
+Use this pattern for creation workflows where the user can inspect partial
+output before the final artifact is finished: slide decks, long documents,
+reports, generated websites, multi-file exports, or similar live-preview
+surfaces.
+
+Contract:
+
+- Do not include `<paseo-expected-target>` when the UI should expose useful
+  partial output immediately.
+- The assistant emits human-visible progress as
+  `<paseo-ui kind="<workflow>.progress" render="status">`.
+- The first progress block that exposes a live artifact includes a
+  machine-readable `paseo-field`, such as `preview_path`, `artifact_path`, or
+  `output_dir`.
+- The renderer for progress kinds is lightweight status UI, not the full task
+  card for the original request.
+- Final artifact/result markup stays separate from progress markup.
+
+Assistant progress block shape:
+
+```xml
+<paseo-ui
+  version="1"
+  kind="ai_creation.slides.progress"
+  render="status"
+  visibility="summary"
+  desc="Human-visible PPT creation progress."
+>
+  <paseo-ui-content desc="Visible progress content.">
+    <paseo-title desc="Progress title.">第 1 页已完成</paseo-title>
+    <paseo-summary desc="Progress summary.">封面页已加入实时预览。</paseo-summary>
+  </paseo-ui-content>
+</paseo-ui>
+```
+
+Prompt builder requirements:
+
+- Pass `defaultLocale` from `useI18n()` into the workflow prompt builder.
+- Generate progress example copy with `translate(key, defaultLocale)`.
+- Tell the agent to emit the first live-artifact progress block immediately
+  after the previewable output location exists; include the machine-readable
+  field the UI needs to open or poll it.
+- Tell the agent to continue without waiting for a user reply.
+- If the preview depends on files appearing incrementally, tell the agent to
+  write those files one unit at a time in the order the preview expects.
+
+Visible progress whitelist:
+
+- preview ready
+- outline or plan ready
+- direction/style/schema set
+- source processing
+- each previewable unit ready
+- export started
+- final artifact ready
+
+Visible progress blacklist:
+
+- internal filenames unless the filename is the user-facing artifact
+- shell commands
+- script names
+- dependency installation
+- internal file inspection
+- implementation reasoning
+
+Current PPTX instance:
+
+- Request kind: `ai_creation.slides.create`.
+- Progress kind: `ai_creation.slides.progress`.
+- Preview discovery field: `paseo-field name="preview_path"`.
+- Preview path value: `projects/<project>/svg_output/`.
+- Execution writes `slide_01.svg`, then `slide_02.svg`, and so on, but visible
+  progress says a slide is ready without exposing `.svg` filenames.
 
 ## Document Preview Annotation Pattern
 

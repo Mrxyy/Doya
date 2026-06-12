@@ -109,6 +109,12 @@ import {
   normalizeAiCreationStream,
 } from "./ai-creation";
 import { buildAgentStreamWorkspaceFileOpenRequest } from "./open-file";
+import { parsePaseoMessageCard, type PaseoMessageCard } from "@/utils/paseo-message-markup";
+
+interface LiveArtifactProgressGroup {
+  isFirst: boolean;
+  items: Extract<StreamItem, { kind: "assistant_message" }>[];
+}
 
 function renderLiveAuxiliaryNode(input: {
   pendingPermissions: ReactNode;
@@ -127,6 +133,59 @@ function renderLiveAuxiliaryNode(input: {
       ) : null}
     </>
   );
+}
+
+function isLiveArtifactProgressCard(card: PaseoMessageCard | null): boolean {
+  return Boolean(card?.kind.endsWith(".progress"));
+}
+
+function isPreviewDiscoveryCard(card: PaseoMessageCard | null): boolean {
+  return Boolean(card?.fields.some((field) => field.name === "preview_path"));
+}
+
+function isLiveArtifactProgressItem(
+  item: StreamItem | null,
+): item is Extract<StreamItem, { kind: "assistant_message" }> {
+  if (item?.kind !== "assistant_message") {
+    return false;
+  }
+  if (extractAiCreationFinalPptxPath(item.text) || extractAiCreationFinalDocumentPath(item.text)) {
+    return false;
+  }
+  const card = parsePaseoMessageCard(item.text);
+  return isLiveArtifactProgressCard(card) || Boolean(extractAiCreationPptPreviewPath(item.text));
+}
+
+function getLiveArtifactProgressGroup(
+  layoutItem: StreamLayoutItem,
+): LiveArtifactProgressGroup | null {
+  if (!isLiveArtifactProgressItem(layoutItem.item)) {
+    return null;
+  }
+
+  const { items, index } = layoutItem;
+  let start = index;
+  while (start > 0 && isLiveArtifactProgressItem(items[start - 1] ?? null)) {
+    start -= 1;
+  }
+
+  let end = index;
+  while (end + 1 < items.length && isLiveArtifactProgressItem(items[end + 1] ?? null)) {
+    end += 1;
+  }
+
+  if (start === end) {
+    return null;
+  }
+
+  return {
+    isFirst: index === start,
+    items: items
+      .slice(start, end + 1)
+      .filter((item): item is Extract<StreamItem, { kind: "assistant_message" }> =>
+        isLiveArtifactProgressItem(item),
+      ),
+  };
 }
 
 function renderPendingPermissionsNode(input: {
@@ -150,10 +209,6 @@ function renderStreamItemWithTurnFooter(input: {
   layoutItem: StreamLayoutItem;
   strategy: TurnContentStrategy;
 }): ReactNode {
-  if (!input.content) {
-    return null;
-  }
-
   const footerHost = input.layoutItem.completedFooter;
   const footer = footerHost ? (
     <CompletedTurnFooterRow
@@ -163,6 +218,10 @@ function renderStreamItemWithTurnFooter(input: {
       startIndex={footerHost.startIndex}
     />
   ) : null;
+  if (!input.content) {
+    return footer;
+  }
+
   const content = (
     <StreamItemWrapper gapBelow={input.layoutItem.gapBelow}>{input.content}</StreamItemWrapper>
   );
@@ -567,6 +626,19 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "assistant_message" }>) => {
         if (item.id === AI_CREATION_PLACEHOLDER_ID) {
           return <AiCreationPlaceholder title={item.text} />;
+        }
+        const liveArtifactGroup = getLiveArtifactProgressGroup(layoutItem);
+        if (liveArtifactGroup) {
+          if (!liveArtifactGroup.isFirst) {
+            return null;
+          }
+          return (
+            <AiCreationLiveArtifactProgressGroup
+              canOpenPreview={Boolean(workspaceId)}
+              items={liveArtifactGroup.items}
+              onOpenPreview={handleOpenPptPreview}
+            />
+          );
         }
         const pptxPath = extractAiCreationFinalPptxPath(item.text);
         const pptPreviewPath = extractAiCreationPptPreviewPath(item.text);
@@ -1698,6 +1770,61 @@ function AiCreationSlidesResultCard({
   );
 }
 
+function AiCreationLiveArtifactProgressGroup({
+  canOpenPreview,
+  items,
+  onOpenPreview,
+}: {
+  canOpenPreview: boolean;
+  items: Extract<StreamItem, { kind: "assistant_message" }>[];
+  onOpenPreview: (projectName: string) => void;
+}) {
+  const previewPath = items.map((item) => extractAiCreationPptPreviewPath(item.text)).find(Boolean);
+  const progressCards = items
+    .map((item) => parsePaseoMessageCard(item.text))
+    .filter((card): card is PaseoMessageCard => isLiveArtifactProgressCard(card))
+    .filter((card) => !isPreviewDiscoveryCard(card));
+
+  return (
+    <View style={stylesheet.liveArtifactProgressGroup}>
+      {previewPath ? (
+        <View style={stylesheet.liveArtifactProgressPreviewSlot}>
+          <AiCreationSlidesPreviewCard
+            canOpenPreview={canOpenPreview}
+            path={previewPath}
+            onOpenPreview={onOpenPreview}
+          />
+        </View>
+      ) : null}
+      {progressCards.length > 0 ? (
+        <View style={stylesheet.liveArtifactProgressList}>
+          {progressCards.map((card, index) => (
+            <View
+              key={`${card.kind}:${card.title}:${index}`}
+              style={[
+                stylesheet.liveArtifactProgressRow,
+                index < progressCards.length - 1
+                  ? stylesheet.liveArtifactProgressRowWithDivider
+                  : null,
+              ]}
+            >
+              <View style={stylesheet.liveArtifactProgressCheck}>
+                <Check size={14} color="#b35a18" strokeWidth={2.4} />
+              </View>
+              <View style={stylesheet.liveArtifactProgressBody}>
+                <Text style={stylesheet.liveArtifactProgressTitle} numberOfLines={1}>
+                  {card.title}
+                </Text>
+                <Text style={stylesheet.liveArtifactProgressSummary}>{card.summary}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function AiCreationSlidesPreviewCard({
   canOpenPreview,
   onOpenPreview,
@@ -1733,7 +1860,7 @@ function AiCreationSlidesPreviewCard({
     [visual.accent],
   );
   const getCardStyle = useCallback(
-    (state: PressableStateCallbackType) => aiCreationSlidesCardStyle(state, cardVisualStyle),
+    () => [stylesheet.aiCreationSlidesCard, cardVisualStyle],
     [cardVisualStyle],
   );
   const getPrimaryButtonStyle = useCallback(
@@ -2233,6 +2360,71 @@ const stylesheet = StyleSheet.create((theme) => ({
     height: 2,
     borderRadius: 1,
     backgroundColor: theme.colors.foregroundMuted,
+  },
+  liveArtifactProgressGroup: {
+    alignSelf: "flex-start",
+    width: "100%",
+    maxWidth: 620,
+    minWidth: 280,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: "rgba(179, 90, 24, 0.16)",
+    backgroundColor: "rgba(255, 253, 249, 0.82)",
+    padding: theme.spacing[3],
+    gap: theme.spacing[2],
+    shadowColor: "#000000",
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  liveArtifactProgressPreviewSlot: {
+    overflow: "hidden",
+    borderRadius: theme.borderRadius.md,
+  },
+  liveArtifactProgressList: {
+    borderRadius: theme.borderRadius.md,
+    borderWidth: theme.borderWidth[1],
+    borderColor: "rgba(179, 90, 24, 0.11)",
+    backgroundColor: "rgba(255, 255, 255, 0.64)",
+    overflow: "hidden",
+  },
+  liveArtifactProgressRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: theme.spacing[3],
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[3],
+  },
+  liveArtifactProgressRowWithDivider: {
+    borderBottomWidth: theme.borderWidth[1],
+    borderBottomColor: "rgba(179, 90, 24, 0.1)",
+  },
+  liveArtifactProgressCheck: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(179, 90, 24, 0.1)",
+    borderWidth: theme.borderWidth[1],
+    borderColor: "rgba(179, 90, 24, 0.18)",
+    marginTop: 1,
+  },
+  liveArtifactProgressBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  liveArtifactProgressTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+    lineHeight: 21,
+  },
+  liveArtifactProgressSummary: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
   },
   aiCreationSlidesCard: {
     alignSelf: "flex-start",

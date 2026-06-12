@@ -16,6 +16,7 @@ const PPTX_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/exports\/[^"'`\s)）]+?\.pptx)(?:$|[\s"'`)）.,;，。])/gi;
 const PPT_PREVIEW_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/svg_output\/?)(?:$|[\s"'`)）.,;，。])/gi;
+const PPT_PROGRESS_KIND = "ai_creation.slides.progress";
 const DOCUMENT_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:\.\/)?(?:(?:[\w.@~+-]+[\\/])+)?[^"'`\s)）]+?\.(?:pdf|docx|xlsx?|csv))(?:$|[\s"'`)）.,;，。])/gi;
 const PPT_RESULT_KINDS = new Set([
@@ -150,6 +151,15 @@ function normalizeAiCreationPptPreviewPathToken(source: string): string | null {
 
 function extractAiCreationPptPreviewSources(text: string): string[] {
   const sources: string[] = [];
+  const cardPreviewPath = parsePaseoMessageCard(text)?.fields.find(
+    (field) => field.name === "preview_path",
+  )?.value;
+  if (cardPreviewPath) {
+    const source = normalizeAiCreationPptPreviewPathToken(cardPreviewPath);
+    if (source) {
+      sources.push(source);
+    }
+  }
   for (const match of text.matchAll(PPT_PREVIEW_PATH_PATTERN)) {
     const source = normalizeAiCreationPptPreviewPathToken(match[1] ?? "");
     if (source) {
@@ -305,7 +315,8 @@ function normalizeHandshakeTurn(input: {
   turn: TaggedStreamItem[];
   isActiveRunningTurn: boolean;
 }): { items: TaggedStreamItem[]; changed: boolean } {
-  const responseTarget = findResponseStartTarget(input.turn);
+  const responseTarget =
+    findResponseStartTarget(input.turn) ?? findAiCreationRequestTarget(input.turn);
   if (!responseTarget) {
     return { items: input.turn, changed: false };
   }
@@ -318,7 +329,12 @@ function normalizeHandshakeTurn(input: {
   }
 
   const finalTaggedResult = findLastHandshakeResultItem(input.turn, responseTarget);
+  const pptProgressItems = findPptProgressItems(input.turn, responseTarget);
   if (input.isActiveRunningTurn || !finalTaggedResult) {
+    if (pptProgressItems.length > 0) {
+      normalized.push(...pptProgressItems);
+      return { items: normalized, changed: true };
+    }
     normalized.push({
       source: "head",
       item: buildAiCreationPlaceholderItem(responseTarget),
@@ -334,11 +350,75 @@ function normalizeHandshakeTurn(input: {
   if (!finalMarkdown) {
     return { items: normalized, changed: true };
   }
+  normalized.push(...pptProgressItems);
   normalized.push({
     source: finalTaggedResult.source,
     item: { ...finalItem, text: finalMarkdown },
   });
   return { items: normalized, changed: true };
+}
+
+function findAiCreationRequestTarget(items: TaggedStreamItem[]): PaseoTarget | null {
+  for (const tagged of items) {
+    const item = tagged.item;
+    if (item.kind !== "user_message") {
+      continue;
+    }
+    const card = parsePaseoMessageCard(item.text);
+    if (!card?.kind.startsWith("ai_creation.")) {
+      continue;
+    }
+    const goal = getAiCreationGoalForKind(card.kind);
+    if (!goal) {
+      continue;
+    }
+    return {
+      kind: card.kind,
+      goal,
+      id: item.id,
+      text: card.title,
+    };
+  }
+  return null;
+}
+
+function getAiCreationGoalForKind(kind: string): string | null {
+  switch (kind) {
+    case "ai_creation.image.generate":
+      return "generate_image";
+    case "ai_creation.image.edit":
+      return "edit_image";
+    case "ai_creation.slides.create":
+      return "create_pptx";
+    case "ai_creation.document.pdf.create":
+      return "create_pdf";
+    case "ai_creation.document.word.create":
+      return "create_docx";
+    case "ai_creation.spreadsheet.create":
+      return "create_spreadsheet";
+    default:
+      return null;
+  }
+}
+
+function findPptProgressItems(
+  items: TaggedStreamItem[],
+  expected: PaseoExpectedTarget,
+): TaggedStreamItem[] {
+  if (!PPT_RESULT_KINDS.has(expected.kind) && !PPT_RESULT_GOALS.has(expected.goal)) {
+    return [];
+  }
+  return items.filter((tagged) => {
+    const item = tagged.item;
+    return (
+      item.kind === "assistant_message" &&
+      (extractAiCreationPptPreviewPath(item.text) || isPptProgressMessage(item.text))
+    );
+  });
+}
+
+function isPptProgressMessage(text: string): boolean {
+  return parsePaseoMessageCard(text)?.kind === PPT_PROGRESS_KIND;
 }
 
 function findResponseStartTarget(items: TaggedStreamItem[]): PaseoTarget | null {
