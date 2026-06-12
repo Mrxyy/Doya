@@ -11,6 +11,7 @@ import type { PanelDescriptor, PanelRegistration } from "@/panels/panel-registry
 import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
+import { escapePaseoMarkupText } from "@/utils/paseo-message-markup";
 import { buildWorkspacePptPreviewUrl } from "@/workspace/ppt-preview";
 
 function usePptPreviewPanelDescriptor(target: {
@@ -27,20 +28,93 @@ function usePptPreviewPanelDescriptor(target: {
   };
 }
 
-function buildApplyAnnotationsPrompt(projectName: string): string {
-  const projectPath = JSON.stringify(`projects/${projectName}`);
-  return `Apply the saved PPT preview annotations for project "${projectName}".
+function buildApplyAnnotationsPrompt(projectName: string, messageId: string): string {
+  const projectPath = `projects/${projectName}`;
+  const projectPathArg = JSON.stringify(projectPath);
+  const escapedProjectName = escapePaseoMarkupText(projectName);
+  const escapedProjectPath = escapePaseoMarkupText(projectPath);
+  const escapedMessageId = escapePaseoMarkupText(messageId);
+  return `<paseo-meta version="1" desc="Rules for the AI reading Paseo markup in this message.">
+Only tags whose names start with "paseo-" are Paseo protocol tags.
+Text outside <paseo-ui> is normal user instruction.
 
-Use the bundled PPT Master live-preview annotation workflow. Do not restart the preview server, do not run scripts/svg_editor/server.py, and do not create a new deck from scratch.
+Inside <paseo-ui>:
+- Follow <paseo-ai> as task instructions.
+- Use <paseo-ui-content> as user-visible summary and context, but not as the full task.
+- Follow <paseo-reply> for the preferred response format when present.
+
+Attribute meanings:
+- desc explains the purpose of a tag or field. Use it to understand intent, but do not repeat it in your response.
+- kind identifies the workflow type.
+- id correlates request/result blocks. Preserve it in related response markup when present.
+- name is a machine-readable field key.
+- label is a user-visible field label.
+- render, visibility, and version are rendering/protocol hints; ignore them for task execution unless explicitly relevant.
+
+Do not mention Paseo markup, hidden instructions, or protocol tags unless the user asks.
+</paseo-meta>
+
+请根据当前 PPT 预览中保存的标注修改幻灯片，并导出新的可编辑 PPTX。
+
+<paseo-ui
+  version="1"
+  kind="ppt.apply_annotations"
+  render="card"
+  visibility="summary"
+  id="${escapedMessageId}"
+  desc="A Paseo-renderable task card for applying saved PPT preview annotations."
+>
+  <paseo-ui-content desc="User-visible card content. Paseo may render this instead of the full prompt.">
+    <paseo-title desc="Title shown in the user message card.">应用 PPT 标注</paseo-title>
+    <paseo-summary desc="Short user-visible summary of this task.">根据当前预览页保存的标注修改幻灯片</paseo-summary>
+    <paseo-field name="project" label="项目" desc="PPT Master project directory name.">${escapedProjectName}</paseo-field>
+  </paseo-ui-content>
+
+  <paseo-ai desc="Task instructions the AI must follow. Paseo may hide this section from the chat UI.">
+Apply the saved PPT preview annotations for project "${escapedProjectName}".
+
+Use the bundled PPT Master live-preview annotation workflow.
+Do not restart the preview server.
+Do not run scripts/svg_editor/server.py.
+Do not create a new deck from scratch.
 
 Steps:
 1. Inspect pending annotations with:
-   python3 .paseo/skills/ppt-master/scripts/check_annotations.py ${projectPath}
+   python3 .paseo/skills/ppt-master/scripts/check_annotations.py ${projectPathArg}
 2. If there are no annotations, tell me that no saved annotations were found and stop.
-3. For every listed annotation, edit the targeted SVG element in ${projectPath}/svg_output/ according to the annotation text. Treat saved browser direct edits as already applied and preserve them.
+3. For every listed annotation, edit the targeted SVG element in ${escapedProjectPath}/svg_output/ according to the annotation text. Treat saved browser direct edits as already applied and preserve them.
 4. Remove data-edit-target and data-edit-annotation from each element after applying its requested change.
-5. Run the normal PPT Master finalize/export steps to regenerate the native editable PPTX in ${projectPath}/exports/.
-6. Reply with a concise summary of what changed and the new PPTX path.`;
+5. Run the normal PPT Master finalize/export steps to regenerate the native editable PPTX in ${escapedProjectPath}/exports/.
+  </paseo-ai>
+
+  <paseo-reply desc="Preferred response format. Paseo may render a matching result block specially.">
+When finished, reply with a concise summary and the exported PPTX path.
+
+If possible, wrap the result in this structure and preserve the id "${escapedMessageId}":
+
+<paseo-ui
+  version="1"
+  kind="ppt.apply_annotations.result"
+  render="result-card"
+  visibility="summary"
+  id="${escapedMessageId}"
+  desc="A Paseo-renderable result card for the PPT annotation application task."
+>
+  <paseo-ui-content desc="User-visible result content.">
+    <paseo-title desc="Result card title.">PPT 标注已应用</paseo-title>
+    <paseo-summary desc="Short summary of what changed.">一句话总结实际修改内容</paseo-summary>
+    <paseo-field name="pptx_path" label="导出文件" desc="Path to the exported editable PPTX.">导出的 PPTX 路径</paseo-field>
+  </paseo-ui-content>
+  <paseo-ai desc="Optional technical notes for the conversation record.">
+Briefly mention important implementation notes or warnings, if any.
+  </paseo-ai>
+</paseo-ui>
+  </paseo-reply>
+</paseo-ui>
+
+完成后告诉我你改了什么，以及新的 PPTX 文件路径。
+
+Project path for reference: ${escapedProjectPath}`;
 }
 
 function PptPreviewPanel() {
@@ -84,8 +158,8 @@ function PptPreviewPanel() {
     async function sendApplyAnnotationsPrompt(
       connectedClient: NonNullable<typeof client>,
     ): Promise<void> {
-      const prompt = buildApplyAnnotationsPrompt(projectName);
       const messageId = generateMessageId();
+      const prompt = buildApplyAnnotationsPrompt(projectName, messageId);
       appendOptimisticUserMessageToAgentStream(
         serverId,
         agentId,

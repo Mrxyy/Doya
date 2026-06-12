@@ -106,6 +106,11 @@ import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-ur
 import type { AttachmentMetadata } from "@/attachments/types";
 import { Button } from "@/components/ui/button";
 import { filterUserMessageDisplayAttachments } from "@/components/user-message-attachments";
+import {
+  parsePaseoMessageCard,
+  parsePaseoMessageRenderParts,
+  type PaseoMessageCard,
+} from "@/utils/paseo-message-markup";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import { isWeb, isNative } from "@/constants/platform";
 import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
@@ -475,6 +480,66 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     fontWeight: theme.fontWeight.semibold,
     lineHeight: 14,
   },
+  paseoCard: {
+    width: 320,
+    maxWidth: "100%",
+    gap: theme.spacing[3],
+  },
+  paseoCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+  },
+  paseoCardIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.borderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(31, 122, 82, 0.12)",
+  },
+  paseoCardTitleGroup: {
+    flex: 1,
+    minWidth: 0,
+  },
+  paseoCardTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
+    lineHeight: 20,
+  },
+  paseoCardKind: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  paseoCardSummary: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+  },
+  paseoCardFieldList: {
+    gap: theme.spacing[1],
+  },
+  paseoCardFieldRow: {
+    flexDirection: "row",
+    gap: theme.spacing[2],
+    minWidth: 0,
+  },
+  paseoCardFieldLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    lineHeight: 18,
+    minWidth: 44,
+  },
+  paseoCardFieldValue: {
+    flex: 1,
+    minWidth: 0,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.xs,
+    lineHeight: 18,
+  },
   copyButton: {
     alignSelf: "center",
     padding: theme.spacing[1],
@@ -840,6 +905,50 @@ function UserMessageStructuredAttachment({ attachment }: { attachment: AgentAtta
   );
 }
 
+function getPaseoMessageKindLabel(kind: string): string {
+  switch (kind) {
+    case "ppt.apply_annotations":
+      return "PPT 标注任务";
+    case "ppt.apply_annotations.result":
+      return "PPT 标注结果";
+    default:
+      return kind;
+  }
+}
+
+function UserMessagePaseoCard({ card }: { card: PaseoMessageCard }) {
+  return (
+    <View style={userMessageStylesheet.paseoCard}>
+      <View style={userMessageStylesheet.paseoCardHeader}>
+        <View style={userMessageStylesheet.paseoCardIconBox}>
+          <Presentation size={20} color="#1f7a52" strokeWidth={2.2} />
+        </View>
+        <View style={userMessageStylesheet.paseoCardTitleGroup}>
+          <Text style={userMessageStylesheet.paseoCardTitle} numberOfLines={1}>
+            {card.title}
+          </Text>
+          <Text style={userMessageStylesheet.paseoCardKind} numberOfLines={1}>
+            {getPaseoMessageKindLabel(card.kind)}
+          </Text>
+        </View>
+      </View>
+      <Text style={userMessageStylesheet.paseoCardSummary}>{card.summary}</Text>
+      {card.fields.length > 0 ? (
+        <View style={userMessageStylesheet.paseoCardFieldList}>
+          {card.fields.map((field) => (
+            <View key={field.name} style={userMessageStylesheet.paseoCardFieldRow}>
+              <Text style={userMessageStylesheet.paseoCardFieldLabel}>{field.label}</Text>
+              <Text style={userMessageStylesheet.paseoCardFieldValue} numberOfLines={2}>
+                {field.value}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export const UserMessage = memo(function UserMessage({
   serverId,
   agentId,
@@ -870,6 +979,8 @@ export const UserMessage = memo(function UserMessage({
     [attachments, displayImages],
   );
   const hasText = message.trim().length > 0;
+  const paseoCard = useMemo(() => parsePaseoMessageCard(message), [message]);
+  const shouldRenderRawText = hasText && !paseoCard;
   const hasImages = displayImages.length > 0;
   const hasAttachments = displayAttachments.length > 0;
   const showTrailingRow = hasText && (isCompact || isNative || isHovered);
@@ -967,7 +1078,8 @@ export const UserMessage = memo(function UserMessage({
               ))}
             </View>
           ) : null}
-          {hasText ? (
+          {paseoCard ? <UserMessagePaseoCard card={paseoCard} /> : null}
+          {shouldRenderRawText ? (
             <Text selectable style={userMessageStylesheet.text}>
               {message}
             </Text>
@@ -1159,6 +1271,37 @@ interface AssistantMessageProps {
   client?: DaemonClient | null;
   spacing?: "default" | "compactTop" | "compactBottom" | "compactBoth";
   onEditImage?: (image: AttachmentMetadata, previewUri: string, source: string) => void;
+}
+
+interface AssistantMessageRenderBlock {
+  key: string;
+  block: string;
+  card: PaseoMessageCard | null;
+  text: string | null;
+}
+
+function buildAssistantMessageRenderBlocks(message: string): AssistantMessageRenderBlock[] {
+  const renderParts = parsePaseoMessageRenderParts(message);
+  const blocks: AssistantMessageRenderBlock[] = [];
+
+  renderParts.forEach((part, partIndex) => {
+    if (part.kind === "card") {
+      const block = `paseo-card:${part.card.kind}:${part.card.title}`;
+      blocks.push({ key: `${partIndex}:${block}`, block, card: part.card, text: null });
+      return;
+    }
+
+    splitMarkdownBlocks(part.text).forEach((block, blockIndex) => {
+      blocks.push({
+        key: `${partIndex}:${blockIndex}:${block.slice(0, 32)}`,
+        block,
+        card: null,
+        text: block,
+      });
+    });
+  });
+
+  return blocks;
 }
 
 export const assistantMessageStylesheet = StyleSheet.create((theme) => ({
@@ -2247,11 +2390,7 @@ export const AssistantMessage = memo(function AssistantMessage({
     };
   }, [client, fileLinkActions, markdownParser, onEditImage, serverId, workspaceRoot]);
 
-  const blocks = useMemo(() => splitMarkdownBlocks(message), [message]);
-  const keyedBlocks = useMemo(
-    () => blocks.map((block, index) => ({ key: `${index}:${block.slice(0, 32)}`, block })),
-    [blocks],
-  );
+  const keyedBlocks = useMemo(() => buildAssistantMessageRenderBlocks(message), [message]);
 
   const assistantContainerStyle = useMemo(
     () => [
@@ -2266,18 +2405,22 @@ export const AssistantMessage = memo(function AssistantMessage({
 
   return (
     <View testID="assistant-message" style={assistantContainerStyle}>
-      {keyedBlocks.map(({ key, block }, index) => (
+      {keyedBlocks.map(({ key, block, card, text }, index) => (
         <AssistantMessageBlockContainer
           key={key}
           block={block}
           marginBottom={index < keyedBlocks.length - 1 ? 12 : 0}
         >
-          <MemoizedMarkdownBlock
-            text={block}
-            rules={markdownRules}
-            parser={markdownParser}
-            onLinkPress={handleMarkdownLinkPress}
-          />
+          {card ? (
+            <UserMessagePaseoCard card={card} />
+          ) : (
+            <MemoizedMarkdownBlock
+              text={text ?? ""}
+              rules={markdownRules}
+              parser={markdownParser}
+              onLinkPress={handleMarkdownLinkPress}
+            />
+          )}
         </AssistantMessageBlockContainer>
       ))}
     </View>
