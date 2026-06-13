@@ -6,7 +6,7 @@ import {
   SYNTAX_THEME_OPTIONS,
   type SyntaxThemeId,
   type SyntaxThemeOption,
-} from "@getpaseo/highlight";
+} from "@getdoya/highlight";
 import {
   DropdownMenu,
   DropdownMenuContent,

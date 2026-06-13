@@ -4,8 +4,8 @@ import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import type {
   DaemonClient,
   FetchRecentProviderSessionEntry,
-} from "@getpaseo/client/internal/daemon-client";
-import type { AgentProvider } from "@getpaseo/protocol/agent-types";
+} from "@getdoya/client/internal/daemon-client";
+import type { AgentProvider } from "@getdoya/protocol/agent-types";
 import { Inbox, RotateCw } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";

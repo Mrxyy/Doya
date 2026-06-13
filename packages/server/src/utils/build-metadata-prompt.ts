@@ -1,5 +1,5 @@
-import { readPaseoConfigJson } from "./paseo-config-file.js";
-import { PaseoConfigSchema } from "@getpaseo/protocol/paseo-config-schema";
+import { readDoyaConfigJson } from "./doya-config-file.js";
+import { DoyaConfigSchema } from "@getdoya/protocol/doya-config-schema";
 import { wrapWithUserInstructions } from "./wrap-user-instructions.js";
 
 export type MetadataConfigKey = "agentTitle" | "branchName" | "commitMessage" | "pullRequest";
@@ -33,8 +33,8 @@ async function readProjectMetadataInstructions(
   }
   try {
     const repoRoot = await options.workspaceGitService.resolveRepoRoot(options.cwd);
-    const json = readPaseoConfigJson(repoRoot);
-    const config = PaseoConfigSchema.parse(json);
+    const json = readDoyaConfigJson(repoRoot);
+    const config = DoyaConfigSchema.parse(json);
     return config.metadataGeneration?.[options.configKey]?.instructions;
   } catch {
     return undefined;

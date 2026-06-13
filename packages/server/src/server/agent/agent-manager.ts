@@ -4,8 +4,11 @@ import { stat } from "node:fs/promises";
 import {
   AGENT_LIFECYCLE_STATUSES,
   type AgentLifecycleStatus,
-} from "@getpaseo/protocol/agent-lifecycle";
-import { PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
+} from "@getdoya/protocol/agent-lifecycle";
+import {
+  LEGACY_PARENT_AGENT_ID_LABEL,
+  PARENT_AGENT_ID_LABEL,
+} from "@getdoya/protocol/agent-labels";
 import type { Logger } from "pino";
 import { z } from "zod";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
@@ -53,7 +56,7 @@ import {
   AgentStreamCoalescer,
 } from "./agent-stream-coalescer.js";
 import { ForegroundRunState, type ForegroundTurnWaiter } from "./foreground-run-state.js";
-import { getAgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
+import { getAgentProviderDefinition } from "@getdoya/protocol/provider-manifest";
 import { IMPORTABLE_PROVIDERS } from "./provider-registry.js";
 import { invokeRewindCapability, type RewindMode } from "./rewind/rewind.js";
 import { isSystemInjectedEnvelope } from "./agent-prompt.js";
@@ -824,7 +827,7 @@ export class AgentManager {
         : {
             ...config,
             mcpServers: {
-              paseo: {
+              doya: {
                 type: "http" as const,
                 url: `${this.mcpBaseUrl}?callerAgentId=${resolvedAgentId}`,
               },
@@ -921,7 +924,7 @@ export class AgentManager {
   // config swaps). When `rehydrateFromDisk` is set, the timeline is wiped so a
   // new epoch is minted and provider history is re-streamed — this is what the
   // user-facing "Reload agent" action wants when the on-disk session was
-  // mutated outside Paseo.
+  // mutated outside Doya.
   async reloadAgentSession(
     agentId: string,
     overrides?: Partial<AgentSessionConfig>,
@@ -1106,7 +1109,9 @@ export class AgentManager {
       if (record.archivedAt) {
         continue;
       }
-      if (record.labels?.[PARENT_AGENT_ID_LABEL] !== parentAgentId) {
+      const recordParentAgentId =
+        record.labels?.[PARENT_AGENT_ID_LABEL] ?? record.labels?.[LEGACY_PARENT_AGENT_ID_LABEL];
+      if (recordParentAgentId !== parentAgentId) {
         continue;
       }
       if (this.agents.has(record.id)) {
@@ -3534,7 +3539,7 @@ export class AgentManager {
       agentId,
       env: {
         ...env,
-        PASEO_AGENT_ID: agentId,
+        DOYA_AGENT_ID: agentId,
       },
     };
   }

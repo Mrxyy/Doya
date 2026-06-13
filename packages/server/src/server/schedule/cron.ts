@@ -1,4 +1,4 @@
-import type { ScheduleCadence } from "@getpaseo/protocol/schedule/types";
+import type { ScheduleCadence } from "@getdoya/protocol/schedule/types";
 
 interface CronFieldMatcher {
   matches(value: number): boolean;

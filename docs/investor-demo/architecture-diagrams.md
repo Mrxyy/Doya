@@ -1,8 +1,8 @@
 # 架构图
 
-![Doya 架构总览](./paseo-architecture-overview.png)
+![Doya 架构总览](./doya-architecture-overview.png)
 
-![Doya 多端构建与运行时流向](./paseo-multiplatform-architecture-flow-cn-v2.png)
+![Doya 多端构建与运行时流向](./doya-multiplatform-architecture-flow-cn-v2.png)
 
 ## 1. 产品闭环图
 

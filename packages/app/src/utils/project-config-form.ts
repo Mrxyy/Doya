@@ -1,9 +1,9 @@
 import type {
-  PaseoConfigRaw,
-  PaseoMetadataGeneration,
-  PaseoMetadataGenerationEntry,
-  PaseoScriptEntryRaw,
-} from "@getpaseo/protocol/messages";
+  DoyaConfigRaw,
+  DoyaMetadataGeneration,
+  DoyaMetadataGenerationEntry,
+  DoyaScriptEntryRaw,
+} from "@getdoya/protocol/messages";
 
 export type LifecycleOriginalKind = "string" | "array" | "missing";
 
@@ -22,7 +22,7 @@ export interface ProjectScriptDraft {
   commandOriginalKind: LifecycleOriginalKind;
   type: string;
   portText: string;
-  rawEntry: PaseoScriptEntryRaw;
+  rawEntry: DoyaScriptEntryRaw;
 }
 
 export interface ProjectConfigDraft {
@@ -32,7 +32,7 @@ export interface ProjectConfigDraft {
   teardownOriginalKind: LifecycleOriginalKind;
   scripts: ProjectScriptDraft[];
   metadataPrompts: Record<MetadataPromptKey, string>;
-  metadataGenerationBase: PaseoMetadataGeneration | undefined;
+  metadataGenerationBase: DoyaMetadataGeneration | undefined;
 }
 
 interface LifecycleProjection {
@@ -112,7 +112,7 @@ function emptyMetadataPrompts(): Record<MetadataPromptKey, string> {
   };
 }
 
-export function configToDraft(config: PaseoConfigRaw | null | undefined): ProjectConfigDraft {
+export function configToDraft(config: DoyaConfigRaw | null | undefined): ProjectConfigDraft {
   const worktree = config?.worktree ?? {};
   const setup = projectLifecycle(worktree.setup);
   const teardown = projectLifecycle(worktree.teardown);
@@ -154,10 +154,10 @@ export function configToDraft(config: PaseoConfigRaw | null | undefined): Projec
 
 interface ApplyDraftInput {
   draft: ProjectConfigDraft;
-  base: PaseoConfigRaw | null | undefined;
+  base: DoyaConfigRaw | null | undefined;
 }
 
-export function applyDraftToConfig(input: ApplyDraftInput): PaseoConfigRaw {
+export function applyDraftToConfig(input: ApplyDraftInput): DoyaConfigRaw {
   const baseConfig = input.base ?? {};
   const baseWorktree = baseConfig.worktree ?? {};
 
@@ -178,7 +178,7 @@ export function applyDraftToConfig(input: ApplyDraftInput): PaseoConfigRaw {
     nextWorktree.teardown = nextTeardown;
   }
 
-  const nextScripts: Record<string, PaseoScriptEntryRaw> = {};
+  const nextScripts: Record<string, DoyaScriptEntryRaw> = {};
   for (const row of input.draft.scripts) {
     const trimmedName = row.name.trim();
     if (trimmedName.length === 0) {
@@ -204,7 +204,7 @@ export function applyDraftToConfig(input: ApplyDraftInput): PaseoConfigRaw {
     } else {
       nextEntry.port = nextPort;
     }
-    nextScripts[trimmedName] = nextEntry as PaseoScriptEntryRaw;
+    nextScripts[trimmedName] = nextEntry as DoyaScriptEntryRaw;
   }
 
   const nextMetadataGeneration: Record<string, unknown> = {
@@ -213,7 +213,7 @@ export function applyDraftToConfig(input: ApplyDraftInput): PaseoConfigRaw {
   for (const key of METADATA_PROMPT_KEYS) {
     const text = input.draft.metadataPrompts[key];
     const baseEntry = input.draft.metadataGenerationBase?.[key] as
-      | PaseoMetadataGenerationEntry
+      | DoyaMetadataGenerationEntry
       | undefined;
     if (text.trim().length === 0) {
       if (baseEntry) {
@@ -248,5 +248,5 @@ export function applyDraftToConfig(input: ApplyDraftInput): PaseoConfigRaw {
   } else {
     result.metadataGeneration = nextMetadataGeneration;
   }
-  return result as PaseoConfigRaw;
+  return result as DoyaConfigRaw;
 }

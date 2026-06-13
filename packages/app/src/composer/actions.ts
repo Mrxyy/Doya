@@ -1,4 +1,4 @@
-import type { AgentAttachment, GitHubSearchItem } from "@getpaseo/protocol/messages";
+import type { AgentAttachment, GitHubSearchItem } from "@getdoya/protocol/messages";
 import type {
   AttachmentMetadata,
   ComposerAttachment,

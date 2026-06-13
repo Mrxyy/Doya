@@ -71,15 +71,15 @@ Claude Code has its own CLI, IDE integrations, web surface, scheduled tasks, and
 Doya's CLI controls the same daemon as the app:
 
 ```bash
-paseo run --provider claude "implement OAuth"
-paseo run --provider codex --worktree refactor-auth "refactor auth"
-paseo run --host devbox:6767 "run the test suite"
-paseo ls
-paseo send <agent-id> "add tests"
-paseo schedule create --cron "0 9 * * 1" "audit the codebase"
+doya run --provider claude "implement OAuth"
+doya run --provider codex --worktree refactor-auth "refactor auth"
+doya run --host devbox:6767 "run the test suite"
+doya ls
+doya send <agent-id> "add tests"
+doya schedule create --cron "0 9 * * 1" "audit the codebase"
 ```
 
-`paseo run --host` connects to a remote daemon. `paseo schedule` runs an agent on a cron. `paseo loop` retries an agent until a verification command passes. The MCP server lets other agents create worktrees, launch agents, open terminals, and send prompts.
+`doya run --host` connects to a remote daemon. `doya schedule` runs an agent on a cron. `doya loop` retries an agent until a verification command passes. The MCP server lets other agents create worktrees, launch agents, open terminals, and send prompts.
 
 ## Worktrees and services
 

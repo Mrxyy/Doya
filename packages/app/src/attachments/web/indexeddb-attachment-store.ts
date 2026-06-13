@@ -17,7 +17,8 @@ interface StoredBlobRecord {
   fileName: string | null;
 }
 
-const DB_NAME = "paseo-attachment-bytes";
+const DB_NAME = "doya-attachment-bytes";
+const LEGACY_DB_NAME = "doya-attachment-bytes";
 const STORE_NAME = "attachments";
 const DB_VERSION = 1;
 
@@ -29,9 +30,9 @@ function ensureIndexedDb(): IDBFactory {
   return idb;
 }
 
-function openAttachmentDb(): Promise<IDBDatabase> {
+function openAttachmentDbByName(dbName: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = ensureIndexedDb().open(DB_NAME, DB_VERSION);
+    const request = ensureIndexedDb().open(dbName, DB_VERSION);
 
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -48,6 +49,10 @@ function openAttachmentDb(): Promise<IDBDatabase> {
       reject(request.error ?? new Error("Failed to open attachment IndexedDB."));
     });
   });
+}
+
+function openAttachmentDb(): Promise<IDBDatabase> {
+  return openAttachmentDbByName(DB_NAME);
 }
 
 function runTx<T>(
@@ -126,6 +131,24 @@ async function loadBlob(db: IDBDatabase, id: string): Promise<Blob> {
 }
 
 export function createIndexedDbAttachmentStore(): AttachmentStore {
+  async function loadAttachmentBlob(storageKey: string): Promise<Blob> {
+    const db = await openAttachmentDb();
+    try {
+      return await loadBlob(db, storageKey);
+    } catch (error) {
+      const legacyDb = await openAttachmentDbByName(LEGACY_DB_NAME);
+      try {
+        return await loadBlob(legacyDb, storageKey);
+      } catch {
+        throw error;
+      } finally {
+        legacyDb.close();
+      }
+    } finally {
+      db.close();
+    }
+  }
+
   return {
     storageType: "web-indexeddb",
 
@@ -156,23 +179,11 @@ export function createIndexedDbAttachmentStore(): AttachmentStore {
     },
 
     async encodeBase64({ attachment }): Promise<string> {
-      const db = await openAttachmentDb();
-      try {
-        const blob = await loadBlob(db, attachment.storageKey);
-        return await blobToBase64(blob);
-      } finally {
-        db.close();
-      }
+      return await blobToBase64(await loadAttachmentBlob(attachment.storageKey));
     },
 
     async resolvePreviewUrl({ attachment }): Promise<string> {
-      const db = await openAttachmentDb();
-      try {
-        const blob = await loadBlob(db, attachment.storageKey);
-        return URL.createObjectURL(blob);
-      } finally {
-        db.close();
-      }
+      return URL.createObjectURL(await loadAttachmentBlob(attachment.storageKey));
     },
 
     async releasePreviewUrl({ url }): Promise<void> {

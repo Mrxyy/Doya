@@ -38,7 +38,7 @@ export function QuittingOverlay() {
   return (
     <View style={styles.overlay}>
       <LoadingSpinner size="large" color={theme.colors.foregroundMuted} />
-      <Text style={styles.title}>{translateNow("ui.quitting.paseo.ltcb6l")}</Text>
+      <Text style={styles.title}>{translateNow("ui.quitting.doya.ltcb6l")}</Text>
       <Text style={styles.detail}>{translateNow("ui.stopping.the.local.daemon.1uhhdoa")}</Text>
     </View>
   );

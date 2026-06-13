@@ -1,8 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { translateNow } from "@/i18n/i18n";
 
-const ACCOUNT_SESSION_STORAGE_KEY = "paseo.account.session.v1";
-const LEGACY_HOSTED_SESSION_STORAGE_KEY = "paseo.hosted.session.v1";
+const ACCOUNT_SESSION_STORAGE_KEY = "doya.account.session.v1";
+const LEGACY_BRAND_STORAGE_PREFIX = "pa" + "seo";
+const LEGACY_ACCOUNT_SESSION_STORAGE_KEY = `${LEGACY_BRAND_STORAGE_PREFIX}.account.session.v1`;
+const LEGACY_HOSTED_SESSION_STORAGE_KEY = `${LEGACY_BRAND_STORAGE_PREFIX}.hosted.session.v1`;
+const LEGACY_ACCOUNT_SESSION_STORAGE_KEYS = [
+  LEGACY_ACCOUNT_SESSION_STORAGE_KEY,
+  LEGACY_HOSTED_SESSION_STORAGE_KEY,
+].filter((key) => key !== ACCOUNT_SESSION_STORAGE_KEY);
 const accountSessionListeners = new Set<() => void>();
 
 export interface AccountUserRecord {
@@ -87,9 +93,7 @@ function accountApiBaseUrl(): string {
 
 export async function loadAccountBootstrapSession(): Promise<AccountBootstrapSession | null> {
   const currentRaw = await AsyncStorage.getItem(ACCOUNT_SESSION_STORAGE_KEY);
-  const legacyRaw = currentRaw
-    ? null
-    : await AsyncStorage.getItem(LEGACY_HOSTED_SESSION_STORAGE_KEY);
+  const legacyRaw = currentRaw ? null : await loadLegacyAccountBootstrapSessionRaw();
   const raw = currentRaw ?? legacyRaw;
   if (!raw) {
     return null;
@@ -97,8 +101,10 @@ export async function loadAccountBootstrapSession(): Promise<AccountBootstrapSes
   try {
     const session = JSON.parse(raw) as AccountBootstrapSession;
     if (!session.accessToken) {
-      await AsyncStorage.removeItem(ACCOUNT_SESSION_STORAGE_KEY);
-      await AsyncStorage.removeItem(LEGACY_HOSTED_SESSION_STORAGE_KEY);
+      await removeAccountSessionStorageItems([
+        ACCOUNT_SESSION_STORAGE_KEY,
+        ...LEGACY_ACCOUNT_SESSION_STORAGE_KEYS,
+      ]);
       return null;
     }
     const migratedSession = {
@@ -107,11 +113,12 @@ export async function loadAccountBootstrapSession(): Promise<AccountBootstrapSes
       apiBaseUrl: accountApiBaseUrl(),
     };
     await persistAccountBootstrapSession(migratedSession);
-    await AsyncStorage.removeItem(LEGACY_HOSTED_SESSION_STORAGE_KEY);
     return migratedSession;
   } catch {
-    await AsyncStorage.removeItem(ACCOUNT_SESSION_STORAGE_KEY);
-    await AsyncStorage.removeItem(LEGACY_HOSTED_SESSION_STORAGE_KEY);
+    await removeAccountSessionStorageItems([
+      ACCOUNT_SESSION_STORAGE_KEY,
+      ...LEGACY_ACCOUNT_SESSION_STORAGE_KEYS,
+    ]);
     return null;
   }
 }
@@ -123,13 +130,29 @@ export async function saveAccountBootstrapSession(session: AccountBootstrapSessi
 
 async function persistAccountBootstrapSession(session: AccountBootstrapSession): Promise<void> {
   await AsyncStorage.setItem(ACCOUNT_SESSION_STORAGE_KEY, JSON.stringify(session));
-  await AsyncStorage.removeItem(LEGACY_HOSTED_SESSION_STORAGE_KEY);
+  await removeAccountSessionStorageItems(LEGACY_ACCOUNT_SESSION_STORAGE_KEYS);
 }
 
 export async function clearAccountBootstrapSession(): Promise<void> {
-  await AsyncStorage.removeItem(ACCOUNT_SESSION_STORAGE_KEY);
-  await AsyncStorage.removeItem(LEGACY_HOSTED_SESSION_STORAGE_KEY);
+  await removeAccountSessionStorageItems([
+    ACCOUNT_SESSION_STORAGE_KEY,
+    ...LEGACY_ACCOUNT_SESSION_STORAGE_KEYS,
+  ]);
   notifyAccountSessionChanged();
+}
+
+async function loadLegacyAccountBootstrapSessionRaw(): Promise<string | null> {
+  for (const key of LEGACY_ACCOUNT_SESSION_STORAGE_KEYS) {
+    const raw = await AsyncStorage.getItem(key);
+    if (raw) {
+      return raw;
+    }
+  }
+  return null;
+}
+
+async function removeAccountSessionStorageItems(keys: string[]): Promise<void> {
+  await Promise.all([...new Set(keys)].map((key) => AsyncStorage.removeItem(key)));
 }
 
 export function subscribeAccountSessionChanges(listener: () => void): () => void {

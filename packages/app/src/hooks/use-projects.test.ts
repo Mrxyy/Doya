@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { WorkspaceDescriptorPayload } from "@getpaseo/protocol/messages";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
+import type { WorkspaceDescriptorPayload } from "@getdoya/protocol/messages";
 import {
   fetchAggregatedProjects,
   type ProjectsHostInput,
@@ -90,7 +90,7 @@ function workspace(input: {
     gitRuntime: {
       currentBranch: "main",
       remoteUrl: input.remoteUrl,
-      isPaseoOwnedWorktree: false,
+      isDoyaOwnedWorktree: false,
       isDirty: false,
       aheadBehind: null,
       aheadOfOrigin: null,
@@ -106,7 +106,7 @@ function workspace(input: {
         currentBranch: "main",
         remoteUrl: input.remoteUrl,
         worktreeRoot: input.cwd,
-        isPaseoOwnedWorktree: false,
+        isDoyaOwnedWorktree: false,
         mainRepoRoot: null,
       },
     },

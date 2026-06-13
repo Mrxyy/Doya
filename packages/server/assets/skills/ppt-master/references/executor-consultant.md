@@ -26,16 +26,17 @@ KPI cards are the most common element in consulting reports. Standard layout (12
 
 **Card internal structure** (top to bottom):
 
-| Area | Content | Font Size (example @ body=18px) | Style |
-|------|---------|-----------|-------|
-| Icon row | data-icon icon | 32x32 | Theme color |
-| Metric name | "Monthly Active Users" | 14px (~0.8x body) | Gray #64748B |
-| Core number | "1.2M" | 36-42px (~2x body, hero number band) | Bold, dark color |
-| Trend annotation | "+12.3% vs last month" | 12px (~0.65x body, annotation band) | Green=up / Red=down |
+| Area             | Content                | Font Size (example @ body=18px)      | Style               |
+| ---------------- | ---------------------- | ------------------------------------ | ------------------- |
+| Icon row         | data-icon icon         | 32x32                                | Theme color         |
+| Metric name      | "Monthly Active Users" | 14px (~0.8x body)                    | Gray #64748B        |
+| Core number      | "1.2M"                 | 36-42px (~2x body, hero number band) | Bold, dark color    |
+| Trend annotation | "+12.3% vs last month" | 12px (~0.65x body, annotation band)  | Green=up / Red=down |
 
 > Px values assume the typical dense consulting baseline (`body` ≈ 18px). For a deck with a different `body` in `spec_lock.md`, apply the ratios in parentheses rather than copying the px figures.
 
 **Trend arrow conventions**:
+
 - Up: `arrow-trend-up` icon + green text
 - Down: `arrow-trend-down` icon + red text
 - Flat: horizontal line icon + gray text
@@ -62,13 +63,13 @@ Highlight:        Accent color (only for key data points)
 
 Consulting reports frequently use tables for precise data:
 
-| Design Element | Specification |
-|----------------|---------------|
-| Header | Dark background + white text, font-weight="bold" |
-| Zebra striping | Alternate rows with `fill-opacity="0.05"` light background |
-| Number alignment | Numbers right-aligned, text left-aligned |
-| Highlighted row | Mark key rows with accent color `fill-opacity="0.1"` |
-| Borders | Use horizontal lines only to separate rows; avoid full grid lines |
+| Design Element   | Specification                                                     |
+| ---------------- | ----------------------------------------------------------------- |
+| Header           | Dark background + white text, font-weight="bold"                  |
+| Zebra striping   | Alternate rows with `fill-opacity="0.05"` light background        |
+| Number alignment | Numbers right-aligned, text left-aligned                          |
+| Highlighted row  | Mark key rows with accent color `fill-opacity="0.1"`              |
+| Borders          | Use horizontal lines only to separate rows; avoid full grid lines |
 
 ---
 
@@ -122,11 +123,11 @@ Insight area: x=780, y=120, w=460, h=480
 
 Consulting-style page titles should be **assertion headlines**, not descriptive titles:
 
-| Type | Descriptive (avoid) | Assertion (recommended) |
-|------|---------------------|------------------------|
-| Market | "Market Overview" | "Domestic market grows 23% YoY, significantly outpacing global average" |
-| Competition | "Competitive Analysis" | "Three major competitors show clear weaknesses in channel coverage" |
-| Finance | "Financial Data" | "Gross margin improved for four consecutive quarters, breaking industry ceiling" |
+| Type        | Descriptive (avoid)    | Assertion (recommended)                                                          |
+| ----------- | ---------------------- | -------------------------------------------------------------------------------- |
+| Market      | "Market Overview"      | "Domestic market grows 23% YoY, significantly outpacing global average"          |
+| Competition | "Competitive Analysis" | "Three major competitors show clear weaknesses in channel coverage"              |
+| Finance     | "Financial Data"       | "Gross margin improved for four consecutive quarters, breaking industry ceiling" |
 
 ### Data Source Attribution
 

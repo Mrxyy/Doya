@@ -77,7 +77,7 @@ function Privacy() {
           <p>
             If you have questions about privacy, open an issue on{" "}
             <a
-              href="https://github.com/getpaseo/paseo"
+              href="https://github.com/getdoya/doya"
               target="_blank"
               rel="noopener noreferrer"
               className="underline hover:text-white/90"

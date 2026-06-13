@@ -14,23 +14,23 @@ An MBB-level (McKinsey / Bain / BCG) top-tier consulting style SVG design execut
 
 Every MBB-level presentation follows the SCQA narrative structure:
 
-| Element | Purpose | Typical Pages |
-|---------|---------|---------------|
-| **S - Situation** | Establish shared context | Cover / Pages 1-2 |
-| **C - Complication** | Introduce the problem / tension | Pages 2-3 |
-| **Q - Question** | The implicit or explicit question to solve | Transition page |
-| **A - Answer** | Core solution | All body pages |
+| Element              | Purpose                                    | Typical Pages     |
+| -------------------- | ------------------------------------------ | ----------------- |
+| **S - Situation**    | Establish shared context                   | Cover / Pages 1-2 |
+| **C - Complication** | Introduce the problem / tension            | Pages 2-3         |
+| **Q - Question**     | The implicit or explicit question to solve | Transition page   |
+| **A - Answer**       | Core solution                              | All body pages    |
 
 **Page sequencing**: Cover embodies S+C → Executive Summary answers Q → Chapters develop A → Closing revisits S
 
 **Title writing**:
 
-| SCQA Element | Weak Title | MBB-level Title |
-|-------------|------------|-----------------|
-| S | "Industry Background" | "Digital penetration surpasses 60%, industry enters deep waters" |
-| C | "Challenges Faced" | "Yet three structural contradictions constrain scaled deployment" |
-| Q | "Strategic Question" | "How to move from pilot to full deployment within 18 months?" |
-| A | "Solution" | "Three-phase path: Focus, Expand, Scale" |
+| SCQA Element | Weak Title            | MBB-level Title                                                   |
+| ------------ | --------------------- | ----------------------------------------------------------------- |
+| S            | "Industry Background" | "Digital penetration surpasses 60%, industry enters deep waters"  |
+| C            | "Challenges Faced"    | "Yet three structural contradictions constrain scaled deployment" |
+| Q            | "Strategic Question"  | "How to move from pilot to full deployment within 18 months?"     |
+| A            | "Solution"            | "Three-phase path: Focus, Expand, Scale"                          |
 
 ---
 
@@ -38,13 +38,13 @@ Every MBB-level presentation follows the SCQA narrative structure:
 
 > **Golden Rule**: Never display a single data point in isolation. Every number needs context.
 
-| Method | Pattern | Visual Implementation |
-|--------|---------|----------------------|
-| **Time comparison** | "From X to Y" | Line chart + arrow annotating magnitude of change |
-| **Benchmark** | "X vs industry average Y" | Bar chart with gray dashed baseline |
-| **Competitive comparison** | "Us X vs Competitor Y" | Side-by-side bar chart, highlight own data |
-| **Target gap** | "Actual X / Target Y" | Progress bar + gap annotation |
-| **Ranking** | "Ranked #N of M" | Horizontal bar chart + highlight marker |
+| Method                     | Pattern                   | Visual Implementation                             |
+| -------------------------- | ------------------------- | ------------------------------------------------- |
+| **Time comparison**        | "From X to Y"             | Line chart + arrow annotating magnitude of change |
+| **Benchmark**              | "X vs industry average Y" | Bar chart with gray dashed baseline               |
+| **Competitive comparison** | "Us X vs Competitor Y"    | Side-by-side bar chart, highlight own data        |
+| **Target gap**             | "Actual X / Target Y"     | Progress bar + gap annotation                     |
+| **Ranking**                | "Ranked #N of M"          | Horizontal bar chart + highlight marker           |
 
 **Data annotation three essentials**: Every data visualization must include (1) The value itself (large bold font) (2) Comparison reference (baseline / prior period / competitor) (3) Meaning interpretation ("So what?")
 
@@ -58,7 +58,7 @@ Every MBB-level presentation follows the SCQA narrative structure:
 
 ## Pyramid Principle (Conclusion First)
 
-> Executives don't care about your *process* — they care about *results*.
+> Executives don't care about your _process_ — they care about _results_.
 
 ```
          ┌─────────────────┐
@@ -70,11 +70,11 @@ Every MBB-level presentation follows the SCQA narrative structure:
   └───────┘  └───────┘  └───────┘
 ```
 
-| Level | Position | Font Size (example @ body=14px dense baseline) |
-|-------|----------|-----------|
-| Core conclusion | Takeaway Box | 16-18px bold (~1.2x body) |
-| Arguments | Content area body | 14-16px (~1x body) |
-| Supporting data | Charts / cards | 12-14px (~0.85x body) |
+| Level           | Position          | Font Size (example @ body=14px dense baseline) |
+| --------------- | ----------------- | ---------------------------------------------- |
+| Core conclusion | Takeaway Box      | 16-18px bold (~1.2x body)                      |
+| Arguments       | Content area body | 14-16px (~1x body)                             |
+| Supporting data | Charts / cards    | 12-14px (~0.85x body)                          |
 
 > MBB decks typically run on a dense `body` baseline (14-18px) for information density. The px ranges above assume that; if a particular consulting deck declares a different body size in `spec_lock.md`, multiply by the ratios listed above rather than taking the px figures literally.
 
@@ -119,7 +119,7 @@ Horizontal table; own row highlighted in theme color, others in gray. Leading in
 
 Start → increase/decrease factors → End. Positive factors green bars, negative factors red bars, start/end points dark bars, cumulative line as dashed connector.
 
-> When `page_rhythm = breathing`, the MBB-appropriate form is **negative-space-driven**: a single takeaway statement on a near-empty canvas, or a dominant chart with one sentence of strategic implication (an asymmetric 2:8 degeneration of the standard chart+insight layout). The extreme-simplicity aesthetic of MBB is *served* by this — filler imagery and decorative overlap from marketing-style decks do NOT belong here. Universal rhythm discipline is in `executor-base.md §2.1`.
+> When `page_rhythm = breathing`, the MBB-appropriate form is **negative-space-driven**: a single takeaway statement on a near-empty canvas, or a dominant chart with one sentence of strategic implication (an asymmetric 2:8 degeneration of the standard chart+insight layout). The extreme-simplicity aesthetic of MBB is _served_ by this — filler imagery and decorative overlap from marketing-style decks do NOT belong here. Universal rhythm discipline is in `executor-base.md §2.1`.
 
 ---
 
@@ -127,12 +127,12 @@ Start → increase/decrease factors → End. Positive factors green bars, negati
 
 MBB-level color usage is extremely restrained — color serves information:
 
-| Purpose | Method |
-|---------|--------|
-| **Focus** | Target data in theme color, everything else gray |
+| Purpose                   | Method                                                             |
+| ------------------------- | ------------------------------------------------------------------ |
+| **Focus**                 | Target data in theme color, everything else gray                   |
 | **Reduce cognitive load** | Same series differentiated by opacity (`fill-opacity` 1.0/0.6/0.3) |
-| **Semantics** | Green = positive, Red = negative, Gray = baseline |
-| **Branding** | Gradient top bar / decorative lines in brand color |
+| **Semantics**             | Green = positive, Red = negative, Gray = baseline                  |
+| **Branding**              | Gradient top bar / decorative lines in brand color                 |
 
 **Commandments**: No more than 3 primary colors; accent color used at most 2-3 places globally; data series use same-hue depth variations, not different colors; background white or very light gray.
 
@@ -140,14 +140,14 @@ MBB-level color usage is extremely restrained — color serves information:
 
 ## Chart vs Table Selection Matrix
 
-| Scenario | Recommended Form | Reason |
-|----------|-----------------|--------|
-| Comparing 2-7 categories | **Bar chart** | Visual comparison is intuitive |
-| Time trends | **Line chart** | Time series clarity |
-| Precise values / large rankings | **Table** | 50 data points in a bar chart would be chaotic |
-| Proportional composition | **Donut chart** | More modern than pie charts |
-| Two-dimensional positioning | **2x2 matrix** | Strategic quadrant analysis |
-| Change attribution | **Waterfall chart** | Factor decomposition |
+| Scenario                        | Recommended Form    | Reason                                         |
+| ------------------------------- | ------------------- | ---------------------------------------------- |
+| Comparing 2-7 categories        | **Bar chart**       | Visual comparison is intuitive                 |
+| Time trends                     | **Line chart**      | Time series clarity                            |
+| Precise values / large rankings | **Table**           | 50 data points in a bar chart would be chaotic |
+| Proportional composition        | **Donut chart**     | More modern than pie charts                    |
+| Two-dimensional positioning     | **2x2 matrix**      | Strategic quadrant analysis                    |
+| Change attribution              | **Waterfall chart** | Factor decomposition                           |
 
 ---
 

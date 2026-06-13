@@ -1,5 +1,5 @@
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { AgentTimelineItem } from "@getpaseo/protocol/agent-types";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
+import type { AgentTimelineItem } from "@getdoya/protocol/agent-types";
 
 interface FetchProjectedTimelineItemsInput {
   client: DaemonClient;

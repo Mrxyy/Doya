@@ -29,12 +29,12 @@ import { encodeImages } from "@/utils/encode-images";
 import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
 import { shouldAutoFocusWorkspaceDraftComposer } from "@/screens/workspace/workspace-draft-pane-focus";
 import { validateDraftSubmission } from "@/composer/draft/workspace-tab-core";
-import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
-import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
+import type { AgentCapabilityFlags } from "@getdoya/protocol/agent-types";
+import type { AgentSnapshotPayload } from "@getdoya/protocol/messages";
 import type {
   CreateAgentRequestOptions,
   DaemonClient,
-} from "@getpaseo/client/internal/daemon-client";
+} from "@getdoya/client/internal/daemon-client";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import {
   materializeWorkspaceFileAttachments,

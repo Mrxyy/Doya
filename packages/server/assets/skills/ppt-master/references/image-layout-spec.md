@@ -2,11 +2,11 @@
 
 # Image Layout Specification
 
-Layout rules for pages where the image is placed **side-by-side with body text** as a container block. Strategist and Executor both follow these rules when the image's narrative intent is *side-by-side*.
+Layout rules for pages where the image is placed **side-by-side with body text** as a container block. Strategist and Executor both follow these rules when the image's narrative intent is _side-by-side_.
 
 **Core principle (side-by-side)**: compute container layout from the image's original aspect ratio so the image displays completely — no excess whitespace, no cropping.
 
-> **Scope**: this spec applies to *side-by-side* intent only. Other intents (hero / full-bleed, atmosphere / background, accent / inline) use full-bleed placement where ratio alignment is not a constraint and cropping is expected — the ratio→split table below does NOT apply. See `references/strategist.md` §h for intent selection.
+> **Scope**: this spec applies to _side-by-side_ intent only. Other intents (hero / full-bleed, atmosphere / background, accent / inline) use full-bleed placement where ratio alignment is not a constraint and cropping is expected — the ratio→split table below does NOT apply. See `references/strategist.md` §h for intent selection.
 
 ---
 
@@ -28,13 +28,13 @@ Layout rules for pages where the image is placed **side-by-side with body text**
 
 ## Layout Type Selection (side-by-side intent)
 
-| Image Ratio | Layout Type | Image Position | Description |
-|-------------|-------------|----------------|-------------|
-| > 2.0 (ultra-wide) | Top-bottom split | Top full-width | Image spans canvas width, height proportional |
-| 1.5-2.0 (wide) | Top-bottom split | Top | Image width = content area width, height proportional |
-| 1.2-1.5 (standard) | Left-right split | Left | Image height-first fit, width proportional |
-| 0.8-1.2 (square) | Left-right split | Left | Image takes content area height, width proportional |
-| < 0.8 (portrait) | Left-right split | Left | Image height = content area height, width proportional |
+| Image Ratio        | Layout Type      | Image Position | Description                                            |
+| ------------------ | ---------------- | -------------- | ------------------------------------------------------ |
+| > 2.0 (ultra-wide) | Top-bottom split | Top full-width | Image spans canvas width, height proportional          |
+| 1.5-2.0 (wide)     | Top-bottom split | Top            | Image width = content area width, height proportional  |
+| 1.2-1.5 (standard) | Left-right split | Left           | Image height-first fit, width proportional             |
+| 0.8-1.2 (square)   | Left-right split | Left           | Image takes content area height, width proportional    |
+| < 0.8 (portrait)   | Left-right split | Left           | Image height = content area height, width proportional |
 
 > Boundary ratio (e.g., 1.5): decide by text volume — more text → left-right; less text → top-bottom.
 
@@ -44,14 +44,14 @@ Layout rules for pages where the image is placed **side-by-side with body text**
 
 ### Canvas Parameters (All Formats)
 
-| Format | Canvas | Margins (L/R, T/B) | Content Area (W x H) | Title Height | Content Start Y |
-|--------|--------|--------------------|-----------------------|-------------|----------------|
-| PPT 16:9 | 1280x720 | 60, 60 | 1160 x 600 | 60px | 80px |
-| PPT 4:3 | 1024x768 | 50, 50 | 924 x 608 | 60px | 70px |
-| Xiaohongshu | 1242x1660 | 60, 80 | 1122 x 1500 | 80px | 100px |
-| WeChat Moments | 1080x1080 | 60, 60 | 960 x 960 | 60px | 80px |
-| Story | 1080x1920 | 60, 120/180 | 960 x 1620 | 80px | 140px |
-| WeChat Article | 900x383 | 40, 40 | 820 x 303 | 40px | 50px |
+| Format         | Canvas    | Margins (L/R, T/B) | Content Area (W x H) | Title Height | Content Start Y |
+| -------------- | --------- | ------------------ | -------------------- | ------------ | --------------- |
+| PPT 16:9       | 1280x720  | 60, 60             | 1160 x 600           | 60px         | 80px            |
+| PPT 4:3        | 1024x768  | 50, 50             | 924 x 608            | 60px         | 70px            |
+| Xiaohongshu    | 1242x1660 | 60, 80             | 1122 x 1500          | 80px         | 100px           |
+| WeChat Moments | 1080x1080 | 60, 60             | 960 x 960            | 60px         | 80px            |
+| Story          | 1080x1920 | 60, 120/180        | 960 x 1620           | 80px         | 140px           |
+| WeChat Article | 900x383   | 40, 40             | 820 x 303            | 40px         | 50px            |
 
 > Below, **W** = content area width, **H** = content area height (excludes title). PPT 16:9 example: W=1160, H=600.
 
@@ -69,6 +69,7 @@ If not satisfied → Switch to left-right layout
 ### Left-Right Layout Calculation
 
 **Method 1 (height-first, suitable for portrait images)**:
+
 ```
 Image height = H = 600 px
 Image width = H x R = 600 x R px
@@ -76,6 +77,7 @@ Text area width = W - image width - gap(20px)
 ```
 
 **Method 2 (width-constrained, for wide images converted to left-right)**:
+
 ```
 Image width = W x 0.7 = 812 px
 Image height = image width / R
@@ -116,13 +118,13 @@ Switch to left-right: image 780x446 (left), text area 360x600 (right) → 7:3 le
 
 Default selection table assumes **landscape or square canvas**. For portrait canvases (height > width), left-right splits leave both columns too narrow — use the override below.
 
-| Canvas Orientation | Image Ratio | Recommended Layout | Reason |
-|-------------------|-------------|-------------------|--------|
-| Portrait (Xiaohongshu, Story) | > 1.5 (wide) | Top-bottom | Same as landscape canvas |
-| Portrait (Xiaohongshu, Story) | 1.2-1.5 (standard) | Top-bottom | Left-right too narrow on tall canvas |
-| Portrait (Xiaohongshu, Story) | 0.8-1.2 (square) | Top-bottom | Image fits well in top half |
-| Portrait (Xiaohongshu, Story) | 0.5-0.8 (portrait) | Left-right | Portrait image on tall canvas works |
-| Portrait (Xiaohongshu, Story) | < 0.5 (extreme portrait) | Left-right | Image takes one side, text the other |
+| Canvas Orientation            | Image Ratio              | Recommended Layout | Reason                               |
+| ----------------------------- | ------------------------ | ------------------ | ------------------------------------ |
+| Portrait (Xiaohongshu, Story) | > 1.5 (wide)             | Top-bottom         | Same as landscape canvas             |
+| Portrait (Xiaohongshu, Story) | 1.2-1.5 (standard)       | Top-bottom         | Left-right too narrow on tall canvas |
+| Portrait (Xiaohongshu, Story) | 0.8-1.2 (square)         | Top-bottom         | Image fits well in top half          |
+| Portrait (Xiaohongshu, Story) | 0.5-0.8 (portrait)       | Left-right         | Portrait image on tall canvas works  |
+| Portrait (Xiaohongshu, Story) | < 0.5 (extreme portrait) | Left-right         | Image takes one side, text the other |
 
 > Square canvases (WeChat Moments 1:1): use the standard landscape rules.
 
@@ -145,13 +147,13 @@ cell_height = (H - (rows - 1) * gap) / rows
 
 ### Common Patterns
 
-| Image Count | Layout | Grid | Description |
-|-------------|--------|------|-------------|
-| 2 (both landscape) | Side-by-side | 2x1 | Two equal columns |
-| 2 (both portrait) | Stacked | 1x2 | Two equal rows |
-| 2 (mixed) | 1 large + 1 small | Custom | Landscape top (full-width), portrait right-bottom |
-| 3 | 1 large + 2 small | 1+2 | Left large (50% width), right column with 2 stacked |
-| 4 | Grid | 2x2 | Equal-sized cells |
+| Image Count        | Layout            | Grid   | Description                                         |
+| ------------------ | ----------------- | ------ | --------------------------------------------------- |
+| 2 (both landscape) | Side-by-side      | 2x1    | Two equal columns                                   |
+| 2 (both portrait)  | Stacked           | 1x2    | Two equal rows                                      |
+| 2 (mixed)          | 1 large + 1 small | Custom | Landscape top (full-width), portrait right-bottom   |
+| 3                  | 1 large + 2 small | 1+2    | Left large (50% width), right column with 2 stacked |
+| 4                  | Grid              | 2x2    | Equal-sized cells                                   |
 
 ### Example: 2x2 Grid on PPT 16:9
 
@@ -171,14 +173,14 @@ Image positions:
 
 ## Prohibited Practices
 
-| Prohibited | Correct Approach |
-|-----------|-----------------|
-| Fixed 50:50 or arbitrary ratios | Dynamic calculation based on image ratio |
-| Forcing wide image into square container | Use top-bottom layout or increase image area width |
-| Placing portrait image in narrow horizontal strip | Use left-right layout, image on left |
-| Image whitespace exceeding 10% | Recalculate layout or choose alternative approach |
-| Cropping key image content | Use `preserveAspectRatio="xMidYMid meet"` |
-| Text area too small to read | Ensure text area >= 150px (top-bottom) or >= 280px (left-right) |
+| Prohibited                                        | Correct Approach                                                |
+| ------------------------------------------------- | --------------------------------------------------------------- |
+| Fixed 50:50 or arbitrary ratios                   | Dynamic calculation based on image ratio                        |
+| Forcing wide image into square container          | Use top-bottom layout or increase image area width              |
+| Placing portrait image in narrow horizontal strip | Use left-right layout, image on left                            |
+| Image whitespace exceeding 10%                    | Recalculate layout or choose alternative approach               |
+| Cropping key image content                        | Use `preserveAspectRatio="xMidYMid meet"`                       |
+| Text area too small to read                       | Ensure text area >= 150px (top-bottom) or >= 280px (left-right) |
 
 ---
 
@@ -186,12 +188,12 @@ Image positions:
 
 This spec only defines layout calculation. Write computed fields into the Image Resource List defined in [`svg-image-embedding.md`](svg-image-embedding.md):
 
-| Field | Meaning |
-|-------|---------|
-| `Ratio` | Original image width / height |
+| Field         | Meaning                                                             |
+| ------------- | ------------------------------------------------------------------- |
+| `Ratio`       | Original image width / height                                       |
 | `Layout plan` | Top-bottom / left-right / grid, including split ratio when relevant |
-| `Image area` | Computed display rectangle size |
-| `Text area` | Computed remaining text area size |
+| `Image area`  | Computed display rectangle size                                     |
+| `Text area`   | Computed remaining text area size                                   |
 
 For SVG `<image>` syntax, path rules, `preserveAspectRatio`, external refs, and Base64 embedding: see [`svg-image-embedding.md`](svg-image-embedding.md).
 
@@ -229,7 +231,7 @@ python3 scripts/analyze_images.py <project_path>/images --canvas xiaohongshu  # 
 
 ## Role Responsibilities
 
-| Role | Responsibility |
-|------|---------------|
-| **Strategist** | Run analyze_images.py, calculate layout per this spec, populate image resource list |
-| **Executor** | Strictly follow the layout plan and dimensions in the image resource list when generating SVGs |
+| Role           | Responsibility                                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| **Strategist** | Run analyze_images.py, calculate layout per this spec, populate image resource list            |
+| **Executor**   | Strictly follow the layout plan and dimensions in the image resource list when generating SVGs |

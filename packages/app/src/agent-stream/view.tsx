@@ -58,13 +58,13 @@ import type {
   AgentCapabilityFlags,
   AgentPermissionAction,
   AgentPermissionResponse,
-} from "@getpaseo/protocol/agent-types";
+} from "@getdoya/protocol/agent-types";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
 import { useSessionStore } from "@/stores/session-store";
 import { useFileExplorerActions } from "@/hooks/use-file-explorer-actions";
 import { useLoadOlderAgentHistory } from "@/hooks/use-load-older-agent-history";
 import type { ToastApi } from "@/components/toast-host";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import { ToolCallDetailsContent } from "@/components/tool-call-details";
 import { QuestionFormCard } from "@/components/question-form-card";
 import { ToolCallSheetProvider } from "@/components/tool-call-sheet";
@@ -109,7 +109,7 @@ import {
   normalizeAiCreationStream,
 } from "./ai-creation";
 import { buildAgentStreamWorkspaceFileOpenRequest } from "./open-file";
-import { parsePaseoMessageCard, type PaseoMessageCard } from "@/utils/paseo-message-markup";
+import { parseDoyaMessageCard, type DoyaMessageCard } from "@/utils/doya-message-markup";
 
 interface LiveArtifactProgressGroup {
   isFirst: boolean;
@@ -135,11 +135,11 @@ function renderLiveAuxiliaryNode(input: {
   );
 }
 
-function isLiveArtifactProgressCard(card: PaseoMessageCard | null): boolean {
+function isLiveArtifactProgressCard(card: DoyaMessageCard | null): boolean {
   return Boolean(card?.kind.endsWith(".progress"));
 }
 
-function isPreviewDiscoveryCard(card: PaseoMessageCard | null): boolean {
+function isPreviewDiscoveryCard(card: DoyaMessageCard | null): boolean {
   return Boolean(card?.fields.some((field) => field.name === "preview_path"));
 }
 
@@ -152,7 +152,7 @@ function isLiveArtifactProgressItem(
   if (extractAiCreationFinalPptxPath(item.text) || extractAiCreationFinalDocumentPath(item.text)) {
     return false;
   }
-  const card = parsePaseoMessageCard(item.text);
+  const card = parseDoyaMessageCard(item.text);
   return isLiveArtifactProgressCard(card) || Boolean(extractAiCreationPptPreviewPath(item.text));
 }
 
@@ -1782,8 +1782,8 @@ function AiCreationLiveArtifactProgressGroup({
 }) {
   const previewPath = items.map((item) => extractAiCreationPptPreviewPath(item.text)).find(Boolean);
   const progressCards = items
-    .map((item) => parsePaseoMessageCard(item.text))
-    .filter((card): card is PaseoMessageCard => isLiveArtifactProgressCard(card))
+    .map((item) => parseDoyaMessageCard(item.text))
+    .filter((card): card is DoyaMessageCard => isLiveArtifactProgressCard(card))
     .filter((card) => !isPreviewDiscoveryCard(card));
 
   return (

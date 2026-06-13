@@ -5,11 +5,11 @@
 <h1 align="center">Doya</h1>
 
 <p align="center">
-  <a href="https://github.com/getpaseo/paseo/stargazers">
-    <img src="https://img.shields.io/github/stars/getpaseo/paseo?style=flat&logo=github" alt="GitHub stars">
+  <a href="https://github.com/getdoya/doya/stargazers">
+    <img src="https://img.shields.io/github/stars/getdoya/doya?style=flat&logo=github" alt="GitHub stars">
   </a>
-  <a href="https://github.com/getpaseo/paseo/releases">
-    <img src="https://img.shields.io/github/v/release/getpaseo/paseo?style=flat&logo=github" alt="GitHub release">
+  <a href="https://github.com/getdoya/doya/releases">
+    <img src="https://img.shields.io/github/v/release/getdoya/doya?style=flat&logo=github" alt="GitHub release">
   </a>
   <a href="https://x.com/moboudra">
     <img src="https://img.shields.io/badge/%40moboudra-555?logo=x" alt="X">
@@ -25,11 +25,11 @@
 <p align="center">One interface for Claude Code, Codex, Copilot, OpenCode, and Pi agents.</p>
 
 <p align="center">
-  <img src="https://paseo.sh/hero-mockup.png" alt="Doya app screenshot" width="100%">
+  <img src="https://doya.sh/hero-mockup.png" alt="Doya app screenshot" width="100%">
 </p>
 
 <p align="center">
-  <img src="https://paseo.sh/mobile-mockup.png" alt="Doya mobile app" width="100%">
+  <img src="https://doya.sh/mobile-mockup.png" alt="Doya mobile app" width="100%">
 </p>
 
 ---
@@ -58,7 +58,7 @@ You need at least one agent CLI installed and configured with your credentials:
 
 ### Desktop app (recommended)
 
-Download it from [paseo.sh/download](https://paseo.sh/download) or the [GitHub releases page](https://github.com/getpaseo/paseo/releases). Open the app and the daemon starts automatically. Nothing else to install.
+Download it from [doya.sh/download](https://doya.sh/download) or the [GitHub releases page](https://github.com/getdoya/doya/releases). Open the app and the daemon starts automatically. Nothing else to install.
 
 To connect from your phone, scan the QR code shown in Settings.
 
@@ -67,49 +67,49 @@ To connect from your phone, scan the QR code shown in Settings.
 Install the CLI and start Doya:
 
 ```bash
-npm install -g @getpaseo/cli
-paseo
+npm install -g @getdoya/cli
+doya
 ```
 
 This shows a QR code in the terminal. Connect from any client. This path is useful for servers and remote machines.
 
 For full setup and configuration, see:
 
-- [Docs](https://paseo.sh/docs)
-- [Configuration reference](https://paseo.sh/docs/configuration)
+- [Docs](https://doya.sh/docs)
+- [Configuration reference](https://doya.sh/docs/configuration)
 
 ## CLI
 
 Everything you can do in the app, you can do from the terminal.
 
 ```bash
-paseo run --provider claude/opus-4.6 "implement user authentication"
-paseo run --provider codex/gpt-5.4 --worktree feature-x "implement feature X"
+doya run --provider claude/opus-4.6 "implement user authentication"
+doya run --provider codex/gpt-5.4 --worktree feature-x "implement feature X"
 
-paseo ls                           # list running agents
-paseo attach abc123                # stream live output
-paseo send abc123 "also add tests" # follow-up task
+doya ls                           # list running agents
+doya attach abc123                # stream live output
+doya send abc123 "also add tests" # follow-up task
 
 # run on a remote daemon
-paseo --host workstation.local:6767 run "run the full test suite"
+doya --host workstation.local:6767 run "run the full test suite"
 ```
 
-See the [full CLI reference](https://paseo.sh/docs/cli) for more.
+See the [full CLI reference](https://doya.sh/docs/cli) for more.
 
 ## Skills
 
 Skills teach your agent to use Doya to orchestrate other agents.
 
 ```bash
-npx skills add getpaseo/paseo
+npx skills add getdoya/doya
 ```
 
 Then use them in any agent conversation:
 
-- `/paseo-handoff` — hand off work between agents. I use this to plan with Claude and then handoff to Codex to implement.
-- `/paseo-loop` — loop an agent against clear acceptance criteria (aka Ralph loops), optionally with a verifier.
-- `/paseo-advisor` — spin up a single agent as an advisor for a second opinion, without delegating the work itself.
-- `/paseo-committee` — form a committee of two contrasting agents to step back, do root cause analysis, and produce a plan.
+- `/doya-handoff` — hand off work between agents. I use this to plan with Claude and then handoff to Codex to implement.
+- `/doya-loop` — loop an agent against clear acceptance criteria (aka Ralph loops), optionally with a verifier.
+- `/doya-advisor` — spin up a single agent as an advisor for a second opinion, without delegating the work itself.
+- `/doya-committee` — form a committee of two contrasting agents to step back, do root cause analysis, and produce a plan.
 
 ## Development
 
@@ -117,10 +117,10 @@ Quick monorepo package map:
 
 - `packages/server`: Doya daemon (agent process orchestration, WebSocket API, MCP server)
 - `packages/app`: Expo client (iOS, Android, web)
-- `packages/cli`: `paseo` CLI for daemon and agent workflows
+- `packages/cli`: `doya` CLI for daemon and agent workflows
 - `packages/desktop`: Electron desktop app
 - `packages/relay`: Relay package for remote connectivity
-- `packages/website`: Marketing site and documentation (`paseo.sh`)
+- `packages/website`: Marketing site and documentation (`doya.sh`)
 
 Common commands:
 
@@ -143,17 +143,17 @@ npm run typecheck
 
 ## Community
 
-- [paseo-relay](https://github.com/zenghongtu/paseo-relay) — self-hosted relay in Go
+- [doya-relay](https://github.com/zenghongtu/doya-relay) — self-hosted relay in Go
 
 ### Self-hosted relay TLS
 
 Self-hosted relays use `ws://` unless TLS is opted in. For a relay behind nginx on 443, start the daemon with:
 
 ```bash
-PASEO_RELAY_ENDPOINT=127.0.0.1:8080 \
-PASEO_RELAY_PUBLIC_ENDPOINT=relay.example.com:443 \
-PASEO_RELAY_USE_TLS=true \
-paseo daemon start
+DOYA_RELAY_ENDPOINT=127.0.0.1:8080 \
+DOYA_RELAY_PUBLIC_ENDPOINT=relay.example.com:443 \
+DOYA_RELAY_USE_TLS=true \
+doya daemon start
 ```
 
 Equivalent config:
@@ -194,11 +194,11 @@ server {
 ---
 
 <p align="center">
-  <a href="https://star-history.com/#getpaseo/paseo&Date">
+  <a href="https://star-history.com/#getdoya/doya&Date">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=getpaseo/paseo&type=Date&theme=dark">
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=getpaseo/paseo&type=Date">
-      <img src="https://api.star-history.com/svg?repos=getpaseo/paseo&type=Date" alt="Star history chart for getpaseo/paseo" width="600" style="max-width: 100%;">
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=getdoya/doya&type=Date&theme=dark">
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=getdoya/doya&type=Date">
+      <img src="https://api.star-history.com/svg?repos=getdoya/doya&type=Date" alt="Star history chart for getdoya/doya" width="600" style="max-width: 100%;">
     </picture>
   </a>
 </p>

@@ -39,7 +39,7 @@ async function resolveBehavior(url: string): Promise<Exclude<ServiceUrlBehavior,
 
   const result = await askWithCheckbox(`Open ${url}?`, {
     title: translateNow("ui.open.service.url.27pzu6"),
-    okLabel: translateNow("settings.option.inPaseo"),
+    okLabel: translateNow("settings.option.inDoya"),
     cancelLabel: translateNow("settings.option.externalBrowser"),
     checkboxLabel: "Don't ask again",
   });

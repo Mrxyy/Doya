@@ -12,10 +12,10 @@ import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
 import {
-  buildPaseoMessageMeta,
-  buildPaseoResponseLanguageInstruction,
-  escapePaseoMarkupText,
-} from "@/utils/paseo-message-markup";
+  buildDoyaMessageMeta,
+  buildDoyaResponseLanguageInstruction,
+  escapeDoyaMarkupText,
+} from "@/utils/doya-message-markup";
 import { buildWorkspacePptPreviewUrl } from "@/workspace/ppt-preview";
 
 function usePptPreviewPanelDescriptor(target: {
@@ -39,18 +39,18 @@ function buildApplyAnnotationsPrompt(
 ): string {
   const projectPath = `projects/${projectName}`;
   const projectPathArg = JSON.stringify(projectPath);
-  const escapedProjectName = escapePaseoMarkupText(projectName);
-  const escapedProjectPath = escapePaseoMarkupText(projectPath);
-  const escapedMessageId = escapePaseoMarkupText(messageId);
-  const languageInstruction = buildPaseoResponseLanguageInstruction({
+  const escapedProjectName = escapeDoyaMarkupText(projectName);
+  const escapedProjectPath = escapeDoyaMarkupText(projectPath);
+  const escapedMessageId = escapeDoyaMarkupText(messageId);
+  const languageInstruction = buildDoyaResponseLanguageInstruction({
     defaultLocale,
     userText: null,
   });
-  return `${buildPaseoMessageMeta()}
+  return `${buildDoyaMessageMeta()}
 
 请根据当前 PPT 预览中保存的标注修改幻灯片，并导出新的可编辑 PPTX。
 
-<paseo-expected-target
+<doya-expected-target
   version="1"
   kind="ppt.apply_annotations"
   goal="modify_pptx"
@@ -59,22 +59,22 @@ function buildApplyAnnotationsPrompt(
   desc="Exact target handshake that the assistant must emit before doing any work."
 />
 
-<paseo-ui
+<doya-ui
   version="1"
   kind="ppt.apply_annotations"
   render="card"
   visibility="summary"
   id="${escapedMessageId}"
-  desc="A Paseo-renderable task card for applying saved PPT preview annotations."
+  desc="A Doya-renderable task card for applying saved PPT preview annotations."
 >
-  <paseo-ui-content desc="User-visible card content. Paseo may render this instead of the full prompt.">
-    <paseo-title desc="Title shown in the user message card.">应用 PPT 标注</paseo-title>
-    <paseo-summary desc="Short user-visible summary of this task.">根据当前预览页保存的标注修改幻灯片</paseo-summary>
-    <paseo-field name="project" label="项目" desc="PPT Master project directory name.">${escapedProjectName}</paseo-field>
-  </paseo-ui-content>
+  <doya-ui-content desc="User-visible card content. Doya may render this instead of the full prompt.">
+    <doya-title desc="Title shown in the user message card.">应用 PPT 标注</doya-title>
+    <doya-summary desc="Short user-visible summary of this task.">根据当前预览页保存的标注修改幻灯片</doya-summary>
+    <doya-field name="project" label="项目" desc="PPT Master project directory name.">${escapedProjectName}</doya-field>
+  </doya-ui-content>
 
-  <paseo-ai desc="Task instructions the AI must follow. Paseo may hide this section from the chat UI.">
-${escapePaseoMarkupText(languageInstruction)}
+  <doya-ai desc="Task instructions the AI must follow. Doya may hide this section from the chat UI.">
+${escapeDoyaMarkupText(languageInstruction)}
 
 Apply the saved PPT preview annotations for project "${escapedProjectName}".
 
@@ -85,37 +85,37 @@ Do not create a new deck from scratch.
 
 Steps:
 1. Inspect pending annotations with:
-   python3 .paseo/skills/ppt-master/scripts/check_annotations.py ${projectPathArg}
+   python3 .doya/skills/ppt-master/scripts/check_annotations.py ${projectPathArg}
 2. If there are no annotations, tell me that no saved annotations were found and stop.
 3. For every listed annotation, edit the targeted SVG element in ${escapedProjectPath}/svg_output/ according to the annotation text. Treat saved browser direct edits as already applied and preserve them.
 4. Remove data-edit-target and data-edit-annotation from each element after applying its requested change.
 5. Run the normal PPT Master finalize/export steps to regenerate the native editable PPTX in ${escapedProjectPath}/exports/.
-  </paseo-ai>
+  </doya-ai>
 
-  <paseo-reply desc="Preferred response format. Paseo may render a matching result block specially.">
+  <doya-reply desc="Preferred response format. Doya may render a matching result block specially.">
 When finished, reply with a concise summary and the exported PPTX path.
 
 If possible, wrap the result in this structure and preserve the id "${escapedMessageId}":
 
-<paseo-ui
+<doya-ui
   version="1"
   kind="ppt.apply_annotations.result"
   render="result-card"
   visibility="summary"
   id="${escapedMessageId}"
-  desc="A Paseo-renderable result card for the PPT annotation application task."
+  desc="A Doya-renderable result card for the PPT annotation application task."
 >
-  <paseo-ui-content desc="User-visible result content.">
-    <paseo-title desc="Result card title.">PPT 标注已应用</paseo-title>
-    <paseo-summary desc="Short summary of what changed.">一句话总结实际修改内容</paseo-summary>
-    <paseo-field name="pptx_path" label="导出文件" desc="Path to the exported editable PPTX.">导出的 PPTX 路径</paseo-field>
-  </paseo-ui-content>
-  <paseo-ai desc="Optional technical notes for the conversation record.">
+  <doya-ui-content desc="User-visible result content.">
+    <doya-title desc="Result card title.">PPT 标注已应用</doya-title>
+    <doya-summary desc="Short summary of what changed.">一句话总结实际修改内容</doya-summary>
+    <doya-field name="pptx_path" label="导出文件" desc="Path to the exported editable PPTX.">导出的 PPTX 路径</doya-field>
+  </doya-ui-content>
+  <doya-ai desc="Optional technical notes for the conversation record.">
 Briefly mention important implementation notes or warnings, if any.
-  </paseo-ai>
-</paseo-ui>
-  </paseo-reply>
-</paseo-ui>
+  </doya-ai>
+</doya-ui>
+  </doya-reply>
+</doya-ui>
 
 完成后告诉我你改了什么，以及新的 PPTX 文件路径。
 

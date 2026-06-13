@@ -24,7 +24,7 @@ import {
   type WSOutboundMessage,
   wrapSessionMessage,
 } from "./messages.js";
-import { asUint8Array, decodeTerminalStreamFrame } from "@getpaseo/protocol/binary-frames/index";
+import { asUint8Array, decodeTerminalStreamFrame } from "@getdoya/protocol/binary-frames/index";
 import type { HostnamesConfig } from "./hostnames.js";
 import { isHostnameAllowed } from "./hostnames.js";
 import { Session, type SessionLifecycleIntent, type SessionRuntimeMetrics } from "./session.js";
@@ -43,7 +43,7 @@ import { computeNotificationPlan, type ClientPresenceState } from "./agent-atten
 import {
   buildAgentAttentionNotificationPayload,
   findLatestPermissionRequest,
-} from "@getpaseo/protocol/agent-attention-notification";
+} from "@getdoya/protocol/agent-attention-notification";
 import { createGitHubService, type GitHubService } from "../services/github-service.js";
 import {
   extractWsBearerProtocol,
@@ -85,7 +85,7 @@ function createFallbackWorkspaceGitSnapshot(cwd: string): WorkspaceGitRuntimeSna
       mainRepoRoot: null,
       currentBranch: null,
       remoteUrl: null,
-      isPaseoOwnedWorktree: false,
+      isDoyaOwnedWorktree: false,
       isDirty: null,
       baseRef: null,
       aheadBehind: null,
@@ -117,7 +117,7 @@ function createFallbackWorkspaceGitService(): WorkspaceGitService {
       currentBranch: null,
       remoteUrl: null,
       worktreeRoot: null,
-      isPaseoOwnedWorktree: false,
+      isDoyaOwnedWorktree: false,
       mainRepoRoot: null,
     }),
     getSnapshot: async (cwd: string) => createFallbackWorkspaceGitSnapshot(cwd),
@@ -350,7 +350,7 @@ export class VoiceAssistantWebSocketServer {
   private readonly github: GitHubService;
   private readonly workspaceGitService: WorkspaceGitService;
   private readonly downloadTokenStore: DownloadTokenStore;
-  private readonly paseoHome: string;
+  private readonly doyaHome: string;
   private readonly worktreesRoot: string | undefined;
   private readonly daemonConfigStore: DaemonConfigStore;
   private readonly pushTokenStore: PushTokenStore;
@@ -388,7 +388,7 @@ export class VoiceAssistantWebSocketServer {
     agentManager: AgentManager,
     agentStorage: AgentStorage,
     downloadTokenStore: DownloadTokenStore,
-    paseoHome: string,
+    doyaHome: string,
     daemonConfigStore: DaemonConfigStore,
     mcpBaseUrl: string | null,
     wsConfig: WebSocketServerConfig,
@@ -457,7 +457,7 @@ export class VoiceAssistantWebSocketServer {
     this.github = github ?? createGitHubService();
     this.workspaceGitService = workspaceGitService ?? createFallbackWorkspaceGitService();
     this.downloadTokenStore = downloadTokenStore;
-    this.paseoHome = paseoHome;
+    this.doyaHome = doyaHome;
     this.worktreesRoot = daemonRuntimeConfig?.worktreesRoot;
     this.daemonConfigStore = daemonConfigStore;
     this.mcpBaseUrl = mcpBaseUrl;
@@ -478,7 +478,7 @@ export class VoiceAssistantWebSocketServer {
     }
     this.providerSnapshotManager = providerSnapshotManager;
     this.conversationRecordingStore =
-      conversationRecordingStore ?? new ConversationRecordingStore(join(paseoHome, "recordings"));
+      conversationRecordingStore ?? new ConversationRecordingStore(join(doyaHome, "recordings"));
     this.serverCapabilities = buildServerCapabilities({
       readiness: this.speech?.getReadiness() ?? null,
     });
@@ -495,7 +495,7 @@ export class VoiceAssistantWebSocketServer {
     });
 
     const pushLogger = this.logger.child({ module: "push" });
-    this.pushTokenStore = new PushTokenStore(pushLogger, join(paseoHome, "push-tokens.json"));
+    this.pushTokenStore = new PushTokenStore(pushLogger, join(doyaHome, "push-tokens.json"));
     this.pushNotificationSender =
       pushNotificationSender ?? createPushNotificationSender(pushLogger, this.pushTokenStore);
 
@@ -865,7 +865,7 @@ export class VoiceAssistantWebSocketServer {
       logger: connectionLogger.child({ module: "session" }),
       downloadTokenStore: this.downloadTokenStore,
       pushTokenStore: this.pushTokenStore,
-      paseoHome: this.paseoHome,
+      doyaHome: this.doyaHome,
       worktreesRoot: this.worktreesRoot,
       agentManager: this.agentManager,
       agentStorage: this.agentStorage,

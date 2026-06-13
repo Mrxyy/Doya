@@ -14,9 +14,9 @@ Each agent in `AgentManager` carries a `lastStatus` of `initializing`, `idle`, `
 
 ## Relationships
 
-Agents can launch other agents via the agent-scoped `create_agent` MCP tool. Agent-scoped creation is always asynchronous. By default, the daemon stamps the created agent with a label `paseo.parent-agent-id` pointing back at the agent that created it. The client surfaces that as `agent.parentAgentId`.
+Agents can launch other agents via the agent-scoped `create_agent` MCP tool. Agent-scoped creation is always asynchronous. By default, the daemon stamps the created agent with a label `doya.parent-agent-id` pointing back at the agent that created it. The client surfaces that as `agent.parentAgentId`.
 
-Agent-scoped `create_agent` accepts `detached: true` for agents that should stand on their own. The daemon still uses the creating agent for cwd/config inheritance, but does not write `paseo.parent-agent-id`.
+Agent-scoped `create_agent` accepts `detached: true` for agents that should stand on their own. The daemon still uses the creating agent for cwd/config inheritance, but does not write `doya.parent-agent-id`.
 
 - **Subagents** — created with `detached: false` or omitted. They exist as part of the creating agent's work, appear in that agent's subagent track, and are archived with it.
 - **Detached agents** — created with `detached: true`. They take over as sibling/root agents (e.g. handoffs, fire-and-forget delegations), do not appear in the creating agent's subagent track, and are not archived with it.
@@ -35,7 +35,7 @@ Archiving runs through `AgentManager.archiveAgent` (`packages/server/src/server/
 2. Set `archivedAt` and normalize `lastStatus` away from `running`/`initializing`
 3. Notify subscribers
 4. Close the runtime (kills the process if still running)
-5. **Cascade-archive children** — any agent whose `paseo.parent-agent-id` label matches the archived agent gets archived too, recursively
+5. **Cascade-archive children** — any agent whose `doya.parent-agent-id` label matches the archived agent gets archived too, recursively
 
 Cascade is what keeps subagent fleets from outliving their orchestrator.
 
@@ -88,16 +88,16 @@ Closing a subagent's tab on one client doesn't affect other clients' layouts. Th
 ## Storage
 
 ```
-$PASEO_HOME/agents/{cwd-with-dashes}/{agent-id}.json
+$DOYA_HOME/agents/{cwd-with-dashes}/{agent-id}.json
 ```
 
 Each agent is a single JSON file. Fields relevant to this doc:
 
-| Field                             | Type          | Meaning                                                                                   |
-| --------------------------------- | ------------- | ----------------------------------------------------------------------------------------- |
-| `id`                              | `string`      | Stable identifier                                                                         |
-| `archivedAt`                      | `string?`     | Soft-delete timestamp (ISO 8601)                                                          |
-| `labels["paseo.parent-agent-id"]` | `string?`     | Parent agent ID, set automatically by agent-scoped `create_agent` unless `detached: true` |
-| `lastStatus`                      | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                                  |
+| Field                            | Type          | Meaning                                                                                   |
+| -------------------------------- | ------------- | ----------------------------------------------------------------------------------------- |
+| `id`                             | `string`      | Stable identifier                                                                         |
+| `archivedAt`                     | `string?`     | Soft-delete timestamp (ISO 8601)                                                          |
+| `labels["doya.parent-agent-id"]` | `string?`     | Parent agent ID, set automatically by agent-scoped `create_agent` unless `detached: true` |
+| `lastStatus`                     | `AgentStatus` | `initializing` / `idle` / `running` / `error` / `closed`                                  |
 
 See [`docs/data-model.md`](./data-model.md) for the full agent record.

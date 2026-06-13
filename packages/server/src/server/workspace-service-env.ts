@@ -34,29 +34,31 @@ export function buildWorkspaceServiceEnv(
 
   const env: Record<string, string> = {
     HOST: resolveServiceBindHost(options.daemonListenHost),
-    PASEO_PORT: String(selfPeer.port),
+    DOYA_PORT: String(selfPeer.port),
   };
 
   if (options.daemonPort !== null && options.daemonPort !== undefined) {
-    env.PASEO_URL = buildServiceProxyUrl({
+    const selfUrl = buildServiceProxyUrl({
       projectSlug: options.projectSlug,
       branchName: options.branchName,
       scriptName: options.scriptName,
       daemonPort: options.daemonPort,
     });
+    env.DOYA_URL = selfUrl;
   }
 
   for (const peer of options.peers) {
     const envName = normalizeServiceEnvName(peer.scriptName);
-    env[`PASEO_SERVICE_${envName}_PORT`] = String(peer.port);
+    env[`DOYA_SERVICE_${envName}_PORT`] = String(peer.port);
 
     if (options.daemonPort !== null && options.daemonPort !== undefined) {
-      env[`PASEO_SERVICE_${envName}_URL`] = buildServiceProxyUrl({
+      const peerUrl = buildServiceProxyUrl({
         projectSlug: options.projectSlug,
         branchName: options.branchName,
         scriptName: peer.scriptName,
         daemonPort: options.daemonPort,
       });
+      env[`DOYA_SERVICE_${envName}_URL`] = peerUrl;
     }
   }
 

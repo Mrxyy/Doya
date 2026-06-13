@@ -1,4 +1,4 @@
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import type { AccountBootstrapSession } from "@/account/account-api";
 import { isPathInAccountWorkspace } from "@/account/account-workspace-display";
 import { normalizeWorkspaceDescriptor, type WorkspaceDescriptor } from "@/stores/session-store";

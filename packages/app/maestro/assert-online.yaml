@@ -1,8 +1,8 @@
-appId: sh.paseo
+appId: sh.doya
 ---
 - runFlow:
     when:
-      visible: "Open in.*Paseo.*\\?"
+      visible: "Open in.*Doya.*\\?"
     commands:
       - tapOn: "Open"
 

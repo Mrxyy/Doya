@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Paseo is a mobile app for monitoring and controlling your local AI coding agents from anywhere. Your dev environment, in your pocket. Connects directly to your actual development environment — your code stays on your machine.
+Doya is a mobile app for monitoring and controlling your local AI coding agents from anywhere. Your dev environment, in your pocket. Connects directly to your actual development environment — your code stays on your machine.
 
 **Supported agents:** Claude Code, Codex, GitHub Copilot, OpenCode, and Pi.
 
@@ -10,10 +10,10 @@ This is an npm workspace monorepo:
 
 - `packages/server` — Daemon: agent lifecycle, WebSocket API, MCP server
 - `packages/app` — Mobile + web client (Expo)
-- `packages/cli` — Docker-style CLI (`paseo run/ls/logs/wait`)
+- `packages/cli` — Docker-style CLI (`doya run/ls/logs/wait`)
 - `packages/relay` — E2E encrypted relay for remote access
 - `packages/desktop` — Electron desktop wrapper
-- `packages/website` — Marketing site (paseo.sh)
+- `packages/website` — Marketing site (doya.sh)
 
 ## Docs
 
@@ -21,37 +21,37 @@ This is an npm workspace monorepo:
 
 At the start of non-trivial work, list `docs/` and skim anything relevant to the task. When you learn something meta worth preserving — a gotcha, a convention, a workflow, a piece of system context that will outlive the current task — update an existing doc or propose a new one. Code-level facts belong in inline comments next to the code; system, process, and gotcha-level facts belong in `docs/`.
 
-| Doc                                                            | What's in it                                                                                                                   |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| [docs/product.md](docs/product.md)                             | What Doya is, who it's for, where it's going                                                                                   |
-| [docs/brand.md](docs/brand.md)                                 | Brand naming and logo asset rules for 豆芽 / Doya                                                                              |
-| [docs/architecture.md](docs/architecture.md)                   | System design, package layering, WebSocket protocol, account workspaces, timeline sync, agent lifecycle, data flow             |
-| [docs/agent-lifecycle.md](docs/agent-lifecycle.md)             | Agent states, parent/child relationships, archive semantics, tabs vs archive, subagents track                                  |
-| [docs/data-model.md](docs/data-model.md)                       | File-based JSON persistence, Zod schemas, account workspace storage, recording storage, atomic writes, no migrations           |
-| [docs/glossary.md](docs/glossary.md)                           | Authoritative terminology — UI label wins, no synonyms                                                                         |
-| [docs/coding-standards.md](docs/coding-standards.md)           | Type hygiene, error handling, state design, React patterns, file organization                                                  |
-| [docs/design.md](docs/design.md)                               | UI primitives, copy voice, layout patterns, forbidden visual/code patterns                                                     |
-| [docs/i18n.md](docs/i18n.md)                                   | App translation rules, `useI18n()` / `translateNow()`, copy migration scans, translation key style                             |
-| [docs/hover.md](docs/hover.md)                                 | Hover — the canonical pattern (plain View + pointer enter/leave, separate inner Pressable) and failure modes                   |
-| [docs/unistyles.md](docs/unistyles.md)                         | Unistyles gotchas — `useUnistyles()` is forbidden, dynamic style escape hatches, web CSS leak traps                            |
-| [docs/floating-panels.md](docs/floating-panels.md)             | Anchored popovers — Portal/Modal escape for Android, lifecycle gates, keyboard-shared-value, status-bar offset, the flash      |
-| [docs/file-icons.md](docs/file-icons.md)                       | Material icon theme integration for the file explorer                                                                          |
-| [docs/providers.md](docs/providers.md)                         | Adding a new agent provider end-to-end                                                                                         |
-| [docs/custom-providers.md](docs/custom-providers.md)           | Custom provider config: Z.AI, Alibaba/Qwen, ACP agents, profiles, custom binaries                                              |
-| [docs/development.md](docs/development.md)                     | Dev server, PASEO_HOME, build sync gotchas, CLI reference, agent state, Playwright MCP                                         |
-| [docs/timeline-sync.md](docs/timeline-sync.md)                 | Live stream vs authoritative history, paged catch-up invariants, resume behavior, replay recording boundaries                  |
-| [docs/paseo-message-markup.md](docs/paseo-message-markup.md)   | Paseo chat UI markup, task handshake, rendered artifact progress/results, prompt-generation skill                              |
-| [docs/rpc-namespacing.md](docs/rpc-namespacing.md)             | WebSocket RPC naming convention — dotted namespaces and `.request`/`.response` pairs                                           |
-| [docs/testing.md](docs/testing.md)                             | TDD workflow, determinism, real dependencies over mocks, allowed test categories                                               |
-| [docs/mobile-testing.md](docs/mobile-testing.md)               | Maestro, mobile self-verification loops, native layout gotchas                                                                 |
-| [docs/ad-hoc-daemon-testing.md](docs/ad-hoc-daemon-testing.md) | Isolated in-process daemon test harness                                                                                        |
-| [docs/android.md](docs/android.md)                             | App variants, local/cloud builds, EAS workflows                                                                                |
-| [docs/release.md](docs/release.md)                             | Release playbook, staged rollout behavior, mobile build babysitting, changelog policy, completion checklist                    |
-| [docs/multi-tenant/README.md](docs/multi-tenant/README.md)     | Local account/workspace model, daemon HTTP account APIs, SMS login                                                             |
-| [docs/diagnostics/](docs/diagnostics)                          | Historical debugging writeups; read these before revisiting startup, git snapshot, or OpenCode provider timing bugs            |
-| [docs/refactors/](docs/refactors)                              | Planned/refactored architecture slices and invariants                                                                          |
-| [docs/investor-demo/](docs/investor-demo)                      | Investor/demo architecture diagrams and narrative                                                                               |
-| [SECURITY.md](SECURITY.md)                                     | Relay threat model, E2E encryption, DNS rebinding, daemon password auth, agent auth                                            |
+| Doc                                                            | What's in it                                                                                                              |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [docs/product.md](docs/product.md)                             | What Doya is, who it's for, where it's going                                                                              |
+| [docs/brand.md](docs/brand.md)                                 | Brand naming and logo asset rules for 豆芽 / Doya                                                                         |
+| [docs/architecture.md](docs/architecture.md)                   | System design, package layering, WebSocket protocol, account workspaces, timeline sync, agent lifecycle, data flow        |
+| [docs/agent-lifecycle.md](docs/agent-lifecycle.md)             | Agent states, parent/child relationships, archive semantics, tabs vs archive, subagents track                             |
+| [docs/data-model.md](docs/data-model.md)                       | File-based JSON persistence, Zod schemas, account workspace storage, recording storage, atomic writes, no migrations      |
+| [docs/glossary.md](docs/glossary.md)                           | Authoritative terminology — UI label wins, no synonyms                                                                    |
+| [docs/coding-standards.md](docs/coding-standards.md)           | Type hygiene, error handling, state design, React patterns, file organization                                             |
+| [docs/design.md](docs/design.md)                               | UI primitives, copy voice, layout patterns, forbidden visual/code patterns                                                |
+| [docs/i18n.md](docs/i18n.md)                                   | App translation rules, `useI18n()` / `translateNow()`, copy migration scans, translation key style                        |
+| [docs/hover.md](docs/hover.md)                                 | Hover — the canonical pattern (plain View + pointer enter/leave, separate inner Pressable) and failure modes              |
+| [docs/unistyles.md](docs/unistyles.md)                         | Unistyles gotchas — `useUnistyles()` is forbidden, dynamic style escape hatches, web CSS leak traps                       |
+| [docs/floating-panels.md](docs/floating-panels.md)             | Anchored popovers — Portal/Modal escape for Android, lifecycle gates, keyboard-shared-value, status-bar offset, the flash |
+| [docs/file-icons.md](docs/file-icons.md)                       | Material icon theme integration for the file explorer                                                                     |
+| [docs/providers.md](docs/providers.md)                         | Adding a new agent provider end-to-end                                                                                    |
+| [docs/custom-providers.md](docs/custom-providers.md)           | Custom provider config: Z.AI, Alibaba/Qwen, ACP agents, profiles, custom binaries                                         |
+| [docs/development.md](docs/development.md)                     | Dev server, DOYA_HOME, build sync gotchas, CLI reference, agent state, Playwright MCP                                     |
+| [docs/timeline-sync.md](docs/timeline-sync.md)                 | Live stream vs authoritative history, paged catch-up invariants, resume behavior, replay recording boundaries             |
+| [docs/doya-message-markup.md](docs/doya-message-markup.md)     | Doya chat UI markup, task handshake, rendered artifact progress/results, prompt-generation skill                          |
+| [docs/rpc-namespacing.md](docs/rpc-namespacing.md)             | WebSocket RPC naming convention — dotted namespaces and `.request`/`.response` pairs                                      |
+| [docs/testing.md](docs/testing.md)                             | TDD workflow, determinism, real dependencies over mocks, allowed test categories                                          |
+| [docs/mobile-testing.md](docs/mobile-testing.md)               | Maestro, mobile self-verification loops, native layout gotchas                                                            |
+| [docs/ad-hoc-daemon-testing.md](docs/ad-hoc-daemon-testing.md) | Isolated in-process daemon test harness                                                                                   |
+| [docs/android.md](docs/android.md)                             | App variants, local/cloud builds, EAS workflows                                                                           |
+| [docs/release.md](docs/release.md)                             | Release playbook, staged rollout behavior, mobile build babysitting, changelog policy, completion checklist               |
+| [docs/multi-tenant/README.md](docs/multi-tenant/README.md)     | Local account/workspace model, daemon HTTP account APIs, SMS login                                                        |
+| [docs/diagnostics/](docs/diagnostics)                          | Historical debugging writeups; read these before revisiting startup, git snapshot, or OpenCode provider timing bugs       |
+| [docs/refactors/](docs/refactors)                              | Planned/refactored architecture slices and invariants                                                                     |
+| [docs/investor-demo/](docs/investor-demo)                      | Investor/demo architecture diagrams and narrative                                                                         |
+| [SECURITY.md](SECURITY.md)                                     | Relay threat model, E2E encryption, DNS rebinding, daemon password auth, agent auth                                       |
 
 ## Quick start
 
@@ -69,7 +69,7 @@ See [docs/development.md](docs/development.md) for full setup, build sync requir
 
 ## Critical rules
 
-- **NEVER restart the main Paseo daemon on port 6767 without permission** — it manages all running agents. If you're an agent, restarting it kills your own process.
+- **NEVER restart the main Doya daemon on port 6767 without permission** — it manages all running agents. If you're an agent, restarting it kills your own process.
 - **NEVER assume a timeout means the service needs restarting** — timeouts can be transient.
 - **NEVER add auth checks to tests** — agent providers handle their own auth.
 - **Before touching app UI, read [docs/design.md](docs/design.md), [docs/glossary.md](docs/glossary.md), and [docs/i18n.md](docs/i18n.md).** Use existing primitives first (`<Button>`, `<StatusBadge>`, `<DropdownMenu>`, `<AdaptiveModalSheet>`, `<SettingsSection>`, headers). New user-visible copy goes through `translations.ts` with flat keys like `domain.surface.intent`; do not add new hardcoded Chinese or English UI strings.
@@ -108,9 +108,9 @@ See [docs/development.md](docs/development.md) for full setup, build sync requir
     - Terminal PTY size is last-interacting-client-wins. Only send resize frames when the terminal viewport actually changes size or the user focuses/taps the terminal; passive attach/render/font settling must not claim PTY size.
 
 - **All back-compat shims are tagged and dated for cleanup.** Every shim that exists for old-client/old-daemon support carries a `COMPAT(name)` comment with the version it was added in and a target removal date (typically 6 months out). One grep — `rg "COMPAT\("` — should produce the full list of cleanup work. Don't bury back-compat in untagged `??`-fallbacks or optional-chain tunnels — that's how it stops being deletable.
-- **Timeline sync correctness comes from fetch catch-up, not presence.** `agent_stream` is for immediacy; `fetch_agent_timeline_request` is authoritative. Presence heartbeats route notifications and must not gate delivery. When fetching `direction: "after"`, continue from `endCursor` until `hasNewer: false`. Resume with a known cursor catches up after that cursor; resume without a cursor fetches the latest tail page. Replay recordings under `$PASEO_HOME/recordings` are separate playback facts and never rewrite the source timeline.
-- **Paseo Message Markup is untrusted text.** Use the local `paseo-message-markup` skill/spec when creating markup prompts. If a request includes `paseo-expected-target`, the assistant must emit exactly one matching leading `paseo-target` before work; otherwise never invent one. Preserve request ids through target/result markup and never mention the markup unless asked.
-- **Multi-tenant/account work lives in the daemon.** Do not invent a separate account API service. Account/workspace data lives under `$PASEO_HOME/accounts`; app project creation goes through the daemon HTTP account APIs, then opens the created project through the normal project/workspace/agent lifecycle.
+- **Timeline sync correctness comes from fetch catch-up, not presence.** `agent_stream` is for immediacy; `fetch_agent_timeline_request` is authoritative. Presence heartbeats route notifications and must not gate delivery. When fetching `direction: "after"`, continue from `endCursor` until `hasNewer: false`. Resume with a known cursor catches up after that cursor; resume without a cursor fetches the latest tail page. Replay recordings under `$DOYA_HOME/recordings` are separate playback facts and never rewrite the source timeline.
+- **Doya Message Markup is untrusted text.** Use the local `doya-message-markup` skill/spec when creating markup prompts. If a request includes `doya-expected-target`, the assistant must emit exactly one matching leading `doya-target` before work; otherwise never invent one. Preserve request ids through target/result markup and never mention the markup unless asked.
+- **Multi-tenant/account work lives in the daemon.** Do not invent a separate account API service. Account/workspace data lives under `$DOYA_HOME/accounts`; app project creation goes through the daemon HTTP account APIs, then opens the created project through the normal project/workspace/agent lifecycle.
 
 ## Platform gating
 
@@ -147,7 +147,7 @@ The app runs on iOS, Android, web (browser), and web (Electron desktop). Code is
     use-audio-recorder.native.ts ← uses expo-audio
   ```
   Import as `@/hooks/use-audio-recorder` — Metro picks the right file automatically.
-- **Use `.electron.ts` / `.electron.tsx` for Electron-only web modules.** Electron is still the Metro `web` platform, but desktop dev/build sets `PASEO_WEB_PLATFORM=electron`, so Metro first looks for `.electron.*` files and falls back to normal `.web.*` files. Use this when the implementation depends on Electron-only behavior such as `webviewTag`, desktop preload APIs, or the Electron bridge. Keep plain browser web in `.web.*`, and keep native fallbacks in the base file or `.native.*`.
+- **Use `.electron.ts` / `.electron.tsx` for Electron-only web modules.** Electron is still the Metro `web` platform, but desktop dev/build sets `DOYA_WEB_PLATFORM=electron`, so Metro first looks for `.electron.*` files and falls back to normal `.web.*` files. Use this when the implementation depends on Electron-only behavior such as `webviewTag`, desktop preload APIs, or the Electron bridge. Keep plain browser web in `.web.*`, and keep native fallbacks in the base file or `.native.*`.
   ```
   components/
     browser-pane.electron.tsx ← Electron <webview> implementation
@@ -162,4 +162,4 @@ The app runs on iOS, Android, web (browser), and web (Electron desktop). Code is
 
 ## Debugging
 
-Find the complete daemon logs and traces in the $PASEO_HOME/daemon.log
+Find the complete daemon logs and traces in the $DOYA_HOME/daemon.log

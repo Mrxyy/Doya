@@ -6,11 +6,8 @@ import { join, resolve as resolvePath } from "path";
 import pino from "pino";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import type { WorkspaceDescriptorPayload } from "@getpaseo/protocol/messages";
-import {
-  decodeFileTransferFrame,
-  FileTransferOpcode,
-} from "@getpaseo/protocol/binary-frames/index";
+import type { WorkspaceDescriptorPayload } from "@getdoya/protocol/messages";
+import { decodeFileTransferFrame, FileTransferOpcode } from "@getdoya/protocol/binary-frames/index";
 import { Session } from "./session.js";
 import { StructuredAgentFallbackError } from "./agent/agent-response-loop.js";
 import type { ProviderSnapshotManager } from "./agent/provider-snapshot-manager.js";
@@ -74,7 +71,7 @@ interface SessionHandlerInternals {
   handleStashListRequest(params: unknown): Promise<unknown>;
   handleStashSaveRequest(params: unknown): Promise<unknown>;
   handleStashPopRequest(params: unknown): Promise<unknown>;
-  createPaseoWorktree(params: unknown): Promise<unknown>;
+  createDoyaWorktree(params: unknown): Promise<unknown>;
   handleStartWorkspaceScriptRequest(params: unknown): Promise<unknown>;
   sttManager: {
     transcribe(audio: Buffer, format: string): Promise<unknown>;
@@ -125,8 +122,8 @@ const spawnMocks = vi.hoisted(() => ({
   spawnWorkspaceScript: vi.fn(),
 }));
 
-const paseoWorktreeServiceMocks = vi.hoisted(() => ({
-  createPaseoWorktree: vi.fn(),
+const doyaWorktreeServiceMocks = vi.hoisted(() => ({
+  createDoyaWorktree: vi.fn(),
 }));
 
 interface Deferred<T> {
@@ -165,11 +162,11 @@ vi.mock("../utils/checkout-git.js", async (importOriginal) => {
   };
 });
 
-vi.mock("./paseo-worktree-service.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./paseo-worktree-service.js")>();
+vi.mock("./doya-worktree-service.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./doya-worktree-service.js")>();
   return {
     ...actual,
-    createPaseoWorktree: paseoWorktreeServiceMocks.createPaseoWorktree,
+    createDoyaWorktree: doyaWorktreeServiceMocks.createDoyaWorktree,
   };
 });
 
@@ -272,7 +269,7 @@ function createSessionForTest(options: SessionForTestOptions = {}): Session {
     logger,
     downloadTokenStore: asDownloadTokenStore(),
     pushTokenStore: asPushTokenStore(),
-    paseoHome: "/tmp/paseo-home",
+    doyaHome: "/tmp/doya-home",
     agentManager: asAgentManager({
       listAgents: vi.fn(() => []),
       subscribe: vi.fn(() => () => {}),
@@ -637,7 +634,7 @@ describe("project config RPC authorization", () => {
 
   test("read_project_config_request accepts the same root with a trailing slash", async () => {
     const repoRoot = makeRoot();
-    writeFileSync(join(repoRoot, "paseo.json"), JSON.stringify({ worktree: { setup: "npm ci" } }));
+    writeFileSync(join(repoRoot, "doya.json"), JSON.stringify({ worktree: { setup: "npm ci" } }));
     const messages: unknown[] = [];
     const session = createSessionForTest({
       messages,
@@ -672,10 +669,7 @@ describe("project config RPC authorization", () => {
     "read_project_config_request accepts a symlink to an active project root",
     async () => {
       const repoRoot = makeRoot();
-      writeFileSync(
-        join(repoRoot, "paseo.json"),
-        JSON.stringify({ worktree: { setup: "npm ci" } }),
-      );
+      writeFileSync(join(repoRoot, "doya.json"), JSON.stringify({ worktree: { setup: "npm ci" } }));
       const linkRoot = join(makeRoot(), "link");
       symlinkSync(repoRoot, linkRoot, "dir");
       const messages: unknown[] = [];
@@ -757,7 +751,7 @@ describe("project config RPC authorization", () => {
   test("read_project_config_request emits raw lifecycle forms for a known project root", async () => {
     const repoRoot = makeRoot();
     writeFileSync(
-      join(repoRoot, "paseo.json"),
+      join(repoRoot, "doya.json"),
       JSON.stringify({ worktree: { setup: "npm install", teardown: ["npm run clean"] } }),
     );
     const messages: unknown[] = [];
@@ -791,7 +785,7 @@ describe("project config RPC authorization", () => {
 
   test("write_project_config_request emits stale and write-failed inline domain failures", async () => {
     const staleRoot = makeRoot();
-    writeFileSync(join(staleRoot, "paseo.json"), JSON.stringify({ worktree: { setup: "old" } }));
+    writeFileSync(join(staleRoot, "doya.json"), JSON.stringify({ worktree: { setup: "old" } }));
     const writeFailedRoot = join(makeRoot(), "not-a-directory");
     writeFileSync(writeFailedRoot, "file");
     const messages: unknown[] = [];
@@ -865,8 +859,8 @@ function createWorkspaceGitSnapshot(
       repoRoot: cwd,
       mainRepoRoot: null,
       currentBranch: "feature/service",
-      remoteUrl: "https://github.com/getpaseo/paseo.git",
-      isPaseoOwnedWorktree: false,
+      remoteUrl: "https://github.com/getdoya/doya.git",
+      isDoyaOwnedWorktree: false,
       isDirty: true,
       baseRef: "main",
       aheadBehind: { ahead: 2, behind: 1 },
@@ -1153,7 +1147,7 @@ describe("session checkout merge handling", () => {
         baseRef: "main",
         mode: "merge",
       },
-      { paseoHome: "/tmp/paseo-home" },
+      { doyaHome: "/tmp/doya-home", worktreesRoot: undefined },
     );
     expect(workspaceGitService.getSnapshot).toHaveBeenCalledWith("/tmp/base-worktree", {
       force: true,
@@ -1278,13 +1272,13 @@ diff --git a/file.txt b/file.txt
   }
 
   function writeConfig(repoRoot: string, config: unknown): void {
-    writeFileSync(join(repoRoot, "paseo.json"), `${JSON.stringify(config)}\n`);
+    writeFileSync(join(repoRoot, "doya.json"), `${JSON.stringify(config)}\n`);
   }
 
   async function generateCommitPromptWithConfig(config: unknown): Promise<string> {
     const repoRoot = makeRoot();
     if (typeof config === "string") {
-      writeFileSync(join(repoRoot, "paseo.json"), config);
+      writeFileSync(join(repoRoot, "doya.json"), config);
     } else if (config !== undefined) {
       writeConfig(repoRoot, config);
     }
@@ -1426,9 +1420,9 @@ diff --git a/file.txt b/file.txt
   });
 
   test.each([
-    ["paseo.json missing", undefined],
-    ["paseo.json exists but invalid JSON", "{ nope"],
-    ["paseo.json valid but missing metadataGeneration", {}],
+    ["doya.json missing", undefined],
+    ["doya.json exists but invalid JSON", "{ nope"],
+    ["doya.json valid but missing metadataGeneration", {}],
     ["metadataGeneration is schema-invalid", { metadataGeneration: "not an object" }],
     [
       "metadataGeneration exists but missing commitMessage",
@@ -1574,13 +1568,13 @@ diff --git a/file.txt b/file.txt
   }
 
   function writeConfig(repoRoot: string, config: unknown): void {
-    writeFileSync(join(repoRoot, "paseo.json"), `${JSON.stringify(config)}\n`);
+    writeFileSync(join(repoRoot, "doya.json"), `${JSON.stringify(config)}\n`);
   }
 
   async function generatePullRequestCallWithConfig(config: unknown): Promise<unknown> {
     const repoRoot = makeRoot();
     if (typeof config === "string") {
-      writeFileSync(join(repoRoot, "paseo.json"), config);
+      writeFileSync(join(repoRoot, "doya.json"), config);
     } else if (config !== undefined) {
       writeConfig(repoRoot, config);
     }
@@ -1607,7 +1601,7 @@ diff --git a/file.txt b/file.txt
       body: "Updates file.",
     });
     checkoutGitMocks.createPullRequest.mockResolvedValue({
-      url: "https://github.com/getpaseo/paseo/pull/1",
+      url: "https://github.com/getdoya/doya/pull/1",
       number: 1,
     });
     const session = createSessionForTest({ workspaceGitService });
@@ -1652,7 +1646,7 @@ diff --git a/file.txt b/file.txt
       body: "Updates file.",
     });
     checkoutGitMocks.createPullRequest.mockResolvedValue({
-      url: "https://github.com/getpaseo/paseo/pull/1",
+      url: "https://github.com/getdoya/doya/pull/1",
       number: 1,
     });
     const session = createSessionForTest({ workspaceGitService, messages });
@@ -1694,7 +1688,7 @@ diff --git a/file.txt b/file.txt
       type: "checkout_pr_create_response",
       payload: {
         cwd: "/tmp/request-worktree",
-        url: "https://github.com/getpaseo/paseo/pull/1",
+        url: "https://github.com/getdoya/doya/pull/1",
         number: 1,
         error: null,
         requestId: "request-generated-pr",
@@ -1703,9 +1697,9 @@ diff --git a/file.txt b/file.txt
   });
 
   test.each([
-    ["paseo.json missing", undefined],
-    ["paseo.json exists but invalid JSON", "{ nope"],
-    ["paseo.json valid but missing metadataGeneration", {}],
+    ["doya.json missing", undefined],
+    ["doya.json exists but invalid JSON", "{ nope"],
+    ["doya.json valid but missing metadataGeneration", {}],
     ["metadataGeneration is schema-invalid", { metadataGeneration: "not an object" }],
     [
       "metadataGeneration exists but missing pullRequest",
@@ -1794,7 +1788,7 @@ diff --git a/file.txt b/file.txt
       new StructuredAgentFallbackError([]),
     );
     checkoutGitMocks.createPullRequest.mockResolvedValue({
-      url: "https://github.com/getpaseo/paseo/pull/9",
+      url: "https://github.com/getdoya/doya/pull/9",
       number: 9,
     });
     const session = createSessionForTest({ workspaceGitService, messages });
@@ -1812,7 +1806,7 @@ diff --git a/file.txt b/file.txt
       "/tmp/request-worktree",
       {
         title: "Update changes",
-        body: "Automated PR generated by Paseo.",
+        body: "Automated PR generated by Doya.",
         base: "main",
       },
       expect.anything(),
@@ -1821,7 +1815,7 @@ diff --git a/file.txt b/file.txt
       type: "checkout_pr_create_response",
       payload: {
         cwd: "/tmp/request-worktree",
-        url: "https://github.com/getpaseo/paseo/pull/9",
+        url: "https://github.com/getdoya/doya/pull/9",
         number: 9,
         error: null,
         requestId: "request-generated-pr-fallback",
@@ -1836,7 +1830,7 @@ diff --git a/file.txt b/file.txt
       getSnapshot: vi.fn().mockResolvedValue({}),
     };
     checkoutGitMocks.createPullRequest.mockResolvedValue({
-      url: "https://github.com/getpaseo/paseo/pull/2",
+      url: "https://github.com/getdoya/doya/pull/2",
       number: 2,
     });
     const session = createSessionForTest({ github, workspaceGitService, messages });
@@ -1859,7 +1853,7 @@ diff --git a/file.txt b/file.txt
       type: "checkout_pr_create_response",
       payload: {
         cwd: "/tmp/request-worktree",
-        url: "https://github.com/getpaseo/paseo/pull/2",
+        url: "https://github.com/getdoya/doya/pull/2",
         number: 2,
         error: null,
         requestId: "request-pr-create",
@@ -2657,8 +2651,8 @@ describe("session checkout status handling", () => {
         aheadOfOrigin: 2,
         behindOfOrigin: 1,
         hasRemote: true,
-        remoteUrl: "https://github.com/getpaseo/paseo.git",
-        isPaseoOwnedWorktree: false,
+        remoteUrl: "https://github.com/getdoya/doya.git",
+        isDoyaOwnedWorktree: false,
         error: null,
         requestId: "request-status",
       },
@@ -2737,7 +2731,7 @@ describe("session workspace descriptors", () => {
             git: {
               remoteUrl: "https://github.com/acme/app.git",
               currentBranch: "main",
-              isPaseoOwnedWorktree: false,
+              isDoyaOwnedWorktree: false,
               mainRepoRoot: null,
             },
           }),
@@ -2767,7 +2761,7 @@ describe("session workspace descriptors", () => {
                 currentBranch: "app",
                 remoteUrl: null,
                 worktreeRoot: "/repo/app",
-                isPaseoOwnedWorktree: false,
+                isDoyaOwnedWorktree: false,
                 mainRepoRoot: null,
               },
             },
@@ -2807,7 +2801,7 @@ describe("session workspace descriptors", () => {
             git: {
               remoteUrl: null,
               currentBranch: "main",
-              isPaseoOwnedWorktree: false,
+              isDoyaOwnedWorktree: false,
               mainRepoRoot: null,
             },
           }),
@@ -2837,7 +2831,7 @@ describe("session workspace descriptors", () => {
                 currentBranch: "local",
                 remoteUrl: null,
                 worktreeRoot: "/repo/local",
-                isPaseoOwnedWorktree: false,
+                isDoyaOwnedWorktree: false,
                 mainRepoRoot: null,
               },
             },
@@ -2950,7 +2944,7 @@ describe("session branch validation", () => {
   });
 
   test("does not validate tags as branches", async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), "paseo-session-branch-validation-"));
+    const tempDir = mkdtempSync(join(tmpdir(), "doya-session-branch-validation-"));
     const repoDir = join(tempDir, "repo");
 
     try {
@@ -3382,9 +3376,9 @@ describe("session stash list handling", () => {
     const entries = [
       {
         index: 0,
-        message: "paseo-auto-stash: feature",
+        message: "doya-auto-stash: feature",
         branch: "feature",
-        isPaseo: true,
+        isDoya: true,
       },
     ];
     const workspaceGitService = {
@@ -3397,17 +3391,29 @@ describe("session stash list handling", () => {
     await asSessionInternals(session).handleStashListRequest({
       type: "stash_list_request",
       cwd: "/tmp/repo",
-      paseoOnly: true,
+      doyaOnly: true,
       requestId: "request-stashes",
     });
 
     expect(workspaceGitService.listStashes).toHaveBeenCalledTimes(1);
     expect(workspaceGitService.listStashes).toHaveBeenCalledWith("/tmp/repo", {
-      paseoOnly: true,
+      doyaOnly: true,
     });
     expect(messages).toContainEqual({
       type: "stash_list_response",
-      payload: { cwd: "/tmp/repo", entries, error: null, requestId: "request-stashes" },
+      payload: {
+        cwd: "/tmp/repo",
+        entries: [
+          {
+            index: 0,
+            message: "doya-auto-stash: feature",
+            branch: "feature",
+            isDoya: true,
+          },
+        ],
+        error: null,
+        requestId: "request-stashes",
+      },
     });
   });
 });
@@ -3482,27 +3488,27 @@ describe("session stash mutation handling", () => {
   });
 });
 
-describe("session paseo worktree creation handling", () => {
+describe("session doya worktree creation handling", () => {
   test("forces workspace git refreshes for the source repo and created worktree", async () => {
     const workspaceGitService = { getSnapshot: vi.fn().mockResolvedValue({}) };
     const session = createSessionForTest({ workspaceGitService });
-    paseoWorktreeServiceMocks.createPaseoWorktree.mockResolvedValue({
+    doyaWorktreeServiceMocks.createDoyaWorktree.mockResolvedValue({
       repoRoot: "/tmp/repo",
       worktree: {
         branchName: "feature/new-worktree",
-        worktreePath: "/tmp/paseo/worktrees/new-worktree",
+        worktreePath: "/tmp/doya/worktrees/new-worktree",
       },
       workspace: {
         workspaceId: "workspace-new-worktree",
         projectId: "project-repo",
-        cwd: "/tmp/paseo/worktrees/new-worktree",
+        cwd: "/tmp/doya/worktrees/new-worktree",
         kind: "worktree",
         displayName: "feature/new-worktree",
       },
       created: true,
     });
 
-    await asSessionInternals(session).createPaseoWorktree({
+    await asSessionInternals(session).createDoyaWorktree({
       cwd: "/tmp/repo",
       worktreeSlug: "new-worktree",
       runSetup: false,
@@ -3513,7 +3519,7 @@ describe("session paseo worktree creation handling", () => {
       reason: "create-worktree",
     });
     expect(workspaceGitService.getSnapshot).toHaveBeenCalledWith(
-      "/tmp/paseo/worktrees/new-worktree",
+      "/tmp/doya/worktrees/new-worktree",
       {
         force: true,
         reason: "create-worktree",
@@ -3529,9 +3535,9 @@ describe("session workspace script handling", () => {
       peekSnapshot: vi.fn(() => null),
       getWorkspaceGitMetadata: vi.fn().mockResolvedValue({
         projectKind: "git",
-        projectDisplayName: "getpaseo/paseo",
+        projectDisplayName: "getdoya/doya",
         workspaceDisplayName: "feature/service-scripts",
-        projectSlug: "paseo",
+        projectSlug: "doya",
         currentBranch: "feature/service-scripts",
       }),
     };
@@ -3569,7 +3575,7 @@ describe("session workspace script handling", () => {
       expect.objectContaining({
         repoRoot: "/tmp/repo",
         workspaceId: "workspace-1",
-        projectSlug: "paseo",
+        projectSlug: "doya",
         branchName: "feature/service-scripts",
         scriptName: "api",
         daemonPort: 6767,
@@ -3601,7 +3607,7 @@ describe("session pull request timeline handling", () => {
             kind: "pr",
             number: 42,
             title: "Ship search",
-            url: "https://github.com/getpaseo/paseo/pull/42",
+            url: "https://github.com/getdoya/doya/pull/42",
             state: "OPEN",
             body: null,
             labels: [],
@@ -3637,7 +3643,7 @@ describe("session pull request timeline handling", () => {
             kind: "pr",
             number: 42,
             title: "Ship search",
-            url: "https://github.com/getpaseo/paseo/pull/42",
+            url: "https://github.com/getdoya/doya/pull/42",
             state: "OPEN",
             body: null,
             labels: [],
@@ -3660,8 +3666,8 @@ describe("session pull request timeline handling", () => {
       isAuthenticated: vi.fn().mockResolvedValue(true),
       getPullRequestTimeline: vi.fn().mockResolvedValue({
         prNumber: 42,
-        repoOwner: "getpaseo",
-        repoName: "paseo",
+        repoOwner: "getdoya",
+        repoName: "doya",
         items: [
           {
             id: "review-1",
@@ -3670,7 +3676,7 @@ describe("session pull request timeline handling", () => {
             authorUrl: "https://github.com/octocat",
             body: "Looks good",
             createdAt: 1710000000000,
-            url: "https://github.com/getpaseo/paseo/pull/42#pullrequestreview-1",
+            url: "https://github.com/getdoya/doya/pull/42#pullrequestreview-1",
             reviewState: "approved",
           },
         ],
@@ -3684,16 +3690,16 @@ describe("session pull request timeline handling", () => {
       type: "pull_request_timeline_request",
       cwd: "/tmp/repo",
       prNumber: 42,
-      repoOwner: "getpaseo",
-      repoName: "paseo",
+      repoOwner: "getdoya",
+      repoName: "doya",
       requestId: "request-1",
     });
 
     expect(github.getPullRequestTimeline).toHaveBeenCalledWith({
       cwd: "/tmp/repo",
       prNumber: 42,
-      repoOwner: "getpaseo",
-      repoName: "paseo",
+      repoOwner: "getdoya",
+      repoName: "doya",
     });
     expect(messages).toContainEqual({
       type: "pull_request_timeline_response",
@@ -3707,7 +3713,7 @@ describe("session pull request timeline handling", () => {
             author: "octocat",
             body: "Looks good",
             createdAt: 1710000000000,
-            url: "https://github.com/getpaseo/paseo/pull/42#pullrequestreview-1",
+            url: "https://github.com/getdoya/doya/pull/42#pullrequestreview-1",
             reviewState: "approved",
           },
         ],
@@ -3720,14 +3726,14 @@ describe("session pull request timeline handling", () => {
   });
 
   test.each([
-    { prNumber: 0, repoOwner: "getpaseo", repoName: "paseo" },
-    { prNumber: -1, repoOwner: "getpaseo", repoName: "paseo" },
-    { prNumber: 42, repoOwner: "get paseo", repoName: "paseo" },
-    { prNumber: 42, repoOwner: "getpaseo/cli", repoName: "paseo" },
-    { prNumber: 42, repoOwner: "get$paseo", repoName: "paseo" },
-    { prNumber: 42, repoOwner: "getpaseo", repoName: "pa seo" },
-    { prNumber: 42, repoOwner: "getpaseo", repoName: "paseo/app" },
-    { prNumber: 42, repoOwner: "getpaseo", repoName: "paseo!" },
+    { prNumber: 0, repoOwner: "getdoya", repoName: "doya" },
+    { prNumber: -1, repoOwner: "getdoya", repoName: "doya" },
+    { prNumber: 42, repoOwner: "get doya", repoName: "doya" },
+    { prNumber: 42, repoOwner: "getdoya/cli", repoName: "doya" },
+    { prNumber: 42, repoOwner: "get$doya", repoName: "doya" },
+    { prNumber: 42, repoOwner: "getdoya", repoName: "pa seo" },
+    { prNumber: 42, repoOwner: "getdoya", repoName: "doya/app" },
+    { prNumber: 42, repoOwner: "getdoya", repoName: "doya!" },
   ])("returns an unknown error when request identity is invalid: %j", async (identity) => {
     const messages: unknown[] = [];
     const github = {
@@ -3776,8 +3782,8 @@ describe("session pull request timeline handling", () => {
       type: "pull_request_timeline_request",
       cwd: "/tmp/repo",
       prNumber: 42,
-      repoOwner: "getpaseo",
-      repoName: "paseo",
+      repoOwner: "getdoya",
+      repoName: "doya",
       requestId: "request-3",
     });
 

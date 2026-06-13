@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { AgentProvider, AgentSessionConfig } from "@getpaseo/protocol/agent-types";
+import type { AgentProvider, AgentSessionConfig } from "@getdoya/protocol/agent-types";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { translateNow } from "@/i18n/i18n";
 import { mergeProviderPreferences, useFormPreferences } from "./use-form-preferences";

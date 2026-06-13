@@ -2,7 +2,7 @@ import type {
   DaemonClient,
   FetchAgentHistoryOptions,
   FetchAgentHistoryPageInfo,
-} from "@getpaseo/client/internal/daemon-client";
+} from "@getdoya/client/internal/daemon-client";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import type { AggregatedAgent } from "@/hooks/use-aggregated-agents";

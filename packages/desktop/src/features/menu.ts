@@ -1,5 +1,5 @@
 import { app, Menu, BrowserWindow, ipcMain } from "electron";
-import { getWorkspaceActivePaseoBrowserWebContents } from "./browser-webviews.js";
+import { getWorkspaceActiveDoyaBrowserWebContents } from "./browser-webviews.js";
 
 interface ShowContextMenuInput {
   kind?: "terminal";
@@ -16,7 +16,7 @@ function withBrowserWindow(
 }
 
 function getReloadTargetBrowserWebContents(): Electron.WebContents | null {
-  return getWorkspaceActivePaseoBrowserWebContents();
+  return getWorkspaceActiveDoyaBrowserWebContents();
 }
 
 function reloadFocusedContentsOrWindow(win: BrowserWindow, options?: { ignoreCache?: boolean }) {
@@ -134,7 +134,7 @@ export function setupApplicationMenu(): void {
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 
-  ipcMain.handle("paseo:menu:showContextMenu", (event, input?: ShowContextMenuInput) => {
+  ipcMain.handle("doya:menu:showContextMenu", (event, input?: ShowContextMenuInput) => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win) {
       return;

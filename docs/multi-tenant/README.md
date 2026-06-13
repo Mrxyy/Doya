@@ -11,10 +11,10 @@
 
 ## 存储位置
 
-账号控制面数据都在 `$PASEO_HOME/accounts` 下：
+账号控制面数据都在 `$DOYA_HOME/accounts` 下：
 
 ```text
-$PASEO_HOME/accounts/
+$DOYA_HOME/accounts/
 ├── accounts.json
 └── workspaces/
     └── ws_xxx/
@@ -48,7 +48,7 @@ npm run dev
 
 ```bash
 npm run dev-xyy
-npm run web --workspace=@getpaseo/app
+npm run web --workspace=@getdoya/app
 ```
 
 不再需要额外指定控制面 daemon 地址、provider 或工作区根目录，也不再运行额外账号服务。
@@ -59,11 +59,11 @@ npm run web --workspace=@getpaseo/app
 环境变量中配置，App 不保存或发送服务商 secret：
 
 ```bash
-PASEO_DOTSMS_APIKEY=...
-PASEO_DOTSMS_SECRET=...
-PASEO_DOTSMS_SIGN_ID=...
-PASEO_DOTSMS_TEMPLATE_ID=...
+DOYA_DOTSMS_APIKEY=...
+DOYA_DOTSMS_SECRET=...
+DOYA_DOTSMS_SIGN_ID=...
+DOYA_DOTSMS_TEMPLATE_ID=...
 ```
 
 默认使用点信模板短信接口 `https://api.dotsms.cn/sms/template`。如需调试或切换网关，可用
-`PASEO_DOTSMS_URL` 覆盖。
+`DOYA_DOTSMS_URL` 覆盖。

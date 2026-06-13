@@ -3,12 +3,12 @@ import path from "node:path";
 import { expect, test as base } from "./fixtures";
 import { seedWorkspace } from "./helpers/seed-client";
 import {
-  blockPaseoConfigWrites,
-  bumpPaseoConfigOnDisk,
+  blockDoyaConfigWrites,
+  bumpDoyaConfigOnDisk,
   clickReloadProjectSettings,
   clickRetryProjectSettingsSave,
   clickSaveProjectSettings,
-  corruptPaseoConfig,
+  corruptDoyaConfig,
   editWorktreeSetup,
   expectEmptyScriptList,
   expectHostIndicatorVisible,
@@ -27,8 +27,8 @@ import {
   openProjectSettings,
   openProjects,
   removeProjectScript,
-  restorePaseoConfig,
-  unblockPaseoConfigWrites,
+  restoreDoyaConfig,
+  unblockDoyaConfigWrites,
 } from "./helpers/project-settings";
 
 const updatedSetup = ["npm install", "npm run build"];
@@ -43,7 +43,7 @@ interface ProjectsSettingsFixtures {
   gitlabRemoteProject: ProjectsSettingsProject;
 }
 
-const initialPaseoConfig = {
+const initialDoyaConfig = {
   worktree: {
     setup: ["echo initial setup"],
     teardown: "echo cleanup",
@@ -64,7 +64,7 @@ const test = base.extend<ProjectsSettingsFixtures>({
   editableProject: async ({ page: _page }, provide) => {
     const workspace = await seedWorkspace({
       repoPrefix: "projects-settings-",
-      repo: { paseoConfig: initialPaseoConfig },
+      repo: { doyaConfig: initialDoyaConfig },
     });
 
     await provide({
@@ -81,7 +81,7 @@ const test = base.extend<ProjectsSettingsFixtures>({
     const workspace = await seedWorkspace({
       repoPrefix: "projects-settings-gitlab-",
       repo: {
-        paseoConfig: initialPaseoConfig,
+        doyaConfig: initialDoyaConfig,
         originUrl: "https://gitlab.com/acme/app.git",
       },
     });
@@ -109,18 +109,18 @@ async function expectProjectConfigSaved(project: ProjectsSettingsProject): Promi
     .toMatchObject({
       worktree: {
         setup: updatedSetup,
-        teardown: initialPaseoConfig.worktree.teardown,
-        customWorktreeField: initialPaseoConfig.worktree.customWorktreeField,
+        teardown: initialDoyaConfig.worktree.teardown,
+        customWorktreeField: initialDoyaConfig.worktree.customWorktreeField,
       },
       scripts: {
         dev: {
-          command: initialPaseoConfig.scripts.dev.command,
-          type: initialPaseoConfig.scripts.dev.type,
-          port: initialPaseoConfig.scripts.dev.port,
-          customScriptField: initialPaseoConfig.scripts.dev.customScriptField,
+          command: initialDoyaConfig.scripts.dev.command,
+          type: initialDoyaConfig.scripts.dev.type,
+          port: initialDoyaConfig.scripts.dev.port,
+          customScriptField: initialDoyaConfig.scripts.dev.customScriptField,
         },
       },
-      customTopLevelField: initialPaseoConfig.customTopLevelField,
+      customTopLevelField: initialDoyaConfig.customTopLevelField,
     });
 
   const savedConfig = await readProjectConfigFile(project);
@@ -128,7 +128,7 @@ async function expectProjectConfigSaved(project: ProjectsSettingsProject): Promi
 }
 
 async function readProjectConfigFile(project: ProjectsSettingsProject): Promise<string> {
-  return readFile(path.join(project.path, "paseo.json"), "utf8");
+  return readFile(path.join(project.path, "doya.json"), "utf8");
 }
 
 test.describe("Projects settings", () => {
@@ -162,7 +162,7 @@ test.describe("Projects settings — error UX", () => {
     await openProjectSettings(page, editableProject.name);
 
     // Bump the file on disk so the daemon detects a revision mismatch on save.
-    await bumpPaseoConfigOnDisk(editableProject.path);
+    await bumpDoyaConfigOnDisk(editableProject.path);
 
     await clickSaveProjectSettings(page);
 
@@ -175,11 +175,11 @@ test.describe("Projects settings — error UX", () => {
     await expectProjectSettingsFormVisible(page);
   });
 
-  test("invalid paseo.json shows read-error callout, reload after fix shows form", async ({
+  test("invalid doya.json shows read-error callout, reload after fix shows form", async ({
     page,
     editableProject,
   }) => {
-    await corruptPaseoConfig(editableProject.path);
+    await corruptDoyaConfig(editableProject.path);
 
     await openProjects(page);
     await navigateToProjectSettings(page, editableProject.name);
@@ -188,7 +188,7 @@ test.describe("Projects settings — error UX", () => {
     await expectProjectSettingsFormHidden(page);
 
     // Restore a valid config so the reload succeeds.
-    await restorePaseoConfig(editableProject.path, initialPaseoConfig);
+    await restoreDoyaConfig(editableProject.path, initialDoyaConfig);
 
     await clickReloadProjectSettings(page);
 
@@ -203,7 +203,7 @@ test.describe("Projects settings — error UX", () => {
     await openProjects(page);
     await openProjectSettings(page, editableProject.name);
 
-    await blockPaseoConfigWrites(editableProject.path);
+    await blockDoyaConfigWrites(editableProject.path);
 
     await clickSaveProjectSettings(page);
 
@@ -213,7 +213,7 @@ test.describe("Projects settings — error UX", () => {
     await clickRetryProjectSettingsSave(page);
     await expectProjectSettingsError(page, "write_failed");
 
-    await unblockPaseoConfigWrites(editableProject.path);
+    await unblockDoyaConfigWrites(editableProject.path);
     await clickReloadProjectSettings(page);
     await expectNoProjectSettingsError(page, "write_failed");
     await expectProjectSettingsFormVisible(page);

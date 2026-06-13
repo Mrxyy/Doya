@@ -32,7 +32,7 @@ Schedules can use interval cadence, like every 30 minutes, or cron cadence, like
 Overnight refactor on Codex:
 
 ```bash
-paseo schedule create \
+doya schedule create \
   --every 30m \
   --name overnight-refactor \
   --provider codex/gpt-5.5 \
@@ -45,7 +45,7 @@ paseo schedule create \
 Long build babysitter on Claude:
 
 ```bash
-paseo schedule create \
+doya schedule create \
   --every 5m \
   --name build-watch \
   --provider claude/opus-4.7 \
@@ -57,7 +57,7 @@ paseo schedule create \
 Daily GitHub triage on GLM through OpenCode:
 
 ```bash
-paseo schedule create \
+doya schedule create \
   --cron "0 14 * * 1-5" \
   --timezone UTC \
   --run-now \
@@ -70,7 +70,7 @@ paseo schedule create \
 Morning triage at 9 AM in New York, including daylight saving time changes:
 
 ```bash
-paseo schedule create \
+doya schedule create \
   --cron "0 9 * * 1-5" \
   --timezone America/New_York \
   --name morning-triage \
@@ -82,7 +82,7 @@ paseo schedule create \
 Heartbeat the current agent:
 
 ```bash
-paseo schedule create \
+doya schedule create \
   --every 20m \
   --target self \
   --name heartbeat \
@@ -92,14 +92,14 @@ paseo schedule create \
 ## Managing Schedules
 
 ```bash
-paseo schedule ls
-paseo schedule inspect <id>
-paseo schedule logs <id>
-paseo schedule pause <id>
-paseo schedule resume <id>
-paseo schedule run-once <id>
-paseo schedule update <id> --every 10m --max-runs 6
-paseo schedule delete <id>
+doya schedule ls
+doya schedule inspect <id>
+doya schedule logs <id>
+doya schedule pause <id>
+doya schedule resume <id>
+doya schedule run-once <id>
+doya schedule update <id> --every 10m --max-runs 6
+doya schedule delete <id>
 ```
 
 Use `--every <duration>` for intervals and `--cron "<expr>"` for 5-field cron. Cron schedules default to UTC. Pass `--timezone <IANA>` to interpret cron fields in a local wall-clock time zone, for example `--timezone America/New_York`. The persisted `nextRunAt` is still a UTC instant, but it is computed from that local time zone so recurring jobs stay at the same local time across daylight saving time changes.

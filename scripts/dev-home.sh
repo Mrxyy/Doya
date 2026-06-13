@@ -26,8 +26,8 @@ has_files() {
   [ -d "$1" ] && [ -n "$(find "$1" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]
 }
 
-seed_worktree_paseo_home() {
-  local source_home="${PASEO_DEV_SEED_HOME:-$HOME/.paseo}"
+seed_worktree_doya_home() {
+  local source_home="${DOYA_DEV_SEED_HOME:-$HOME/.doya}"
   local target_home="$1"
 
   if [ ! -d "$source_home" ]; then
@@ -40,7 +40,7 @@ seed_worktree_paseo_home() {
     return
   fi
 
-  if [ "${PASEO_DEV_RESET_HOME:-0}" = "1" ]; then
+  if [ "${DOYA_DEV_RESET_HOME:-0}" = "1" ]; then
     rm -rf "$target_home"
   elif has_files "$target_home"; then
     echo "  Seed:    skipped (${target_home} already has data)"
@@ -58,13 +58,13 @@ seed_worktree_paseo_home() {
   echo "  Seed:    copied metadata from ${source_home}"
 }
 
-configure_dev_paseo_home() {
-  if [ -n "${PASEO_HOME:-}" ]; then
-    export PASEO_HOME
+configure_dev_doya_home() {
+  if [ -n "${DOYA_HOME:-}" ]; then
+    export DOYA_HOME
     return
   fi
 
-  export PASEO_HOME
+  export DOYA_HOME
   local git_dir
   local git_common_dir
   git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
@@ -74,11 +74,11 @@ configure_dev_paseo_home() {
     local worktree_name
     worktree_root="$(git rev-parse --show-toplevel)"
     worktree_name="$(basename "$worktree_root" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//')"
-    PASEO_HOME="$HOME/.paseo-${worktree_name}"
-    seed_worktree_paseo_home "$PASEO_HOME"
+    DOYA_HOME="$HOME/.doya-${worktree_name}"
+    seed_worktree_doya_home "$DOYA_HOME"
     return
   fi
 
-  PASEO_HOME="$(mktemp -d "${TMPDIR:-/tmp}/paseo-dev.XXXXXX")"
-  trap "rm -rf '$PASEO_HOME'" EXIT
+  DOYA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/doya-dev.XXXXXX")"
+  trap "rm -rf '$DOYA_HOME'" EXIT
 }

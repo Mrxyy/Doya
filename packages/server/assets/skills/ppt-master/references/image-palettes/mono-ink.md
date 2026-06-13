@@ -16,16 +16,16 @@ When proposing mono-ink, the assembled prompt should explicitly note: "mono-ink 
 
 ## 2. Compatible renderings
 
-| Rendering | Notes |
-|---|---|
-| ✓✓ ink-notes | Direct alignment — mono-ink is the default ink-notes palette |
-| ✓✓ editorial | Magazine restraint + ink discipline |
-| ✓ vector-illustration | Acceptable but loses the hand-drawn quality |
-| ✓ blueprint | Schematic restraint |
-| ✗ sketch-notes / watercolor / fantasy-animation / nature | Wrong temperament — those are warm |
-| ✗ tech-neon / digital-dashboard | Mono-ink is intentionally non-digital |
-| ✗ corporate-photo | Photography can't be mono-ink |
-| ✗ chalkboard | Mono-ink is white-paper-black-ink; chalkboard is opposite |
+| Rendering                                                | Notes                                                        |
+| -------------------------------------------------------- | ------------------------------------------------------------ |
+| ✓✓ ink-notes                                             | Direct alignment — mono-ink is the default ink-notes palette |
+| ✓✓ editorial                                             | Magazine restraint + ink discipline                          |
+| ✓ vector-illustration                                    | Acceptable but loses the hand-drawn quality                  |
+| ✓ blueprint                                              | Schematic restraint                                          |
+| ✗ sketch-notes / watercolor / fantasy-animation / nature | Wrong temperament — those are warm                           |
+| ✗ tech-neon / digital-dashboard                          | Mono-ink is intentionally non-digital                        |
+| ✗ corporate-photo                                        | Photography can't be mono-ink                                |
+| ✗ chalkboard                                             | Mono-ink is white-paper-black-ink; chalkboard is opposite    |
 
 ---
 

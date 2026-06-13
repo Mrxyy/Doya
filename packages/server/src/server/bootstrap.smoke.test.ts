@@ -4,19 +4,19 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import pino from "pino";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { createPaseoDaemon, parseListenString, type PaseoDaemonConfig } from "./bootstrap.js";
+import { createDoyaDaemon, parseListenString, type DoyaDaemonConfig } from "./bootstrap.js";
 import { generateLocalPairingOffer } from "./pairing-offer.js";
-import { createTestPaseoDaemon } from "./test-utils/paseo-daemon.js";
+import { createTestDoyaDaemon } from "./test-utils/doya-daemon.js";
 import { createTestAgentClients } from "./test-utils/fake-agent-client.js";
 import { isPlatform } from "../test-utils/platform.js";
 
-describe("paseo daemon bootstrap", () => {
+describe("doya daemon bootstrap", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
   test("starts and serves health endpoint", async () => {
-    const daemonHandle = await createTestPaseoDaemon({
+    const daemonHandle = await createTestDoyaDaemon({
       openai: { apiKey: "test-openai-api-key" },
       speech: {
         providers: {
@@ -51,7 +51,7 @@ describe("paseo daemon bootstrap", () => {
         },
       },
     );
-    const daemonHandle = await createTestPaseoDaemon({
+    const daemonHandle = await createTestDoyaDaemon({
       logger,
       mcpDebug: true,
     });
@@ -88,23 +88,23 @@ describe("paseo daemon bootstrap", () => {
   });
 
   test("fails fast when OpenAI speech provider is configured without credentials", async () => {
-    const paseoHomeRoot = await mkdtemp(path.join(os.tmpdir(), "paseo-openai-config-"));
-    const paseoHome = path.join(paseoHomeRoot, ".paseo");
-    const staticDir = await mkdtemp(path.join(os.tmpdir(), "paseo-static-"));
-    await mkdir(paseoHome, { recursive: true });
+    const doyaHomeRoot = await mkdtemp(path.join(os.tmpdir(), "doya-openai-config-"));
+    const doyaHome = path.join(doyaHomeRoot, ".doya");
+    const staticDir = await mkdtemp(path.join(os.tmpdir(), "doya-static-"));
+    await mkdir(doyaHome, { recursive: true });
 
-    const config: PaseoDaemonConfig = {
+    const config: DoyaDaemonConfig = {
       listen: "127.0.0.1:0",
-      paseoHome,
+      doyaHome: doyaHome,
       corsAllowedOrigins: [],
       hostnames: true,
       mcpEnabled: false,
       staticDir,
       mcpDebug: false,
       agentClients: createTestAgentClients(),
-      agentStoragePath: path.join(paseoHome, "agents"),
+      agentStoragePath: path.join(doyaHome, "agents"),
       relayEnabled: false,
-      appBaseUrl: "https://app.paseo.sh",
+      appBaseUrl: "https://app.doya.sh",
       openai: undefined,
       speech: {
         providers: {
@@ -116,11 +116,11 @@ describe("paseo daemon bootstrap", () => {
     };
 
     try {
-      await expect(createPaseoDaemon(config, pino({ level: "silent" }))).rejects.toThrow(
+      await expect(createDoyaDaemon(config, pino({ level: "silent" }))).rejects.toThrow(
         "Missing OpenAI credentials",
       );
     } finally {
-      await rm(paseoHomeRoot, { recursive: true, force: true });
+      await rm(doyaHomeRoot, { recursive: true, force: true });
       await rm(staticDir, { recursive: true, force: true });
     }
   });
@@ -136,7 +136,7 @@ describe("paseo daemon bootstrap", () => {
       vi.fn(() => fetchGate),
     );
 
-    const daemonHandle = await createTestPaseoDaemon({
+    const daemonHandle = await createTestDoyaDaemon({
       speech: {
         providers: {
           dictationStt: { provider: "local", explicit: true, enabled: true },
@@ -145,7 +145,7 @@ describe("paseo daemon bootstrap", () => {
           voiceTts: { provider: "local", explicit: true, enabled: false },
         },
         local: {
-          modelsDir: path.join(os.tmpdir(), `paseo-missing-models-${Date.now()}`),
+          modelsDir: path.join(os.tmpdir(), `doya-missing-models-${Date.now()}`),
           models: {
             dictationStt: "parakeet-tdt-0.6b-v2-int8",
             voiceStt: "parakeet-tdt-0.6b-v2-int8",
@@ -183,19 +183,19 @@ describe("paseo daemon bootstrap", () => {
     // A Windows drive path like C:\daemon must NOT be silently parsed as TCP
     // (split(":") would yield host="C" and port="\\daemon" which is nonsensical).
     expect(() => parseListenString(String.raw`C:\daemon`)).toThrow();
-    expect(() => parseListenString(String.raw`D:\Users\foo\.paseo\daemon.sock`)).toThrow();
+    expect(() => parseListenString(String.raw`D:\Users\foo\.doya\daemon.sock`)).toThrow();
     // Single-letter "host" with no valid port is not a valid listen string
     expect(() => parseListenString(String.raw`C:\some\path`)).toThrow();
   });
 
   test("parses Windows named pipes as managed IPC listen targets", () => {
-    expect(parseListenString(String.raw`\\.\pipe\paseo-managed-test`)).toEqual({
+    expect(parseListenString(String.raw`\\.\pipe\doya-managed-test`)).toEqual({
       type: "pipe",
-      path: String.raw`\\.\pipe\paseo-managed-test`,
+      path: String.raw`\\.\pipe\doya-managed-test`,
     });
-    expect(parseListenString(`pipe://${String.raw`\\.\pipe\paseo-managed-test`}`)).toEqual({
+    expect(parseListenString(`pipe://${String.raw`\\.\pipe\doya-managed-test`}`)).toEqual({
       type: "pipe",
-      path: String.raw`\\.\pipe\paseo-managed-test`,
+      path: String.raw`\\.\pipe\doya-managed-test`,
     });
   });
 
@@ -203,50 +203,50 @@ describe("paseo daemon bootstrap", () => {
   test.skipIf(isPlatform("win32"))(
     "generates a relay pairing offer for unix socket listeners",
     async () => {
-      const paseoHomeRoot = await mkdtemp(path.join(os.tmpdir(), "paseo-socket-relay-"));
-      const paseoHome = path.join(paseoHomeRoot, ".paseo");
-      const staticDir = await mkdtemp(path.join(os.tmpdir(), "paseo-static-"));
-      const socketPath = path.join(paseoHomeRoot, "run", "paseo.sock");
+      const doyaHomeRoot = await mkdtemp(path.join(os.tmpdir(), "doya-socket-relay-"));
+      const doyaHome = path.join(doyaHomeRoot, ".doya");
+      const staticDir = await mkdtemp(path.join(os.tmpdir(), "doya-static-"));
+      const socketPath = path.join(doyaHomeRoot, "run", "doya.sock");
       await mkdir(path.dirname(socketPath), { recursive: true });
-      await mkdir(paseoHome, { recursive: true });
+      await mkdir(doyaHome, { recursive: true });
       const logger = pino({ level: "silent" });
 
-      const config: PaseoDaemonConfig = {
+      const config: DoyaDaemonConfig = {
         listen: socketPath,
-        paseoHome,
+        doyaHome: doyaHome,
         corsAllowedOrigins: [],
         hostnames: true,
         mcpEnabled: false,
         staticDir,
         mcpDebug: false,
         agentClients: createTestAgentClients(),
-        agentStoragePath: path.join(paseoHome, "agents"),
+        agentStoragePath: path.join(doyaHome, "agents"),
         relayEnabled: true,
         relayEndpoint: "127.0.0.1:9",
         relayPublicEndpoint: "127.0.0.1:9",
-        appBaseUrl: "https://app.paseo.sh",
+        appBaseUrl: "https://app.doya.sh",
         openai: undefined,
         speech: undefined,
       };
 
-      const daemon = await createPaseoDaemon(config, logger);
+      const daemon = await createDoyaDaemon(config, logger);
 
       try {
         await daemon.start();
         const pairing = await generateLocalPairingOffer({
-          paseoHome,
+          doyaHome: doyaHome,
           relayEnabled: true,
           relayEndpoint: "127.0.0.1:9",
           relayPublicEndpoint: "127.0.0.1:9",
-          appBaseUrl: "https://app.paseo.sh",
+          appBaseUrl: "https://app.doya.sh",
           includeQr: false,
         });
         expect(pairing.relayEnabled).toBe(true);
-        expect(pairing.url?.startsWith("https://app.paseo.sh/#offer=")).toBe(true);
+        expect(pairing.url?.startsWith("https://app.doya.sh/#offer=")).toBe(true);
       } finally {
         await daemon.stop().catch(() => undefined);
         await daemon.agentManager.flush().catch(() => undefined);
-        await rm(paseoHomeRoot, { recursive: true, force: true });
+        await rm(doyaHomeRoot, { recursive: true, force: true });
         await rm(staticDir, { recursive: true, force: true });
       }
     },

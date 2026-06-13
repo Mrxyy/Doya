@@ -1,5 +1,5 @@
 {
-  "name": "@getpaseo/expo-two-way-audio",
+  "name": "@getdoya/expo-two-way-audio",
   "version": "0.1.88",
   "description": "Native module for two way audio streaming",
   "keywords": [

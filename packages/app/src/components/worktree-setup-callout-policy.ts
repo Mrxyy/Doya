@@ -1,4 +1,4 @@
-import type { PaseoConfigRaw } from "@getpaseo/protocol/messages";
+import type { DoyaConfigRaw } from "@getdoya/protocol/messages";
 import { buildProjectSettingsRoute } from "@/utils/host-routes";
 import { translateNow } from "@/i18n/i18n";
 
@@ -21,7 +21,7 @@ export interface ActiveGitWorkspaceProject {
 
 interface ReadProjectConfigResult {
   ok: boolean;
-  config?: PaseoConfigRaw | null;
+  config?: DoyaConfigRaw | null;
 }
 
 export interface WorktreeSetupCalloutPolicy {
@@ -73,7 +73,7 @@ export function buildWorktreeSetupCalloutPolicy(
   };
 }
 
-function hasSetupCommands(config: PaseoConfigRaw): boolean {
+function hasSetupCommands(config: DoyaConfigRaw): boolean {
   const setup = config.worktree?.setup;
   if (typeof setup === "string") {
     return setup.trim().length > 0;

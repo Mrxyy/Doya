@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import type pino from "pino";
 
 import type { GitHubService } from "../../services/github-service.js";
-import { isPaseoOwnedWorktreeCwd } from "../../utils/worktree.js";
-import { archivePaseoWorktree } from "../paseo-worktree-archive-service.js";
+import { isDoyaOwnedWorktreeCwd } from "../../utils/worktree.js";
+import { archiveDoyaWorktree } from "../doya-worktree-archive-service.js";
 import type {
-  CreatePaseoWorktreeWorkflowFn,
-  CreatePaseoWorktreeWorkflowResult,
+  CreateDoyaWorktreeWorkflowFn,
+  CreateDoyaWorktreeWorkflowResult,
 } from "../worktree-session.js";
 import type { WorkspaceGitService } from "../workspace-git-service.js";
 import type {
@@ -18,13 +18,13 @@ import type { AgentManager } from "./agent-manager.js";
 import type { AgentStorage } from "./agent-storage.js";
 
 interface CreateAgentLifecycleDispatchDependencies {
-  paseoHome: string;
+  doyaHome: string;
   worktreesRoot?: string;
   agentManager: AgentManager;
   agentStorage: AgentStorage;
   github: GitHubService;
   workspaceGitService: WorkspaceGitService;
-  createPaseoWorktreeWorkflow: CreatePaseoWorktreeWorkflowFn;
+  createDoyaWorktreeWorkflow: CreateDoyaWorktreeWorkflowFn;
   archiveAgentForClose: (agentId: string) => Promise<unknown>;
   archiveWorkspaceRecord: (workspaceId: string) => Promise<void>;
   emit: (message: SessionOutboundMessage) => void;
@@ -47,7 +47,7 @@ export class CreateAgentLifecycleDispatch {
     target: CreateAgentWorktreeTarget | undefined;
     firstAgentContext: FirstAgentContext;
     hasLegacyGitOptions: boolean;
-  }): Promise<CreatePaseoWorktreeWorkflowResult | null> {
+  }): Promise<CreateDoyaWorktreeWorkflowResult | null> {
     if (input.target && input.hasLegacyGitOptions) {
       throw new Error("create_agent_request worktree cannot be combined with git options");
     }
@@ -61,7 +61,7 @@ export class CreateAgentLifecycleDispatch {
   registerAutoArchiveIfRequested(input: {
     autoArchive: boolean | undefined;
     agentId: string;
-    createdWorktree: CreatePaseoWorktreeWorkflowResult | null;
+    createdWorktree: CreateDoyaWorktreeWorkflowResult | null;
   }): void {
     if (input.autoArchive !== true) {
       return;
@@ -74,7 +74,7 @@ export class CreateAgentLifecycleDispatch {
   }
 
   async cleanupCreatedWorktreeAfterFailedAgentCreate(input: {
-    createdWorktree: CreatePaseoWorktreeWorkflowResult | null;
+    createdWorktree: CreateDoyaWorktreeWorkflowResult | null;
     createdAgentId: string | null;
   }): Promise<void> {
     const { createdWorktree, createdAgentId } = input;
@@ -101,18 +101,18 @@ export class CreateAgentLifecycleDispatch {
     cwd: string,
     target: CreateAgentWorktreeTarget,
     firstAgentContext: FirstAgentContext,
-  ): Promise<CreatePaseoWorktreeWorkflowResult> {
+  ): Promise<CreateDoyaWorktreeWorkflowResult> {
     const baseInput = {
       cwd,
       firstAgentContext,
       runSetup: false,
-      paseoHome: this.dependencies.paseoHome,
+      doyaHome: this.dependencies.doyaHome,
       worktreesRoot: this.dependencies.worktreesRoot,
     } as const;
 
     switch (target.mode) {
       case "branch-off":
-        return this.dependencies.createPaseoWorktreeWorkflow(
+        return this.dependencies.createDoyaWorktreeWorkflow(
           {
             ...baseInput,
             worktreeSlug: target.newBranch,
@@ -122,13 +122,13 @@ export class CreateAgentLifecycleDispatch {
           target.base ? { resolveDefaultBranch: async () => target.base! } : undefined,
         );
       case "checkout-branch":
-        return this.dependencies.createPaseoWorktreeWorkflow({
+        return this.dependencies.createDoyaWorktreeWorkflow({
           ...baseInput,
           action: "checkout",
           refName: target.branch,
         });
       case "checkout-pr":
-        return this.dependencies.createPaseoWorktreeWorkflow({
+        return this.dependencies.createDoyaWorktreeWorkflow({
           ...baseInput,
           action: "checkout",
           githubPrNumber: target.prNumber,
@@ -191,17 +191,17 @@ export class CreateAgentLifecycleDispatch {
     worktreePath: string;
     repoRoot: string | null;
   }): Promise<void> {
-    const ownership = await isPaseoOwnedWorktreeCwd(options.worktreePath, {
-      paseoHome: this.dependencies.paseoHome,
+    const ownership = await isDoyaOwnedWorktreeCwd(options.worktreePath, {
+      doyaHome: this.dependencies.doyaHome,
       worktreesRoot: this.dependencies.worktreesRoot,
     });
     if (!ownership.allowed) {
-      throw new Error("Auto-created worktree is not a Paseo-owned worktree");
+      throw new Error("Auto-created worktree is not a Doya-owned worktree");
     }
 
-    await archivePaseoWorktree(
+    await archiveDoyaWorktree(
       {
-        paseoHome: this.dependencies.paseoHome,
+        doyaHome: this.dependencies.doyaHome,
         worktreesRoot: this.dependencies.worktreesRoot,
         github: this.dependencies.github,
         workspaceGitService: this.dependencies.workspaceGitService,

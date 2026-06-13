@@ -16,14 +16,14 @@ A creative, versatile-style SVG design executor. Suitable for product introducti
 
 The General style is not confined to fixed templates; layouts can be freely chosen based on content:
 
-| Layout | Use Case | Layout Details (1280x720) |
-|--------|----------|--------------------------|
-| Full-image background + text overlay | Covers, emotional pages | `<image>` fills canvas + semi-transparent overlay + centered title |
-| Left-right split (image-text mix) | Feature introductions, comparisons | Left x=40,w=580 / Right x=660,w=580 |
-| Three-column cards | Feature lists, team introductions | x=40,450,860 each w=380, equal-height cards |
-| Top-bottom split | Timelines, process flows | Top area: title+description h=250 / Bottom area: charts+content h=420 |
-| Center-radiating | Core concepts, ecosystem diagrams | Center element + 4-6 surrounding nodes, lines pointing to center |
-| Waterfall / Z-pattern | Storytelling, case studies | Content blocks alternate left-right, guiding the eye in a Z-pattern |
+| Layout                               | Use Case                           | Layout Details (1280x720)                                             |
+| ------------------------------------ | ---------------------------------- | --------------------------------------------------------------------- |
+| Full-image background + text overlay | Covers, emotional pages            | `<image>` fills canvas + semi-transparent overlay + centered title    |
+| Left-right split (image-text mix)    | Feature introductions, comparisons | Left x=40,w=580 / Right x=660,w=580                                   |
+| Three-column cards                   | Feature lists, team introductions  | x=40,450,860 each w=380, equal-height cards                           |
+| Top-bottom split                     | Timelines, process flows           | Top area: title+description h=250 / Bottom area: charts+content h=420 |
+| Center-radiating                     | Core concepts, ecosystem diagrams  | Center element + 4-6 surrounding nodes, lines pointing to center      |
+| Waterfall / Z-pattern                | Storytelling, case studies         | Content blocks alternate left-right, guiding the eye in a Z-pattern   |
 
 ### 2. Visual Rhythm Control
 
@@ -33,13 +33,13 @@ The General style is not confined to fixed templates; layouts can be freely chos
 
 ### 3. Decorative Element Usage
 
-| Element | Usage | Notes |
-|---------|-------|-------|
-| Gradient blocks | Background zones, title backing | Use `<linearGradient>` / `<radialGradient>`, limit to 2-3 colors |
+| Element                 | Usage                               | Notes                                                                                                       |
+| ----------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Gradient blocks         | Background zones, title backing     | Use `<linearGradient>` / `<radialGradient>`, limit to 2-3 colors                                            |
 | Rounded rectangle cards | Content containers, feature modules | `rx="12"`; add light shadow ONLY if the card floats over a photo/colored panel (see shared-standards.md §6) |
-| Icon accents | List item prefixes, feature markers | Use `data-icon` placeholders, size 32-48px |
-| Numbered circles | Step flows, ranked lists | `<circle>` + centered `<text>`, theme color fill |
-| Divider lines | Content separation | `<line>` or `<rect height="2">`, opacity 0.2-0.3 |
+| Icon accents            | List item prefixes, feature markers | Use `data-icon` placeholders, size 32-48px                                                                  |
+| Numbered circles        | Step flows, ranked lists            | `<circle>` + centered `<text>`, theme color fill                                                            |
+| Divider lines           | Content separation                  | `<line>` or `<rect height="2">`, opacity 0.2-0.3                                                            |
 
 ---
 
@@ -54,12 +54,12 @@ The General style is not confined to fixed templates; layouts can be freely chos
 
 ### Image Handling Strategy
 
-| Scenario | Strategy | SVG Implementation |
-|----------|----------|-------------------|
-| Full-screen background | Image fills + dark gradient overlay | `preserveAspectRatio="xMidYMid slice"` + gradient rect |
-| Portrait image display | Place left/right, maintain original ratio | Control width, height adapts |
-| Multi-image grid | Grid arrangement, uniform sizing | Equal-width equal-height `<image>` matrix |
-| Person photo | Circular crop effect | `<circle>` background + square image overlay (post-processing crops) |
+| Scenario               | Strategy                                  | SVG Implementation                                                   |
+| ---------------------- | ----------------------------------------- | -------------------------------------------------------------------- |
+| Full-screen background | Image fills + dark gradient overlay       | `preserveAspectRatio="xMidYMid slice"` + gradient rect               |
+| Portrait image display | Place left/right, maintain original ratio | Control width, height adapts                                         |
+| Multi-image grid       | Grid arrangement, uniform sizing          | Equal-width equal-height `<image>` matrix                            |
+| Person photo           | Circular crop effect                      | `<circle>` background + square image overlay (post-processing crops) |
 
 ### Typography Hierarchy
 

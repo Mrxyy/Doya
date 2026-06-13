@@ -1,6 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vitest";
-import type { CheckoutStatusUpdate } from "@getpaseo/protocol/messages";
+import type { CheckoutStatusUpdate } from "@getdoya/protocol/messages";
 import { checkoutStatusQueryKey } from "@/git/query-keys";
 import {
   applyCheckoutStatusUpdate,
@@ -17,7 +17,7 @@ function checkoutStatus(overrides: Partial<CheckoutStatusPayload> = {}): Checkou
     error: null,
     requestId: "checkout-status-1",
     isGit: true,
-    isPaseoOwnedWorktree: false,
+    isDoyaOwnedWorktree: false,
     repoRoot: cwd,
     currentBranch: "main",
     isDirty: false,
@@ -26,7 +26,7 @@ function checkoutStatus(overrides: Partial<CheckoutStatusPayload> = {}): Checkou
     aheadOfOrigin: 0,
     behindOfOrigin: 0,
     hasRemote: true,
-    remoteUrl: "git@github.com:getpaseo/paseo.git",
+    remoteUrl: "git@github.com:getdoya/doya.git",
     ...overrides,
   } as CheckoutStatusPayload;
 }

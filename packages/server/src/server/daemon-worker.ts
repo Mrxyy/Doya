@@ -1,36 +1,36 @@
-import { createPaseoDaemon } from "./bootstrap.js";
+import { createDoyaDaemon } from "./bootstrap.js";
 import { loadConfig } from "./config.js";
-import { resolvePaseoHome } from "./paseo-home.js";
+import { resolveDoyaHome } from "./doya-home.js";
 import { createRootLogger } from "./logger.js";
 import type { DaemonLifecycleIntent } from "./bootstrap.js";
 
-process.title = "Paseo Daemon";
+process.title = "Doya Daemon";
 
 type SupervisorLifecycleMessage =
   | {
-      type: "paseo:shutdown";
+      type: "doya:shutdown";
     }
   | {
-      type: "paseo:ready";
+      type: "doya:ready";
       listen: string;
     }
   | {
-      type: "paseo:restart";
+      type: "doya:restart";
       reason?: string;
     };
 
 interface BootstrapResult {
-  paseoHome: string;
+  doyaHome: string;
   logger: ReturnType<typeof createRootLogger>;
   config: ReturnType<typeof loadConfig>;
 }
 
 function bootstrapFromEnvironment(): BootstrapResult {
   try {
-    const paseoHome = resolvePaseoHome();
-    const config = loadConfig(paseoHome);
-    const logger = createRootLogger({ log: config.log }, { paseoHome, file: false });
-    return { paseoHome, logger, config };
+    const doyaHome = resolveDoyaHome();
+    const config = loadConfig(doyaHome);
+    const logger = createRootLogger({ log: config.log }, { doyaHome, file: false });
+    return { doyaHome, logger, config };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     process.stderr.write(`${message}\n`);
@@ -55,7 +55,7 @@ function applyCliFlagOverrides(config: ReturnType<typeof loadConfig>): void {
 
 async function main() {
   const { logger, config } = bootstrapFromEnvironment();
-  let daemon: Awaited<ReturnType<typeof createPaseoDaemon>> | null = null;
+  let daemon: Awaited<ReturnType<typeof createDoyaDaemon>> | null = null;
   let shutdownPromise: Promise<number> | null = null;
   let exitHookInstalled = false;
 
@@ -128,7 +128,7 @@ async function main() {
         { clientId: intent.clientId, requestId: intent.requestId },
         "Shutdown requested via websocket",
       );
-      if (sendSupervisorLifecycleMessage({ type: "paseo:shutdown" })) {
+      if (sendSupervisorLifecycleMessage({ type: "doya:shutdown" })) {
         return;
       }
       beginShutdown("shutdown lifecycle intent");
@@ -141,7 +141,7 @@ async function main() {
     );
     if (
       sendSupervisorLifecycleMessage({
-        type: "paseo:restart",
+        type: "doya:restart",
         ...(intent.reason ? { reason: intent.reason } : {}),
       })
     ) {
@@ -151,7 +151,7 @@ async function main() {
   };
 
   try {
-    daemon = await createPaseoDaemon(
+    daemon = await createDoyaDaemon(
       {
         ...config,
         onLifecycleIntent: handleLifecycleIntent,
@@ -173,7 +173,7 @@ async function main() {
     if (!listen) {
       throw new Error("Daemon did not expose a listen target after startup");
     }
-    sendSupervisorLifecycleMessage({ type: "paseo:ready", listen });
+    sendSupervisorLifecycleMessage({ type: "doya:ready", listen });
   } catch (err) {
     logger.fatal({ err }, "Daemon failed to start listening");
     throw err;

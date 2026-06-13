@@ -10,13 +10,13 @@ Golden-hour cinematic warmth — illustrated scenes with intentional warm lighti
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
-| Line quality | Soft — forms defined by light and shadow, no hard outlines |
-| Texture | Subtle painterly brush quality, optional very light film grain |
-| Depth | Strong — foreground/middleground/background separation via atmospheric perspective |
-| Material | Illustrated with golden-hour lighting |
-| Mood | Cinematic, contemplative, warm |
+| Aspect       | Treatment                                                                          |
+| ------------ | ---------------------------------------------------------------------------------- |
+| Line quality | Soft — forms defined by light and shadow, no hard outlines                         |
+| Texture      | Subtle painterly brush quality, optional very light film grain                     |
+| Depth        | Strong — foreground/middleground/background separation via atmospheric perspective |
+| Material     | Illustrated with golden-hour lighting                                              |
+| Mood         | Cinematic, contemplative, warm                                                     |
 
 ## 3. Using the deck's HEX values
 

@@ -7,11 +7,11 @@ import { ArrowLeft, Check, ChevronDown, MoreVertical, Pencil, Plus, X } from "lu
 import { ProjectIconView } from "@/components/project-icon-view";
 import { projectIconToDataUri, useProjectIconQuery } from "@/hooks/use-project-icon-query";
 import type {
-  PaseoConfigRaw,
-  PaseoConfigRevision,
+  DoyaConfigRaw,
+  DoyaConfigRevision,
   ProjectConfigRpcError,
-} from "@getpaseo/protocol/messages";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+} from "@getdoya/protocol/messages";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -85,7 +85,7 @@ const METADATA_PROMPT_FIELDS: Record<MetadataPromptKey, MetadataPromptField> = {
 
 const WORKTREE_GROUP_INFO =
   "Commands that run when a worktree is created or torn down for this project";
-const WORKTREE_DOCS_URL = "https://paseo.sh/docs/worktrees";
+const WORKTREE_DOCS_URL = "https://doya.sh/docs/worktrees";
 const WORKTREE_DOCS_TOOLTIP =
   "See docs for more details and the environment variables available to these commands";
 const SCRIPTS_GROUP_INFO =
@@ -219,8 +219,8 @@ function ProjectSettingsBody({
   });
 
   const data = readQuery.data;
-  const loadedConfig: PaseoConfigRaw | null = data?.ok ? (data.config ?? {}) : null;
-  const loadedRevision: PaseoConfigRevision | null = data?.ok ? data.revision : null;
+  const loadedConfig: DoyaConfigRaw | null = data?.ok ? (data.config ?? {}) : null;
+  const loadedRevision: DoyaConfigRevision | null = data?.ok ? data.revision : null;
   const readError: ProjectConfigRpcError | null = data && !data.ok ? data.error : null;
 
   const handleReload = useCallback(() => {
@@ -263,8 +263,8 @@ function ProjectSettingsBody({
 
 interface RenderContentInput {
   readQuery: ReturnType<typeof useQuery<ReadProjectConfigData>>;
-  loadedConfig: PaseoConfigRaw | null;
-  loadedRevision: PaseoConfigRevision | null;
+  loadedConfig: DoyaConfigRaw | null;
+  loadedRevision: DoyaConfigRevision | null;
   readError: ProjectConfigRpcError | null;
   selectedHost: ProjectHostEntry;
   queryKey: readonly [string, string, string];
@@ -342,7 +342,7 @@ function renderContent({
   );
 }
 
-function revisionToKey(revision: PaseoConfigRevision | null): string {
+function revisionToKey(revision: DoyaConfigRevision | null): string {
   if (!revision) return "none";
   return `${revision.mtimeMs}-${revision.size}`;
 }
@@ -375,7 +375,7 @@ function resolveReadFailureCopy(input: {
   if (input.kind === "invalid_project_config") {
     return {
       testID: "invalid-callout",
-      title: translateNow("ui.paseo.json.couldn.t.be.parsed.i08wji"),
+      title: translateNow("ui.doya.json.couldn.t.be.parsed.i08wji"),
       description: translateNow("ui.fix.the.file.on.disk.then.reload.1kc0rmi"),
     };
   }
@@ -392,13 +392,13 @@ function resolveReadFailureCopy(input: {
     const detail = errorToDetail(input.error);
     return {
       testID: "read-transport-callout",
-      title: translateNow("ui.couldn.t.load.paseo.json.19hstmm"),
+      title: translateNow("ui.couldn.t.load.doya.json.19hstmm"),
       description: detail ?? "The host didn't respond.",
     };
   }
   return {
     testID: "read-failed-callout",
-    title: translateNow("ui.couldn.t.load.paseo.json.19hstmm"),
+    title: translateNow("ui.couldn.t.load.doya.json.19hstmm"),
     description: translateNow("ui.reload.to.try.again.bqaxrl"),
   };
 }
@@ -410,8 +410,8 @@ function errorToDetail(error: unknown): string | null {
 }
 
 interface ProjectConfigFormProps {
-  baseConfig: PaseoConfigRaw;
-  revision: PaseoConfigRevision | null;
+  baseConfig: DoyaConfigRaw;
+  revision: DoyaConfigRevision | null;
   repoRoot: string;
   queryKey: readonly [string, string, string];
   client: DaemonClient;
@@ -435,8 +435,8 @@ function ProjectConfigForm({
 
   const saveMutation = useMutation({
     mutationFn: async (input: {
-      config: PaseoConfigRaw;
-      expectedRevision: PaseoConfigRevision | null;
+      config: DoyaConfigRaw;
+      expectedRevision: DoyaConfigRevision | null;
     }) => {
       return client.writeProjectConfig({
         repoRoot,
@@ -703,7 +703,7 @@ function ProjectConfigForm({
             testID="stale-callout"
             variant="error"
             title={translateNow("ui.config.changed.on.disk.xf1xxw")}
-            description={translateNow("ui.reload.to.fetch.the.latest.paseo.json.1qdla5f")}
+            description={translateNow("ui.reload.to.fetch.the.latest.doya.json.1qdla5f")}
           >
             <Button
               testID="stale-callout-action-0"
@@ -722,7 +722,7 @@ function ProjectConfigForm({
           <Alert
             testID="write-failed-callout"
             variant="error"
-            title={translateNow("ui.couldn.t.save.paseo.json.o7sjk7")}
+            title={translateNow("ui.couldn.t.save.doya.json.o7sjk7")}
             description={translateNow("ui.try.again.or.reload.the.latest.version.hok48k")}
           >
             <Button
@@ -1213,7 +1213,7 @@ function ScriptEditModal({ script, onChange, onCancel, onSave }: ScriptEditModal
               {translateNow("ui.run.as.a.service.am1xr1")}
             </Text>
             <Text style={styles.modalHint}>
-              {translateNow("ui.paseo.supervises.the.process.and.assigns.a.19tj95w")}
+              {translateNow("ui.doya.supervises.the.process.and.assigns.a.19tj95w")}
             </Text>
           </View>
           <Switch

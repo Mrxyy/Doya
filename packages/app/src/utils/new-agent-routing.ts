@@ -38,32 +38,34 @@ export function resolveSelectedAgentForNewAgent(input: {
   return parseHostAgentRouteFromPathname(input.pathname) ?? parseAgentKey(input.selectedAgentId);
 }
 
-function inferMainRepoRootFromPaseoWorktreePath(cwd: string): string | null {
+function inferMainRepoRootFromDoyaWorktreePath(cwd: string): string | null {
   const normalizedPath = cwd.replace(/\\/g, "/");
-  const marker = "/.paseo/worktrees";
-  const markerIndex = normalizedPath.indexOf(marker);
-  if (markerIndex <= 0) {
-    return null;
+  for (const marker of ["/.doya/worktrees", "/.doya/worktrees"]) {
+    const markerIndex = normalizedPath.indexOf(marker);
+    if (markerIndex <= 0) {
+      continue;
+    }
+    const markerEnd = markerIndex + marker.length;
+    const nextChar = normalizedPath[markerEnd];
+    if (nextChar && nextChar !== "/") {
+      continue;
+    }
+    const inferred = cwd.slice(0, markerIndex).replace(/[\\/]+$/, "");
+    return inferred.trim() ? inferred : null;
   }
-  const markerEnd = markerIndex + marker.length;
-  const nextChar = normalizedPath[markerEnd];
-  if (nextChar && nextChar !== "/") {
-    return null;
-  }
-  const inferred = cwd.slice(0, markerIndex).replace(/[\\/]+$/, "");
-  return inferred.trim() ? inferred : null;
+  return null;
 }
 
 export function resolveNewAgentWorkingDir(
   cwd: string,
   checkout: CheckoutStatusPayload | null,
 ): string {
-  const explicitMainRepoRoot = checkout?.isPaseoOwnedWorktree
-    ? checkout.mainRepoRoot?.trim() || null
+  const explicitMainRepoRoot = checkout?.isDoyaOwnedWorktree
+    ? checkout.mainRepoRoot.trim() || null
     : null;
   if (explicitMainRepoRoot) {
     return explicitMainRepoRoot;
   }
 
-  return inferMainRepoRootFromPaseoWorktreePath(cwd) ?? cwd;
+  return inferMainRepoRootFromDoyaWorktreePath(cwd) ?? cwd;
 }

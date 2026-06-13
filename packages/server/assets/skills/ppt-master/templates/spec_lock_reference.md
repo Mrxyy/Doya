@@ -7,12 +7,14 @@
 > After SVG generation begins, this is the canonical source for color / font / icon / image values. Modifications should go through `scripts/update_spec.py` to keep this file and generated SVGs in sync.
 
 ## canvas
+
 - viewBox: 0 0 1280 720
 - format: PPT 16:9
 
 > Strategist: fill viewBox and format for the chosen canvas. Common values: `0 0 1280 720` (PPT 16:9), `0 0 1024 768` (PPT 4:3), `0 0 1242 1660` (Xiaohongshu), `0 0 1080 1080` (WeChat Moments), `0 0 1080 1920` (Story).
 
 ## colors
+
 - bg: #FFFFFF
 - primary: #......
 - accent: #......
@@ -37,6 +39,7 @@
 > ```
 
 ## typography
+
 - font_family: "Microsoft YaHei", Arial, sans-serif
 - title_family: Georgia, SimSun, serif
 - body_family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif
@@ -48,13 +51,14 @@
 - annotation: 14
 
 > **All five family lines are listed explicitly** so Strategist considers every role — `code_family` and `emphasis_family` are easily forgotten. In a real `spec_lock.md`:
+>
 > - Keep any `*_family` whose role genuinely differs from `font_family`.
 > - **Omit** any `*_family` equal to `font_family` — Executor falls back to `font_family` for missing roles, so writing it twice is noise. (Exception: keep `code_family` even when equal — monospace is conceptually distinct.)
 > - `code_family` applies to code snippets only. LaTeX formulas rendered by `latex_render.py` are PNG image assets and must be listed under `images`.
 >
 > `font_family` is the default fallback. Every declared family is a CSS font-stack string.
 >
-> **Source**: copy verbatim from the *Per-role font stacks* list in `design_spec.md §IV Font Plan`. Stack **order** encodes browser-rendering intent (Latin-led vs. CJK-led) that the breakdown table cannot — strings here must match character-for-character. See `design_spec.md §IV` for the explainer.
+> **Source**: copy verbatim from the _Per-role font stacks_ list in `design_spec.md §IV Font Plan`. Stack **order** encodes browser-rendering intent (Latin-led vs. CJK-led) that the breakdown table cannot — strings here must match character-for-character. See `design_spec.md §IV` for the explainer.
 >
 > Sizes (`body` / `title` / etc.) are in px, matching SVG units. `body` is the **required baseline anchor** — all other sizes derive as ratios of it (ramp table: `design_spec_reference.md §IV`).
 >
@@ -65,6 +69,7 @@
 > **Stack length discipline.** 3-4 fonts per stack is the sweet spot. Converter only writes the **first** Latin and **first** CJK font into PPTX — everything after is silently dropped. macOS-only families (`Songti SC`, `Menlo`, `Monaco`, `Helvetica`) are auto-mapped to Windows equivalents via `FONT_FALLBACK_WIN` (see `scripts/svg_to_pptx/drawingml_utils.py`); stacking both is redundant. Lead with Windows-preinstalled fonts (`Microsoft YaHei` / `SimSun` / `Arial` / `Georgia` / `Consolas`); keep at most **one** macOS-exclusive family (typically `"PingFang SC"`) as a browser-preview nicety.
 
 ## icons
+
 - library: chunk-filled
 - brand_library: simple-icons
 - inventory: target, bolt, shield, users, chart-bar, lightbulb
@@ -74,6 +79,7 @@
 > **`stroke_width` (stroke-style libraries only)** — required when `library` is stroke-based (currently `tabler-outline`); allowed values `1.5` / `2` / `3`. Executor MUST apply this value to every `<use data-icon="...">` placeholder via `stroke-width`, deck-wide. Omit for non-stroke libraries (`chunk-filled` / `tabler-filled` / `phosphor-duotone`) — ignored there. For heavier weight switch library; do not exceed `3` (at 24×24 strokes merge and the icon stops reading as line art).
 >
 > Example for stroke-style libraries:
+>
 > ```
 > - library: tabler-outline
 > - stroke_width: 2
@@ -81,6 +87,7 @@
 > ```
 
 ## images
+
 - cover_bg: images/cover_bg.jpg
 - q3_revenue_chart: images/q3_revenue.png | no-crop
 - formula_001: images/formula_001.png | no-crop
@@ -88,6 +95,7 @@
 > One entry per image file used. Append ` | no-crop` only for images that must not lose pixels (data screenshots, charts, certificates, rendered LaTeX formulas) — Executor will size the container to native ratio and use `preserveAspectRatio="xMidYMid meet"`. Untagged entries default to croppable (`slice`). Remove the section entirely if no images.
 
 ## page_rhythm
+
 - P01: anchor
 - P02: dense
 - P03: breathing
@@ -99,6 +107,7 @@
 > One entry per page. Key: `P<NN>` (zero-padded, matching `§IX Content Outline` in `design_spec.md`). Value: one of the three rhythm tags. Executor reads per page and applies the tag's layout discipline — breaks the "every page looks the same" pattern.
 >
 > **Vocabulary** (exactly these three values):
+>
 > - `anchor` — Structural pages (cover / chapter opener / TOC / ending). Follow the template as-is.
 > - `dense` — Information-heavy pages (data, KPIs, comparisons, multi-point lists). Card grids, multi-column layouts, tables, charts all permitted.
 > - `breathing` — Low-density pages (single concept, hero quote, big image + caption, section transition). Avoid **multi-card grid layouts** (multiple parallel rounded containers as the primary structure); organize via naked text, dividers, whitespace, or full-bleed imagery. Single rounded elements (hero image corners, callouts, tags, one emphasis block) are fine. Proportions follow information weight — not a preset ratio menu.
@@ -108,6 +117,7 @@
 > **Missing or empty section** → Executor falls back to `dense` for every page (legacy pre-rhythm behavior). Remove the section only for legacy decks; new decks MUST fill it.
 
 ## page_layouts
+
 - P01: 01_cover
 - P03: 02a_chapter
 - P04: 03a_content_abstract
@@ -123,6 +133,7 @@
 > **Strategist source**: copy the per-page SVG choices from `design_spec.md §VI Page Roster` (or §IX outline if Roster is absent). Names must match files in `templates/<chosen_template>/` exactly — typos cause silent fallback to free design.
 
 ## page_charts
+
 - P05: bar_chart
 - P09: timeline_horizontal
 - P12: quadrant_bubble_scatter
@@ -136,6 +147,7 @@
 > **Strategist source**: copy from `design_spec.md §VII Visualization Reference List` — only the rows whose `reference template path` points to a `templates/charts/` file. Pages marked `no-template-match` in §VII MUST NOT appear here.
 
 ## forbidden
+
 - Mixing icon libraries
 - rgba()
 - `<style>`, `class`, `<foreignObject>`, `textPath`, `@font-face`, `<animate*>`, `<script>`, `<iframe>`, `<symbol>`+`<use>`

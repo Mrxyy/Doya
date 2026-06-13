@@ -68,7 +68,7 @@ function Download() {
               <TerminalIcon className="h-5 w-5 text-foreground" />
               <span className="font-medium">Homebrew</span>
             </div>
-            <CodeBlock size="sm">brew install --cask paseo</CodeBlock>
+            <CodeBlock size="sm">brew install --cask doya</CodeBlock>
           </div>
 
           {/* Windows */}
@@ -177,7 +177,7 @@ function Download() {
               <TerminalIcon className="h-5 w-5 text-foreground" />
               <span className="font-medium">npm</span>
             </div>
-            <CodeBlock size="sm">npm install -g @getpaseo/cli && paseo</CodeBlock>
+            <CodeBlock size="sm">npm install -g @getdoya/cli && doya</CodeBlock>
           </div>
 
           <div className="flex flex-col gap-3 py-5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
@@ -185,7 +185,7 @@ function Download() {
               <TerminalIcon className="h-5 w-5 text-foreground" />
               <span className="font-medium">Nix</span>
             </div>
-            <CodeBlock size="sm">nix run github:getpaseo/paseo</CodeBlock>
+            <CodeBlock size="sm">nix run github:getdoya/doya</CodeBlock>
           </div>
         </div>
       </section>
@@ -193,7 +193,7 @@ function Download() {
       <p className="text-center text-xs text-muted-foreground mt-8">
         All releases are available on{" "}
         <a
-          href="https://github.com/getpaseo/paseo/releases"
+          href="https://github.com/getdoya/doya/releases"
           target="_blank"
           rel="noopener noreferrer"
           className="underline hover:text-foreground transition-colors"

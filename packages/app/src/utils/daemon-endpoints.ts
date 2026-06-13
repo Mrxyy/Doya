@@ -10,9 +10,9 @@ import {
   serializeConnectionUriForStorage,
   shouldUseTlsForDefaultHostedRelay,
   type HostPortParts,
-} from "@getpaseo/protocol/daemon-endpoints";
+} from "@getdoya/protocol/daemon-endpoints";
 
-export { decodeOfferFragmentPayload } from "@getpaseo/protocol/connection-offer";
+export { decodeOfferFragmentPayload } from "@getdoya/protocol/connection-offer";
 
 export type { HostPortParts };
 

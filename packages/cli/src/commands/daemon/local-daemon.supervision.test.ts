@@ -46,7 +46,7 @@ class FakeDaemonRuntime implements DaemonLaunchRuntime {
   }
 
   resolveHome(env: NodeJS.ProcessEnv): string {
-    return env.PASEO_HOME ?? "/tmp/paseo";
+    return env.DOYA_HOME ?? "/tmp/doya";
   }
 
   spawnDetached(
@@ -70,13 +70,13 @@ class FakeDaemonRuntime implements DaemonLaunchRuntime {
 
 const tempRoots: string[] = [];
 
-async function createPaseoHome(config: unknown): Promise<string> {
-  const root = await mkdtemp(path.join(os.tmpdir(), "paseo-local-daemon-"));
+async function createDoyaHome(config: unknown): Promise<string> {
+  const root = await mkdtemp(path.join(os.tmpdir(), "doya-local-daemon-"));
   tempRoots.push(root);
-  const paseoHome = path.join(root, ".paseo");
-  await mkdir(paseoHome, { recursive: true });
-  await writeFile(path.join(paseoHome, "config.json"), JSON.stringify(config, null, 2));
-  return paseoHome;
+  const doyaHome = path.join(root, ".doya");
+  await mkdir(doyaHome, { recursive: true });
+  await writeFile(path.join(doyaHome, "config.json"), JSON.stringify(config, null, 2));
+  return doyaHome;
 }
 
 function expectSupervisorLaunch(argv: string[]): void {
@@ -102,7 +102,7 @@ describe("local daemon launch supervision", () => {
   test("foreground start spawns supervisor-entrypoint instead of server/index", async () => {
     const runtime = new FakeDaemonRuntime();
 
-    const status = startLocalDaemonForeground({ home: "/tmp/paseo-test", relay: false }, runtime);
+    const status = startLocalDaemonForeground({ home: "/tmp/doya-test", relay: false }, runtime);
 
     expect(status).toBe(0);
     expect(runtime.recordedLaunches.map((launch) => launch.mode)).toEqual(["foreground"]);
@@ -117,14 +117,11 @@ describe("local daemon launch supervision", () => {
     vi.useFakeTimers();
     const runtime = new FakeDaemonRuntime();
 
-    const resultPromise = startLocalDaemonDetached(
-      { home: "/tmp/paseo-test", mcp: false },
-      runtime,
-    );
+    const resultPromise = startLocalDaemonDetached({ home: "/tmp/doya-test", mcp: false }, runtime);
     await vi.advanceTimersByTimeAsync(1200);
     const result = await resultPromise;
 
-    expect(result).toEqual({ pid: 4242, logPath: "/tmp/paseo-test/daemon.log" });
+    expect(result).toEqual({ pid: 4242, logPath: "/tmp/doya-test/daemon.log" });
     expect(runtime.daemonProcess.wasUnreferenced).toBe(true);
     expect(runtime.recordedLaunches.map((launch) => launch.mode)).toEqual(["detached"]);
     const launch = runtime.recordedLaunches[0];
@@ -139,7 +136,7 @@ describe("local daemon launch supervision", () => {
 
     const status = startLocalDaemonForeground(
       {
-        home: "/tmp/paseo-test",
+        home: "/tmp/doya-test",
         relayUseTls: true,
       },
       runtime,
@@ -150,16 +147,16 @@ describe("local daemon launch supervision", () => {
     const launch = runtime.recordedLaunches[0];
     expect(launch?.mode).toBe("foreground");
     expect(launch?.args).toContain("--relay-use-tls");
-    expect(launch?.options?.env?.PASEO_RELAY_USE_TLS).toBe("true");
+    expect(launch?.options?.env?.DOYA_RELAY_USE_TLS).toBe("true");
   });
 
   test("local daemon state keeps public relay TLS separate from daemon relay TLS", async () => {
-    const home = await createPaseoHome({
+    const home = await createDoyaHome({
       version: 1,
       daemon: {
         relay: {
           endpoint: "10.0.0.5:51185",
-          publicEndpoint: "paseo.example.com",
+          publicEndpoint: "doya.example.com",
           useTls: false,
           publicUseTls: true,
         },
@@ -168,7 +165,7 @@ describe("local daemon launch supervision", () => {
 
     const state = resolveLocalDaemonState({ home });
 
-    expect(state.relayEndpoint).toBe("paseo.example.com");
+    expect(state.relayEndpoint).toBe("doya.example.com");
     expect(state.relayUseTls).toBe(false);
     expect(state.relayPublicUseTls).toBe(true);
   });

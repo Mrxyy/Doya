@@ -6,10 +6,10 @@ import { tmpdir, userInfo } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { createExternalProcessEnv } from "../server/paseo-env.js";
+import { createExternalProcessEnv } from "../server/doya-env.js";
 import { writePrivateFileAtomicSync } from "../server/private-files.js";
-import type { TerminalCell, TerminalState } from "@getpaseo/protocol/messages";
-import { TerminalInputModeTracker } from "@getpaseo/protocol/terminal-input-mode";
+import type { TerminalCell, TerminalState } from "@getdoya/protocol/messages";
+import { TerminalInputModeTracker } from "@getdoya/protocol/terminal-input-mode";
 
 const { Terminal } = xterm;
 const require = createRequire(import.meta.url);
@@ -216,7 +216,7 @@ function resolveZshShellIntegrationRuntimeDir(): string {
   } catch {
     // keep fallback
   }
-  return join(tmpdir(), `${username}-paseo-zsh`);
+  return join(tmpdir(), `${username}-doya-zsh`);
 }
 
 function prepareZshShellIntegrationRuntimeDir(sourceDir = resolveZshShellIntegrationDir()): string {
@@ -229,8 +229,8 @@ function prepareZshShellIntegrationRuntimeDir(sourceDir = resolveZshShellIntegra
     readFileSync(join(readableSourceDir, ".zshenv")),
   );
   writePrivateFileAtomicSync(
-    join(runtimeDir, "paseo-integration.zsh"),
-    readFileSync(join(readableSourceDir, "paseo-integration.zsh")),
+    join(runtimeDir, "doya-integration.zsh"),
+    readFileSync(join(readableSourceDir, "doya-integration.zsh")),
   );
   return runtimeDir;
 }
@@ -250,7 +250,7 @@ export function buildTerminalEnvironment(
   const originalZdotdir = baseEnv.ZDOTDIR ?? "";
   return {
     ...baseEnv,
-    PASEO_ZSH_ZDOTDIR: originalZdotdir,
+    DOYA_ZSH_ZDOTDIR: originalZdotdir,
     ZDOTDIR: prepareZshShellIntegrationRuntimeDir(input.zshShellIntegrationDir),
   };
 }

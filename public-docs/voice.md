@@ -26,7 +26,7 @@ This keeps credentials and execution in your environment and avoids introducing 
 
 Local speech defaults to model IDs `parakeet-tdt-0.6b-v2-int8` (STT) and `kokoro-en-v0_19` (TTS, speaker 0 / voice 00).
 
-Missing models are downloaded at daemon startup into `$PASEO_HOME/models/local-speech`. Downloads happen only for missing files.
+Missing models are downloaded at daemon startup into `$DOYA_HOME/models/local-speech`. Downloads happen only for missing files.
 
 ### Local STT models and language support
 
@@ -52,7 +52,7 @@ Missing models are downloaded at daemon startup into `$PASEO_HOME/models/local-s
   },
   "providers": {
     "local": {
-      "modelsDir": "~/.paseo/models/local-speech"
+      "modelsDir": "~/.doya/models/local-speech"
     }
   }
 }
@@ -96,13 +96,13 @@ You can switch dictation, voice STT, and voice TTS to OpenAI by setting provider
 ## Environment Variables
 
 - `OPENAI_API_KEY`, OpenAI speech credentials
-- `PASEO_VOICE_LLM_PROVIDER`, voice agent provider override
-- `PASEO_LOCAL_MODELS_DIR`, local model storage directory
-- `PASEO_DICTATION_LOCAL_STT_MODEL`, local dictation STT model ID
-- `PASEO_VOICE_LOCAL_STT_MODEL`, `PASEO_VOICE_LOCAL_TTS_MODEL`, local voice STT/TTS model IDs
-- `PASEO_DICTATION_LANGUAGE`, dictation STT language (OpenAI STT only; ignored by local Parakeet)
-- `PASEO_VOICE_LANGUAGE`, realtime voice STT language; falls back to `PASEO_DICTATION_LANGUAGE` when unset (OpenAI STT only; ignored by local Parakeet)
-- `PASEO_VOICE_LOCAL_TTS_SPEAKER_ID`, `PASEO_VOICE_LOCAL_TTS_SPEED`, optional local voice TTS tuning
+- `DOYA_VOICE_LLM_PROVIDER`, voice agent provider override
+- `DOYA_LOCAL_MODELS_DIR`, local model storage directory
+- `DOYA_DICTATION_LOCAL_STT_MODEL`, local dictation STT model ID
+- `DOYA_VOICE_LOCAL_STT_MODEL`, `DOYA_VOICE_LOCAL_TTS_MODEL`, local voice STT/TTS model IDs
+- `DOYA_DICTATION_LANGUAGE`, dictation STT language (OpenAI STT only; ignored by local Parakeet)
+- `DOYA_VOICE_LANGUAGE`, realtime voice STT language; falls back to `DOYA_DICTATION_LANGUAGE` when unset (OpenAI STT only; ignored by local Parakeet)
+- `DOYA_VOICE_LOCAL_TTS_SPEAKER_ID`, `DOYA_VOICE_LOCAL_TTS_SPEED`, optional local voice TTS tuning
 
 ## Operational Notes
 

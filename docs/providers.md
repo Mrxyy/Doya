@@ -370,16 +370,16 @@ Start the daemon if not already running, then:
 
 ```bash
 # Launch an agent with your provider
-paseo run --provider my-provider
+doya run --provider my-provider
 
 # Launch with a specific model and mode
-paseo run --provider my-provider --model some-model --mode default
+doya run --provider my-provider --model some-model --mode default
 
 # List running agents
-paseo ls -a -g
+doya ls -a -g
 
 # Check if the provider reports models
-paseo models --provider my-provider
+doya models --provider my-provider
 ```
 
 ### E2E test patterns

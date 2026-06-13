@@ -7,9 +7,9 @@ export function addAttachOptions(cmd: Command): Command {
 }
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import { fetchProjectedTimelineItems } from "../../utils/timeline.js";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { AgentTimelineItem } from "@getpaseo/protocol/agent-types";
-import type { AgentStreamEventPayload, AgentStreamMessage } from "@getpaseo/protocol/messages";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
+import type { AgentTimelineItem } from "@getdoya/protocol/agent-types";
+import type { AgentStreamEventPayload, AgentStreamMessage } from "@getdoya/protocol/messages";
 
 export interface AgentAttachOptions {
   host?: string;
@@ -106,7 +106,7 @@ export async function runAttachCommand(
 
   if (!id) {
     console.error("Error: Agent ID required");
-    console.error("Usage: paseo attach <id>");
+    console.error("Usage: doya attach <id>");
     process.exit(1);
   }
 
@@ -116,7 +116,7 @@ export async function runAttachCommand(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`Error: Cannot connect to daemon at ${host}: ${message}`);
-    console.error("Start the daemon with: paseo daemon start");
+    console.error("Start the daemon with: doya daemon start");
     process.exit(1);
   }
 
@@ -124,7 +124,7 @@ export async function runAttachCommand(
     const fetchResult = await client.fetchAgent(id);
     if (!fetchResult) {
       console.error(`Error: No agent found matching: ${id}`);
-      console.error("Use `paseo ls` to list available agents");
+      console.error("Use `doya ls` to list available agents");
       await client.close();
       process.exit(1);
     }

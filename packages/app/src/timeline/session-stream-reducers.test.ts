@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AgentStreamEventPayload } from "@getpaseo/protocol/messages";
+import type { AgentStreamEventPayload } from "@getdoya/protocol/messages";
 import {
   buildOptimisticUserMessage,
   hydrateStreamState,

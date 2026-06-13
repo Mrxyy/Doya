@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Pressable, Text } from "react-native";
@@ -370,7 +370,7 @@ describe("FilePane document annotation flow", () => {
       const [agentId, prompt, options] = sendAgentMessage.mock.calls[0];
       expect(agentId).toBe(sourceAgentId);
       expect(options).toEqual({ messageId: expect.stringMatching(/^msg_/) });
-      expect(prompt).toContain("<paseo-expected-target");
+      expect(prompt).toContain("<doya-expected-target");
       expect(prompt).toContain(`goal="${goal}"`);
       expect(prompt).toContain(path);
       expect(prompt).toContain(targetText);

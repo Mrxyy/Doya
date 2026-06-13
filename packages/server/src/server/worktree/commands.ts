@@ -1,29 +1,29 @@
 import { join } from "node:path";
 
-import { getPaseoWorktreesRoot, isPaseoOwnedWorktreeCwd } from "../../utils/worktree.js";
+import { getDoyaWorktreesRoot, isDoyaOwnedWorktreeCwd } from "../../utils/worktree.js";
 import {
-  archivePaseoWorktree,
-  type ArchivePaseoWorktreeDependencies,
-} from "../paseo-worktree-archive-service.js";
+  archiveDoyaWorktree,
+  type ArchiveDoyaWorktreeDependencies,
+} from "../doya-worktree-archive-service.js";
 import type {
-  CreatePaseoWorktreeInput,
-  CreatePaseoWorktreeResult,
-} from "../paseo-worktree-service.js";
+  CreateDoyaWorktreeInput,
+  CreateDoyaWorktreeResult,
+} from "../doya-worktree-service.js";
 import { toWorktreeWireError, type WorktreeWireError } from "../worktree-errors.js";
 import type { WorkspaceGitService, WorkspaceGitWorktreeInfo } from "../workspace-git-service.js";
 
-export interface ListPaseoWorktreesCommandDependencies {
+export interface ListDoyaWorktreesCommandDependencies {
   workspaceGitService: Pick<WorkspaceGitService, "listWorktrees">;
 }
 
-export interface ListPaseoWorktreesCommandInput {
+export interface ListDoyaWorktreesCommandInput {
   cwd: string;
   reason?: string;
 }
 
-export async function listPaseoWorktreesCommand(
-  dependencies: ListPaseoWorktreesCommandDependencies,
-  input: ListPaseoWorktreesCommandInput,
+export async function listDoyaWorktreesCommand(
+  dependencies: ListDoyaWorktreesCommandDependencies,
+  input: ListDoyaWorktreesCommandInput,
 ): Promise<WorkspaceGitWorktreeInfo[]> {
   if (input.reason) {
     return dependencies.workspaceGitService.listWorktrees(input.cwd, { reason: input.reason });
@@ -31,27 +31,27 @@ export async function listPaseoWorktreesCommand(
   return dependencies.workspaceGitService.listWorktrees(input.cwd);
 }
 
-type CreatePaseoWorktreeWorkflow<Result extends CreatePaseoWorktreeResult> = (
-  input: CreatePaseoWorktreeInput,
+type CreateDoyaWorktreeWorkflow<Result extends CreateDoyaWorktreeResult> = (
+  input: CreateDoyaWorktreeInput,
 ) => Promise<Result>;
 
-export interface CreatePaseoWorktreeCommandDependencies<
-  Result extends CreatePaseoWorktreeResult = CreatePaseoWorktreeResult,
+export interface CreateDoyaWorktreeCommandDependencies<
+  Result extends CreateDoyaWorktreeResult = CreateDoyaWorktreeResult,
 > {
-  paseoHome?: string;
+  doyaHome?: string;
   worktreesRoot?: string;
-  createPaseoWorktreeWorkflow?: CreatePaseoWorktreeWorkflow<Result>;
+  createDoyaWorktreeWorkflow?: CreateDoyaWorktreeWorkflow<Result>;
 }
 
-export type CreatePaseoWorktreeCommandInput = Omit<
-  CreatePaseoWorktreeInput,
-  "paseoHome" | "runSetup"
+export type CreateDoyaWorktreeCommandInput = Omit<
+  CreateDoyaWorktreeInput,
+  "doyaHome" | "doyaHome" | "runSetup"
 > & {
-  paseoHome?: string;
+  doyaHome?: string;
   worktreesRoot?: string;
 };
 
-export type CreatePaseoWorktreeCommandResult<Result extends CreatePaseoWorktreeResult> =
+export type CreateDoyaWorktreeCommandResult<Result extends CreateDoyaWorktreeResult> =
   | {
       ok: true;
       createdWorktree: Result;
@@ -62,19 +62,19 @@ export type CreatePaseoWorktreeCommandResult<Result extends CreatePaseoWorktreeR
       cause: unknown;
     };
 
-export async function createPaseoWorktreeCommand<Result extends CreatePaseoWorktreeResult>(
-  dependencies: CreatePaseoWorktreeCommandDependencies<Result>,
-  input: CreatePaseoWorktreeCommandInput,
-): Promise<CreatePaseoWorktreeCommandResult<Result>> {
+export async function createDoyaWorktreeCommand<Result extends CreateDoyaWorktreeResult>(
+  dependencies: CreateDoyaWorktreeCommandDependencies<Result>,
+  input: CreateDoyaWorktreeCommandInput,
+): Promise<CreateDoyaWorktreeCommandResult<Result>> {
   try {
-    if (!dependencies.createPaseoWorktreeWorkflow) {
-      throw new Error("Paseo worktree service is not configured");
+    if (!dependencies.createDoyaWorktreeWorkflow) {
+      throw new Error("Doya worktree service is not configured");
     }
 
-    const createdWorktree = await dependencies.createPaseoWorktreeWorkflow({
+    const createdWorktree = await dependencies.createDoyaWorktreeWorkflow({
       ...input,
       runSetup: false,
-      paseoHome: input.paseoHome ?? dependencies.paseoHome,
+      doyaHome: input.doyaHome ?? dependencies.doyaHome,
       worktreesRoot: input.worktreesRoot ?? dependencies.worktreesRoot,
     });
     return { ok: true, createdWorktree };
@@ -87,14 +87,14 @@ export async function createPaseoWorktreeCommand<Result extends CreatePaseoWorkt
   }
 }
 
-export interface ArchivePaseoWorktreeCommandDependencies extends Omit<
-  ArchivePaseoWorktreeDependencies,
+export interface ArchiveDoyaWorktreeCommandDependencies extends Omit<
+  ArchiveDoyaWorktreeDependencies,
   "workspaceGitService"
 > {
   workspaceGitService: Pick<WorkspaceGitService, "getSnapshot" | "listWorktrees">;
 }
 
-export interface ArchivePaseoWorktreeCommandInput {
+export interface ArchiveDoyaWorktreeCommandInput {
   requestId: string;
   repoRoot?: string | null;
   worktreePath?: string;
@@ -102,7 +102,7 @@ export interface ArchivePaseoWorktreeCommandInput {
   branchName?: string;
 }
 
-export type ArchivePaseoWorktreeCommandResult =
+export type ArchiveDoyaWorktreeCommandResult =
   | {
       ok: true;
       removedAgents: string[];
@@ -114,13 +114,13 @@ export type ArchivePaseoWorktreeCommandResult =
       removedAgents: [];
     };
 
-export async function archivePaseoWorktreeCommand(
-  dependencies: ArchivePaseoWorktreeCommandDependencies,
-  input: ArchivePaseoWorktreeCommandInput,
-): Promise<ArchivePaseoWorktreeCommandResult> {
+export async function archiveDoyaWorktreeCommand(
+  dependencies: ArchiveDoyaWorktreeCommandDependencies,
+  input: ArchiveDoyaWorktreeCommandInput,
+): Promise<ArchiveDoyaWorktreeCommandResult> {
   const resolvedTarget = await resolveArchiveTarget(dependencies, input);
-  const ownership = await isPaseoOwnedWorktreeCwd(resolvedTarget.targetPath, {
-    paseoHome: dependencies.paseoHome,
+  const ownership = await isDoyaOwnedWorktreeCwd(resolvedTarget.targetPath, {
+    doyaHome: dependencies.doyaHome,
     worktreesRoot: dependencies.worktreesRoot,
   });
 
@@ -128,13 +128,13 @@ export async function archivePaseoWorktreeCommand(
     return {
       ok: false,
       code: "NOT_ALLOWED",
-      message: "Worktree is not a Paseo-owned worktree",
+      message: "Worktree is not a Doya-owned worktree",
       removedAgents: [],
     };
   }
 
   const repoRoot = ownership.repoRoot ?? resolvedTarget.repoRoot ?? null;
-  const removedAgents = await archivePaseoWorktree(dependencies, {
+  const removedAgents = await archiveDoyaWorktree(dependencies, {
     targetPath: resolvedTarget.targetPath,
     repoRoot,
     worktreesRoot: ownership.worktreeRoot,
@@ -154,8 +154,8 @@ interface ResolvedArchiveTarget {
 }
 
 async function resolveArchiveTarget(
-  dependencies: ArchivePaseoWorktreeCommandDependencies,
-  input: ArchivePaseoWorktreeCommandInput,
+  dependencies: ArchiveDoyaWorktreeCommandDependencies,
+  input: ArchiveDoyaWorktreeCommandInput,
 ): Promise<ResolvedArchiveTarget> {
   const repoRoot = input.repoRoot ?? null;
   if (input.worktreePath) {
@@ -176,7 +176,7 @@ async function resolveArchiveTarget(
     const worktrees = await dependencies.workspaceGitService.listWorktrees(repoRoot);
     const match = worktrees.find((entry) => entry.branchName === input.branchName);
     if (!match) {
-      throw new Error(`Paseo worktree not found for branch ${input.branchName}`);
+      throw new Error(`Doya worktree not found for branch ${input.branchName}`);
     }
     return { targetPath: match.path, repoRoot };
   }
@@ -185,13 +185,13 @@ async function resolveArchiveTarget(
 }
 
 async function resolveWorktreeSlugPath(
-  dependencies: ArchivePaseoWorktreeCommandDependencies,
+  dependencies: ArchiveDoyaWorktreeCommandDependencies,
   repoRoot: string,
   worktreeSlug: string,
 ): Promise<string> {
-  const worktreesRoot = await getPaseoWorktreesRoot(
+  const worktreesRoot = await getDoyaWorktreesRoot(
     repoRoot,
-    dependencies.paseoHome,
+    dependencies.doyaHome,
     dependencies.worktreesRoot,
   );
   return join(worktreesRoot, worktreeSlug);

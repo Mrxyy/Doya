@@ -10,13 +10,13 @@ Organic earthy illustration with botanical and natural motifs. Soft curves, orga
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
+| Aspect       | Treatment                                                                |
+| ------------ | ------------------------------------------------------------------------ |
 | Line quality | Minimal — forms defined by color, occasional thin organic line as accent |
-| Texture | Subtle organic textures (leaf veins, wood grain) sparingly |
-| Depth | Soft layering of natural elements, atmospheric perspective |
-| Material | Earth-toned illustration |
-| Mood | Grounded, contemplative, sustainable |
+| Texture      | Subtle organic textures (leaf veins, wood grain) sparingly               |
+| Depth        | Soft layering of natural elements, atmospheric perspective               |
+| Material     | Earth-toned illustration                                                 |
+| Mood         | Grounded, contemplative, sustainable                                     |
 
 ## 3. Using the deck's HEX values
 

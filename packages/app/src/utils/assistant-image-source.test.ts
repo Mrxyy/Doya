@@ -49,39 +49,39 @@ describe("resolveAssistantImageSource", () => {
   it("falls back to filesystem root for absolute paths outside the workspace", () => {
     expect(
       resolveAssistantImageSource({
-        source: "/tmp/paseo-codex-screenshot.png",
+        source: "/tmp/doya-codex-screenshot.png",
         workspaceRoot: "/Users/test/project",
       }),
     ).toEqual({
       kind: "file_rpc",
       cwd: "/",
-      path: "/tmp/paseo-codex-screenshot.png",
+      path: "/tmp/doya-codex-screenshot.png",
     });
   });
 
   it("uses the same home-root target as file previews for tilde paths", () => {
     expect(
       resolveAssistantImageSource({
-        source: "~/.paseo/screenshots/output.png",
+        source: "~/.doya/screenshots/output.png",
         workspaceRoot: "/Users/test/project",
       }),
     ).toEqual({
       kind: "file_rpc",
       cwd: "~",
-      path: "~/.paseo/screenshots/output.png",
+      path: "~/.doya/screenshots/output.png",
     });
   });
 
   it("normalizes file URIs into file RPC requests", () => {
     expect(
       resolveAssistantImageSource({
-        source: "file:///tmp/paseo-codex-screenshot.png",
+        source: "file:///tmp/doya-codex-screenshot.png",
         workspaceRoot: "/Users/test/project",
       }),
     ).toEqual({
       kind: "file_rpc",
       cwd: "/",
-      path: "/tmp/paseo-codex-screenshot.png",
+      path: "/tmp/doya-codex-screenshot.png",
     });
   });
 

@@ -28,16 +28,16 @@ export interface SkillTargets {
   codexDir: string;
 }
 
-export const PASEO_SKILL_NAMES = [
-  "paseo",
-  "paseo-advisor",
-  "paseo-chat",
-  "paseo-committee",
-  "paseo-epic",
-  "paseo-handoff",
-  "paseo-loop",
-  "paseo-orchestrate",
-  "paseo-orchestrator",
+export const DOYA_SKILL_NAMES = [
+  "doya",
+  "doya-advisor",
+  "doya-chat",
+  "doya-committee",
+  "doya-epic",
+  "doya-handoff",
+  "doya-loop",
+  "doya-orchestrate",
+  "doya-orchestrator",
 ] as const;
 
 type SkillFiles = Map<string, string>;
@@ -67,7 +67,7 @@ async function hashSkillDir(skillDir: string): Promise<SkillFiles | null> {
 
 async function hashSkills(rootDir: string): Promise<Map<string, SkillFiles>> {
   const out = new Map<string, SkillFiles>();
-  for (const name of PASEO_SKILL_NAMES) {
+  for (const name of DOYA_SKILL_NAMES) {
     const files = await hashSkillDir(path.join(rootDir, name));
     if (files !== null) out.set(name, files);
   }
@@ -76,7 +76,7 @@ async function hashSkills(rootDir: string): Promise<Map<string, SkillFiles>> {
 
 function diff(bundle: Map<string, SkillFiles>, disk: Map<string, SkillFiles>): SkillOp[] {
   const ops: SkillOp[] = [];
-  for (const name of PASEO_SKILL_NAMES) {
+  for (const name of DOYA_SKILL_NAMES) {
     const b = bundle.get(name);
     const d = disk.get(name);
     if (b && !d) ops.push({ kind: "add", name });
@@ -153,7 +153,7 @@ export async function updateSkills(targets?: SkillTargets): Promise<SkillsStatus
 
 export async function uninstallSkills(targets?: SkillTargets): Promise<SkillsStatus> {
   const t = targets ?? resolveSkillTargets();
-  for (const name of PASEO_SKILL_NAMES) {
+  for (const name of DOYA_SKILL_NAMES) {
     await removeSkill(name, {
       agentsDir: t.agentsDir,
       claudeDir: t.claudeDir,

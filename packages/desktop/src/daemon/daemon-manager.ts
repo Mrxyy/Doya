@@ -23,7 +23,7 @@ import {
   uninstallSkills,
   updateSkills,
 } from "../integrations/skills/index.js";
-import { resolvePaseoHome, spawnProcess } from "../system/paseo-runtime.js";
+import { resolveDoyaHome, spawnProcess } from "../system/doya-runtime.js";
 import {
   openLocalTransportSession,
   sendLocalTransportMessage,
@@ -91,24 +91,27 @@ function parseReleaseChannel(
 // Utilities
 // ---------------------------------------------------------------------------
 
-function getPaseoHome(): string {
-  return resolvePaseoHome(process.env);
+function getDoyaHome(): string {
+  return resolveDoyaHome(process.env);
 }
 
 function logFilePath(): string {
-  return path.join(getPaseoHome(), DAEMON_LOG_FILENAME);
+  return path.join(getDoyaHome(), DAEMON_LOG_FILENAME);
 }
 
 export function isDesktopManagedDaemonRunningSync(): boolean {
-  try {
-    const raw = readFileSync(path.join(getPaseoHome(), "paseo.pid"), "utf-8");
-    const lock = JSON.parse(raw) as { pid?: unknown; desktopManaged?: unknown };
-    if (lock.desktopManaged !== true) return false;
-    if (typeof lock.pid !== "number" || !Number.isInteger(lock.pid)) return false;
-    return isProcessRunning(lock.pid);
-  } catch {
-    return false;
+  for (const filename of ["doya.pid", "doya.pid"]) {
+    try {
+      const raw = readFileSync(path.join(getDoyaHome(), filename), "utf-8");
+      const lock = JSON.parse(raw) as { pid?: unknown; desktopManaged?: unknown };
+      if (lock.desktopManaged !== true) continue;
+      if (typeof lock.pid !== "number" || !Number.isInteger(lock.pid)) continue;
+      return isProcessRunning(lock.pid);
+    } catch {
+      // Try the next lock filename.
+    }
   }
+  return false;
 }
 
 export async function stopDesktopDaemonViaCli(): Promise<void> {
@@ -219,7 +222,7 @@ function resolveDesktopAppVersion(): string {
 // ---------------------------------------------------------------------------
 
 export async function resolveDesktopDaemonStatus(): Promise<DesktopDaemonStatus> {
-  const home = getPaseoHome();
+  const home = getDoyaHome();
 
   try {
     const payload = (await runExternalCliJsonCommand(["daemon", "status", "--json"])) as Record<
@@ -376,7 +379,7 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
     detached: true,
     envMode: "internal",
     env: invocation.env,
-    envOverlay: { PASEO_DESKTOP_MANAGED: "1" },
+    envOverlay: { DOYA_DESKTOP_MANAGED: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -585,14 +588,11 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
 export function registerDaemonManager(): void {
   const handlers = createDaemonCommandHandlers();
 
-  ipcMain.handle(
-    "paseo:invoke",
-    async (_event, command: string, args?: Record<string, unknown>) => {
-      const handler = handlers[command];
-      if (!handler) {
-        throw new Error(`Unknown desktop command: ${command}`);
-      }
-      return await handler(args);
-    },
-  );
+  ipcMain.handle("doya:invoke", async (_event, command: string, args?: Record<string, unknown>) => {
+    const handler = handlers[command];
+    if (!handler) {
+      throw new Error(`Unknown desktop command: ${command}`);
+    }
+    return await handler(args);
+  });
 }

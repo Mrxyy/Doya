@@ -11,7 +11,7 @@ import { useStableEvent } from "@/hooks/use-stable-event";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { translateNow } from "@/i18n/i18n";
 
-const FALLBACK_DOWNLOAD_URL = "https://paseo.sh/download";
+const FALLBACK_DOWNLOAD_URL = "https://doya.sh/download";
 
 function RosettaCalloutDescription() {
   return (

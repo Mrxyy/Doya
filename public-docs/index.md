@@ -11,7 +11,7 @@ Doya runs your coding agents on your machine and gives you a mobile, desktop, we
 
 ## Desktop app (recommended)
 
-Download from the [Doya download page](https://paseo.sh/download) or the [GitHub releases page](https://github.com/getpaseo/paseo/releases). Open it and you're done.
+Download from the [Doya download page](https://doya.sh/download) or the [GitHub releases page](https://github.com/getdoya/doya/releases). Open it and you're done.
 
 The desktop app bundles its own daemon and starts it automatically, no separate install required. On first launch you'll see a brief startup screen, then connect from your phone by scanning the QR code in Settings.
 
@@ -20,20 +20,20 @@ The desktop app bundles its own daemon and starts it automatically, no separate 
 For headless machines, dev boxes, or any setup where you want the daemon running without the desktop UI:
 
 ```bash
-npm install -g @getpaseo/cli
-paseo
+npm install -g @getdoya/cli
+doya
 ```
 
 Doya prints a QR code in the terminal. Scan it from the mobile app, or enter the daemon address manually from another client.
 
-Configuration and local state live under `PASEO_HOME` (defaults to `~/.paseo`).
+Configuration and local state live under `DOYA_HOME` (defaults to `~/.doya`).
 
 ## Where next
 
 - [Providers](/docs/providers), what a provider is and how Doya wraps existing CLIs.
 - [CLI reference](/docs/cli), every command.
-- [GitHub repo](https://github.com/getpaseo/paseo)
-- [Report an issue](https://github.com/getpaseo/paseo/issues)
+- [GitHub repo](https://github.com/getdoya/doya)
+- [Report an issue](https://github.com/getdoya/doya/issues)
 
 ## Prerequisites
 

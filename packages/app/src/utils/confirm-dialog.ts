@@ -97,7 +97,7 @@ function createWebConfirmStyles(destructive: boolean): string {
   const confirmBackground = destructive ? "#b04138" : "#20744A";
   const confirmHoverBackground = destructive ? "#96372f" : "#1b633f";
   return `
-    .paseo-confirm-dialog-overlay {
+    .doya-confirm-dialog-overlay {
       position: fixed;
       inset: 0;
       z-index: ${OVERLAY_Z.modal};
@@ -108,7 +108,7 @@ function createWebConfirmStyles(destructive: boolean): string {
       background: rgba(18, 18, 20, 0.42);
       pointer-events: auto;
     }
-    .paseo-confirm-dialog-card {
+    .doya-confirm-dialog-card {
       width: min(420px, 100%);
       border: 1px solid #e4e4e7;
       border-radius: 12px;
@@ -118,24 +118,24 @@ function createWebConfirmStyles(destructive: boolean): string {
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    .paseo-confirm-dialog-body {
+    .doya-confirm-dialog-body {
       padding: 24px 24px 18px;
     }
-    .paseo-confirm-dialog-title {
+    .doya-confirm-dialog-title {
       margin: 0;
       color: #1a1a1e;
       font-size: 16px;
       font-weight: 500;
       line-height: 22px;
     }
-    .paseo-confirm-dialog-message {
+    .doya-confirm-dialog-message {
       margin: 12px 0 0;
       color: #52525b;
       font-size: 14px;
       line-height: 21px;
       white-space: pre-wrap;
     }
-    .paseo-confirm-dialog-actions {
+    .doya-confirm-dialog-actions {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
@@ -143,7 +143,7 @@ function createWebConfirmStyles(destructive: boolean): string {
       border-top: 1px solid #f4f4f5;
       background: #fafafa;
     }
-    .paseo-confirm-dialog-button {
+    .doya-confirm-dialog-button {
       min-width: 76px;
       height: 34px;
       padding: 0 14px;
@@ -154,51 +154,51 @@ function createWebConfirmStyles(destructive: boolean): string {
       font-weight: 500;
       cursor: pointer;
     }
-    .paseo-confirm-dialog-cancel {
+    .doya-confirm-dialog-cancel {
       border-color: #e4e4e7;
       background: #ffffff;
       color: #3f3f46;
     }
-    .paseo-confirm-dialog-cancel:hover {
+    .doya-confirm-dialog-cancel:hover {
       background: #f4f4f5;
     }
-    .paseo-confirm-dialog-confirm {
+    .doya-confirm-dialog-confirm {
       background: ${confirmBackground};
       color: #ffffff;
     }
-    .paseo-confirm-dialog-confirm:hover {
+    .doya-confirm-dialog-confirm:hover {
       background: ${confirmHoverBackground};
     }
-    .paseo-confirm-dialog-button:focus-visible {
+    .doya-confirm-dialog-button:focus-visible {
       outline: 2px solid #20744A;
       outline-offset: 2px;
     }
     @media (prefers-color-scheme: dark) {
-      .paseo-confirm-dialog-overlay {
+      .doya-confirm-dialog-overlay {
         background: rgba(0, 0, 0, 0.55);
       }
-      .paseo-confirm-dialog-card {
+      .doya-confirm-dialog-card {
         border-color: #303036;
         background: #1f1f22;
         color: #fafafa;
         box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
       }
-      .paseo-confirm-dialog-title {
+      .doya-confirm-dialog-title {
         color: #fafafa;
       }
-      .paseo-confirm-dialog-message {
+      .doya-confirm-dialog-message {
         color: #a1a1aa;
       }
-      .paseo-confirm-dialog-actions {
+      .doya-confirm-dialog-actions {
         border-top-color: #27272a;
         background: #18181b;
       }
-      .paseo-confirm-dialog-cancel {
+      .doya-confirm-dialog-cancel {
         border-color: #303036;
         background: #1f1f22;
         color: #fafafa;
       }
-      .paseo-confirm-dialog-cancel:hover {
+      .doya-confirm-dialog-cancel:hover {
         background: #27272a;
       }
     }
@@ -231,48 +231,48 @@ function showWebConfirmDialog(input: ConfirmDialogInput): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const overlayRoot = getOverlayRoot();
     const overlay = document.createElement("div");
-    overlay.className = "paseo-confirm-dialog-overlay";
+    overlay.className = "doya-confirm-dialog-overlay";
 
     const style = document.createElement("style");
     style.textContent = createWebConfirmStyles(Boolean(input.destructive));
 
     const card = document.createElement("div");
-    card.className = "paseo-confirm-dialog-card";
+    card.className = "doya-confirm-dialog-card";
     card.setAttribute("role", "alertdialog");
     card.setAttribute("aria-modal", "true");
 
     const body = document.createElement("div");
-    body.className = "paseo-confirm-dialog-body";
+    body.className = "doya-confirm-dialog-body";
     const title = appendTextElement({
       document,
       parent: body,
       tagName: "h2",
-      className: "paseo-confirm-dialog-title",
+      className: "doya-confirm-dialog-title",
       text: input.title,
     });
     const message = appendTextElement({
       document,
       parent: body,
       tagName: "p",
-      className: "paseo-confirm-dialog-message",
+      className: "doya-confirm-dialog-message",
       text: input.message,
     });
-    card.setAttribute("aria-labelledby", "paseo-confirm-dialog-title");
-    card.setAttribute("aria-describedby", "paseo-confirm-dialog-message");
-    title.id = "paseo-confirm-dialog-title";
-    message.id = "paseo-confirm-dialog-message";
+    card.setAttribute("aria-labelledby", "doya-confirm-dialog-title");
+    card.setAttribute("aria-describedby", "doya-confirm-dialog-message");
+    title.id = "doya-confirm-dialog-title";
+    message.id = "doya-confirm-dialog-message";
 
     const actions = document.createElement("div");
-    actions.className = "paseo-confirm-dialog-actions";
+    actions.className = "doya-confirm-dialog-actions";
 
     const cancelButton = document.createElement("button");
     cancelButton.type = "button";
-    cancelButton.className = "paseo-confirm-dialog-button paseo-confirm-dialog-cancel";
+    cancelButton.className = "doya-confirm-dialog-button doya-confirm-dialog-cancel";
     cancelButton.textContent = labels.cancelLabel;
 
     const confirmButton = document.createElement("button");
     confirmButton.type = "button";
-    confirmButton.className = "paseo-confirm-dialog-button paseo-confirm-dialog-confirm";
+    confirmButton.className = "doya-confirm-dialog-button doya-confirm-dialog-confirm";
     confirmButton.textContent = labels.confirmLabel;
 
     actions.appendChild(cancelButton);

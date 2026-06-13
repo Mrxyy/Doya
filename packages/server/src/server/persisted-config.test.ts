@@ -14,7 +14,7 @@ const MODE_MASK = 0o777;
 const PERMISSIVE_FILE_MODE = 0o644;
 
 function createTempHome(): string {
-  return mkdtempSync(path.join(tmpdir(), "paseo-config-"));
+  return mkdtempSync(path.join(tmpdir(), "doya-config-"));
 }
 
 function modeOf(filePath: string): number {
@@ -67,11 +67,11 @@ describe("PersistedConfigSchema worktrees config", () => {
   test("accepts optional worktree root", () => {
     const parsed = PersistedConfigSchema.parse({
       worktrees: {
-        root: "/mnt/fast/paseo-worktrees",
+        root: "/mnt/fast/doya-worktrees",
       },
     });
 
-    expect(parsed.worktrees?.root).toBe("/mnt/fast/paseo-worktrees");
+    expect(parsed.worktrees?.root).toBe("/mnt/fast/doya-worktrees");
   });
 });
 

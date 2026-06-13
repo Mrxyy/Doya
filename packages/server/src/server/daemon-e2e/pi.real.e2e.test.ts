@@ -12,7 +12,7 @@ import type {
   AgentTimelineItem,
 } from "../agent/agent-sdk-types.js";
 import { DaemonClient } from "../test-utils/daemon-client.js";
-import { createTestPaseoDaemon } from "../test-utils/paseo-daemon.js";
+import { createTestDoyaDaemon } from "../test-utils/doya-daemon.js";
 import {
   canRunRealProvider,
   createRealProviderClient,
@@ -20,7 +20,7 @@ import {
   getRealProviderConfig,
 } from "./real-provider-test-config.js";
 
-process.env.PASEO_SUPERVISED = "0";
+process.env.DOYA_SUPERVISED = "0";
 
 const PI_TEST_TIMEOUT_MS = 240_000;
 const PI_REAL_TEST_MODEL = getRealProviderConfig("pi").model;
@@ -37,7 +37,7 @@ function createPiClient(): AgentClient {
 
 function createPiToolDaemon() {
   const logger = pino({ level: "silent" });
-  return createTestPaseoDaemon({
+  return createTestDoyaDaemon({
     agentClients: createRealProviderClients(["pi"], logger),
     logger,
   });

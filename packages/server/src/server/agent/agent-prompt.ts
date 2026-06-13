@@ -109,15 +109,15 @@ export async function unarchiveAgentState(
 }
 
 /**
- * Wrap a body in <paseo-system>…</paseo-system> so the receiving agent
+ * Wrap a body in <doya-system>...</doya-system> so the receiving agent
  * recognizes the prompt as system-injected context — not a user turn.
  * Used by chat mentions, schedule fires, and notify-on-finish.
  */
 export function formatSystemNotificationPrompt(reason: string): string {
-  return `<paseo-system>\n${reason}\n</paseo-system>`;
+  return `<doya-system>\n${reason}\n</doya-system>`;
 }
 
-const SYSTEM_ENVELOPE_PATTERN = /^<paseo-system>\n[\s\S]*\n<\/paseo-system>$/;
+const SYSTEM_ENVELOPE_PATTERN = /^<(?:doya|doya)-system>\n[\s\S]*\n<\/(?:doya|doya)-system>$/;
 
 export function isSystemInjectedEnvelope(text: string): boolean {
   return SYSTEM_ENVELOPE_PATTERN.test(text);

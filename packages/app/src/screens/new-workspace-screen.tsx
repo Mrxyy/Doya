@@ -36,9 +36,9 @@ import { toErrorMessage } from "@/utils/error-messages";
 import { navigateToPreparedWorkspaceTab } from "@/utils/workspace-navigation";
 import type { ComposerAttachment, UserComposerAttachment } from "@/attachments/types";
 import type { ImageAttachment, MessagePayload } from "@/composer/types";
-import type { AgentAttachment, GitHubSearchItem } from "@getpaseo/protocol/messages";
-import type { CreatePaseoWorktreeInput } from "@getpaseo/client/internal/daemon-client";
-import type { AgentProvider } from "@getpaseo/protocol/agent-types";
+import type { AgentAttachment, GitHubSearchItem } from "@getdoya/protocol/messages";
+import type { CreateDoyaWorktreeInput } from "@getdoya/client/internal/daemon-client";
+import type { AgentProvider } from "@getdoya/protocol/agent-types";
 import { isEmptyWorkspaceSubmission, runCreateEmptyWorkspace } from "./new-workspace-empty";
 import {
   pickerItemToCheckoutRequest,
@@ -330,7 +330,7 @@ interface SubmitDraftInput {
 async function createAndMergeWorkspace(input: {
   client: NonNullable<ReturnType<typeof useHostRuntimeClient>>;
   createInput: Parameters<
-    NonNullable<ReturnType<typeof useHostRuntimeClient>>["createPaseoWorktree"]
+    NonNullable<ReturnType<typeof useHostRuntimeClient>>["createDoyaWorktree"]
   >[0];
   mergeWorkspaces: (
     serverId: string,
@@ -338,7 +338,7 @@ async function createAndMergeWorkspace(input: {
   ) => void;
   serverId: string;
 }): Promise<ReturnType<typeof normalizeWorkspaceDescriptor>> {
-  const payload = await input.client.createPaseoWorktree(input.createInput);
+  const payload = await input.client.createDoyaWorktree(input.createInput);
   if (payload.error || !payload.workspace) {
     throw new Error(payload.error ?? "Failed to create worktree");
   }
@@ -744,7 +744,7 @@ export function NewWorkspaceScreen({
       cwd: string;
       prompt: string;
       attachments: AgentAttachment[];
-    }): CreatePaseoWorktreeInput => {
+    }): CreateDoyaWorktreeInput => {
       const checkoutRequest = resolveCheckoutRequest(selectedItem, currentBranch);
       const trimmedPrompt = input.prompt.trim();
       const hasFirstAgentContext = trimmedPrompt.length > 0 || input.attachments.length > 0;

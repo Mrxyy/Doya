@@ -1,11 +1,11 @@
 import type { DocumentAnnotationTarget, DocumentViewerKind } from "@/components/document-viewer";
 import type { Locale } from "@/i18n/i18n";
 import {
-  buildPaseoMessageMeta,
-  buildPaseoResponseLanguageInstruction,
-  escapePaseoMarkupContent,
-  escapePaseoMarkupText,
-} from "@/utils/paseo-message-markup";
+  buildDoyaMessageMeta,
+  buildDoyaResponseLanguageInstruction,
+  escapeDoyaMarkupContent,
+  escapeDoyaMarkupText,
+} from "@/utils/doya-message-markup";
 
 export interface DocumentAnnotationPromptAnnotation {
   target: DocumentAnnotationTarget;
@@ -19,12 +19,12 @@ export function buildApplyDocumentAnnotationsPrompt(input: {
   annotations: DocumentAnnotationPromptAnnotation[];
   defaultLocale: Locale;
 }): string {
-  const escapedMessageId = escapePaseoMarkupText(input.messageId);
-  const escapedFilePath = escapePaseoMarkupContent(input.filePath);
+  const escapedMessageId = escapeDoyaMarkupText(input.messageId);
+  const escapedFilePath = escapeDoyaMarkupContent(input.filePath);
   const kindLabel = getDocumentKindLabel(input.kind);
   const goal = getDocumentAnnotationGoal(input.kind);
   const kindInstructions = getDocumentKindInstructions(input.kind);
-  const languageInstruction = buildPaseoResponseLanguageInstruction({
+  const languageInstruction = buildDoyaResponseLanguageInstruction({
     defaultLocale: input.defaultLocale,
     userText: input.annotations.map((annotation) => annotation.instruction).join("\n"),
   });
@@ -37,11 +37,11 @@ export function buildApplyDocumentAnnotationsPrompt(input: {
     null,
     2,
   );
-  return `${buildPaseoMessageMeta()}
+  return `${buildDoyaMessageMeta()}
 
 请根据当前文件预览中保存的标注修改文件，并尽量保存回当前文件路径以便预览自动刷新。
 
-<paseo-expected-target
+<doya-expected-target
   version="1"
   kind="document.apply_annotations"
   goal="${goal}"
@@ -50,37 +50,37 @@ export function buildApplyDocumentAnnotationsPrompt(input: {
   desc="Exact target handshake that the assistant must emit before doing any work."
 />
 
-<paseo-ui
+<doya-ui
   version="1"
   kind="document.apply_annotations"
   render="card"
   visibility="summary"
   id="${escapedMessageId}"
-  desc="A Paseo-renderable task card for applying saved document preview annotations."
+  desc="A Doya-renderable task card for applying saved document preview annotations."
 >
-  <paseo-ui-content desc="User-visible card content. Paseo may render this instead of the full prompt.">
-    <paseo-title desc="Title shown in the user message card.">应用文件标注</paseo-title>
-    <paseo-summary desc="Short user-visible summary of this task.">根据预览中保存的标注修改 ${escapePaseoMarkupContent(kindLabel)}</paseo-summary>
-    <paseo-field name="file" label="文件" desc="Workspace-relative file path.">${escapedFilePath}</paseo-field>
-    <paseo-field name="annotation_count" label="标注数" desc="Number of saved preview annotations.">${input.annotations.length}</paseo-field>
-  </paseo-ui-content>
+  <doya-ui-content desc="User-visible card content. Doya may render this instead of the full prompt.">
+    <doya-title desc="Title shown in the user message card.">应用文件标注</doya-title>
+    <doya-summary desc="Short user-visible summary of this task.">根据预览中保存的标注修改 ${escapeDoyaMarkupContent(kindLabel)}</doya-summary>
+    <doya-field name="file" label="文件" desc="Workspace-relative file path.">${escapedFilePath}</doya-field>
+    <doya-field name="annotation_count" label="标注数" desc="Number of saved preview annotations.">${input.annotations.length}</doya-field>
+  </doya-ui-content>
 
-  <paseo-ai desc="Task instructions the AI must follow. Paseo may hide this section from the chat UI.">
-${escapePaseoMarkupText(languageInstruction)}
+  <doya-ai desc="Task instructions the AI must follow. Doya may hide this section from the chat UI.">
+${escapeDoyaMarkupText(languageInstruction)}
 
 Apply the saved document preview annotations to this workspace file:
 ${escapedFilePath}
 
-File kind: ${escapePaseoMarkupContent(input.kind)}
+File kind: ${escapeDoyaMarkupContent(input.kind)}
 
 The annotations below describe what the user marked in the preview and how they want it changed.
 Use locator data to find the corresponding content. Treat locator coordinates as preview hints; prefer stable semantic anchors such as sheet/cell, selected text, page number, DOM path, and context text when available.
 
 Annotations JSON:
-${escapePaseoMarkupContent(annotationsJson)}
+${escapeDoyaMarkupContent(annotationsJson)}
 
 Requirements:
-1. Save the applied changes back to the exact file path above whenever safely possible. This is required for the currently open Paseo preview to hot refresh.
+1. Save the applied changes back to the exact file path above whenever safely possible. This is required for the currently open Doya preview to hot refresh.
 2. Do not create a new file merely for convenience. Only create a clearly named updated file in the same workspace if in-place editing is not practical for this format or would risk corrupting the original.
 3. If you create a new file, explain that in the result summary and put the new workspace-relative path in updated_file.
 4. Preserve unrelated content, formatting, formulas, charts, images, and page structure unless an annotation asks otherwise.
@@ -90,14 +90,14 @@ Requirements:
 8. Save the updated file and reply with the changed file path. For in-place edits, updated_file must be the original file path above.
 
 Format-specific guidance:
-${escapePaseoMarkupContent(kindInstructions)}
-  </paseo-ai>
+${escapeDoyaMarkupContent(kindInstructions)}
+  </doya-ai>
 
-  <paseo-reply desc="Preferred response format. Paseo may render a matching result block specially.">
+  <doya-reply desc="Preferred response format. Doya may render a matching result block specially.">
 When finished, reply with exactly one result card followed by no extra prose unless an error prevents completion.
 
 Use this shape and preserve the id "${escapedMessageId}":
-<paseo-ui
+<doya-ui
   version="1"
   kind="document.apply_annotations.result"
   render="result-card"
@@ -105,15 +105,15 @@ Use this shape and preserve the id "${escapedMessageId}":
   id="${escapedMessageId}"
   desc="Result card for applied document preview annotations."
 >
-  <paseo-ui-content desc="User-visible result content.">
-    <paseo-title desc="Result title.">文件标注已应用</paseo-title>
-    <paseo-summary desc="Short summary of the applied changes.">Summarize what changed.</paseo-summary>
-    <paseo-field name="updated_file" label="文件" desc="Workspace-relative path to the updated file.">path/to/updated-file</paseo-field>
-  </paseo-ui-content>
-  <paseo-ai desc="Private note for Paseo.">Include only factual completion details. Do not include hidden reasoning.</paseo-ai>
-</paseo-ui>
-  </paseo-reply>
-</paseo-ui>`;
+  <doya-ui-content desc="User-visible result content.">
+    <doya-title desc="Result title.">文件标注已应用</doya-title>
+    <doya-summary desc="Short summary of the applied changes.">Summarize what changed.</doya-summary>
+    <doya-field name="updated_file" label="文件" desc="Workspace-relative path to the updated file.">path/to/updated-file</doya-field>
+  </doya-ui-content>
+  <doya-ai desc="Private note for Doya.">Include only factual completion details. Do not include hidden reasoning.</doya-ai>
+</doya-ui>
+  </doya-reply>
+</doya-ui>`;
 }
 
 export function getDocumentAnnotationGoal(kind: DocumentViewerKind): string {
@@ -156,7 +156,7 @@ function getDocumentKindInstructions(kind: DocumentViewerKind): string {
   }
   if (kind === "pdf") {
     return [
-      "- Do not depend on selecting PDF text. Paseo PDF annotations come from the PDF viewer's native annotation tools.",
+      "- Do not depend on selecting PDF text. Doya PDF annotations come from the PDF viewer's native annotation tools.",
       '- Use locator.type="builtin_annotation" as the authoritative target. It may include annotationType, rectPdf, color, opacity, contents, segmentRectsPdf, verticesPdf, or inkListPdf.',
       '- For builtin annotations, coordinateSpace="pdf_page_normalized" means x/y/x1/y1/x2/y2/width/height are normalized 0..1 PDF page coordinates; coordinateSpace="pdf_page_units" means they are raw PDF page units.',
       "- Treat square/circle/polygon/ink annotations as visual locators drawn by the user. Apply the requested edit to the visible PDF content inside or intersecting the marked area. Do not edit another section with similar text, and do not edit the annotation shape itself unless the instruction explicitly asks.",

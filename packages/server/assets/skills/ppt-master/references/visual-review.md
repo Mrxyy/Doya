@@ -31,17 +31,17 @@ The subagent reads inputs 2–4 **once** at the start of its turn, then iterates
 
 ## §1 Hard rules (fix every hit)
 
-| # | Category | Trigger | Permitted fix |
-|---|----------|---------|---------------|
-| H1 | Out-of-bounds | element bbox falls outside `0,0,1280,720` | shrink or reposition into canvas |
-| H2 | Text overflow | text bbox extends past its visual container | reduce font-size or line-break |
-| H3 | Text overlap | two `<text>` elements' bboxes intersect (tspans within one text excluded) | reposition or resize |
-| H4 | Readability | contrast < 4.5 (small text) / < 3.0 (font-size ≥ 24px); OR text directly atop a complex image with no scrim | if **neither** the foreground nor the background color is a brand token: position-only escape — add a `<rect>` scrim under the text, or raise the offending text's font-size to ≥ 24px so the 3.0 threshold applies. If **either** color is a brand token: do not edit the SVG → goto §1.1 escalation. |
-| ~~H5~~ | Font-ramp drift | *covered by `svg_quality_checker.py` — see §0 prerequisites* | n/a (do not re-check) |
-| H6 | Element collision | rect/circle/path bboxes overlap with z-order violating semantics | open spacing |
-| H7 | Anchored element displaced | page number / header / footer covered, missing, or out of canvas | restore to anchor position |
-| H8 | Image rendering broken | `<image>` empty / broken-image / severe distortion | fix `href`, adjust `preserveAspectRatio`, add `no-crop` if face/data is cropped |
-| H9 | Missing key element | element required by `design_spec §IX` outline is absent from rendered slide | recreate from spec |
+| #      | Category                   | Trigger                                                                                                     | Permitted fix                                                                                                                                                                                                                                                                                          |
+| ------ | -------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| H1     | Out-of-bounds              | element bbox falls outside `0,0,1280,720`                                                                   | shrink or reposition into canvas                                                                                                                                                                                                                                                                       |
+| H2     | Text overflow              | text bbox extends past its visual container                                                                 | reduce font-size or line-break                                                                                                                                                                                                                                                                         |
+| H3     | Text overlap               | two `<text>` elements' bboxes intersect (tspans within one text excluded)                                   | reposition or resize                                                                                                                                                                                                                                                                                   |
+| H4     | Readability                | contrast < 4.5 (small text) / < 3.0 (font-size ≥ 24px); OR text directly atop a complex image with no scrim | if **neither** the foreground nor the background color is a brand token: position-only escape — add a `<rect>` scrim under the text, or raise the offending text's font-size to ≥ 24px so the 3.0 threshold applies. If **either** color is a brand token: do not edit the SVG → goto §1.1 escalation. |
+| ~~H5~~ | Font-ramp drift            | _covered by `svg_quality_checker.py` — see §0 prerequisites_                                                | n/a (do not re-check)                                                                                                                                                                                                                                                                                  |
+| H6     | Element collision          | rect/circle/path bboxes overlap with z-order violating semantics                                            | open spacing                                                                                                                                                                                                                                                                                           |
+| H7     | Anchored element displaced | page number / header / footer covered, missing, or out of canvas                                            | restore to anchor position                                                                                                                                                                                                                                                                             |
+| H8     | Image rendering broken     | `<image>` empty / broken-image / severe distortion                                                          | fix `href`, adjust `preserveAspectRatio`, add `no-crop` if face/data is cropped                                                                                                                                                                                                                        |
+| H9     | Missing key element        | element required by `design_spec §IX` outline is absent from rendered slide                                 | recreate from spec                                                                                                                                                                                                                                                                                     |
 
 Detection order (run sequentially, do not parallelize within a single subagent):
 
@@ -66,18 +66,18 @@ The aggregated brand review is the responsibility of the orchestrator at the end
 
 Subagents must apply the **明显** ("clearly bad") threshold — when in doubt, leave it. Better to under-fix than to oscillate.
 
-| # | Category | Trigger | Fix direction |
-|---|----------|---------|---------------|
-| S1 | Vertical rhythm tight | Within the **same logical text block**, consecutive baselines have gap < 1.05× larger font-size | open to 1.15–1.3× |
-| S2 | Vertical rhythm hollow | Within one logical block, > 150 px non-decorative whitespace; `breathing` pages exempt | tighten |
-| S3 | Visual centroid off | hero/title block centroid offset from canvas center exceeds threshold by `page_role`: `cover` > 35%, `chapter` > 25%, `tldr`/`closing`/`breathing` > 25%, `content`/`data` > 20% | shift toward intended anchor |
-| S4 | Alignment drift | same-column elements differ in `x` by > 4 px (or same-row baselines by > 4 px) **and** are semantically meant to be on the same grid line | snap to grid |
-| S5 | Grid non-uniform | N-card row: neighbor `x`-spacing differs by > 5% of the average | re-distribute |
-| S6 | CJK letter-spacing | CJK characters with `letter-spacing / font-size > 5%` | reduce to ≤ 2% |
-| S7 | Accent overload | > 2 accent colors across ≥ 3 distinct elements | collapse to 1 primary + 1 secondary |
-| S8 | Emphasis mismatch | most visually prominent element ≠ the element `design_spec §IX` declares as the page's primary | rescale to match intent |
-| S9 | Image-text relationship | caption > 60 px from its image; text on busy image without scrim; image clearly purposeless | tighten / add scrim / remove |
-| S10 | Breathing violation | only when `page_role = breathing`: ≥3 rounded card grid | replace with naked text / single hero |
+| #   | Category                | Trigger                                                                                                                                                                          | Fix direction                         |
+| --- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| S1  | Vertical rhythm tight   | Within the **same logical text block**, consecutive baselines have gap < 1.05× larger font-size                                                                                  | open to 1.15–1.3×                     |
+| S2  | Vertical rhythm hollow  | Within one logical block, > 150 px non-decorative whitespace; `breathing` pages exempt                                                                                           | tighten                               |
+| S3  | Visual centroid off     | hero/title block centroid offset from canvas center exceeds threshold by `page_role`: `cover` > 35%, `chapter` > 25%, `tldr`/`closing`/`breathing` > 25%, `content`/`data` > 20% | shift toward intended anchor          |
+| S4  | Alignment drift         | same-column elements differ in `x` by > 4 px (or same-row baselines by > 4 px) **and** are semantically meant to be on the same grid line                                        | snap to grid                          |
+| S5  | Grid non-uniform        | N-card row: neighbor `x`-spacing differs by > 5% of the average                                                                                                                  | re-distribute                         |
+| S6  | CJK letter-spacing      | CJK characters with `letter-spacing / font-size > 5%`                                                                                                                            | reduce to ≤ 2%                        |
+| S7  | Accent overload         | > 2 accent colors across ≥ 3 distinct elements                                                                                                                                   | collapse to 1 primary + 1 secondary   |
+| S8  | Emphasis mismatch       | most visually prominent element ≠ the element `design_spec §IX` declares as the page's primary                                                                                   | rescale to match intent               |
+| S9  | Image-text relationship | caption > 60 px from its image; text on busy image without scrim; image clearly purposeless                                                                                      | tighten / add scrim / remove          |
+| S10 | Breathing violation     | only when `page_role = breathing`: ≥3 rounded card grid                                                                                                                          | replace with naked text / single hero |
 
 ## §3 Don't-touch
 
@@ -202,6 +202,7 @@ The orchestrator partitions the N pages into `ceil(N/K)` batches of ≤ K pages 
 **Why batched, not per-page**: the rubric (~2.5K tokens), `design_spec.md` (~4–5K), and `spec_lock.md` (~1K) are identical inputs across all pages and do **not** share a prompt cache between sibling subagents. A 20-page deck with per-page dispatch re-reads ~150K tokens of fixed documents; batched dispatch with K=5 cuts that by ~75% while staying inside default parallel-subagent limits (~10). Batches also bound failure blast radius — one crashed subagent loses K pages, not the entire run.
 
 **Batch size guidance**:
+
 - `K = 5` (default) — balanced; safe for decks up to ~50 pages
 - `K = 3` — high-fidelity / small decks (≤ 12 pages); slightly higher parallelism
 - `K = 10` — token-sensitive / large decks (50+ pages); fewer subagents, larger blast radius per failure
@@ -224,7 +225,7 @@ Larger K is **not** always better: subagent context fills with prior pages' SVG 
 
 - Pre-rendering is serialized by `visual_review.py`'s file lock at `<project>/.preview/.render.lock`. Subagents must **not** call the renderer concurrently. Re-renders during iteration loop go through the same lock.
 
-## §7 Renderer expectations *(script contract)*
+## §7 Renderer expectations _(script contract)_
 
 `visual_review.py <project> [pages...]` must guarantee:
 

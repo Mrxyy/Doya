@@ -8,14 +8,14 @@ Brand is one of three template kinds in the library — alongside [`layouts/`](.
 
 Brand application follows the **same explicit-path rule as all template kinds** at SKILL.md Step 3, and lands in the **same project directory** (`<project_path>/templates/`):
 
-| User input at SKILL.md Step 3 | Behavior |
-|---|---|
-| An explicit brand directory path (e.g. `templates/brands/anthropic/`) | Copy `design_spec.md` + logo files + asset subdirectories into `<project_path>/templates/`; Strategist locks identity segment |
-| Bare brand name only ("use anthropic brand"), brand mention without path, or silence | Skip — same mechanical rule as all template kinds: bare names never trigger |
-| Brand path + layout path | Fuse into one `design_spec.md` — brand owns identity segment (color / typography / logo / voice / icon style); layout owns structure segment (canvas / page roster). See `SKILL.md` Step 3. |
-| Brand path + deck path | Fuse — brand identity overrides deck identity; structure + middle segments come from deck |
-| Brand path + layout path + deck path | Three-way fuse — brand=identity, layout=structure, deck=middle |
-| Two brand paths | Conflict resolution prompt before fusion — user picks per-segment source |
+| User input at SKILL.md Step 3                                                        | Behavior                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An explicit brand directory path (e.g. `templates/brands/anthropic/`)                | Copy `design_spec.md` + logo files + asset subdirectories into `<project_path>/templates/`; Strategist locks identity segment                                                               |
+| Bare brand name only ("use anthropic brand"), brand mention without path, or silence | Skip — same mechanical rule as all template kinds: bare names never trigger                                                                                                                 |
+| Brand path + layout path                                                             | Fuse into one `design_spec.md` — brand owns identity segment (color / typography / logo / voice / icon style); layout owns structure segment (canvas / page roster). See `SKILL.md` Step 3. |
+| Brand path + deck path                                                               | Fuse — brand identity overrides deck identity; structure + middle segments come from deck                                                                                                   |
+| Brand path + layout path + deck path                                                 | Three-way fuse — brand=identity, layout=structure, deck=middle                                                                                                                              |
+| Two brand paths                                                                      | Conflict resolution prompt before fusion — user picks per-segment source                                                                                                                    |
 
 `brands_index.json` is discovery-only; listing brands never advances the pipeline.
 

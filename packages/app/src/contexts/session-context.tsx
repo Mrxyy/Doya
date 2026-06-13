@@ -20,18 +20,18 @@ import {
   planTimelineCatchUpAfter,
   planTimelineCatchUpFollowUp,
 } from "@/timeline/timeline-sync-plan";
-import type { AgentAttachment, SessionOutboundMessage } from "@getpaseo/protocol/messages";
-import { parseServerInfoStatusPayload } from "@getpaseo/protocol/messages";
+import type { AgentAttachment, SessionOutboundMessage } from "@getdoya/protocol/messages";
+import { parseServerInfoStatusPayload } from "@getdoya/protocol/messages";
 import {
   buildAgentAttentionNotificationPayload,
   type AgentAttentionNotificationPayload,
   type NotificationPermissionRequest,
-} from "@getpaseo/protocol/agent-attention-notification";
-import type { AgentLifecycleStatus } from "@getpaseo/protocol/agent-lifecycle";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { AgentSessionConfig } from "@getpaseo/protocol/agent-types";
-import type { GitSetupOptions } from "@getpaseo/protocol/messages";
-import type { AgentPermissionResponse } from "@getpaseo/protocol/agent-types";
+} from "@getdoya/protocol/agent-attention-notification";
+import type { AgentLifecycleStatus } from "@getdoya/protocol/agent-lifecycle";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
+import type { AgentSessionConfig } from "@getdoya/protocol/agent-types";
+import type { GitSetupOptions } from "@getdoya/protocol/messages";
+import type { AgentPermissionResponse } from "@getdoya/protocol/agent-types";
 import { getHostRuntimeStore, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { useVoiceAudioEngineOptional, useVoiceRuntimeOptional } from "@/contexts/voice-context";
 import type { AudioPlaybackSource } from "@/voice/audio-engine-types";

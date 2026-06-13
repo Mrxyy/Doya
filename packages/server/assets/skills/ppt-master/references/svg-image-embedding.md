@@ -11,26 +11,26 @@ Technical spec and workflow for adding images to SVG files.
 Defined in the Design Specification & Content Outline; each image carries an `Acquire Via` field plus a status annotation. This file is authoritative for status names and SVG embedding behavior. If image approach includes "B) User-provided": run `analyze_images.py` right after the Eight Confirmations and complete the list before outputting the design spec.
 
 ```markdown
-| Filename | Dimensions | Purpose | Type | Acquire Via | Status | Reference |
-|----------|------------|---------|------|-------------|--------|-----------|
-| cover_bg.png | 1280x720 | Cover background | Background | ai | Pending | Modern tech abstract, deep blue gradient |
-| team.jpg | 800x600 | Team photo | Photography | web | Pending | Diverse engineering team in modern office |
-| product.png | 600x400 | Page 3 product photo | Photography | user | Existing | - |
-| formula_001.png | 736x168 | Page 3 block equation | Latex Formula | formula | Rendered | `E = mc^2` |
-| chart.png | 600x400 | Page 5 placeholder | Illustration | placeholder | Placeholder | Team collaboration scene to be added later |
+| Filename        | Dimensions | Purpose               | Type          | Acquire Via | Status      | Reference                                  |
+| --------------- | ---------- | --------------------- | ------------- | ----------- | ----------- | ------------------------------------------ |
+| cover_bg.png    | 1280x720   | Cover background      | Background    | ai          | Pending     | Modern tech abstract, deep blue gradient   |
+| team.jpg        | 800x600    | Team photo            | Photography   | web         | Pending     | Diverse engineering team in modern office  |
+| product.png     | 600x400    | Page 3 product photo  | Photography   | user        | Existing    | -                                          |
+| formula_001.png | 736x168    | Page 3 block equation | Latex Formula | formula     | Rendered    | `E = mc^2`                                 |
+| chart.png       | 600x400    | Page 5 placeholder    | Illustration  | placeholder | Placeholder | Team collaboration scene to be added later |
 ```
 
 ### Image Status Enum
 
-| Status | Meaning | Executor Handling |
-|--------|---------|-------------------|
-| **Pending** | Acquisition needed (`Acquire Via: ai` or `web`); not yet attempted | Image Acquisition Phase (Step 5) consumes this; must not remain after Step 5 |
-| **Generated** | AI-generated file exists at expected path | Reference from `../images/`; no on-slide credit needed |
-| **Sourced** | Web-sourced file exists at expected path | Reference from `../images/`; check `image_sources.json` for `license_tier` — if `attribution-required`, render an inline credit element on the slide (see [executor-base.md §6](./executor-base.md) and [image-searcher.md §7](./image-searcher.md) for the visual spec) |
-| **Rendered** | Deterministic formula PNG exists at expected path (`Acquire Via: formula`) | Reference from `../images/`; use `preserveAspectRatio="xMidYMid meet"` and do not crop |
-| **Needs-Manual** | Acquisition attempted once + one retry, failed | Dashed placeholder unless user has manually supplied the file |
-| **Existing** | User already has image (`Acquire Via: user`) | Place in `images/`, reference with `<image>` |
-| **Placeholder** | Intentionally not prepared yet (`Acquire Via: placeholder`) | Dashed border placeholder; replace later |
+| Status           | Meaning                                                                    | Executor Handling                                                                                                                                                                                                                                                        |
+| ---------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Pending**      | Acquisition needed (`Acquire Via: ai` or `web`); not yet attempted         | Image Acquisition Phase (Step 5) consumes this; must not remain after Step 5                                                                                                                                                                                             |
+| **Generated**    | AI-generated file exists at expected path                                  | Reference from `../images/`; no on-slide credit needed                                                                                                                                                                                                                   |
+| **Sourced**      | Web-sourced file exists at expected path                                   | Reference from `../images/`; check `image_sources.json` for `license_tier` — if `attribution-required`, render an inline credit element on the slide (see [executor-base.md §6](./executor-base.md) and [image-searcher.md §7](./image-searcher.md) for the visual spec) |
+| **Rendered**     | Deterministic formula PNG exists at expected path (`Acquire Via: formula`) | Reference from `../images/`; use `preserveAspectRatio="xMidYMid meet"` and do not crop                                                                                                                                                                                   |
+| **Needs-Manual** | Acquisition attempted once + one retry, failed                             | Dashed placeholder unless user has manually supplied the file                                                                                                                                                                                                            |
+| **Existing**     | User already has image (`Acquire Via: user`)                               | Place in `images/`, reference with `<image>`                                                                                                                                                                                                                             |
+| **Placeholder**  | Intentionally not prepared yet (`Acquire Via: placeholder`)                | Dashed border placeholder; replace later                                                                                                                                                                                                                                 |
 
 ---
 
@@ -58,10 +58,10 @@ Defined in the Design Specification & Content Outline; each image carries an `Ac
 
 ## External Reference vs Base64 Embedding
 
-| Method | Pros | Cons | Suitable For |
-|--------|------|------|-------------|
+| Method                 | Pros                                             | Cons                                           | Suitable For                    |
+| ---------------------- | ------------------------------------------------ | ---------------------------------------------- | ------------------------------- |
 | **External reference** | Small file size, fast iteration, easy to replace | Preview requires HTTP server from project root | `svg_output/` development phase |
-| **Base64 embedding** | Self-contained file, stable export | Large file size | `svg_final/` delivery phase |
+| **Base64 embedding**   | Self-contained file, stable export               | Large file size                                | `svg_final/` delivery phase     |
 
 ---
 
@@ -76,20 +76,20 @@ Defined in the Design Specification & Content Outline; each image carries an `Ac
 
 ### Key Attributes
 
-| Attribute | Description | Example |
-|-----------|-------------|---------|
-| `href` | Image path (relative or absolute) | `"../images/cover.png"` |
-| `x`, `y` | Image top-left corner position | `x="0" y="0"` |
-| `width`, `height` | Image display dimensions | `width="1280" height="720"` |
-| `preserveAspectRatio` | Scaling mode | `"xMidYMid slice"` |
+| Attribute             | Description                       | Example                     |
+| --------------------- | --------------------------------- | --------------------------- |
+| `href`                | Image path (relative or absolute) | `"../images/cover.png"`     |
+| `x`, `y`              | Image top-left corner position    | `x="0" y="0"`               |
+| `width`, `height`     | Image display dimensions          | `width="1280" height="720"` |
+| `preserveAspectRatio` | Scaling mode                      | `"xMidYMid slice"`          |
 
 ### preserveAspectRatio Common Values
 
-| Value | Effect |
-|-------|--------|
-| `xMidYMid slice` | Center crop (similar to CSS `cover`) |
-| `xMidYMid meet` | Complete display (similar to CSS `contain`) |
-| `none` | Stretch to fill, no aspect ratio preservation |
+| Value            | Effect                                        |
+| ---------------- | --------------------------------------------- |
+| `xMidYMid slice` | Center crop (similar to CSS `cover`)          |
+| `xMidYMid meet`  | Complete display (similar to CSS `contain`)   |
+| `none`           | Stretch to fill, no aspect ratio preservation |
 
 ### Preview Method
 
@@ -112,13 +112,13 @@ python3 -m http.server -d <project_path> 8000
 
 ### MIME Types
 
-| MIME Type | File Format |
-|-----------|-------------|
-| `image/png` | PNG |
-| `image/jpeg` | JPG/JPEG |
-| `image/gif` | GIF |
-| `image/webp` | WebP |
-| `image/svg+xml` | SVG |
+| MIME Type       | File Format |
+| --------------- | ----------- |
+| `image/png`     | PNG         |
+| `image/jpeg`    | JPG/JPEG    |
+| `image/gif`     | GIF         |
+| `image/webp`    | WebP        |
+| `image/svg+xml` | SVG         |
 
 ---
 
@@ -182,6 +182,7 @@ Browser security blocks cross-directory requests. Serve via HTTP from project ro
 Compress the source, use JPEG, reduce resolution to match actual display dimensions.
 
 **Q: How to reverse-extract a Base64 image?**
+
 ```bash
 base64 -d image.b64 > image.png
 ```

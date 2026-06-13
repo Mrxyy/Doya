@@ -246,7 +246,7 @@ function DaemonInfoCard(props: DaemonInfoCardProps) {
             {translateNow("ui.manage.built.in.daemon.1arvqut")}
           </Text>
           <Text style={settingsStyles.rowHint}>
-            {translateNow("ui.let.paseo.start.and.stop.the.built.1rj5o2r")}
+            {translateNow("ui.let.doya.start.and.stop.the.built.1rj5o2r")}
           </Text>
         </View>
         <Switch
@@ -262,7 +262,7 @@ function DaemonInfoCard(props: DaemonInfoCardProps) {
             {translateNow("ui.keep.daemon.running.after.quit.l9xbhx")}
           </Text>
           <Text style={settingsStyles.rowHint}>
-            {translateNow("ui.daemon.keeps.running.when.you.quit.paseo.1cyvilv")}
+            {translateNow("ui.daemon.keeps.running.when.you.quit.doya.1cyvilv")}
           </Text>
         </View>
         <Switch
@@ -300,7 +300,7 @@ function DaemonInfoCard(props: DaemonInfoCardProps) {
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>{translateNow("ui.full.status.9v381v")}</Text>
           <Text style={settingsStyles.rowHint}>
-            {translateNow("ui.runs.paseo.daemon.status.and.shows.the.1q0sf9x")}
+            {translateNow("ui.runs.doya.daemon.status.and.shows.the.1q0sf9x")}
           </Text>
         </View>
         <Button
@@ -470,7 +470,7 @@ export function LocalDaemonSection() {
   );
 }
 
-const ADVANCED_DAEMON_SETTINGS_URL = "https://paseo.sh/docs/configuration";
+const ADVANCED_DAEMON_SETTINGS_URL = "https://doya.sh/docs/configuration";
 
 const styles = StyleSheet.create((theme) => ({
   actionGroup: {

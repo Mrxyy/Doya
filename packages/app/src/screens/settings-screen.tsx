@@ -234,7 +234,7 @@ function serviceUrlBehaviorLabel(
   t: ReturnType<typeof useI18n>["t"],
 ): string {
   if (value === "ask") return t("settings.option.ask");
-  if (value === "in-app") return t("settings.option.inPaseo");
+  if (value === "in-app") return t("settings.option.inDoya");
   return t("settings.option.externalBrowser");
 }
 
@@ -551,7 +551,7 @@ function DesktopAppUpdateRow() {
 
     void confirmDialog({
       title: translateNow("ui.install.desktop.update.1jy18cy"),
-      message: translateNow("ui.this.updates.paseo.on.this.computer.1ywfp1k"),
+      message: translateNow("ui.this.updates.doya.on.this.computer.1ywfp1k"),
       confirmLabel: translateNow("ui.install.update.c1ztvy"),
       cancelLabel: translateNow("ui.cancel.x9d2fu"),
     })

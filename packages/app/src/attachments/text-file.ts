@@ -1,5 +1,5 @@
 import { Buffer } from "buffer";
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { AgentAttachment } from "@getdoya/protocol/messages";
 import type { AttachmentMetadata } from "@/attachments/types";
 
 interface EncodedAttachment {

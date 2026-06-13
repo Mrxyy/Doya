@@ -8,8 +8,8 @@ interface PptPreviewFrameProps {
 }
 
 interface PptPreviewMessage {
-  source: "paseo-ppt-preview";
-  type: "paseo:ppt-preview:apply-annotations";
+  source: "doya-ppt-preview";
+  type: "doya:ppt-preview:apply-annotations";
 }
 
 const IFRAME_STYLE = {
@@ -26,7 +26,7 @@ function isPptPreviewApplyMessage(value: unknown): value is PptPreviewMessage {
   }
   const message = value as Partial<PptPreviewMessage>;
   return (
-    message.source === "paseo-ppt-preview" && message.type === "paseo:ppt-preview:apply-annotations"
+    message.source === "doya-ppt-preview" && message.type === "doya:ppt-preview:apply-annotations"
   );
 }
 
@@ -59,14 +59,14 @@ export function PptPreviewFrame({
     }
     iframeRef.current?.contentWindow?.postMessage(
       {
-        source: "paseo",
-        type: "paseo:ppt-preview:apply-annotations-complete",
+        source: "doya",
+        type: "doya:ppt-preview:apply-annotations-complete",
       },
       "*",
     );
   }, [applyAnnotationsCompletionToken]);
 
-  // eslint-disable-next-line react/iframe-missing-sandbox -- The built-in PPT preview needs scripts plus same-origin API/file access from the Paseo daemon.
+  // eslint-disable-next-line react/iframe-missing-sandbox -- The built-in PPT preview needs scripts plus same-origin API/file access from the Doya daemon.
   return createElement("iframe", {
     ref: iframeRef,
     src: url,

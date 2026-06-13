@@ -3,35 +3,35 @@
 import assert from "node:assert";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { resolvePaseoHomePath, resolvePaseoWorktreesDir } from "../src/commands/worktree/ls.js";
+import { resolveDoyaHomePath, resolveDoyaWorktreesDir } from "../src/commands/worktree/ls.js";
 
 console.log("=== Worktree LS Path Helper Tests ===\n");
 
-const originalPaseoHome = process.env.PASEO_HOME;
+const originalDoyaHome = process.env.DOYA_HOME;
 
 try {
   {
-    console.log("Test 1: resolves explicit PASEO_HOME when set");
-    process.env.PASEO_HOME = "/tmp/paseo-explicit-home";
+    console.log("Test 1: resolves explicit DOYA_HOME when set");
+    process.env.DOYA_HOME = "/tmp/doya-explicit-home";
 
-    assert.strictEqual(resolvePaseoHomePath(), "/tmp/paseo-explicit-home");
-    assert.strictEqual(resolvePaseoWorktreesDir(), "/tmp/paseo-explicit-home/worktrees");
-    console.log("\u2713 explicit PASEO_HOME is respected\n");
+    assert.strictEqual(resolveDoyaHomePath(), "/tmp/doya-explicit-home");
+    assert.strictEqual(resolveDoyaWorktreesDir(), "/tmp/doya-explicit-home/worktrees");
+    console.log("\u2713 explicit DOYA_HOME is respected\n");
   }
 
   {
-    console.log("Test 2: falls back to homedir/.paseo when PASEO_HOME is unset");
-    delete process.env.PASEO_HOME;
+    console.log("Test 2: falls back to homedir/.doya when DOYA_HOME is unset");
+    delete process.env.DOYA_HOME;
 
-    assert.strictEqual(resolvePaseoHomePath(), join(homedir(), ".paseo"));
-    assert.strictEqual(resolvePaseoWorktreesDir(), join(homedir(), ".paseo", "worktrees"));
+    assert.strictEqual(resolveDoyaHomePath(), join(homedir(), ".doya"));
+    assert.strictEqual(resolveDoyaWorktreesDir(), join(homedir(), ".doya", "worktrees"));
     console.log("\u2713 fallback home path is derived from os.homedir()\n");
   }
 } finally {
-  if (originalPaseoHome === undefined) {
-    delete process.env.PASEO_HOME;
+  if (originalDoyaHome === undefined) {
+    delete process.env.DOYA_HOME;
   } else {
-    process.env.PASEO_HOME = originalPaseoHome;
+    process.env.DOYA_HOME = originalDoyaHome;
   }
 }
 

@@ -36,16 +36,13 @@ import {
   WorktreeSetupError,
 } from "../utils/worktree.js";
 import { toCheckoutError } from "./checkout-git-utils.js";
-import type {
-  CreatePaseoWorktreeInput,
-  CreatePaseoWorktreeResult,
-} from "./paseo-worktree-service.js";
-import type { ArchivePaseoWorktreeDependencies } from "./paseo-worktree-archive-service.js";
+import type { CreateDoyaWorktreeInput, CreateDoyaWorktreeResult } from "./doya-worktree-service.js";
+import type { ArchiveDoyaWorktreeDependencies } from "./doya-worktree-archive-service.js";
 import { toWorktreeWireError } from "./worktree-errors.js";
 import {
-  archivePaseoWorktreeCommand,
-  createPaseoWorktreeCommand,
-  listPaseoWorktreesCommand,
+  archiveDoyaWorktreeCommand,
+  createDoyaWorktreeCommand,
+  listDoyaWorktreesCommand,
 } from "./worktree/commands.js";
 
 const SAFE_GIT_REF_PATTERN = /^[A-Za-z0-9._/-]+$/;
@@ -74,17 +71,17 @@ type AgentWorktreeSetupTimelineWriter = (input: {
 }) => Promise<boolean>;
 
 interface BuildAgentSessionConfigDependencies {
-  paseoHome?: string;
+  doyaHome?: string;
   worktreesRoot?: string;
   sessionLogger: Logger;
   workspaceGitService?: WorkspaceGitService;
-  createPaseoWorktree: (
-    input: CreatePaseoWorktreeInput,
+  createDoyaWorktree: (
+    input: CreateDoyaWorktreeInput,
     options?: {
       resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
-      setupContinuation?: CreatePaseoWorktreeSetupContinuationInput;
+      setupContinuation?: CreateDoyaWorktreeSetupContinuationInput;
     },
-  ) => Promise<CreatePaseoWorktreeWorkflowResult>;
+  ) => Promise<CreateDoyaWorktreeWorkflowResult>;
   checkoutExistingBranch: (cwd: string, branch: string) => Promise<CheckoutExistingBranchResult>;
   createBranchFromBase: (params: {
     cwd: string;
@@ -94,8 +91,8 @@ interface BuildAgentSessionConfigDependencies {
   github?: Pick<GitHubService, "invalidate">;
 }
 
-interface CreatePaseoWorktreeInBackgroundDependencies {
-  paseoHome?: string;
+interface CreateDoyaWorktreeInBackgroundDependencies {
+  doyaHome?: string;
   worktreesRoot?: string;
   emitWorkspaceUpdateForCwd: (cwd: string, options?: { dedupeGitState?: boolean }) => Promise<void>;
   cacheWorkspaceSetupSnapshot: (workspaceId: string, snapshot: WorkspaceSetupSnapshot) => void;
@@ -110,13 +107,13 @@ interface CreatePaseoWorktreeInBackgroundDependencies {
   onScriptsChanged: ((workspaceId: string, workspaceDirectory: string) => void) | null;
 }
 
-interface CreatePaseoWorktreeWorkflowDependencies extends CreatePaseoWorktreeInBackgroundDependencies {
-  createPaseoWorktree: (
-    input: CreatePaseoWorktreeInput,
+interface CreateDoyaWorktreeWorkflowDependencies extends CreateDoyaWorktreeInBackgroundDependencies {
+  createDoyaWorktree: (
+    input: CreateDoyaWorktreeInput,
     options?: {
       resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
     },
-  ) => Promise<CreatePaseoWorktreeResult>;
+  ) => Promise<CreateDoyaWorktreeResult>;
   warmWorkspaceGitData: (workspace: PersistedWorkspaceRecord) => Promise<void>;
   autoNameWorkspaceBranchForFirstAgent?: (input: {
     workspace: PersistedWorkspaceRecord;
@@ -132,7 +129,7 @@ interface AgentWorktreeSetupContinuationInput {
   logger: Logger;
 }
 
-export type CreatePaseoWorktreeSetupContinuationInput =
+export type CreateDoyaWorktreeSetupContinuationInput =
   | { kind: "workspace" }
   | AgentWorktreeSetupContinuationInput;
 
@@ -141,38 +138,41 @@ export interface AgentWorktreeSetupContinuation {
   startAfterAgentCreate: (input: { agentId: string }) => void;
 }
 
-export type CreatePaseoWorktreeWorkflowResult = CreatePaseoWorktreeResult & {
+export type CreateDoyaWorktreeWorkflowResult = CreateDoyaWorktreeResult & {
   setupContinuation?: AgentWorktreeSetupContinuation;
 };
 
-export type CreatePaseoWorktreeWorkflowFn = (
-  input: CreatePaseoWorktreeInput,
+export type CreateDoyaWorktreeWorkflowFn = (
+  input: CreateDoyaWorktreeInput,
   options?: {
     resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
-    setupContinuation?: CreatePaseoWorktreeSetupContinuationInput;
+    setupContinuation?: CreateDoyaWorktreeSetupContinuationInput;
   },
-) => Promise<CreatePaseoWorktreeWorkflowResult>;
+) => Promise<CreateDoyaWorktreeWorkflowResult>;
 
 interface HandleWorkspaceSetupStatusRequestDependencies {
   emit: EmitSessionMessage;
   workspaceSetupSnapshots: ReadonlyMap<string, WorkspaceSetupSnapshot>;
 }
 
-interface HandleCreatePaseoWorktreeRequestDependencies {
-  paseoHome?: string;
+interface HandleCreateDoyaWorktreeRequestDependencies {
+  doyaHome?: string;
   worktreesRoot?: string;
   describeWorkspaceRecord: (
-    result: CreatePaseoWorktreeResult,
+    result: CreateDoyaWorktreeResult,
   ) => Promise<WorkspaceDescriptorPayload>;
   emit: EmitSessionMessage;
   sessionLogger: Logger;
-  createPaseoWorktreeWorkflow: (
-    input: CreatePaseoWorktreeInput,
-  ) => Promise<CreatePaseoWorktreeWorkflowResult>;
+  createDoyaWorktreeWorkflow: (
+    input: CreateDoyaWorktreeInput,
+  ) => Promise<CreateDoyaWorktreeWorkflowResult>;
 }
 
 function normalizeFirstAgentContext(
-  request: Extract<SessionInboundMessage, { type: "create_paseo_worktree_request" }>,
+  request: Extract<
+    SessionInboundMessage,
+    { type: "create_doya_worktree_request" }
+  >,
 ): FirstAgentContext | undefined {
   if (request.firstAgentContext) {
     return request.firstAgentContext;
@@ -217,7 +217,7 @@ export async function buildAgentSessionConfig(
       "Creating worktree through createWorktreeCore",
     );
 
-    const createdWorktree = await dependencies.createPaseoWorktree(
+    const createdWorktree = await dependencies.createDoyaWorktree(
       {
         cwd,
         worktreeSlug: normalized.worktreeSlug,
@@ -226,7 +226,7 @@ export async function buildAgentSessionConfig(
         githubPrNumber: normalized.githubPrNumber,
         firstAgentContext,
         runSetup: false,
-        paseoHome: dependencies.paseoHome,
+        doyaHome: dependencies.doyaHome,
         worktreesRoot: dependencies.worktreesRoot,
       },
       {
@@ -236,7 +236,7 @@ export async function buildAgentSessionConfig(
               resolveGitCreateBaseBranch(
                 repoRoot,
                 dependencies.workspaceGitService,
-                dependencies.paseoHome,
+                dependencies.doyaHome,
               ),
       },
     );
@@ -248,7 +248,7 @@ export async function buildAgentSessionConfig(
       (await resolveGitCreateBaseBranch(
         cwd,
         dependencies.workspaceGitService,
-        dependencies.paseoHome,
+        dependencies.doyaHome,
       ));
     await dependencies.createBranchFromBase({
       cwd,
@@ -368,7 +368,7 @@ export function assertSafeGitRef(ref: string, label: string): void {
 export async function resolveGitCreateBaseBranch(
   cwd: string,
   workspaceGitService?: WorkspaceGitService,
-  _paseoHome?: string,
+  _doyaHome?: string,
 ): Promise<string> {
   if (!workspaceGitService) {
     throw new Error("WorkspaceGitService is required to resolve the repository root");
@@ -377,19 +377,41 @@ export async function resolveGitCreateBaseBranch(
   return workspaceGitService.resolveDefaultBranch(cwd);
 }
 
-export async function handlePaseoWorktreeListRequest(
+function resolveDoyaWorktreeListResponseType(
+  _requestType: "doya_worktree_list_request",
+): "doya_worktree_list_response" {
+  return "doya_worktree_list_response";
+}
+
+function resolveDoyaWorktreeArchiveResponseType(
+  _requestType: "doya_worktree_archive_request",
+): "doya_worktree_archive_response" {
+  return "doya_worktree_archive_response";
+}
+
+function resolveCreateDoyaWorktreeResponseType(
+  _requestType: "create_doya_worktree_request",
+): "create_doya_worktree_response" {
+  return "create_doya_worktree_response";
+}
+
+export async function handleDoyaWorktreeListRequest(
   dependencies: {
     emit: EmitSessionMessage;
-    paseoHome?: string;
+    doyaHome?: string;
     workspaceGitService: WorkspaceGitService;
   },
-  msg: Extract<SessionInboundMessage, { type: "paseo_worktree_list_request" }>,
+  msg: Extract<
+    SessionInboundMessage,
+    { type: "doya_worktree_list_request" }
+  >,
 ): Promise<void> {
   const { requestId } = msg;
+  const responseType = resolveDoyaWorktreeListResponseType(msg.type);
   const cwd = msg.repoRoot ?? msg.cwd;
   if (!cwd) {
     dependencies.emit({
-      type: "paseo_worktree_list_response",
+      type: responseType,
       payload: {
         worktrees: [],
         error: { code: "UNKNOWN", message: "cwd or repoRoot is required" },
@@ -400,12 +422,12 @@ export async function handlePaseoWorktreeListRequest(
   }
 
   try {
-    const worktrees = await listPaseoWorktreesCommand(
+    const worktrees = await listDoyaWorktreesCommand(
       { workspaceGitService: dependencies.workspaceGitService },
       { cwd },
     );
     dependencies.emit({
-      type: "paseo_worktree_list_response",
+      type: responseType,
       payload: {
         worktrees: worktrees.map((entry) => ({
           worktreePath: entry.path,
@@ -419,7 +441,7 @@ export async function handlePaseoWorktreeListRequest(
     });
   } catch (error) {
     dependencies.emit({
-      type: "paseo_worktree_list_response",
+      type: responseType,
       payload: {
         worktrees: [],
         error: toCheckoutError(error),
@@ -429,21 +451,25 @@ export async function handlePaseoWorktreeListRequest(
   }
 }
 
-export async function handlePaseoWorktreeArchiveRequest(
+export async function handleDoyaWorktreeArchiveRequest(
   dependencies: Omit<
-    ArchivePaseoWorktreeDependencies,
+    ArchiveDoyaWorktreeDependencies,
     "emitWorkspaceUpdatesForWorkspaceIds" | "workspaceGitService"
   > & {
     emit: EmitSessionMessage;
     workspaceGitService: Pick<WorkspaceGitService, "getSnapshot" | "listWorktrees">;
     emitWorkspaceUpdatesForWorkspaceIds: (workspaceIds: Iterable<string>) => Promise<void>;
   },
-  msg: Extract<SessionInboundMessage, { type: "paseo_worktree_archive_request" }>,
+  msg: Extract<
+    SessionInboundMessage,
+    { type: "doya_worktree_archive_request" }
+  >,
 ): Promise<void> {
   const { requestId } = msg;
+  const responseType = resolveDoyaWorktreeArchiveResponseType(msg.type);
 
   try {
-    const result = await archivePaseoWorktreeCommand(dependencies, {
+    const result = await archiveDoyaWorktreeCommand(dependencies, {
       requestId,
       worktreePath: msg.worktreePath,
       repoRoot: msg.repoRoot,
@@ -451,7 +477,7 @@ export async function handlePaseoWorktreeArchiveRequest(
     });
     if (!result.ok) {
       dependencies.emit({
-        type: "paseo_worktree_archive_response",
+        type: responseType,
         payload: {
           success: false,
           removedAgents: result.removedAgents,
@@ -466,7 +492,7 @@ export async function handlePaseoWorktreeArchiveRequest(
     }
 
     dependencies.emit({
-      type: "paseo_worktree_archive_response",
+      type: responseType,
       payload: {
         success: true,
         removedAgents: result.removedAgents,
@@ -476,7 +502,7 @@ export async function handlePaseoWorktreeArchiveRequest(
     });
   } catch (error) {
     dependencies.emit({
-      type: "paseo_worktree_archive_response",
+      type: responseType,
       payload: {
         success: false,
         removedAgents: [],
@@ -487,16 +513,20 @@ export async function handlePaseoWorktreeArchiveRequest(
   }
 }
 
-export async function handleCreatePaseoWorktreeRequest(
-  dependencies: HandleCreatePaseoWorktreeRequestDependencies,
-  request: Extract<SessionInboundMessage, { type: "create_paseo_worktree_request" }>,
+export async function handleCreateDoyaWorktreeRequest(
+  dependencies: HandleCreateDoyaWorktreeRequestDependencies,
+  request: Extract<
+    SessionInboundMessage,
+    { type: "create_doya_worktree_request" }
+  >,
 ): Promise<void> {
+  const responseType = resolveCreateDoyaWorktreeResponseType(request.type);
   try {
-    const commandResult = await createPaseoWorktreeCommand(
+    const commandResult = await createDoyaWorktreeCommand(
       {
-        paseoHome: dependencies.paseoHome,
+        doyaHome: dependencies.doyaHome,
         worktreesRoot: dependencies.worktreesRoot,
-        createPaseoWorktreeWorkflow: dependencies.createPaseoWorktreeWorkflow,
+        createDoyaWorktreeWorkflow: dependencies.createDoyaWorktreeWorkflow,
       },
       {
         cwd: request.cwd,
@@ -515,7 +545,7 @@ export async function handleCreatePaseoWorktreeRequest(
         "Failed to create worktree",
       );
       dependencies.emit({
-        type: "create_paseo_worktree_response",
+        type: responseType,
         payload: {
           workspace: null,
           error: commandResult.error.message,
@@ -530,7 +560,7 @@ export async function handleCreatePaseoWorktreeRequest(
     const createdWorktree = commandResult.createdWorktree;
     const descriptor = await dependencies.describeWorkspaceRecord(createdWorktree);
     dependencies.emit({
-      type: "create_paseo_worktree_response",
+      type: responseType,
       payload: {
         workspace: descriptor,
         error: null,
@@ -552,7 +582,7 @@ export async function handleCreatePaseoWorktreeRequest(
       "Failed to create worktree",
     );
     dependencies.emit({
-      type: "create_paseo_worktree_response",
+      type: responseType,
       payload: {
         workspace: null,
         error: wireError.message,
@@ -564,19 +594,19 @@ export async function handleCreatePaseoWorktreeRequest(
   }
 }
 
-export async function createPaseoWorktreeWorkflow(
-  dependencies: CreatePaseoWorktreeWorkflowDependencies,
-  input: CreatePaseoWorktreeInput,
+export async function createDoyaWorktreeWorkflow(
+  dependencies: CreateDoyaWorktreeWorkflowDependencies,
+  input: CreateDoyaWorktreeInput,
   options?: {
     resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
-    setupContinuation?: CreatePaseoWorktreeSetupContinuationInput;
+    setupContinuation?: CreateDoyaWorktreeSetupContinuationInput;
   },
-): Promise<CreatePaseoWorktreeWorkflowResult> {
-  const createdWorktree = await dependencies.createPaseoWorktree(
+): Promise<CreateDoyaWorktreeWorkflowResult> {
+  const createdWorktree = await dependencies.createDoyaWorktree(
     {
       ...input,
       runSetup: false,
-      paseoHome: input.paseoHome ?? dependencies.paseoHome,
+      doyaHome: input.doyaHome ?? dependencies.doyaHome,
       worktreesRoot: input.worktreesRoot ?? dependencies.worktreesRoot,
     },
     options?.resolveDefaultBranch
@@ -655,7 +685,7 @@ export async function handleWorkspaceSetupStatusRequest(
 }
 
 export async function runWorktreeSetupInBackground(
-  dependencies: CreatePaseoWorktreeInBackgroundDependencies,
+  dependencies: CreateDoyaWorktreeInBackgroundDependencies,
   options: {
     requestCwd: string;
     repoRoot: string;

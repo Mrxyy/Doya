@@ -14,7 +14,7 @@ import type {
   AgentProvider,
 } from "./agent/agent-sdk-types.js";
 import { execCommand, platformShell } from "../utils/spawn.js";
-import { getUnattendedModeId } from "@getpaseo/protocol/provider-manifest";
+import { getUnattendedModeId } from "@getdoya/protocol/provider-manifest";
 
 const LOOP_ID_LENGTH = 8;
 const DEFAULT_LOOP_PROVIDER: AgentProvider = "claude";
@@ -301,12 +301,16 @@ export class LoopService {
 
   constructor(
     private readonly options: {
-      paseoHome: string;
+      doyaHome?: string;
       agentManager: AgentManager;
       logger: Logger;
     },
   ) {
-    this.storePath = path.join(options.paseoHome, "loops", "loops.json");
+    const doyaHome = options.doyaHome;
+    if (!doyaHome) {
+      throw new Error("LoopService requires doyaHome");
+    }
+    this.storePath = path.join(doyaHome, "loops", "loops.json");
     this.logger = options.logger.child({ module: "loop-service" });
   }
 

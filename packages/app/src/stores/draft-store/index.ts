@@ -48,6 +48,21 @@ type DraftStore = DraftStoreState & DraftStoreActions;
 
 const draftGenerations = new Map<string, number>();
 let gcScheduled = false;
+const DRAFT_STORE_NAME = "doya-drafts";
+const LEGACY_DRAFT_STORE_NAME = "doya-drafts";
+
+function createDraftStorage() {
+  return {
+    ...AsyncStorage,
+    async getItem(name: string): Promise<string | null> {
+      const value = await AsyncStorage.getItem(name);
+      if (value !== null || name !== DRAFT_STORE_NAME) {
+        return value;
+      }
+      return await AsyncStorage.getItem(LEGACY_DRAFT_STORE_NAME);
+    },
+  };
+}
 
 function createDraftRecord(input: {
   draft: DraftInput;
@@ -363,9 +378,9 @@ export const useDraftStore = create<DraftStore>()(
       },
     }),
     {
-      name: "paseo-drafts",
+      name: DRAFT_STORE_NAME,
       version: DRAFT_STORE_VERSION,
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(createDraftStorage),
       migrate: (persistedState) => {
         return migratePersistedState(persistedState, {
           migrateLegacyImages,

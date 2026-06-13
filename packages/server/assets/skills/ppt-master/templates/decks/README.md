@@ -32,14 +32,21 @@ primary_color: "#XXXXXX"
 
 # [Brand / Organization Name] - Design Specification
 
-## I. Template Overview          # Middle — Use cases / Design intent
-## II. Canvas Specification      # Structure
-## III. Color Scheme             # Identity — role / HEX / provenance / notes
-## IV. Typography                # Identity — role / family / weight
-## V. Logo                       # Identity — file / form / usage rules (if logo bundled)
-## VI. Page Structure            # Structure — layout grid / decorative DNA
-## VII. Page Types               # Structure — per-page roles
-## VIII. SVG Page Roster         # Structure — file list + per-file purpose
+## I. Template Overview # Middle — Use cases / Design intent
+
+## II. Canvas Specification # Structure
+
+## III. Color Scheme # Identity — role / HEX / provenance / notes
+
+## IV. Typography # Identity — role / family / weight
+
+## V. Logo # Identity — file / form / usage rules (if logo bundled)
+
+## VI. Page Structure # Structure — layout grid / decorative DNA
+
+## VII. Page Types # Structure — per-page roles
+
+## VIII. SVG Page Roster # Structure — file list + per-file purpose
 ```
 
 Decks may include additional supporting sections (Voice & Tone, Icon Style, Layout Modes, Spacing Specification, SVG Technical Constraints, Placeholder Specification, Asset Specification, Usage Notes). Use them when meaningful for the replica.

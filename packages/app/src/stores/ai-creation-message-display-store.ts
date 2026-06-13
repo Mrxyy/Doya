@@ -1,9 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { AgentAttachment } from "@getdoya/protocol/messages";
 import type { AttachmentMetadata } from "@/attachments/types";
 import type { UserMessageImageAttachment } from "@/types/stream";
 
-const STORAGE_KEY = "paseo:ai-creation-message-display:v1";
+const STORAGE_KEY = "doya:ai-creation-message-display:v1";
 
 export interface AiCreationMessageDisplayMetadata {
   images?: UserMessageImageAttachment[];

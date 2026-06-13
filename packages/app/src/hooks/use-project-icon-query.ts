@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
-import type { ProjectIcon } from "@getpaseo/protocol/messages";
+import type { ProjectIcon } from "@getdoya/protocol/messages";
 
 export function projectIconQueryKey(serverId: string, cwd: string) {
   return ["projectIcon", serverId, cwd] as const;

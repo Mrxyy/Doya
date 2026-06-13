@@ -39,7 +39,7 @@ describe("document annotation apply request", () => {
 
     expect(result.phase).toBe("waiting");
     expect(result.messageId).toBe("msg_test");
-    expect(result.prompt).toContain("<paseo-meta");
+    expect(result.prompt).toContain("<doya-meta");
     expect(result.prompt).toContain("output/budget.xlsx");
     expect(result.prompt).toContain('"formula": "=SUM(C4:C5)"');
     expect(result.prompt).toContain("把这个预算改为 20 万并保持公式联动");
@@ -87,5 +87,4 @@ describe("document annotation apply request", () => {
 
     expect(result.phase).toBe("running");
   });
-
 });

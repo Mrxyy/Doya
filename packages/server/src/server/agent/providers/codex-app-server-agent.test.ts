@@ -147,7 +147,7 @@ async function runCustomCodexProviderTurn(
     `
 const fs = require("node:fs");
 
-const capturePath = process.env.PASEO_FAKE_CODEX_CAPTURE;
+const capturePath = process.env.DOYA_FAKE_CODEX_CAPTURE;
 let buffer = "";
 
 fs.appendFileSync(capturePath, JSON.stringify({
@@ -197,7 +197,7 @@ process.stdin.on("data", (chunk) => {
         env: {
           OPENAI_API_KEY: "sk-custom",
           OPENAI_BASE_URL: baseUrl,
-          PASEO_FAKE_CODEX_CAPTURE: capturedRequestsPath,
+          DOYA_FAKE_CODEX_CAPTURE: capturedRequestsPath,
         },
       },
     },
@@ -890,9 +890,9 @@ describe("Codex app-server provider", () => {
               cwd: "/tmp/codex-question-test",
               skills: [
                 {
-                  name: "paseo-implement",
-                  description: "Execute an existing Paseo plan.",
-                  path: "/tmp/skills/paseo-implement/SKILL.md",
+                  name: "doya-implement",
+                  description: "Execute an existing Doya plan.",
+                  path: "/tmp/skills/doya-implement/SKILL.md",
                 },
               ],
               errors: [],
@@ -912,7 +912,7 @@ describe("Codex app-server provider", () => {
     session.activeForegroundTurnId = null;
     session.client = createStub<CodexClientLike>({ request });
 
-    await session.startTurn("/paseo-implement in a worktree, remember to use Claude for the UI");
+    await session.startTurn("/doya-implement in a worktree, remember to use Claude for the UI");
 
     const turnStartCall = request.mock.calls.find(([method]) => method === "turn/start");
     expect(turnStartCall?.[1]).toEqual(
@@ -920,12 +920,12 @@ describe("Codex app-server provider", () => {
         input: [
           {
             type: "skill",
-            name: "paseo-implement",
-            path: "/tmp/skills/paseo-implement/SKILL.md",
+            name: "doya-implement",
+            path: "/tmp/skills/doya-implement/SKILL.md",
           },
           {
             type: "text",
-            text: "$paseo-implement in a worktree, remember to use Claude for the UI",
+            text: "$doya-implement in a worktree, remember to use Claude for the UI",
             text_elements: [],
           },
         ],
@@ -936,20 +936,20 @@ describe("Codex app-server provider", () => {
   test("deduplicates Codex skill slash commands returned from multiple skill roots", async () => {
     const commands = await listCommandsFromFakeCodex([
       {
-        name: "paseo",
+        name: "doya",
         description: "Shared orchestration skill.",
-        path: "/Users/test/.agents/skills/paseo/SKILL.md",
+        path: "/Users/test/.agents/skills/doya/SKILL.md",
       },
       {
-        name: "paseo",
+        name: "doya",
         description: "Shared orchestration skill.",
-        path: "/Users/test/.codex/skills/paseo/SKILL.md",
+        path: "/Users/test/.codex/skills/doya/SKILL.md",
       },
     ]);
 
-    expect(commands.filter((command) => command.name === "paseo")).toEqual([
+    expect(commands.filter((command) => command.name === "doya")).toEqual([
       {
-        name: "paseo",
+        name: "doya",
         description: "Shared orchestration skill.",
         argumentHint: "",
       },
@@ -975,7 +975,7 @@ describe("Codex app-server provider", () => {
   });
 
   test("materializes file prompt attachments into the Codex workspace", async () => {
-    const cwd = await mkdtemp(path.join(tmpdir(), "paseo-codex-file-attachment-"));
+    const cwd = await mkdtemp(path.join(tmpdir(), "doya-codex-file-attachment-"));
     try {
       const input = await codexAppServerTurnInputFromPrompt(
         [
@@ -1004,8 +1004,8 @@ describe("Codex app-server provider", () => {
   });
 
   test("materializes source-path file prompt attachments into the Codex workspace", async () => {
-    const cwd = await mkdtemp(path.join(tmpdir(), "paseo-codex-file-source-"));
-    const sourceDir = await mkdtemp(path.join(tmpdir(), "paseo-codex-file-source-input-"));
+    const cwd = await mkdtemp(path.join(tmpdir(), "doya-codex-file-source-"));
+    const sourceDir = await mkdtemp(path.join(tmpdir(), "doya-codex-file-source-input-"));
     const sourcePath = path.join(sourceDir, "report.pdf");
     writeFileSync(sourcePath, "pdf bytes");
     try {
@@ -1043,7 +1043,7 @@ describe("Codex app-server provider", () => {
           mimeType: "application/github-pr",
           number: 123,
           title: "Fix race in worktree setup",
-          url: "https://github.com/getpaseo/paseo/pull/123",
+          url: "https://github.com/getdoya/doya/pull/123",
           body: "Review body",
           baseRefName: "main",
           headRefName: "fix/worktree-race",
@@ -1085,7 +1085,7 @@ describe("Codex app-server provider", () => {
           mimeType: "application/github-issue",
           number: 456,
           title: "Attachment spacing",
-          url: "https://github.com/getpaseo/paseo/issues/456",
+          url: "https://github.com/getdoya/doya/issues/456",
         },
       ],
       logger,
@@ -1109,7 +1109,7 @@ describe("Codex app-server provider", () => {
           mimeType: "application/github-issue",
           number: 456,
           title: "Attachment spacing",
-          url: "https://github.com/getpaseo/paseo/issues/456",
+          url: "https://github.com/getdoya/doya/issues/456",
         },
       ],
       logger,
@@ -1213,22 +1213,22 @@ describe("Codex app-server provider", () => {
   test("builds app-server env from launch-context env overrides", () => {
     const launchContext: AgentLaunchContext = {
       env: {
-        PASEO_AGENT_ID: "00000000-0000-4000-8000-000000000301",
-        PASEO_TEST_FLAG: "codex-launch-value",
+        DOYA_AGENT_ID: "00000000-0000-4000-8000-000000000301",
+        DOYA_TEST_FLAG: "codex-launch-value",
       },
     };
     const env = buildCodexAppServerEnv(
       {
         env: {
-          PASEO_AGENT_ID: "runtime-value",
-          PASEO_TEST_FLAG: "runtime-test-value",
+          DOYA_AGENT_ID: "runtime-value",
+          DOYA_TEST_FLAG: "runtime-test-value",
         },
       },
       launchContext.env,
     );
 
-    expect(env.PASEO_AGENT_ID).toBe(launchContext.env?.PASEO_AGENT_ID);
-    expect(env.PASEO_TEST_FLAG).toBe(launchContext.env?.PASEO_TEST_FLAG);
+    expect(env.DOYA_AGENT_ID).toBe(launchContext.env?.DOYA_AGENT_ID);
+    expect(env.DOYA_TEST_FLAG).toBe(launchContext.env?.DOYA_TEST_FLAG);
   });
 
   test("projects request_user_input into a question permission and running timeline tool call", () => {
@@ -2166,7 +2166,7 @@ describe("Codex app-server provider", () => {
       item: {
         id: "image-view-1",
         type: "imageView",
-        path: "/tmp/paseo image.png",
+        path: "/tmp/doya image.png",
       },
     });
 
@@ -2177,7 +2177,7 @@ describe("Codex app-server provider", () => {
         turnId: "test-turn",
         item: {
           type: "assistant_message",
-          text: "![Image](/tmp/paseo image.png)",
+          text: "![Image](/tmp/doya image.png)",
         },
       },
     ]);
@@ -2244,7 +2244,7 @@ describe("Codex app-server provider", () => {
     expect(event.item.text).not.toContain("data:image");
     expect(event.item.text).not.toContain(ONE_BY_ONE_PNG_BASE64);
     const source = markdownImageSource(event.item.text);
-    expect(source).toMatch(/paseo-attachments[\\/].+\.png$/);
+    expect(source).toMatch(/doya-attachments[\\/].+\.png$/);
     expect(existsSync(source)).toBe(true);
     rmSync(source, { force: true });
   });

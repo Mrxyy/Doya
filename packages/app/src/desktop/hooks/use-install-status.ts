@@ -52,7 +52,7 @@ export function useCliInstall(): DesktopInstallHookResult {
     onError: (error) => {
       reportError({
         error,
-        message: translateNow("ui.unable.to.install.the.paseo.cli.15da7v2"),
+        message: translateNow("ui.unable.to.install.the.doya.cli.15da7v2"),
         logLabel: "[Integrations] Failed to install CLI",
       });
     },

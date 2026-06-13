@@ -15,7 +15,7 @@ import {
 } from "./storage";
 import { createFakeDesktopBridge, createInMemoryKeyValueStorage } from "./fakes";
 
-const LEGACY_SETTINGS_KEY = "@paseo:settings";
+const LEGACY_SETTINGS_KEY = "@doya:settings";
 
 function makeDeps(
   overrides: {

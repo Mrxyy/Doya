@@ -66,22 +66,22 @@ packages/server/assets/skills/ppt-master/
 创建幻灯片会话时，daemon 在工作目录创建 system link：
 
 ```bash
-mkdir -p .paseo/skills
-ln -s <paseo_repo_or_installed_assets>/skills/ppt-master .paseo/skills/ppt-master
+mkdir -p .doya/skills
+ln -s <doya_repo_or_installed_assets>/skills/ppt-master .doya/skills/ppt-master
 ```
 
-如果目标平台不支持 symlink，则 fallback 为复制 skill 目录到 `.paseo/skills/ppt-master`。这个 fallback 只是文件分发策略，不改变 PPT Master 的执行架构。
+如果目标平台不支持 symlink，则 fallback 为复制 skill 目录到 `.doya/skills/ppt-master`。这个 fallback 只是文件分发策略，不改变 PPT Master 的执行架构。
 
-agent 的初始 prompt 要求它只读取 `.paseo/skills/ppt-master/SKILL.md`，并按该 skill 的完整串行流程生成 PPT。这个 link 是 Doya 创建 agent 前必须准备好的前置条件，agent 不允许去其他目录搜索 PPT Master，也不允许 web search、`git clone`、fetch 或下载 PPT Master。如果 `.paseo/skills/ppt-master/SKILL.md` 缺失，agent 必须立即终止并返回固定错误：
+agent 的初始 prompt 要求它只读取 `.doya/skills/ppt-master/SKILL.md`，并按该 skill 的完整串行流程生成 PPT。这个 link 是 Doya 创建 agent 前必须准备好的前置条件，agent 不允许去其他目录搜索 PPT Master，也不允许 web search、`git clone`、fetch 或下载 PPT Master。如果 `.doya/skills/ppt-master/SKILL.md` 缺失，agent 必须立即终止并返回固定错误：
 
 ```text
-PPT Master skill link missing: .paseo/skills/ppt-master/SKILL.md
+PPT Master skill link missing: .doya/skills/ppt-master/SKILL.md
 ```
 
 首次使用时由 agent 在确认 skill link 存在后，在会话工作目录或 skill 缓存目录安装 Python 依赖：
 
 ```bash
-pip install -r .paseo/skills/ppt-master/requirements.txt
+pip install -r .doya/skills/ppt-master/requirements.txt
 ```
 
 最终 `.pptx` 写到当前会话的 PPT Master project exports 目录。agent 最后一条消息只返回最终 `.pptx` 路径。
@@ -124,8 +124,8 @@ Do not run PPT Master's scripts/svg_editor/server.py.
 Do not start Flask or open localhost preview ports.
 Continue writing generated SVG pages into projects/<project>/svg_output/.
 Immediately after project initialization creates projects/<project>/svg_output/,
-send a <paseo-ui kind="ai_creation.slides.progress" render="status"> block with
-a localized title and a paseo-field named preview_path whose
+send a <doya-ui kind="ai_creation.slides.progress" render="status"> block with
+a localized title and a doya-field named preview_path whose
 value is projects/<project>/svg_output/.
 Then continue without waiting for the user.
 ```
@@ -154,7 +154,7 @@ packages/server
 agent 工作区
   user-request.md
   attachments/
-  .paseo/skills/ppt-master/    # symlink 到 Doya 分发的 skill
+  .doya/skills/ppt-master/    # symlink 到 Doya 分发的 skill
   projects/<slug>/
     sources/
     design_spec.md
@@ -170,7 +170,7 @@ agent 工作区
 App 侧 `slides` 模式提交后：
 
 1. 使用现有 `createAiCreationWorkspace()` 创建账号项目和工作区。
-2. daemon 为该工作区准备 `.paseo/skills/ppt-master` symlink。
+2. daemon 为该工作区准备 `.doya/skills/ppt-master` symlink。
 3. 将用户输入写成 `user-request.md`，附件保存到工作区 `attachments/`。
 4. 创建 agent，labels 使用：
 
@@ -181,7 +181,7 @@ App 侧 `slides` 模式提交后：
 }
 ```
 
-5. `initialPrompt` 明确要求 agent 使用 `.paseo/skills/ppt-master`，并严格执行它的 workflow。
+5. `initialPrompt` 明确要求 agent 使用 `.doya/skills/ppt-master`，并严格执行它的 workflow。
 
 建议 prompt 核心：
 
@@ -189,16 +189,16 @@ App 侧 `slides` 模式提交后：
 You are creating a PowerPoint deck for the AI Creation slides surface.
 
 Use the bundled PPT Master skill linked at:
-.paseo/skills/ppt-master
+.doya/skills/ppt-master
 
 Doya prepares this link before the agent starts.
 Do not search for PPT Master in other directories.
 Do not use web search for PPT Master.
 Do not git clone, fetch, or download PPT Master.
-If .paseo/skills/ppt-master/SKILL.md is missing, stop immediately and reply exactly:
-PPT Master skill link missing: .paseo/skills/ppt-master/SKILL.md
+If .doya/skills/ppt-master/SKILL.md is missing, stop immediately and reply exactly:
+PPT Master skill link missing: .doya/skills/ppt-master/SKILL.md
 
-Then read and follow .paseo/skills/ppt-master/SKILL.md exactly.
+Then read and follow .doya/skills/ppt-master/SKILL.md exactly.
 Use the user's request from ./user-request.md and all files under ./attachments/.
 
 Doya provides its own built-in slide preview service.
@@ -206,13 +206,13 @@ Do not run PPT Master's scripts/svg_editor/server.py.
 Do not start Flask or open localhost preview ports.
 Continue writing generated SVG pages into projects/<project>/svg_output/.
 Immediately after project initialization creates projects/<project>/svg_output/,
-send a <paseo-ui kind="ai_creation.slides.progress" render="status"> block with
-a localized title and a paseo-field named preview_path whose
+send a <doya-ui kind="ai_creation.slides.progress" render="status"> block with
+a localized title and a doya-field named preview_path whose
 value is projects/<project>/svg_output/.
 Then continue without waiting for the user.
 
 Only after the skill link exists, install its Python requirements if needed:
-pip install -r .paseo/skills/ppt-master/requirements.txt
+pip install -r .doya/skills/ppt-master/requirements.txt
 
 Run the PPT Master pipeline:
 source_to_md → project_manager init/import-sources → Strategist design_spec/spec_lock
@@ -233,7 +233,7 @@ Final reply: only provide the PPTX path and optional preview path.
 
 - `CreationMode = "image" | "slides"`
 - `slides` 创建 agent 时 `labels.intent = "ppt_creation"`
-- 创建 agent 前 server 为 workspace 准备 `.paseo/skills/ppt-master` link
+- 创建 agent 前 server 为 workspace 准备 `.doya/skills/ppt-master` link
 - agent stream 根据 intent 分派结果展示
 
 如果后续要让 app 判断 host 是否支持该入口，再添加：
@@ -303,7 +303,7 @@ ppt_creation        → normalizeAiCreationSlidesStream
 - 把 `AI 创作` 第二个 Tab 从 `编辑` 改成 `幻灯片`。
 - 新增 `CreationMode = "image" | "slides"`。
 - 将 `hugohe3/ppt-master` 的 `skills/ppt-master` 同步到 Doya 内置 skill assets。
-- 创建幻灯片会话时 symlink `.paseo/skills/ppt-master` 到工作目录。
+- 创建幻灯片会话时 symlink `.doya/skills/ppt-master` 到工作目录。
 - 新增 slides prompt builder。
 - 创建 agent 时打 `intent: "ppt_creation"`。
 - 附件保存为工作区文件，并在 prompt 中指向路径。

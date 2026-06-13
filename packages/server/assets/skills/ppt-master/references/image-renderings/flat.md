@@ -10,13 +10,13 @@ Modern flat design with bolder geometric blocks than `vector-illustration`. More
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
-| Line quality | Often no outlines; when used, thin uniform stroke as accent only |
-| Texture | None — flat color blocks |
-| Depth | Through layered overlap and color contrast, not shadow |
-| Material | Flat — color is brand identity, not material |
-| Mood | Designed, intentional, slightly more expressive than vector-illustration |
+| Aspect       | Treatment                                                                |
+| ------------ | ------------------------------------------------------------------------ |
+| Line quality | Often no outlines; when used, thin uniform stroke as accent only         |
+| Texture      | None — flat color blocks                                                 |
+| Depth        | Through layered overlap and color contrast, not shadow                   |
+| Material     | Flat — color is brand identity, not material                             |
+| Mood         | Designed, intentional, slightly more expressive than vector-illustration |
 
 ## 3. Using the deck's HEX values
 

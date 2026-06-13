@@ -14,48 +14,48 @@ The Doya CLI lets you manage agents from your terminal. It's the same interface 
 ## Quick reference
 
 ```bash
-paseo run "fix the tests"            # Start an agent
-paseo ls                             # List running agents
-paseo attach <id>                    # Stream agent output
-paseo send <id> "also fix linting"   # Send follow-up task
-paseo logs <id>                      # View agent timeline
-paseo stop <id>                      # Stop an agent
+doya run "fix the tests"            # Start an agent
+doya ls                             # List running agents
+doya attach <id>                    # Stream agent output
+doya send <id> "also fix linting"   # Send follow-up task
+doya logs <id>                      # View agent timeline
+doya stop <id>                      # Stop an agent
 ```
 
 ## Running agents
 
-Use `paseo run` to start a new agent with a task:
+Use `doya run` to start a new agent with a task:
 
 ```bash
-paseo run "implement user authentication"
-paseo run --provider codex "refactor the API layer"
-paseo run --detach "run the full test suite"  # background
-paseo run --worktree feature-x "implement feature X"
-paseo run --output-schema schema.json "extract release notes"
-paseo run --output-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' "summarize release notes"
+doya run "implement user authentication"
+doya run --provider codex "refactor the API layer"
+doya run --detach "run the full test suite"  # background
+doya run --worktree feature-x "implement feature X"
+doya run --output-schema schema.json "extract release notes"
+doya run --output-schema '{"type":"object","properties":{"summary":{"type":"string"}},"required":["summary"]}' "summarize release notes"
 ```
 
 The `--worktree` flag creates the agent in an isolated git worktree, useful for parallel feature development.
 
 Use `--output-schema` to return only matching JSON output. You can pass a schema file path or an inline JSON schema object. This mode cannot be used with `--detach`.
 
-By default, `paseo run` waits for completion. Use `--detach` to run in the background.
+By default, `doya run` waits for completion. Use `--detach` to run in the background.
 
 ## Listing agents
 
 ```bash
-paseo ls                    # Running agents in current directory
-paseo ls -a                 # Include completed/stopped agents
-paseo ls -g                 # All directories
-paseo ls -a -g --json       # Full list as JSON
+doya ls                    # Running agents in current directory
+doya ls -a                 # Include completed/stopped agents
+doya ls -g                 # All directories
+doya ls -a -g --json       # Full list as JSON
 ```
 
 ## Streaming output
 
-Use `paseo attach` to stream an agent's output in real-time:
+Use `doya attach` to stream an agent's output in real-time:
 
 ```bash
-paseo attach abc123   # Attach to agent (Ctrl+C to detach)
+doya attach abc123   # Attach to agent (Ctrl+C to detach)
 ```
 
 Agent IDs can be shortened, `abc` works if it's unambiguous.
@@ -65,18 +65,18 @@ Agent IDs can be shortened, `abc` works if it's unambiguous.
 Send follow-up tasks to a running or idle agent:
 
 ```bash
-paseo send <id> "now run the tests"
-paseo send <id> --image screenshot.png "what's wrong here?"
-paseo send <id> --no-wait "queue this task"
+doya send <id> "now run the tests"
+doya send <id> --image screenshot.png "what's wrong here?"
+doya send <id> --no-wait "queue this task"
 ```
 
 ## Viewing logs
 
 ```bash
-paseo logs <id>                  # Full timeline
-paseo logs <id> -f               # Follow (streaming)
-paseo logs <id> --tail 10        # Last 10 entries
-paseo logs <id> --filter tools   # Only tool calls
+doya logs <id>                  # Full timeline
+doya logs <id> -f               # Follow (streaming)
+doya logs <id> --tail 10        # Last 10 entries
+doya logs <id> --filter tools   # Only tool calls
 ```
 
 ## Waiting for agents
@@ -84,8 +84,8 @@ paseo logs <id> --filter tools   # Only tool calls
 Block until an agent finishes its current task:
 
 ```bash
-paseo wait <id>
-paseo wait <id> --timeout 60   # 60 second timeout
+doya wait <id>
+doya wait <id> --timeout 60   # 60 second timeout
 ```
 
 Useful in scripts or when one agent needs to wait for another.
@@ -95,9 +95,9 @@ Useful in scripts or when one agent needs to wait for another.
 Agents may request permission for certain actions. Manage these from the CLI:
 
 ```bash
-paseo permit ls                # List pending requests
-paseo permit allow <id>        # Allow all pending for agent
-paseo permit deny <id> --all   # Deny all pending
+doya permit ls                # List pending requests
+doya permit allow <id>        # Allow all pending for agent
+doya permit deny <id> --all   # Deny all pending
 ```
 
 ## Agent modes
@@ -105,39 +105,39 @@ paseo permit deny <id> --all   # Deny all pending
 Change an agent's operational mode (provider-specific):
 
 ```bash
-paseo agent mode <id> --list   # Show available modes
-paseo agent mode <id> bypass   # Set bypass mode
-paseo agent mode <id> plan     # Set plan mode
+doya agent mode <id> --list   # Show available modes
+doya agent mode <id> bypass   # Set bypass mode
+doya agent mode <id> plan     # Set plan mode
 ```
 
 ## Daemon management
 
 ```bash
-paseo daemon start             # Start the daemon
-paseo daemon status            # Check status
-paseo daemon stop              # Stop the daemon
+doya daemon start             # Start the daemon
+doya daemon status            # Check status
+doya daemon stop              # Stop the daemon
 ```
 
-Use `PASEO_HOME` to run multiple isolated daemon instances.
+Use `DOYA_HOME` to run multiple isolated daemon instances.
 
 ## Connecting to a remote daemon
 
-`--host` accepts either a local target (`host:port`, a unix socket, or a Windows pipe) or a pairing offer URL, the same `https://app.paseo.sh/#offer=...` link the mobile app uses for QR pairing. With an offer URL the CLI connects through the Doya relay with end-to-end encryption, so you can drive a daemon on another machine without exposing it to the network.
+`--host` accepts either a local target (`host:port`, a unix socket, or a Windows pipe) or a pairing offer URL, the same `https://app.doya.sh/#offer=...` link the mobile app uses for QR pairing. With an offer URL the CLI connects through the Doya relay with end-to-end encryption, so you can drive a daemon on another machine without exposing it to the network.
 
 Get an offer URL from the daemon you want to control:
 
 ```bash
-paseo daemon pair --json   # prints { url, qr, ... }
+doya daemon pair --json   # prints { url, qr, ... }
 ```
 
 Use it from anywhere:
 
 ```bash
-paseo ls --host 'https://app.paseo.sh/#offer=eyJ2IjoyLC...'
-paseo run --host "$OFFER_URL" "fix the failing tests"
+doya ls --host 'https://app.doya.sh/#offer=eyJ2IjoyLC...'
+doya run --host "$OFFER_URL" "fix the failing tests"
 ```
 
-You can also set it once via `PASEO_HOST` instead of passing `--host` on every command.
+You can also set it once via `DOYA_HOST` instead of passing `--host` on every command.
 
 ## Multi-agent workflows
 
@@ -145,9 +145,9 @@ The CLI is designed to be used by agents themselves. You can instruct an agent t
 
 ```bash
 # Agent A spawns Agent B and waits for it
-paseo run --detach "implement the API" --name api-agent
-paseo wait api-agent
-paseo logs api-agent --tail 5
+doya run --detach "implement the API" --name api-agent
+doya wait api-agent
+doya logs api-agent --tail 5
 ```
 
 Simple implement + verify loop:
@@ -155,9 +155,9 @@ Simple implement + verify loop:
 ```bash
 # Requires jq
 while true; do
-  paseo run --provider codex "make the tests pass" >/dev/null
+  doya run --provider codex "make the tests pass" >/dev/null
 
-  verdict=$(paseo run --provider claude --output-schema '{"type":"object","properties":{"criteria_met":{"type":"boolean"}},"required":["criteria_met"],"additionalProperties":false}' "ensure tests all pass")
+  verdict=$(doya run --provider claude --output-schema '{"type":"object","properties":{"criteria_met":{"type":"boolean"}},"required":["criteria_met"],"additionalProperties":false}' "ensure tests all pass")
   if echo "$verdict" | jq -e '.criteria_met == true' >/dev/null; then
     echo "criteria met"
     break
@@ -172,14 +172,14 @@ This pattern enables hierarchical task decomposition, a lead agent can break dow
 Most commands support multiple output formats for scripting:
 
 ```bash
-paseo ls --json                # JSON output
-paseo ls --format yaml         # YAML output
-paseo ls -q                    # IDs only (quiet)
+doya ls --json                # JSON output
+doya ls --format yaml         # YAML output
+doya ls -q                    # IDs only (quiet)
 ```
 
 ## Global options
 
-- `--host <target>`, connect to a different daemon (`host:port`, unix socket, or `https://app.paseo.sh/#offer=...` for relay). See [Connecting to a remote daemon](#connecting-to-a-remote-daemon).
+- `--host <target>`, connect to a different daemon (`host:port`, unix socket, or `https://app.doya.sh/#offer=...` for relay). See [Connecting to a remote daemon](#connecting-to-a-remote-daemon).
 - `--json`, JSON output
 - `-q, --quiet`, minimal output
 - `--no-color`, disable colors

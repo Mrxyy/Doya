@@ -1,11 +1,11 @@
 import type { StreamItem } from "@/types/stream";
 import {
-  parsePaseoExpectedTargets,
-  parsePaseoMessageCard,
-  parsePaseoTargets,
-  type PaseoExpectedTarget,
-  type PaseoTarget,
-} from "@/utils/paseo-message-markup";
+  parseDoyaExpectedTargets,
+  parseDoyaMessageCard,
+  parseDoyaTargets,
+  type DoyaExpectedTarget,
+  type DoyaTarget,
+} from "@/utils/doya-message-markup";
 
 export const AI_CREATION_PLACEHOLDER_ID = "ai-creation-placeholder";
 
@@ -151,7 +151,7 @@ function normalizeAiCreationPptPreviewPathToken(source: string): string | null {
 
 function extractAiCreationPptPreviewSources(text: string): string[] {
   const sources: string[] = [];
-  const cardPreviewPath = parsePaseoMessageCard(text)?.fields.find(
+  const cardPreviewPath = parseDoyaMessageCard(text)?.fields.find(
     (field) => field.name === "preview_path",
   )?.value;
   if (cardPreviewPath) {
@@ -213,7 +213,7 @@ export interface DocumentAnnotationResultDisplay {
 export function extractDocumentAnnotationResultDisplay(
   text: string,
 ): DocumentAnnotationResultDisplay | null {
-  const card = parsePaseoMessageCard(text);
+  const card = parseDoyaMessageCard(text);
   if (card?.kind !== "document.apply_annotations.result") {
     return null;
   }
@@ -273,7 +273,7 @@ function pushTaggedItem(
   target[tagged.source].push(tagged.item);
 }
 
-export function buildAiCreationPlaceholderItem(target?: PaseoTarget): StreamItem {
+export function buildAiCreationPlaceholderItem(target?: DoyaTarget): StreamItem {
   return {
     kind: "assistant_message",
     id: AI_CREATION_PLACEHOLDER_ID,
@@ -358,13 +358,13 @@ function normalizeHandshakeTurn(input: {
   return { items: normalized, changed: true };
 }
 
-function findAiCreationRequestTarget(items: TaggedStreamItem[]): PaseoTarget | null {
+function findAiCreationRequestTarget(items: TaggedStreamItem[]): DoyaTarget | null {
   for (const tagged of items) {
     const item = tagged.item;
     if (item.kind !== "user_message") {
       continue;
     }
-    const card = parsePaseoMessageCard(item.text);
+    const card = parseDoyaMessageCard(item.text);
     if (!card?.kind.startsWith("ai_creation.")) {
       continue;
     }
@@ -403,7 +403,7 @@ function getAiCreationGoalForKind(kind: string): string | null {
 
 function findPptProgressItems(
   items: TaggedStreamItem[],
-  expected: PaseoExpectedTarget,
+  expected: DoyaExpectedTarget,
 ): TaggedStreamItem[] {
   if (!PPT_RESULT_KINDS.has(expected.kind) && !PPT_RESULT_GOALS.has(expected.goal)) {
     return [];
@@ -418,10 +418,10 @@ function findPptProgressItems(
 }
 
 function isPptProgressMessage(text: string): boolean {
-  return parsePaseoMessageCard(text)?.kind === PPT_PROGRESS_KIND;
+  return parseDoyaMessageCard(text)?.kind === PPT_PROGRESS_KIND;
 }
 
-function findResponseStartTarget(items: TaggedStreamItem[]): PaseoTarget | null {
+function findResponseStartTarget(items: TaggedStreamItem[]): DoyaTarget | null {
   const firstAssistant = items
     .filter(
       (tagged) => tagged.item.kind === "assistant_message" && tagged.item.text.trim().length > 0,
@@ -430,23 +430,23 @@ function findResponseStartTarget(items: TaggedStreamItem[]): PaseoTarget | null 
   if (!firstAssistant || firstAssistant.item.kind !== "assistant_message") {
     return null;
   }
-  if (!firstAssistant.item.text.trimStart().startsWith("<paseo-target")) {
+  if (!/^<(?:doya|doya)-target\b/i.test(firstAssistant.item.text.trimStart())) {
     return null;
   }
   return (
-    parsePaseoTargets(firstAssistant.item.text)[0] ??
-    parsePartialPaseoTarget(firstAssistant.item.text) ??
+    parseDoyaTargets(firstAssistant.item.text)[0] ??
+    parsePartialDoyaTarget(firstAssistant.item.text) ??
     findExpectedTargetFallback(items)
   );
 }
 
-function findExpectedTargetFallback(items: TaggedStreamItem[]): PaseoTarget | null {
+function findExpectedTargetFallback(items: TaggedStreamItem[]): DoyaTarget | null {
   for (const tagged of items) {
     const item = tagged.item;
     if (item.kind !== "user_message") {
       continue;
     }
-    const expected = parsePaseoExpectedTargets(item.text)[0];
+    const expected = parseDoyaExpectedTargets(item.text)[0];
     if (expected) {
       return { kind: expected.kind, goal: expected.goal, id: expected.id, text: expected.text };
     }
@@ -454,35 +454,35 @@ function findExpectedTargetFallback(items: TaggedStreamItem[]): PaseoTarget | nu
   return null;
 }
 
-function parsePartialPaseoTarget(text: string): PaseoTarget | null {
+function parsePartialDoyaTarget(text: string): DoyaTarget | null {
   const trimmed = text.trimStart();
-  const openTagMatch = /^<paseo-target\b([^>]*)>/i.exec(trimmed);
+  const openTagMatch = /^<(?:doya|doya)-target\b([^>]*)>/i.exec(trimmed);
   if (!openTagMatch) {
     return null;
   }
   const attrs = openTagMatch[1] ?? "";
-  const kind = parsePartialPaseoAttribute(attrs, "kind");
-  const goal = parsePartialPaseoAttribute(attrs, "goal");
-  const id = parsePartialPaseoAttribute(attrs, "id");
+  const kind = parsePartialDoyaAttribute(attrs, "kind");
+  const goal = parsePartialDoyaAttribute(attrs, "goal");
+  const id = parsePartialDoyaAttribute(attrs, "id");
   if (!kind || !goal || !id) {
     return null;
   }
   const innerStart = openTagMatch[0].length;
   const remaining = trimmed.slice(innerStart);
-  const closingStart = remaining.search(/<\/paseo-target\s*>/i);
+  const closingStart = remaining.search(/<\/(?:doya|doya)-target\s*>/i);
   const rawText =
     closingStart >= 0 ? remaining.slice(0, closingStart) : remaining.replace(/<\/?$/u, "");
   const targetText =
-    decodePartialPaseoText(rawText.trim()) || parsePartialPaseoAttribute(attrs, "text") || "";
+    decodePartialDoyaText(rawText.trim()) || parsePartialDoyaAttribute(attrs, "text") || "";
   return { kind, goal, id, text: targetText };
 }
 
-function parsePartialPaseoAttribute(source: string, name: string): string | null {
+function parsePartialDoyaAttribute(source: string, name: string): string | null {
   const match = new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i").exec(source);
-  return match ? decodePartialPaseoText(match[2] ?? "") : null;
+  return match ? decodePartialDoyaText(match[2] ?? "") : null;
 }
 
-function decodePartialPaseoText(value: string): string {
+function decodePartialDoyaText(value: string): string {
   return value
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
@@ -493,7 +493,7 @@ function decodePartialPaseoText(value: string): string {
 
 function findLastHandshakeResultItem(
   items: TaggedStreamItem[],
-  expected: PaseoExpectedTarget,
+  expected: DoyaExpectedTarget,
 ): TaggedStreamItem | null {
   for (let index = items.length - 1; index >= 0; index -= 1) {
     const tagged = items[index];
@@ -505,7 +505,7 @@ function findLastHandshakeResultItem(
   return null;
 }
 
-function extractHandshakeFinalMarkdown(text: string, expected: PaseoExpectedTarget): string | null {
+function extractHandshakeFinalMarkdown(text: string, expected: DoyaExpectedTarget): string | null {
   const resultCardText = extractHandshakeResultCardText(text, expected);
   if (resultCardText) {
     return resultCardText;
@@ -522,11 +522,8 @@ function extractHandshakeFinalMarkdown(text: string, expected: PaseoExpectedTarg
   return null;
 }
 
-function extractHandshakeResultCardText(
-  text: string,
-  expected: PaseoExpectedTarget,
-): string | null {
-  const card = parsePaseoMessageCard(text);
+function extractHandshakeResultCardText(text: string, expected: DoyaExpectedTarget): string | null {
+  const card = parseDoyaMessageCard(text);
   if (!card) {
     return null;
   }

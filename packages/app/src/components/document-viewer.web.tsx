@@ -199,7 +199,7 @@ declare global {
 }
 
 const LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL = "http://localhost:8082";
-const LOCAL_ONLYOFFICE_FILE_PROXY_HOST = "paseo-onlyoffice-host-proxy";
+const LOCAL_ONLYOFFICE_FILE_PROXY_HOST = "doya-onlyoffice-host-proxy";
 const ONLYOFFICE_SELECTION_PLUGIN_GUID = "asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}";
 const ONLYOFFICE_SELECTION_PLUGIN_VERSION = "20260613-3";
 
@@ -510,7 +510,7 @@ function DocxDocumentViewer({
       try {
         const { renderAsync } = await import("docx-preview");
         await renderAsync(getArrayBuffer(bytes), renderHost, undefined, {
-          className: "paseo-docx",
+          className: "doya-docx",
           inWrapper: true,
           renderAltChunks: false,
           useBase64URL: true,
@@ -592,7 +592,7 @@ function updateDocxAnnotationHighlights(input: {
   pendingAnnotationTargets: DocumentAnnotationTarget[];
 }): void {
   input.root
-    .querySelectorAll<HTMLElement>("[data-paseo-docx-annotation-state]")
+    .querySelectorAll<HTMLElement>("[data-doya-docx-annotation-state]")
     .forEach(clearDocxAnnotationHighlight);
 
   for (const target of input.pendingAnnotationTargets) {
@@ -628,7 +628,7 @@ function findDocxAnnotationElement(
 }
 
 function applyDocxAnnotationHighlight(element: HTMLElement, state: "selected" | "pending"): void {
-  element.dataset.paseoDocxAnnotationState = state;
+  element.dataset.doyaDocxAnnotationState = state;
   element.style.borderRadius = "4px";
   if (state === "selected") {
     element.style.outline = "2px solid rgba(32, 116, 74, 0.72)";
@@ -641,7 +641,7 @@ function applyDocxAnnotationHighlight(element: HTMLElement, state: "selected" | 
 }
 
 function clearDocxAnnotationHighlight(element: HTMLElement): void {
-  delete element.dataset.paseoDocxAnnotationState;
+  delete element.dataset.doyaDocxAnnotationState;
   element.style.outline = "";
   element.style.outlineOffset = "";
   element.style.boxShadow = "";
@@ -739,11 +739,15 @@ function OnlyOfficeSpreadsheetDocumentViewer({
     [sourceUrl],
   );
   const pluginConfigUrl = useMemo(
-    () => (sourceUrl && documentKey ? toOnlyOfficeSelectionPluginConfigUrl(sourceUrl, documentKey) : null),
+    () =>
+      sourceUrl && documentKey
+        ? toOnlyOfficeSelectionPluginConfigUrl(sourceUrl, documentKey)
+        : null,
     [documentKey, sourceUrl],
   );
   const selectionCaptureUrl = useMemo(
-    () => (sourceUrl && documentKey ? toOnlyOfficeSelectionCaptureUrl(sourceUrl, documentKey) : null),
+    () =>
+      sourceUrl && documentKey ? toOnlyOfficeSelectionCaptureUrl(sourceUrl, documentKey) : null,
     [documentKey, sourceUrl],
   );
 
@@ -904,9 +908,7 @@ function OnlyOfficeSelectionAnnotationBar({
           ? translateNow("document.annotation.xlsx.selection.reading")
           : translateNow("document.annotation.xlsx.selection.readButton")}
       </button>
-      <span style={webStyles.onlyOfficeSelectionHint}>
-        {getOnlyOfficeSelectionHint(state)}
-      </span>
+      <span style={webStyles.onlyOfficeSelectionHint}>{getOnlyOfficeSelectionHint(state)}</span>
     </div>
   );
 }
@@ -1042,9 +1044,7 @@ function readActiveOnlyOfficeSpreadsheetSelection(): unknown {
     const selection = sheet?.GetSelection?.();
     const sheetName = readValue(() => sheet?.GetName?.()) ?? "Sheet1";
     const address =
-      readValue(() =>
-        selection?.GetAddress?.(false, false, "xlA1", false),
-      ) ??
+      readValue(() => selection?.GetAddress?.(false, false, "xlA1", false)) ??
       readValue(() => selection?.GetAddress?.()) ??
       "";
     return JSON.stringify({
@@ -1117,10 +1117,10 @@ function loadOnlyOfficeApiScript(): Promise<void> {
   }
   const scriptUrl = `${LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL}/web-apps/apps/api/documents/api.js`;
   const existing = document.querySelector<HTMLScriptElement>(
-    `script[data-paseo-onlyoffice-api="${scriptUrl}"]`,
+    `script[data-doya-onlyoffice-api="${scriptUrl}"]`,
   );
   if (existing) {
-    if (existing.dataset.paseoOnlyofficeLoaded === "true") {
+    if (existing.dataset.doyaOnlyofficeLoaded === "true") {
       return Promise.resolve();
     }
     return new Promise((resolve, reject) => {
@@ -1133,12 +1133,12 @@ function loadOnlyOfficeApiScript(): Promise<void> {
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.async = true;
-    script.dataset.paseoOnlyofficeApi = scriptUrl;
+    script.dataset.doyaOnlyofficeApi = scriptUrl;
     script.src = scriptUrl;
     script.addEventListener(
       "load",
       () => {
-        script.dataset.paseoOnlyofficeLoaded = "true";
+        script.dataset.doyaOnlyofficeLoaded = "true";
         resolve();
       },
       { once: true },
@@ -1151,7 +1151,7 @@ function loadOnlyOfficeApiScript(): Promise<void> {
 }
 
 function createOnlyOfficeDocumentKey(input: { bytes: Uint8Array; sourceUrl: string }): string {
-  return `paseo-${hashString(input.sourceUrl)}-${hashBytes(input.bytes)}`.slice(0, 64);
+  return `doya-${hashString(input.sourceUrl)}-${hashBytes(input.bytes)}`.slice(0, 64);
 }
 
 function hashBytes(bytes: Uint8Array): string {
@@ -1195,7 +1195,7 @@ function toOnlyOfficeCallbackUrl(sourceUrl: string): string {
 
 function toOnlyOfficeSelectionPluginConfigUrl(sourceUrl: string, documentKey: string): string {
   const url = new URL(sourceUrl);
-  const pluginUrl = new URL("/api/onlyoffice/paseo-selection-plugin/config.json", url.origin);
+  const pluginUrl = new URL("/api/onlyoffice/doya-selection-plugin/config.json", url.origin);
   pluginUrl.searchParams.set("document_key", documentKey);
   pluginUrl.searchParams.set("v", ONLYOFFICE_SELECTION_PLUGIN_VERSION);
   const accessToken = url.searchParams.get("access_token");
@@ -1790,7 +1790,7 @@ const webStyles = {
     height: "100%",
     minHeight: 0,
     overflow: "hidden",
-    background: "var(--paseo-surface1, #f4f4f5)",
+    background: "var(--doya-surface1, #f4f4f5)",
   },
   docxHost: {
     width: "100%",
@@ -1824,7 +1824,7 @@ const webStyles = {
     width: "100%",
     height: "100%",
     minHeight: 0,
-    background: "var(--paseo-surface0, #fff)",
+    background: "var(--doya-surface0, #fff)",
   },
   xlsxSpreadsheetHost: {
     width: "100%",
@@ -1836,7 +1836,7 @@ const webStyles = {
     width: "100%",
     height: "100%",
     minHeight: 0,
-    background: "var(--paseo-surface0, #fff)",
+    background: "var(--doya-surface0, #fff)",
   },
   onlyOfficeHost: {
     width: "100%",
@@ -1883,7 +1883,7 @@ const webStyles = {
     minHeight: 0,
     display: "flex",
     flexDirection: "column",
-    background: "var(--paseo-surface0, #fff)",
+    background: "var(--doya-surface0, #fff)",
   },
   sheetTabs: {
     display: "flex",

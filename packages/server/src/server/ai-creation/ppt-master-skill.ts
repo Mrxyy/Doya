@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AgentAttachment } from "../messages.js";
 
-const PASEO_SKILLS_DIR = ".paseo/skills";
+const DOYA_SKILLS_DIR = ".doya/skills";
 const PPT_MASTER_SKILL_NAME = "ppt-master";
 const PPT_CREATION_ATTACHMENTS_DIR = "attachments";
 
@@ -25,7 +25,7 @@ export async function preparePptCreationWorkspace(input: {
 
 async function preparePptMasterSkillLink(cwd: string): Promise<void> {
   const skillSource = resolveBundledPptMasterSkillPath();
-  const skillsDir = path.join(cwd, PASEO_SKILLS_DIR);
+  const skillsDir = path.join(cwd, DOYA_SKILLS_DIR);
   const linkPath = path.join(skillsDir, PPT_MASTER_SKILL_NAME);
 
   await mkdir(skillsDir, { recursive: true });
@@ -52,7 +52,7 @@ async function materializePptCreationFileAttachments(input: {
   let fileIndex = 0;
 
   for (const attachment of input.attachments ?? []) {
-    if (attachment.type !== "file") {
+    if (attachment.type !== "file" || typeof attachment.data !== "string") {
       passthrough.push(attachment);
       continue;
     }

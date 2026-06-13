@@ -10,13 +10,13 @@ Bold silkscreen poster art — flat color blocks, halftone textures, limited col
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
-| Line quality | Stencil-cut edges, slight roughness; no outlines on solid color blocks |
-| Texture | Halftone dot patterns in transition zones; paper grain at 15% across canvas |
-| Depth | Flat with figure-ground inversion — negative space tells secondary story |
-| Material | Silkscreen + paper |
-| Mood | Vintage poster, cinematic, editorial-bold |
+| Aspect       | Treatment                                                                   |
+| ------------ | --------------------------------------------------------------------------- |
+| Line quality | Stencil-cut edges, slight roughness; no outlines on solid color blocks      |
+| Texture      | Halftone dot patterns in transition zones; paper grain at 15% across canvas |
+| Depth        | Flat with figure-ground inversion — negative space tells secondary story    |
+| Material     | Silkscreen + paper                                                          |
+| Mood         | Vintage poster, cinematic, editorial-bold                                   |
 
 ## 3. Using the deck's HEX values
 

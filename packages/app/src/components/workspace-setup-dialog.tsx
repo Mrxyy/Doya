@@ -20,7 +20,7 @@ import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit
 import type {
   CreateAgentRequestOptions,
   DaemonClient,
-} from "@getpaseo/client/internal/daemon-client";
+} from "@getdoya/client/internal/daemon-client";
 import { projectIconPlaceholderLabelFromDisplayName } from "@/utils/project-display-name";
 import { requireWorkspaceExecutionAuthority } from "@/utils/workspace-execution";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
@@ -95,7 +95,7 @@ async function callWorkspaceCreation({
   input: { cwd: string };
 }) {
   if (creationMethod === "create_worktree") {
-    return connectedClient.createPaseoWorktree({
+    return connectedClient.createDoyaWorktree({
       cwd: input.cwd,
       worktreeSlug: createNameId(),
     });

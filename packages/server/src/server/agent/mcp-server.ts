@@ -31,14 +31,14 @@ import { ensureAgentLoaded } from "./agent-loading.js";
 import { isStoredAgentProviderAvailable } from "../persistence-hooks.js";
 import {
   killTerminalsUnderPath,
-  type ArchivePaseoWorktreeDependencies,
-} from "../paseo-worktree-archive-service.js";
+  type ArchiveDoyaWorktreeDependencies,
+} from "../doya-worktree-archive-service.js";
 import { WaitForAgentTracker } from "./wait-for-agent-tracker.js";
 import { createAgentCommand } from "./create-agent/create.js";
 import type { VoiceCallerContext, VoiceSpeakHandler } from "../voice-types.js";
 import { expandUserPath, isSameOrDescendantPath, resolvePathFromBase } from "../path-utils.js";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
-import type { CreatePaseoWorktreeWorkflowFn } from "../worktree-session.js";
+import type { CreateDoyaWorktreeWorkflowFn } from "../worktree-session.js";
 import type { ScheduleService } from "../schedule/service.js";
 import {
   ScheduleRunSchema,
@@ -46,7 +46,7 @@ import {
   StoredScheduleSchema,
   type ScheduleCadence,
   type UpdateScheduleInput,
-} from "@getpaseo/protocol/schedule/types";
+} from "@getdoya/protocol/schedule/types";
 import { resolveSnapshotCwd, type ProviderSnapshotManager } from "./provider-snapshot-manager.js";
 import {
   AgentModelSchema,
@@ -74,11 +74,11 @@ import type { GitHubService } from "../../services/github-service.js";
 import type { WorkspaceGitService } from "../workspace-git-service.js";
 import { WorktreeRequestError } from "../worktree-errors.js";
 import {
-  archivePaseoWorktreeCommand,
-  type ArchivePaseoWorktreeCommandDependencies,
-  createPaseoWorktreeCommand,
-  type CreatePaseoWorktreeCommandInput,
-  listPaseoWorktreesCommand,
+  archiveDoyaWorktreeCommand,
+  type ArchiveDoyaWorktreeCommandDependencies,
+  createDoyaWorktreeCommand,
+  type CreateDoyaWorktreeCommandInput,
+  listDoyaWorktreesCommand,
 } from "../worktree/commands.js";
 
 export interface AgentMcpServerOptions {
@@ -93,12 +93,12 @@ export interface AgentMcpServerOptions {
     WorkspaceGitService,
     "getSnapshot" | "listWorktrees" | "resolveRepoRoot"
   >;
-  archiveWorkspaceRecord?: ArchivePaseoWorktreeDependencies["archiveWorkspaceRecord"];
-  emitWorkspaceUpdatesForWorkspaceIds?: ArchivePaseoWorktreeDependencies["emitWorkspaceUpdatesForWorkspaceIds"];
-  markWorkspaceArchiving?: ArchivePaseoWorktreeDependencies["markWorkspaceArchiving"];
-  clearWorkspaceArchiving?: ArchivePaseoWorktreeDependencies["clearWorkspaceArchiving"];
-  createPaseoWorktree?: CreatePaseoWorktreeWorkflowFn;
-  paseoHome?: string;
+  archiveWorkspaceRecord?: ArchiveDoyaWorktreeDependencies["archiveWorkspaceRecord"];
+  emitWorkspaceUpdatesForWorkspaceIds?: ArchiveDoyaWorktreeDependencies["emitWorkspaceUpdatesForWorkspaceIds"];
+  markWorkspaceArchiving?: ArchiveDoyaWorktreeDependencies["markWorkspaceArchiving"];
+  clearWorkspaceArchiving?: ArchiveDoyaWorktreeDependencies["clearWorkspaceArchiving"];
+  createDoyaWorktree?: CreateDoyaWorktreeWorkflowFn;
+  doyaHome?: string;
   worktreesRoot?: string;
   /**
    * ID of the agent that is connecting to this MCP server.
@@ -918,12 +918,12 @@ export async function createAgentMcpServer(options: AgentMcpServerOptions): Prom
           agentManager,
           agentStorage,
           logger: childLogger,
-          paseoHome: options.paseoHome,
+          doyaHome: options.doyaHome,
           worktreesRoot: options.worktreesRoot,
           workspaceGitService: options.workspaceGitService,
           terminalManager,
           providerSnapshotManager,
-          createPaseoWorktree: options.createPaseoWorktree,
+          createDoyaWorktree: options.createDoyaWorktree,
         },
         {
           kind: "mcp",
@@ -2077,7 +2077,7 @@ export async function createAgentMcpServer(options: AgentMcpServerOptions): Prom
     "list_worktrees",
     {
       title: "List worktrees",
-      description: "List Paseo-managed git worktrees for a repository.",
+      description: "List Doya-managed git worktrees for a repository.",
       inputSchema: {
         cwd: z
           .string()
@@ -2093,7 +2093,7 @@ export async function createAgentMcpServer(options: AgentMcpServerOptions): Prom
       if (!options.workspaceGitService) {
         throw new Error("WorkspaceGitService is required to list worktrees");
       }
-      const worktrees = await listPaseoWorktreesCommand(
+      const worktrees = await listDoyaWorktreesCommand(
         { workspaceGitService: options.workspaceGitService },
         {
           cwd: resolvedCwd,
@@ -2113,7 +2113,7 @@ export async function createAgentMcpServer(options: AgentMcpServerOptions): Prom
     {
       title: "Create worktree",
       description:
-        "Create a Paseo-managed git worktree. Branch off a new branch, check out an existing branch, or check out a GitHub PR.",
+        "Create a Doya-managed git worktree. Branch off a new branch, check out an existing branch, or check out a GitHub PR.",
       inputSchema: {
         cwd: z.string().optional().describe("Repository directory. Defaults to the agent's cwd."),
         target: z
@@ -2151,11 +2151,11 @@ export async function createAgentMcpServer(options: AgentMcpServerOptions): Prom
     },
     async ({ cwd, target }) => {
       const repoRoot = resolveScopedCwd(cwd, { required: true });
-      const commandResult = await createPaseoWorktreeCommand(
+      const commandResult = await createDoyaWorktreeCommand(
         {
-          paseoHome: options.paseoHome,
+          doyaHome: options.doyaHome,
           worktreesRoot: options.worktreesRoot,
-          createPaseoWorktreeWorkflow: options.createPaseoWorktree,
+          createDoyaWorktreeWorkflow: options.createDoyaWorktree,
         },
         createMcpWorktreeCommandInput(repoRoot, target),
       );
@@ -2182,7 +2182,7 @@ export async function createAgentMcpServer(options: AgentMcpServerOptions): Prom
     "archive_worktree",
     {
       title: "Archive worktree",
-      description: "Delete a Paseo-managed git worktree.",
+      description: "Delete a Doya-managed git worktree.",
       inputSchema: {
         cwd: z
           .string()
@@ -2205,7 +2205,7 @@ export async function createAgentMcpServer(options: AgentMcpServerOptions): Prom
       }
       const repoRoot = await options.workspaceGitService.resolveRepoRoot(resolvedCwd);
 
-      const result = await archivePaseoWorktreeCommand(
+      const result = await archiveDoyaWorktreeCommand(
         archiveWorktreeDependencies(options, {
           agentManager,
           agentStorage,
@@ -2396,7 +2396,7 @@ interface ArchiveWorktreeCommandContext {
 function archiveWorktreeDependencies(
   options: AgentMcpServerOptions,
   context: ArchiveWorktreeCommandContext,
-): ArchivePaseoWorktreeCommandDependencies {
+): ArchiveDoyaWorktreeCommandDependencies {
   if (!options.github) {
     throw new Error("GitHub service is required to archive worktrees");
   }
@@ -2416,7 +2416,7 @@ function archiveWorktreeDependencies(
     throw new Error("Workspace archiving clearer is required to archive worktrees");
   }
   return {
-    paseoHome: options.paseoHome,
+    doyaHome: options.doyaHome,
     worktreesRoot: options.worktreesRoot,
     github: options.github,
     workspaceGitService: options.workspaceGitService,
@@ -2444,7 +2444,7 @@ function archiveWorktreeDependencies(
 function createMcpWorktreeCommandInput(
   repoRoot: string,
   target: McpCreateWorktreeTarget,
-): CreatePaseoWorktreeCommandInput {
+): CreateDoyaWorktreeCommandInput {
   const base = { cwd: repoRoot } as const;
   switch (target.mode) {
     case "branch-off":

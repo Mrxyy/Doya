@@ -13,25 +13,23 @@ describe("resolveNewAgentWorkingDir", () => {
   });
 
   it("falls back to repo root when checkout metadata is unavailable", () => {
-    expect(resolveNewAgentWorkingDir("/repo/.paseo/worktrees/feature", null)).toBe("/repo");
+    expect(resolveNewAgentWorkingDir("/repo/.doya/worktrees/feature", null)).toBe("/repo");
   });
 
-  it("supports windows-style paseo worktree paths without checkout metadata", () => {
-    expect(resolveNewAgentWorkingDir("C:\\Users\\me\\repo\\.paseo\\worktrees\\feature", null)).toBe(
+  it("supports windows-style Doya worktree paths without checkout metadata", () => {
+    expect(resolveNewAgentWorkingDir("C:\\Users\\me\\repo\\.doya\\worktrees\\feature", null)).toBe(
       "C:\\Users\\me\\repo",
     );
   });
 
-  it("returns the main repo root for paseo-owned worktrees", () => {
+  it("returns the main repo root for doya-owned worktrees", () => {
     const checkout = {
-      isPaseoOwnedWorktree: true,
-      worktreeRoot: "/repo/.paseo/worktrees/feature",
+      isDoyaOwnedWorktree: true,
+      worktreeRoot: "/repo/.doya/worktrees/feature",
       mainRepoRoot: "/repo/main",
     } as unknown as CheckoutStatusPayload;
 
-    expect(resolveNewAgentWorkingDir("/repo/.paseo/worktrees/feature", checkout)).toBe(
-      "/repo/main",
-    );
+    expect(resolveNewAgentWorkingDir("/repo/.doya/worktrees/feature", checkout)).toBe("/repo/main");
   });
 });
 

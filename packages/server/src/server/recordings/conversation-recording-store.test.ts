@@ -7,7 +7,7 @@ import { ConversationRecordingStore } from "./conversation-recording-store.js";
 let rootDir: string;
 
 beforeEach(async () => {
-  rootDir = await mkdtemp(join(tmpdir(), "paseo-recordings-"));
+  rootDir = await mkdtemp(join(tmpdir(), "doya-recordings-"));
 });
 
 afterEach(async () => {

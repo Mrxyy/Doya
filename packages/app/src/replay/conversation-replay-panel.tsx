@@ -2,7 +2,7 @@ import type {
   ConversationRecording,
   ConversationRecordingEdits,
   ConversationRecordingSummary,
-} from "@getpaseo/protocol/messages";
+} from "@getdoya/protocol/messages";
 import {
   Check,
   Clapperboard,

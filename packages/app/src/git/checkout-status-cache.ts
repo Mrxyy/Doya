@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import type { CheckoutStatusResponse, CheckoutStatusUpdate } from "@getpaseo/protocol/messages";
+import type { CheckoutStatusResponse, CheckoutStatusUpdate } from "@getdoya/protocol/messages";
 import { checkoutStatusQueryKey } from "@/git/query-keys";
 
 export type CheckoutStatusPayload = CheckoutStatusResponse["payload"];

@@ -17,8 +17,7 @@ function isApplyAnnotationsMessage(data: string): boolean {
       type?: string;
     };
     return (
-      message.source === "paseo-ppt-preview" &&
-      message.type === "paseo:ppt-preview:apply-annotations"
+      message.source === "doya-ppt-preview" && message.type === "doya:ppt-preview:apply-annotations"
     );
   } catch {
     return false;
@@ -29,8 +28,8 @@ function buildApplyAnnotationsCompleteScript(): string {
   return `
 window.dispatchEvent(new MessageEvent("message", {
   data: {
-    source: "paseo",
-    type: "paseo:ppt-preview:apply-annotations-complete"
+    source: "doya",
+    type: "doya:ppt-preview:apply-annotations-complete"
   }
 }));
 true;

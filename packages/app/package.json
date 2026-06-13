@@ -1,5 +1,5 @@
 {
-  "name": "@getpaseo/app",
+  "name": "@getdoya/app",
   "version": "0.1.88",
   "private": true,
   "main": "index.ts",
@@ -27,7 +27,7 @@
     "build": "npm run build:web",
     "build:web": "npm --prefix ../.. run build:app-deps && expo export --platform web",
     "profile:workspace-tabs": "node ./scripts/profile-workspace-tabs.mjs",
-    "deploy:web": "npm run build:web && wrangler pages deploy dist --project-name paseo-app --branch main",
+    "deploy:web": "npm run build:web && wrangler pages deploy dist --project-name doya-app --branch main",
     "build:terminal-webview": "node ./scripts/build-terminal-webview-html.mjs"
   },
   "dependencies": {
@@ -37,10 +37,10 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@embedpdf/react-pdf-viewer": "^2.14.4",
     "@floating-ui/react-native": "^0.10.7",
-    "@getpaseo/client": "*",
-    "@getpaseo/expo-two-way-audio": "*",
-    "@getpaseo/highlight": "*",
-    "@getpaseo/protocol": "*",
+    "@getdoya/client": "*",
+    "@getdoya/expo-two-way-audio": "*",
+    "@getdoya/highlight": "*",
+    "@getdoya/protocol": "*",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@gorhom/portal": "^1.0.14",
     "@react-native-async-storage/async-storage": "2.2.0",

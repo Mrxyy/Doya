@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
-import type { WorkspaceDescriptorPayload } from "@getpaseo/protocol/messages";
+import type { WorkspaceDescriptorPayload } from "@getdoya/protocol/messages";
 import {
   normalizeWorkspaceDescriptor,
   useSessionStore,

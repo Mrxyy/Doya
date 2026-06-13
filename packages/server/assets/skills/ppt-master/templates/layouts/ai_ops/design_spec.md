@@ -17,27 +17,27 @@ page_types: [cover, toc, chapter, content, ending, reference_style]
 
 ## I. Template Overview
 
-| Property           | Description                                                                    |
-| ------------------ | ------------------------------------------------------------------------------ |
-| **Template Name**  | ai_ops (Enterprise Digital Intelligence)                                       |
-| **Use Cases**      | Telecom AI operations architecture, IT system overviews, digital transformation proposals, smart infrastructure reports |
-| **Design Tone**    | Information-dense, structured, modular zoning, telecom/enterprise style        |
-| **Theme Mode**     | Light theme (white background + red-blue dual-color accents + warm gray panels) |
-| **Info Density**   | High density — a single page can accommodate 6-10 information modules, matching telecom reporting conventions |
+| Property          | Description                                                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Template Name** | ai_ops (Enterprise Digital Intelligence)                                                                                |
+| **Use Cases**     | Telecom AI operations architecture, IT system overviews, digital transformation proposals, smart infrastructure reports |
+| **Design Tone**   | Information-dense, structured, modular zoning, telecom/enterprise style                                                 |
+| **Theme Mode**    | Light theme (white background + red-blue dual-color accents + warm gray panels)                                         |
+| **Info Density**  | High density — a single page can accommodate 6-10 information modules, matching telecom reporting conventions           |
 
 ---
 
 ## II. Canvas Specification
 
-| Property           | Value                            |
-| ------------------ | -------------------------------- |
-| **Format**         | Standard 16:9                    |
-| **Dimensions**     | 1280 × 720 px                   |
-| **viewBox**        | `0 0 1280 720`                  |
-| **Page Margins**   | Left/right 30-50px, top 20px, bottom 40px |
-| **Content Safe Area** | x: 30-1250, y: 80-680        |
-| **Title Area**     | y: 20-80                        |
-| **Grid Baseline**  | 20px (high-density layouts require a finer grid) |
+| Property              | Value                                            |
+| --------------------- | ------------------------------------------------ |
+| **Format**            | Standard 16:9                                    |
+| **Dimensions**        | 1280 × 720 px                                    |
+| **viewBox**           | `0 0 1280 720`                                   |
+| **Page Margins**      | Left/right 30-50px, top 20px, bottom 40px        |
+| **Content Safe Area** | x: 30-1250, y: 80-680                            |
+| **Title Area**        | y: 20-80                                         |
+| **Grid Baseline**     | 20px (high-density layouts require a finer grid) |
 
 > **Note**: Margins are narrower than standard templates (30px vs 60px) to accommodate the high-information-density reporting style common in telecom presentations.
 
@@ -71,12 +71,12 @@ This template emulates the visual language of telecom technical reports. The cor
 
 ### General Layout
 
-| Area               | Position/Height  | Description                                          |
-| ------------------ | ---------------- | ---------------------------------------------------- |
-| **Title Area**     | y=20-80          | Red vertical bar + title text + optional subtitle overview bar |
-| **Overview Bar**   | y=80-140         | Full-width `#F2F2F2` background bar carrying the page's core summary |
-| **Content Area**   | y=140-670        | Main content area (densely packed multi-module layout) |
-| **Footer**         | y=680-720        | Red narrow bar with page number + chapter name + source citation |
+| Area             | Position/Height | Description                                                          |
+| ---------------- | --------------- | -------------------------------------------------------------------- |
+| **Title Area**   | y=20-80         | Red vertical bar + title text + optional subtitle overview bar       |
+| **Overview Bar** | y=80-140        | Full-width `#F2F2F2` background bar carrying the page's core summary |
+| **Content Area** | y=140-670       | Main content area (densely packed multi-module layout)               |
+| **Footer**       | y=680-720       | Red narrow bar with page number + chapter name + source citation     |
 
 ### Navigation Bar Design
 
@@ -135,27 +135,27 @@ This template emulates the visual language of telecom technical reports. The cor
 
 ## VI. SVG Page Roster
 
-| File | Role | Description |
-|------|------|-------------|
-| `01_cover.svg` | cover | Title slide; project name, presenter, date |
-| `02_chapter.svg` | chapter | Chapter divider page (large number + chapter title) |
-| `02_toc.svg` | toc | Table of contents listing major sections |
-| `03_content.svg` | content | Main content page; body of the deck |
-| `04_ending.svg` | ending | Closing/thank-you page |
+| File                  | Role            | Description                                                    |
+| --------------------- | --------------- | -------------------------------------------------------------- |
+| `01_cover.svg`        | cover           | Title slide; project name, presenter, date                     |
+| `02_chapter.svg`      | chapter         | Chapter divider page (large number + chapter title)            |
+| `02_toc.svg`          | toc             | Table of contents listing major sections                       |
+| `03_content.svg`      | content         | Main content page; body of the deck                            |
+| `04_ending.svg`       | ending          | Closing/thank-you page                                         |
 | `reference_style.svg` | reference_style | Style reference card (developer aid; not used in normal decks) |
 
 ## VII. Layout Patterns
 
-| Pattern                        | Applicable Scenarios                              |
-| ------------------------------ | ------------------------------------------------- |
-| **Architecture Overview**      | AI operations overview, system architecture panorama |
-| **Metrics Dashboard**          | KPI display, performance reports, data dashboards |
-| **Multi-Module Zoning**        | Capability lists, scenario matrices, domain displays |
-| **Process/Timeline**           | Implementation roadmap, deployment plan, evolution path |
-| **Top-Bottom Split**           | Objectives+results (top), scenarios+capabilities (bottom) |
-| **Left-Right Split (3:7)**     | Left navigation labels + right content area       |
-| **Card Matrix (2x3/3x3)**     | Capability modules, team assignments, project lists |
-| **Table**                      | Metric comparisons, progress tracking             |
+| Pattern                    | Applicable Scenarios                                      |
+| -------------------------- | --------------------------------------------------------- |
+| **Architecture Overview**  | AI operations overview, system architecture panorama      |
+| **Metrics Dashboard**      | KPI display, performance reports, data dashboards         |
+| **Multi-Module Zoning**    | Capability lists, scenario matrices, domain displays      |
+| **Process/Timeline**       | Implementation roadmap, deployment plan, evolution path   |
+| **Top-Bottom Split**       | Objectives+results (top), scenarios+capabilities (bottom) |
+| **Left-Right Split (3:7)** | Left navigation labels + right content area               |
+| **Card Matrix (2x3/3x3)**  | Capability modules, team assignments, project lists       |
+| **Table**                  | Metric comparisons, progress tracking                     |
 
 > **Recommended**: Telecom reports commonly use the "**Architecture Overview**" pattern — a single page presenting the complete architecture from objectives → results → scenarios → orchestration → foundational capabilities, unfolding top to bottom.
 
@@ -237,19 +237,19 @@ This template emulates the visual language of telecom technical reports. The cor
 
 ## IX. Spacing Specification
 
-| Element                        | Value     |
-| ------------------------------ | --------- |
-| Page left/right margins        | 30-50px   |
-| Page top/bottom margins        | 20-40px   |
-| Title area height              | 60px      |
-| Overview bar height            | 60px      |
-| Title to overview bar spacing  | 0px       |
-| Overview bar to content spacing | 10-20px  |
-| Module spacing                 | 10-20px   |
-| Card spacing                   | 10px      |
-| Card inner padding             | 15-20px   |
-| Badge to label spacing         | 5-10px    |
-| Footer height                  | 40px      |
+| Element                         | Value   |
+| ------------------------------- | ------- |
+| Page left/right margins         | 30-50px |
+| Page top/bottom margins         | 20-40px |
+| Title area height               | 60px    |
+| Overview bar height             | 60px    |
+| Title to overview bar spacing   | 0px     |
+| Overview bar to content spacing | 10-20px |
+| Module spacing                  | 10-20px |
+| Card spacing                    | 10px    |
+| Card inner padding              | 15-20px |
+| Badge to label spacing          | 5-10px  |
+| Footer height                   | 40px    |
 
 > **Compact Principle**: The telecom style pursues maximum information per page; spacing is generally 30-50% smaller than standard templates.
 
@@ -282,24 +282,24 @@ This template emulates the visual language of telecom technical reports. The cor
 
 The template uses `{{PLACEHOLDER}}` format placeholders:
 
-| Placeholder         | Description              | Applicable Template |
-| ------------------- | ------------------------ | ------------------- |
-| `{{TITLE}}`         | Main title               | Cover               |
-| `{{SUBTITLE}}`      | Subtitle/overview        | Cover               |
-| `{{AUTHOR}}`        | Speaker/organization     | Cover               |
-| `{{DATE}}`          | Date                     | Cover               |
-| `{{CHAPTER_NUM}}`   | Chapter number           | Chapter page        |
-| `{{CHAPTER_TITLE}}` | Chapter title            | Chapter page        |
-| `{{CHAPTER_DESC}}`  | Chapter description      | Chapter page        |
-| `{{PAGE_TITLE}}`    | Page title               | Content page        |
-| `{{CONTENT_AREA}}`  | Content area identifier  | Content page        |
-| `{{SECTION_NAME}}`  | Section name (footer)    | Content page        |
-| `{{SOURCE}}`        | Data source (footer)     | Content page        |
-| `{{PAGE_NUM}}`      | Page number              | Content/ending page |
-| `{{THANK_YOU}}`     | Thank-you message        | Ending page         |
-| `{{ENDING_SUBTITLE}}` | Slogan/tagline         | Ending page         |
-| `{{CONTACT_INFO}}`  | Contact information      | Ending page         |
-| `{{COPYRIGHT}}`     | Copyright                | Ending page         |
+| Placeholder           | Description             | Applicable Template |
+| --------------------- | ----------------------- | ------------------- |
+| `{{TITLE}}`           | Main title              | Cover               |
+| `{{SUBTITLE}}`        | Subtitle/overview       | Cover               |
+| `{{AUTHOR}}`          | Speaker/organization    | Cover               |
+| `{{DATE}}`            | Date                    | Cover               |
+| `{{CHAPTER_NUM}}`     | Chapter number          | Chapter page        |
+| `{{CHAPTER_TITLE}}`   | Chapter title           | Chapter page        |
+| `{{CHAPTER_DESC}}`    | Chapter description     | Chapter page        |
+| `{{PAGE_TITLE}}`      | Page title              | Content page        |
+| `{{CONTENT_AREA}}`    | Content area identifier | Content page        |
+| `{{SECTION_NAME}}`    | Section name (footer)   | Content page        |
+| `{{SOURCE}}`          | Data source (footer)    | Content page        |
+| `{{PAGE_NUM}}`        | Page number             | Content/ending page |
+| `{{THANK_YOU}}`       | Thank-you message       | Ending page         |
+| `{{ENDING_SUBTITLE}}` | Slogan/tagline          | Ending page         |
+| `{{CONTACT_INFO}}`    | Contact information     | Ending page         |
+| `{{COPYRIGHT}}`       | Copyright               | Ending page         |
 
 ---
 

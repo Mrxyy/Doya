@@ -1,7 +1,9 @@
-typeset -g PASEO_SHELL_INTEGRATION_DIR="${${(%):-%N}:A:h}"
+typeset -g DOYA_SHELL_INTEGRATION_DIR="${${(%):-%N}:A:h}"
 
-if [[ -n "${PASEO_ZSH_ZDOTDIR-}" ]]; then
-  export ZDOTDIR="${PASEO_ZSH_ZDOTDIR}"
+if [[ -n "${DOYA_ZSH_ZDOTDIR-}" ]]; then
+  export ZDOTDIR="${DOYA_ZSH_ZDOTDIR}"
+elif [[ -n "${DOYA_ZSH_ZDOTDIR-}" ]]; then
+  export ZDOTDIR="${DOYA_ZSH_ZDOTDIR}"
 else
   unset ZDOTDIR
 fi
@@ -14,4 +16,4 @@ elif [[ -f "${HOME}/.zshenv" ]]; then
   source "${HOME}/.zshenv"
 fi
 
-source "${PASEO_SHELL_INTEGRATION_DIR}/paseo-integration.zsh"
+source "${DOYA_SHELL_INTEGRATION_DIR}/doya-integration.zsh"

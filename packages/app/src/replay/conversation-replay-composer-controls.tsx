@@ -1,4 +1,4 @@
-import type { ConversationRecording } from "@getpaseo/protocol/messages";
+import type { ConversationRecording } from "@getdoya/protocol/messages";
 import { Pause, Play, Radio, RotateCcw, SlidersHorizontal, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -141,9 +141,7 @@ export function ConversationReplayComposerControls({
     <View style={styles.controls} testID="conversation-recording-composer-controls">
       <ComposerIconButton
         label={
-          activeRecordingId
-            ? t("replay.control.stopRecording")
-            : t("replay.control.startRecording")
+          activeRecordingId ? t("replay.control.stopRecording") : t("replay.control.startRecording")
         }
         onPress={handleToggleRecording}
         disabled={!client || isBusy}

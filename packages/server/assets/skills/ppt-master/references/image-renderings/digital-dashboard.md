@@ -10,13 +10,13 @@ Polished UI / data-visualization aesthetic. The image looks like a screenshot of
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
+| Aspect       | Treatment                                                                    |
+| ------------ | ---------------------------------------------------------------------------- |
 | Line quality | No outlines on cards; chart elements use thin uniform strokes (1-1.5px feel) |
-| Texture | None — clean digital surfaces |
-| Depth | Uniform 8% soft drop shadows under cards; no inset/raised effects |
-| Material | Flat with deliberate elevation hierarchy via shadows |
-| Mood | Polished, restrained, product-fluent |
+| Texture      | None — clean digital surfaces                                                |
+| Depth        | Uniform 8% soft drop shadows under cards; no inset/raised effects            |
+| Material     | Flat with deliberate elevation hierarchy via shadows                         |
+| Mood         | Polished, restrained, product-fluent                                         |
 
 ## 3. Using the deck's HEX values
 

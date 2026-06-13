@@ -76,11 +76,11 @@ import {
 const PI_PROVIDER = "pi";
 const DEFAULT_PI_THINKING_LEVEL: PiThinkingLevel = "medium";
 const PI_BINARY_COMMAND = process.env.PI_COMMAND ?? process.env.PI_ACP_PI_COMMAND ?? "pi";
-const PASEO_PI_TREE_EXTENSION_COMMAND = "paseo_tree";
-const PASEO_PI_CAPTURE_EXTENSION_COMMAND = "paseo_capture_entries";
-const PASEO_PI_ENTRY_CAPTURE_MARKER = "PASEO_ENTRY_CAPTURE";
-const PASEO_PI_COMMAND_RESULT_MARKER = "PASEO_COMMAND_RESULT";
-const PASEO_PI_EXTENSION_RESULT_TIMEOUT_MS = 10_000;
+const DOYA_PI_TREE_EXTENSION_COMMAND = "doya_tree";
+const DOYA_PI_CAPTURE_EXTENSION_COMMAND = "doya_capture_entries";
+const DOYA_PI_ENTRY_CAPTURE_MARKER = "DOYA_ENTRY_CAPTURE";
+const DOYA_PI_COMMAND_RESULT_MARKER = "DOYA_COMMAND_RESULT";
+const DOYA_PI_EXTENSION_RESULT_TIMEOUT_MS = 10_000;
 const QUESTION_RESPONSE_HEADER = "Response";
 const QUESTION_COMMENT_HEADER = "Comment";
 const PI_ASK_USER_FREEFORM_SENTINEL = "✏️ Type custom response...";
@@ -402,7 +402,7 @@ function toPiMcpConfig(config: McpServerConfig): PiMcpServerConfig {
 }
 
 function createPiMcpConfigFile(servers: Record<string, McpServerConfig>): PiMcpConfigFile {
-  const dir = mkdtempSync(join(tmpdir(), "paseo-pi-mcp-"));
+  const dir = mkdtempSync(join(tmpdir(), "doya-pi-mcp-"));
   const filePath = join(dir, "mcp.json");
   const mcpServers: Record<string, PiMcpServerConfig> = {};
   for (const [name, serverConfig] of Object.entries(servers)) {
@@ -415,9 +415,9 @@ function createPiMcpConfigFile(servers: Record<string, McpServerConfig>): PiMcpC
   };
 }
 
-function createPiPaseoExtensionFile(): PiTempFile {
-  const dir = mkdtempSync(join(tmpdir(), "paseo-pi-extension-"));
-  const filePath = join(dir, "paseo-integration.mjs");
+function createPiDoyaExtensionFile(): PiTempFile {
+  const dir = mkdtempSync(join(tmpdir(), "doya-pi-extension-"));
+  const filePath = join(dir, "doya-integration.mjs");
   writeFileSync(
     filePath,
     `
@@ -451,7 +451,7 @@ function createPiPaseoExtensionFile(): PiTempFile {
 
 	function emitEntryCapture(ctx, reason, requestId) {
 	  ctx.ui.notify(
-	    "${PASEO_PI_ENTRY_CAPTURE_MARKER} " +
+	    "${DOYA_PI_ENTRY_CAPTURE_MARKER} " +
 	      JSON.stringify({ reason, requestId, entries: getCapturedUserEntries(ctx) }),
 	    "info",
 	  );
@@ -459,12 +459,12 @@ function createPiPaseoExtensionFile(): PiTempFile {
 
 	function emitCommandResult(ctx, requestId, result) {
 	  ctx.ui.notify(
-	    "${PASEO_PI_COMMAND_RESULT_MARKER} " + JSON.stringify({ requestId, ...result }),
+	    "${DOYA_PI_COMMAND_RESULT_MARKER} " + JSON.stringify({ requestId, ...result }),
 	    result.ok ? "info" : "error",
 	  );
 	}
 	
-	export default function paseoIntegration(pi) {
+	export default function doyaIntegration(pi) {
 	  pi.on("session_start", async (_event, ctx) => {
 	    emitEntryCapture(ctx, "session_start");
 	  });
@@ -473,16 +473,16 @@ function createPiPaseoExtensionFile(): PiTempFile {
 	    emitEntryCapture(ctx, "turn_end");
 	  });
 
-	  pi.registerCommand("${PASEO_PI_CAPTURE_EXTENSION_COMMAND}", {
-	    description: "Internal Paseo entry capture bridge",
+	  pi.registerCommand("${DOYA_PI_CAPTURE_EXTENSION_COMMAND}", {
+	    description: "Internal Doya entry capture bridge",
 	    handler: async (args, ctx) => {
 	      const payload = decodePayload(args.trim());
 	      emitEntryCapture(ctx, "command", payload.requestId);
 	    },
 	  });
 
-	  pi.registerCommand("${PASEO_PI_TREE_EXTENSION_COMMAND}", {
-	    description: "Internal Paseo tree navigation bridge",
+	  pi.registerCommand("${DOYA_PI_TREE_EXTENSION_COMMAND}", {
+	    description: "Internal Doya tree navigation bridge",
 	    handler: async (args, ctx) => {
 	      const payload = decodePayload(args.trim());
 	      try {
@@ -1108,7 +1108,7 @@ export class PiRpcAgentSession implements AgentSession {
     const requestId = randomUUID();
     const resultPromise = this.waitForExtensionResult(requestId);
     const payload = Buffer.from(JSON.stringify({ targetId, requestId })).toString("base64url");
-    await this.runtimeSession.prompt(`/${PASEO_PI_TREE_EXTENSION_COMMAND} ${payload}`);
+    await this.runtimeSession.prompt(`/${DOYA_PI_TREE_EXTENSION_COMMAND} ${payload}`);
     return await resultPromise;
   }
 
@@ -1176,7 +1176,7 @@ export class PiRpcAgentSession implements AgentSession {
     const requestId = randomUUID();
     const resultPromise = this.waitForExtensionResult(requestId);
     const payload = Buffer.from(JSON.stringify({ requestId, reason })).toString("base64url");
-    await this.runtimeSession.prompt(`/${PASEO_PI_CAPTURE_EXTENSION_COMMAND} ${payload}`);
+    await this.runtimeSession.prompt(`/${DOYA_PI_CAPTURE_EXTENSION_COMMAND} ${payload}`);
     await resultPromise;
   }
 
@@ -1185,7 +1185,7 @@ export class PiRpcAgentSession implements AgentSession {
       const timer = setTimeout(() => {
         this.pendingExtensionResults.delete(requestId);
         reject(new Error(`Pi extension result timed out for request ${requestId}`));
-      }, PASEO_PI_EXTENSION_RESULT_TIMEOUT_MS);
+      }, DOYA_PI_EXTENSION_RESULT_TIMEOUT_MS);
       this.pendingExtensionResults.set(requestId, { resolve, reject, timer });
     });
   }
@@ -1255,7 +1255,7 @@ export class PiRpcAgentSession implements AgentSession {
   }
 
   private handleEntryCaptureMarker(message: string): boolean {
-    const payload = parseExtensionMarkerPayload(message, PASEO_PI_ENTRY_CAPTURE_MARKER);
+    const payload = parseExtensionMarkerPayload(message, DOYA_PI_ENTRY_CAPTURE_MARKER);
     if (!payload) {
       return false;
     }
@@ -1268,7 +1268,7 @@ export class PiRpcAgentSession implements AgentSession {
   }
 
   private handleCommandResultMarker(message: string): boolean {
-    const payload = parseExtensionMarkerPayload(message, PASEO_PI_COMMAND_RESULT_MARKER);
+    const payload = parseExtensionMarkerPayload(message, DOYA_PI_COMMAND_RESULT_MARKER);
     if (!payload) {
       return false;
     }
@@ -1603,7 +1603,7 @@ export class PiRpcAgentClient implements AgentClient {
     launchContext?: AgentLaunchContext,
   ): Promise<AgentSession> {
     const mcpConfig = await this.prepareMcpConfig(config.cwd, config.mcpServers);
-    const paseoExtension = createPiPaseoExtensionFile();
+    const doyaExtension = createPiDoyaExtensionFile();
     let runtimeSession: PiRuntimeSession;
     try {
       runtimeSession = await this.runtime.startSession({
@@ -1617,11 +1617,11 @@ export class PiRpcAgentClient implements AgentClient {
         ),
         env: launchContext?.env,
         mcpConfigPath: mcpConfig?.path,
-        extensionPaths: [paseoExtension.path],
+        extensionPaths: [doyaExtension.path],
       });
     } catch (error) {
       mcpConfig?.cleanup();
-      paseoExtension.cleanup();
+      doyaExtension.cleanup();
       throw error;
     }
     try {
@@ -1630,12 +1630,12 @@ export class PiRpcAgentClient implements AgentClient {
         config,
         initialState: await runtimeSession.getState(),
         capabilities: withPiMcpCapability(mcpConfig !== null),
-        cleanup: combineCleanup([mcpConfig?.cleanup, paseoExtension.cleanup]),
+        cleanup: combineCleanup([mcpConfig?.cleanup, doyaExtension.cleanup]),
       });
     } catch (error) {
       await runtimeSession.close().catch(() => undefined);
       mcpConfig?.cleanup();
-      paseoExtension.cleanup();
+      doyaExtension.cleanup();
       throw error;
     }
   }
@@ -1654,7 +1654,7 @@ export class PiRpcAgentClient implements AgentClient {
     const resumeConfig = buildResumeConfig(persistenceMetadata, overrides);
 
     const mcpConfig = await this.prepareMcpConfig(resumeConfig.cwd, resumeConfig.config.mcpServers);
-    const paseoExtension = createPiPaseoExtensionFile();
+    const doyaExtension = createPiDoyaExtensionFile();
     let runtimeSession: PiRuntimeSession;
     try {
       runtimeSession = await this.runtime.startSession({
@@ -1667,11 +1667,11 @@ export class PiRpcAgentClient implements AgentClient {
           resumeConfig.config.daemonAppendSystemPrompt,
         ),
         mcpConfigPath: mcpConfig?.path,
-        extensionPaths: [paseoExtension.path],
+        extensionPaths: [doyaExtension.path],
       });
     } catch (error) {
       mcpConfig?.cleanup();
-      paseoExtension.cleanup();
+      doyaExtension.cleanup();
       throw error;
     }
     try {
@@ -1680,12 +1680,12 @@ export class PiRpcAgentClient implements AgentClient {
         config: resumeConfig.config,
         initialState: await runtimeSession.getState(),
         capabilities: withPiMcpCapability(mcpConfig !== null),
-        cleanup: combineCleanup([mcpConfig?.cleanup, paseoExtension.cleanup]),
+        cleanup: combineCleanup([mcpConfig?.cleanup, doyaExtension.cleanup]),
       });
     } catch (error) {
       await runtimeSession.close().catch(() => undefined);
       mcpConfig?.cleanup();
-      paseoExtension.cleanup();
+      doyaExtension.cleanup();
       throw error;
     }
   }
@@ -1784,7 +1784,7 @@ export class PiRpcAgentClient implements AgentClient {
             value: existsSync(authConfigPath) ? "found" : "not found",
           },
           { label: "Models", value: modelsValue },
-          { label: "Paseo MCP tools", value: mcpToolsValue },
+          { label: "Doya MCP tools", value: mcpToolsValue },
           { label: "Status", value: status },
         ]),
       };

@@ -59,7 +59,7 @@ function createWorkspaceRuntimeSnapshot(
       mainRepoRoot: null,
       currentBranch: "main",
       remoteUrl: "https://github.com/acme/repo.git",
-      isPaseoOwnedWorktree: false,
+      isDoyaOwnedWorktree: false,
       isDirty: false,
       baseRef: "main",
       aheadBehind: { ahead: 0, behind: 0 },
@@ -170,7 +170,7 @@ function createSessionForWorkspaceGitWatchTests(options?: {
     logger: createStub<pino.Logger>(logger),
     downloadTokenStore: createStub<SessionOptions["downloadTokenStore"]>({}),
     pushTokenStore: createStub<SessionOptions["pushTokenStore"]>({}),
-    paseoHome: "/tmp/paseo-test",
+    doyaHome: "/tmp/doya-test",
     agentManager: createStub<SessionOptions["agentManager"]>({
       subscribe: () => () => {},
       listAgents: () => [],
@@ -412,7 +412,7 @@ describe("workspace git watch targets", () => {
       behindOfOrigin: 1,
       hasRemote: true,
       remoteUrl: "https://github.com/acme/repo.git",
-      isPaseoOwnedWorktree: false,
+      isDoyaOwnedWorktree: false,
       error: null,
       requestId: REPO_SUBSCRIPTION_REQUEST_ID,
     });
@@ -427,10 +427,10 @@ describe("workspace git watch targets", () => {
   test("updates running service script URLs when the git branch changes", async () => {
     const routeStore = new ScriptRouteStore();
     routeStore.registerRoute({
-      hostname: "app.old-branch.paseo.localhost",
+      hostname: "app.old-branch.doya.localhost",
       port: 4321,
       workspaceId: "ws-10",
-      projectSlug: "paseo",
+      projectSlug: "doya",
       scriptName: "app",
     });
     const runtimeStore = new WorkspaceScriptRuntimeStore();
@@ -476,16 +476,16 @@ describe("workspace git watch targets", () => {
 
     expect(routeStore.listRoutesForWorkspace("ws-10")).toEqual([
       expect.objectContaining({
-        hostname: "app.new-branch.paseo.localhost",
-        projectSlug: "paseo",
+        hostname: "app.new-branch.doya.localhost",
+        projectSlug: "doya",
         scriptName: "app",
       }),
     ]);
     expect(sessionAny.buildWorkspaceScriptPayloadSnapshot("ws-10", "/tmp/repo")).toEqual([
       expect.objectContaining({
         scriptName: "app",
-        hostname: "app.new-branch.paseo.localhost",
-        proxyUrl: "http://app.new-branch.paseo.localhost:6767",
+        hostname: "app.new-branch.doya.localhost",
+        proxyUrl: "http://app.new-branch.doya.localhost:6767",
       }),
     ]);
 

@@ -1,5 +1,5 @@
-import type { CreatePaseoWorktreeInput } from "@getpaseo/client/internal/daemon-client";
-import type { GitHubSearchItem } from "@getpaseo/protocol/messages";
+import type { CreateDoyaWorktreeInput } from "@getdoya/client/internal/daemon-client";
+import type { GitHubSearchItem } from "@getdoya/protocol/messages";
 
 export type PickerItem =
   | { kind: "branch"; name: string }
@@ -9,7 +9,7 @@ export type PickerItem =
     };
 
 export type PickerCheckoutRequest = Pick<
-  CreatePaseoWorktreeInput,
+  CreateDoyaWorktreeInput,
   "action" | "refName" | "githubPrNumber"
 >;
 

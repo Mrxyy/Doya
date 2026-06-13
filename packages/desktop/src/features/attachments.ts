@@ -1,6 +1,6 @@
 import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { resolvePaseoHome } from "../system/paseo-runtime.js";
+import { resolveDoyaHome } from "../system/doya-runtime.js";
 
 const ATTACHMENTS_DIRNAME = "desktop-attachments";
 const ATTACHMENT_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
@@ -12,7 +12,7 @@ interface AttachmentFileResult {
 }
 
 function attachmentsDirPath(): string {
-  return path.join(resolvePaseoHome(process.env), ATTACHMENTS_DIRNAME);
+  return path.join(resolveDoyaHome(process.env), ATTACHMENTS_DIRNAME);
 }
 
 async function ensureAttachmentsDir(): Promise<string> {

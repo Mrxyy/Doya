@@ -1,17 +1,17 @@
 import { existsSync, readFileSync } from "node:fs";
-import { loadConfig, resolvePaseoHome } from "@getpaseo/server";
+import { loadConfig, resolveDoyaHome } from "@getdoya/server";
 import {
   buildDaemonWebSocketUrl,
   buildRelayWebSocketUrl,
   normalizeHostPort,
   parseConnectionUri,
   shouldUseTlsForDefaultHostedRelay,
-} from "@getpaseo/protocol/daemon-endpoints";
+} from "@getdoya/protocol/daemon-endpoints";
 import {
   parseConnectionOfferFromUrl,
   type ConnectionOffer,
-} from "@getpaseo/protocol/connection-offer";
-import { DaemonClient, type WebSocketLike } from "@getpaseo/client/internal/daemon-client";
+} from "@getdoya/protocol/connection-offer";
+import { DaemonClient, type WebSocketLike } from "@getdoya/client/internal/daemon-client";
 import path from "node:path";
 import { WebSocket } from "ws";
 import { getOrCreateCliClientId } from "./client-id.js";
@@ -24,7 +24,8 @@ export interface ConnectOptions {
 
 const DEFAULT_HOST = "localhost:6767";
 const DEFAULT_TIMEOUT = 15000;
-const PID_FILENAME = "paseo.pid";
+const PID_FILENAME = "doya.pid";
+const LEGACY_PID_FILENAME = "doya.pid";
 
 type DaemonTarget =
   | {
@@ -107,8 +108,10 @@ function isTcpDaemonHost(host: string | null): host is string {
   return host !== null && !isIpcDaemonHost(host);
 }
 
-function readPidSocketTarget(paseoHome: string): string | null {
-  const pidPath = path.join(paseoHome, PID_FILENAME);
+function readPidSocketTarget(doyaHome: string): string | null {
+  const primaryPidPath = path.join(doyaHome, PID_FILENAME);
+  const legacyPidPath = path.join(doyaHome, LEGACY_PID_FILENAME);
+  const pidPath = existsSync(primaryPidPath) ? primaryPidPath : legacyPidPath;
   if (!existsSync(pidPath)) {
     return null;
   }
@@ -126,24 +129,24 @@ function readPidSocketTarget(paseoHome: string): string | null {
   }
 }
 
-function resolveConfiguredIpcDaemonHost(env: NodeJS.ProcessEnv, paseoHome: string): string | null {
-  const directEnvHost = normalizeDaemonHost(env.PASEO_LISTEN ?? "");
+function resolveConfiguredIpcDaemonHost(env: NodeJS.ProcessEnv, doyaHome: string): string | null {
+  const directEnvHost = normalizeDaemonHost(env.DOYA_LISTEN ?? "");
   if (isIpcDaemonHost(directEnvHost)) {
     return directEnvHost;
   }
 
-  const pidHost = normalizeDaemonHost(readPidSocketTarget(paseoHome) ?? "");
+  const pidHost = normalizeDaemonHost(readPidSocketTarget(doyaHome) ?? "");
   if (isIpcDaemonHost(pidHost)) {
     return pidHost;
   }
 
-  const config = loadConfig(paseoHome, { env });
+  const config = loadConfig(doyaHome, { env });
   const configuredHost = normalizeDaemonHost(config.listen);
   return isIpcDaemonHost(configuredHost) ? configuredHost : null;
 }
 
-function resolveConfiguredTcpDaemonHost(env: NodeJS.ProcessEnv, paseoHome: string): string | null {
-  const configuredHost = normalizeDaemonHost(loadConfig(paseoHome, { env }).listen);
+function resolveConfiguredTcpDaemonHost(env: NodeJS.ProcessEnv, doyaHome: string): string | null {
+  const configuredHost = normalizeDaemonHost(loadConfig(doyaHome, { env }).listen);
   if (!isTcpDaemonHost(configuredHost)) {
     return null;
   }
@@ -151,13 +154,13 @@ function resolveConfiguredTcpDaemonHost(env: NodeJS.ProcessEnv, paseoHome: strin
 }
 
 export function resolveDefaultDaemonHosts(env: NodeJS.ProcessEnv = process.env): string[] {
-  const paseoHome = resolvePaseoHome(env);
+  const doyaHome = resolveDoyaHome(env);
   const candidates: string[] = [];
-  const configuredIpcHost = resolveConfiguredIpcDaemonHost(env, paseoHome);
+  const configuredIpcHost = resolveConfiguredIpcDaemonHost(env, doyaHome);
   if (configuredIpcHost) {
     candidates.push(configuredIpcHost);
   }
-  const configuredTcpHost = resolveConfiguredTcpDaemonHost(env, paseoHome);
+  const configuredTcpHost = resolveConfiguredTcpDaemonHost(env, doyaHome);
   if (configuredTcpHost) {
     candidates.push(configuredTcpHost);
   }
@@ -166,7 +169,7 @@ export function resolveDefaultDaemonHosts(env: NodeJS.ProcessEnv = process.env):
 }
 
 function resolveDaemonHostCandidates(options?: ConnectOptions): string[] {
-  const explicitHost = options?.host ?? process.env.PASEO_HOST;
+  const explicitHost = options?.host ?? process.env.DOYA_HOST;
   if (explicitHost) {
     return [explicitHost];
   }
@@ -222,7 +225,7 @@ export function resolveDaemonPassword(host: string): string | undefined {
     const fromUri = parseConnectionUri(trimmed).password;
     if (fromUri) return fromUri;
   }
-  const fromEnv = process.env.PASEO_PASSWORD;
+  const fromEnv = process.env.DOYA_PASSWORD;
   return fromEnv && fromEnv.length > 0 ? fromEnv : undefined;
 }
 
@@ -334,7 +337,7 @@ export async function connectToDaemon(options?: ConnectOptions): Promise<DaemonC
   const clientId = await getOrCreateCliClientId();
   const nodeWebSocketFactory = createNodeWebSocketFactory();
 
-  const explicitHost = options?.host ?? process.env.PASEO_HOST;
+  const explicitHost = options?.host ?? process.env.DOYA_HOST;
   const offer = parseHostOfferOrNull(explicitHost);
   if (offer) {
     return connectViaRelayOffer(offer, clientId, timeout, nodeWebSocketFactory);
@@ -345,7 +348,7 @@ export async function connectToDaemon(options?: ConnectOptions): Promise<DaemonC
   async function tryNext(index: number, lastError: unknown): Promise<DaemonClient> {
     if (index >= hosts.length) {
       if (lastError instanceof Error) throw lastError;
-      throw new Error(`Unable to connect to Paseo daemon via ${hosts.join(", ")}`);
+      throw new Error(`Unable to connect to Doya daemon via ${hosts.join(", ")}`);
     }
     const host = hosts[index];
     const password = resolveDaemonPassword(host);

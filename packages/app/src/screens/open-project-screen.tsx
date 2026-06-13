@@ -35,9 +35,9 @@ import { useOpenProject } from "@/hooks/use-open-project";
 import { useI18n, translateNow } from "@/i18n/i18n";
 
 const FULL_WIDTH_STYLE = { width: "100%" } as const;
-const AUTH_BUTTON_GRADIENT_KEYFRAME_ID = "paseo-auth-button-gradient-keyframes";
-const AUTH_BUTTON_GRADIENT_ANIMATION_NAME = "paseo-auth-button-gradient";
-const AUTH_PET_FLOAT_ANIMATION_NAME = "paseo-auth-pet-float";
+const AUTH_BUTTON_GRADIENT_KEYFRAME_ID = "doya-auth-button-gradient-keyframes";
+const AUTH_BUTTON_GRADIENT_ANIMATION_NAME = "doya-auth-button-gradient";
+const AUTH_PET_FLOAT_ANIMATION_NAME = "doya-auth-pet-float";
 const AUTH_BUTTON_GRADIENT_KEYFRAME_CSS = `
   @keyframes ${AUTH_BUTTON_GRADIENT_ANIMATION_NAME} {
     0% {

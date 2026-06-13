@@ -43,8 +43,38 @@ function isPidRunning(pid: number): boolean {
   }
 }
 
-function getPidFilePath(paseoHome: string): string {
-  return join(paseoHome, "paseo.pid");
+const DOYA_PID_FILENAME = "doya.pid";
+const LEGACY_DOYA_PID_FILENAME = "doya.pid";
+
+function getPidFilePath(doyaHome: string): string {
+  return join(doyaHome, DOYA_PID_FILENAME);
+}
+
+function getLegacyPidFilePath(doyaHome: string): string {
+  return join(doyaHome, LEGACY_DOYA_PID_FILENAME);
+}
+
+async function readPidLockFile(pidPath: string): Promise<PidLockInfo | null> {
+  try {
+    const content = await readFile(pidPath, "utf-8");
+    return parsePidLockInfo(JSON.parse(content));
+  } catch {
+    return null;
+  }
+}
+
+async function resolveExistingPidLock(doyaHome: string): Promise<{
+  pidPath: string;
+  lock: PidLockInfo;
+} | null> {
+  const pidPaths = [getPidFilePath(doyaHome), getLegacyPidFilePath(doyaHome)];
+  for (const pidPath of pidPaths) {
+    const lock = await readPidLockFile(pidPath);
+    if (lock) {
+      return { pidPath, lock };
+    }
+  }
+  return null;
 }
 
 function resolveOwnerPid(ownerPid?: number): number {
@@ -55,25 +85,19 @@ function resolveOwnerPid(ownerPid?: number): number {
 }
 
 export async function acquirePidLock(
-  paseoHome: string,
+  doyaHome: string,
   listen: string | null,
   options?: { ownerPid?: number },
 ): Promise<void> {
-  const pidPath = getPidFilePath(paseoHome);
+  const pidPath = getPidFilePath(doyaHome);
 
-  // Ensure paseoHome directory exists
-  if (!existsSync(paseoHome)) {
-    await mkdir(paseoHome, { recursive: true });
+  // Ensure doyaHome directory exists
+  if (!existsSync(doyaHome)) {
+    await mkdir(doyaHome, { recursive: true });
   }
 
-  // Try to read existing lock
-  let existingLock: PidLockInfo | null = null;
-  try {
-    const content = await readFile(pidPath, "utf-8");
-    existingLock = parsePidLockInfo(JSON.parse(content));
-  } catch {
-    // No existing lock or invalid JSON - that's fine
-  }
+  const existing = await resolveExistingPidLock(doyaHome);
+  const existingLock = existing?.lock ?? null;
 
   // Check if existing lock is stale
   const lockOwnerPid = resolveOwnerPid(options?.ownerPid);
@@ -84,12 +108,12 @@ export async function acquirePidLock(
       }
 
       throw new PidLockError(
-        `Another Paseo daemon is already running (PID ${existingLock.pid}, started ${existingLock.startedAt})`,
+        `Another Doya daemon is already running (PID ${existingLock.pid}, started ${existingLock.startedAt})`,
         existingLock,
       );
     }
     // Stale lock - remove it
-    await unlink(pidPath).catch(() => {});
+    await unlink(existing?.pidPath ?? pidPath).catch(() => {});
   }
 
   // Create new lock with exclusive flag
@@ -99,7 +123,7 @@ export async function acquirePidLock(
     hostname: hostname(),
     uid: process.getuid?.() ?? 0,
     listen,
-    ...(process.env.PASEO_DESKTOP_MANAGED === "1" ? { desktopManaged: true } : {}),
+    ...(process.env.DOYA_DESKTOP_MANAGED === "1" ? { desktopManaged: true } : {}),
   };
 
   let fd;
@@ -115,7 +139,7 @@ export async function acquirePidLock(
         const raceLock = parsePidLockInfo(JSON.parse(content));
         if (raceLock) {
           throw new PidLockError(
-            `Another Paseo daemon is already running (PID ${raceLock.pid})`,
+            `Another Doya daemon is already running (PID ${raceLock.pid})`,
             raceLock,
           );
         }
@@ -132,11 +156,13 @@ export async function acquirePidLock(
 }
 
 export async function updatePidLock(
-  paseoHome: string,
+  doyaHome: string,
   patch: { listen: string },
   options?: { ownerPid?: number },
 ): Promise<void> {
-  const pidPath = getPidFilePath(paseoHome);
+  const pidPath = existsSync(getPidFilePath(doyaHome))
+    ? getPidFilePath(doyaHome)
+    : getLegacyPidFilePath(doyaHome);
   const lockOwnerPid = resolveOwnerPid(options?.ownerPid);
   const content = await readFile(pidPath, "utf-8");
   const existingLock = parsePidLockInfo(JSON.parse(content));
@@ -163,25 +189,26 @@ export async function updatePidLock(
 }
 
 export async function releasePidLock(
-  paseoHome: string,
+  doyaHome: string,
   options?: { ownerPid?: number },
 ): Promise<void> {
-  const pidPath = getPidFilePath(paseoHome);
   const lockOwnerPid = resolveOwnerPid(options?.ownerPid);
-  try {
-    // Only remove if it's our lock
-    const content = await readFile(pidPath, "utf-8");
-    const lock = parsePidLockInfo(JSON.parse(content));
-    if (lock?.pid === lockOwnerPid) {
-      await unlink(pidPath);
+  for (const pidPath of [getPidFilePath(doyaHome), getLegacyPidFilePath(doyaHome)]) {
+    try {
+      // Only remove if it's our lock
+      const content = await readFile(pidPath, "utf-8");
+      const lock = parsePidLockInfo(JSON.parse(content));
+      if (lock?.pid === lockOwnerPid) {
+        await unlink(pidPath);
+      }
+    } catch {
+      // Ignore errors - lock may already be gone
     }
-  } catch {
-    // Ignore errors - lock may already be gone
   }
 }
 
-export async function getPidLockInfo(paseoHome: string): Promise<PidLockInfo | null> {
-  const pidPath = getPidFilePath(paseoHome);
+export async function getPidLockInfo(doyaHome: string): Promise<PidLockInfo | null> {
+  const pidPath = getPidFilePath(doyaHome);
   try {
     const content = await readFile(pidPath, "utf-8");
     return parsePidLockInfo(JSON.parse(content));
@@ -190,10 +217,8 @@ export async function getPidLockInfo(paseoHome: string): Promise<PidLockInfo | n
   }
 }
 
-export async function isLocked(
-  paseoHome: string,
-): Promise<{ locked: boolean; info?: PidLockInfo }> {
-  const info = await getPidLockInfo(paseoHome);
+export async function isLocked(doyaHome: string): Promise<{ locked: boolean; info?: PidLockInfo }> {
+  const info = await getPidLockInfo(doyaHome);
   if (!info) {
     return { locked: false };
   }

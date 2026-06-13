@@ -200,14 +200,14 @@ function ignoreWebviewJavaScriptError() {}
 function destroyWebviewSelector(webview: ElectronWebview): void {
   void executeWebviewJavaScript(
     webview,
-    "if(window.__paseoSelector) window.__paseoSelector.destroy();",
+    "if(window.__doyaSelector) window.__doyaSelector.destroy();",
   ).catch(ignoreWebviewJavaScriptError);
 }
 
 function clearWebviewSelector(webview: ElectronWebview): void {
   void executeWebviewJavaScript(
     webview,
-    "if(window.__paseoSelector) window.__paseoSelector.destroy(); window.__paseoSelectorResult = null;",
+    "if(window.__doyaSelector) window.__doyaSelector.destroy(); window.__doyaSelectorResult = null;",
   ).catch(ignoreWebviewJavaScriptError);
 }
 
@@ -246,7 +246,7 @@ function startSelectorResultPolling(input: {
       try {
         const raw = await executeWebviewJavaScript(
           webview,
-          "JSON.stringify(window.__paseoSelectorResult || null)",
+          "JSON.stringify(window.__doyaSelectorResult || null)",
         );
         const result = typeof raw === "string" ? JSON.parse(raw) : null;
         if (!result) {
@@ -254,7 +254,7 @@ function startSelectorResultPolling(input: {
         }
         window.clearInterval(poll);
         onDone();
-        await executeWebviewJavaScript(webview, "window.__paseoSelectorResult = null;");
+        await executeWebviewJavaScript(webview, "window.__doyaSelectorResult = null;");
         if (!result.__cancelled) {
           onSelection(result as BrowserElementSelection);
         }
@@ -388,7 +388,7 @@ export function BrowserPane({
     const initialUnsafeNavigationMessage = getUnsafeNavigationMessage(initialUrlRef.current);
     const webview = document.createElement("webview") as ElectronWebview;
     webviewRef.current = webview;
-    webview.setAttribute("partition", `persist:paseo-browser-${browserId}`);
+    webview.setAttribute("partition", `persist:doya-browser-${browserId}`);
     webview.setAttribute("allowpopups", "true");
     webview.setAttribute("spellcheck", "false");
     webview.setAttribute("autosize", "on");
@@ -663,24 +663,24 @@ export function BrowserPane({
 
     const js = `
       (function() {
-        if (window.__paseoSelector) { window.__paseoSelector.destroy(); }
+        if (window.__doyaSelector) { window.__doyaSelector.destroy(); }
         var overlay = null;
         var style = document.createElement('style');
         style.textContent = [
-          '.__paseo-hover { outline: 2px solid #3b82f6 !important; outline-offset: 2px !important; cursor: crosshair !important; }',
-          '.__paseo-select-mode, .__paseo-select-mode * { cursor: crosshair !important; pointer-events: auto !important; user-select: none !important; }',
-          '.__paseo-select-mode *, .__paseo-select-mode *::before, .__paseo-select-mode *::after { animation: none !important; transition: none !important; }',
-          '.__paseo-select-mode a, .__paseo-select-mode button, .__paseo-select-mode input, .__paseo-select-mode select, .__paseo-select-mode textarea, .__paseo-select-mode [role="button"], .__paseo-select-mode [onclick] { pointer-events: none !important; }',
-          '.__paseo-select-mode iframe, .__paseo-select-mode video, .__paseo-select-mode audio { pointer-events: none !important; }',
+          '.__doya-hover { outline: 2px solid #3b82f6 !important; outline-offset: 2px !important; cursor: crosshair !important; }',
+          '.__doya-select-mode, .__doya-select-mode * { cursor: crosshair !important; pointer-events: auto !important; user-select: none !important; }',
+          '.__doya-select-mode *, .__doya-select-mode *::before, .__doya-select-mode *::after { animation: none !important; transition: none !important; }',
+          '.__doya-select-mode a, .__doya-select-mode button, .__doya-select-mode input, .__doya-select-mode select, .__doya-select-mode textarea, .__doya-select-mode [role="button"], .__doya-select-mode [onclick] { pointer-events: none !important; }',
+          '.__doya-select-mode iframe, .__doya-select-mode video, .__doya-select-mode audio { pointer-events: none !important; }',
         ].join('\\n');
         document.head.appendChild(style);
-        document.documentElement.classList.add('__paseo-select-mode');
+        document.documentElement.classList.add('__doya-select-mode');
         var last = null;
         function onMove(e) {
           e.preventDefault();
           e.stopPropagation();
-          if (last) last.classList.remove('__paseo-hover');
-          e.target.classList.add('__paseo-hover');
+          if (last) last.classList.remove('__doya-hover');
+          e.target.classList.add('__doya-hover');
           last = e.target;
         }
         function buildSelector(el) {
@@ -757,7 +757,7 @@ export function BrowserPane({
           e.stopPropagation();
           e.stopImmediatePropagation();
           var el = e.target;
-          if (last) last.classList.remove('__paseo-hover');
+          if (last) last.classList.remove('__doya-hover');
           var attrs = {};
           for (var i = 0; i < el.attributes.length; i++) {
             attrs[el.attributes[i].name] = el.attributes[i].value;
@@ -777,10 +777,10 @@ export function BrowserPane({
             children: getChildSummary(el, 8)
           };
           destroy();
-          window.__paseoSelectorResult = result;
+          window.__doyaSelectorResult = result;
         }
         function onKey(e) {
-          if (e.key === 'Escape') { destroy(); window.__paseoSelectorResult = { __cancelled: true }; }
+          if (e.key === 'Escape') { destroy(); window.__doyaSelectorResult = { __cancelled: true }; }
         }
         function blockEvent(e) {
           e.preventDefault();
@@ -799,10 +799,10 @@ export function BrowserPane({
           document.removeEventListener('touchend', blockEvent, true);
           document.removeEventListener('focus', blockEvent, true);
           document.removeEventListener('submit', blockEvent, true);
-          document.documentElement.classList.remove('__paseo-select-mode');
-          if (last) last.classList.remove('__paseo-hover');
+          document.documentElement.classList.remove('__doya-select-mode');
+          if (last) last.classList.remove('__doya-hover');
           style.remove();
-          window.__paseoSelector = null;
+          window.__doyaSelector = null;
         }
         document.addEventListener('mousemove', onMove, true);
         document.addEventListener('click', onClick, true);
@@ -815,7 +815,7 @@ export function BrowserPane({
         document.addEventListener('touchend', blockEvent, true);
         document.addEventListener('focus', blockEvent, true);
         document.addEventListener('submit', blockEvent, true);
-        window.__paseoSelector = { destroy: destroy };
+        window.__doyaSelector = { destroy: destroy };
       })()
     `;
 

@@ -12,36 +12,37 @@ The following are **forbidden** in generated SVGs — PPT export breaks otherwis
 
 SVG is strict XML. Two rules for all text and attribute values:
 
-| Character category | Required form | Forbidden form |
-|---|---|---|
-| Typography & symbols (em dash, en dash, ©, ®, →, ·, NBSP, full-width punctuation, emoji…) | **Raw Unicode characters** — write `—` `–` `©` `®` `→` directly | HTML named entities — `&mdash;` `&ndash;` `&copy;` `&reg;` `&rarr;` `&middot;` `&nbsp;` `&hellip;` `&bull;` etc. |
-| XML reserved characters (`&`, `<`, `>`, `"`, `'`) | **XML entities only** — `&amp;` `&lt;` `&gt;` `&quot;` `&apos;` (e.g. `R&amp;D`, `error &lt; 5%`) | Bare `&` `<` `>` (e.g. `R&D`, `error < 5%`) |
+| Character category                                                                        | Required form                                                                                     | Forbidden form                                                                                                   |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Typography & symbols (em dash, en dash, ©, ®, →, ·, NBSP, full-width punctuation, emoji…) | **Raw Unicode characters** — write `—` `–` `©` `®` `→` directly                                   | HTML named entities — `&mdash;` `&ndash;` `&copy;` `&reg;` `&rarr;` `&middot;` `&nbsp;` `&hellip;` `&bull;` etc. |
+| XML reserved characters (`&`, `<`, `>`, `"`, `'`)                                         | **XML entities only** — `&amp;` `&lt;` `&gt;` `&quot;` `&apos;` (e.g. `R&amp;D`, `error &lt; 5%`) | Bare `&` `<` `>` (e.g. `R&D`, `error < 5%`)                                                                      |
 
 One offending character invalidates the file and aborts export. Numeric refs (`&#160;` / `&#xa0;`) are XML-legal but discouraged.
 
 **Structural blacklist** (in addition to the character rules above):
 
-| Banned Feature | Description |
-|----------------|-------------|
-| `mask` | Masks |
-| `<style>` | Embedded stylesheets |
-| `class` | CSS selector attributes (`id` inside `<defs>` is a legitimate reference and is NOT banned) |
-| External CSS | External stylesheet links |
-| `<foreignObject>` | Embedded external content |
-| `<symbol>` + `<use>` | Symbol reference reuse |
-| `textPath` | Text along a path |
-| `@font-face` | Custom font declarations |
-| `<animate*>` / `<set>` | SVG animations |
-| `<script>` / event attributes | Scripts and interactivity |
-| `<iframe>` | Embedded frames |
+| Banned Feature                | Description                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------ |
+| `mask`                        | Masks                                                                                      |
+| `<style>`                     | Embedded stylesheets                                                                       |
+| `class`                       | CSS selector attributes (`id` inside `<defs>` is a legitimate reference and is NOT banned) |
+| External CSS                  | External stylesheet links                                                                  |
+| `<foreignObject>`             | Embedded external content                                                                  |
+| `<symbol>` + `<use>`          | Symbol reference reuse                                                                     |
+| `textPath`                    | Text along a path                                                                          |
+| `@font-face`                  | Custom font declarations                                                                   |
+| `<animate*>` / `<set>`        | SVG animations                                                                             |
+| `<script>` / event attributes | Scripts and interactivity                                                                  |
+| `<iframe>`                    | Embedded frames                                                                            |
 
 > **`marker-start` / `marker-end` is conditionally allowed** — see §1.1 for constraints. The converter maps qualifying markers to native DrawingML `<a:headEnd>` / `<a:tailEnd>`.
 >
 > **`clipPath` on `<image>` is conditionally allowed** — see §1.2 for constraints. The converter maps qualifying clip shapes to native DrawingML picture geometry (`<a:prstGeom>` or `<a:custGeom>`).
 >
-> **`<pattern>` fills are conditionally allowed** — see §7 *Pattern Fill* for the required `data-pptx-pattern` annotation and the closed OOXML preset enum. Hand-drawn pattern geometry is NOT honored; the converter emits the named PPTX preset only. Missing or invalid preset values produce diagonal stripes (warning) or schema-failed PPTX (error).
+> **`<pattern>` fills are conditionally allowed** — see §7 _Pattern Fill_ for the required `data-pptx-pattern` annotation and the closed OOXML preset enum. Hand-drawn pattern geometry is NOT honored; the converter emits the named PPTX preset only. Missing or invalid preset values produce diagonal stripes (warning) or schema-failed PPTX (error).
 >
 > **Replacing `<mask>` effects** — DrawingML has no per-pixel alpha. Route by effect:
+>
 > - Image gradient overlay (vignette/fade/tint) → stacked `<rect>` with `<linearGradient>`/`<radialGradient>` (§6 Image Overlay)
 > - Non-rectangular image crop (circle/rounded/hexagon) → `clipPath` on `<image>` (§1.2)
 > - Inner glow / soft-edge → `<filter>` with `<feGaussianBlur>` (§6 Glow)
@@ -55,13 +56,13 @@ One offending character invalidates the file and aborts export. Numeric refs (`&
 
 `marker-start` and `marker-end` on `<line>` and `<path>` elements are allowed **only** when the referenced `<marker>` satisfies all of the following:
 
-| Requirement | Reason |
-|-------------|--------|
-| Marker `<marker>` element defined inside `<defs>` | Converter looks up marker defs via id index |
-| `orient="auto"` | DrawingML arrow auto-rotates along the line tangent; other orient values will not round-trip |
+| Requirement                                                                                                                                  | Reason                                                                                                                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Marker `<marker>` element defined inside `<defs>`                                                                                            | Converter looks up marker defs via id index                                                                                      |
+| `orient="auto"`                                                                                                                              | DrawingML arrow auto-rotates along the line tangent; other orient values will not round-trip                                     |
 | Marker shape is **one of**: closed 3-vertex path/polygon (triangle), closed 4-vertex path/polygon (diamond), `<circle>` / `<ellipse>` (oval) | These three map cleanly to DrawingML `type="triangle" / "diamond" / "oval"`. Any other shape is silently dropped with a warning. |
-| Marker child's `fill` **matches** the parent line's `stroke` color | In DrawingML the arrow head inherits the line color — a mismatched marker fill will look wrong on export. |
-| `markerWidth` / `markerHeight` roughly in `3–15` range | Mapped to `sm` (<6) / `med` (6–12) / `lg` (>12) size buckets. |
+| Marker child's `fill` **matches** the parent line's `stroke` color                                                                           | In DrawingML the arrow head inherits the line color — a mismatched marker fill will look wrong on export.                        |
+| `markerWidth` / `markerHeight` roughly in `3–15` range                                                                                       | Mapped to `sm` (<6) / `med` (6–12) / `lg` (>12) size buckets.                                                                    |
 
 **Use boundary**:
 
@@ -70,12 +71,12 @@ One offending character invalidates the file and aborts export. Numeric refs (`&
 
 **Supported DrawingML mapping**:
 
-| SVG Marker Shape | DrawingML Output |
-|------------------|------------------|
+| SVG Marker Shape                            | DrawingML Output                                 |
+| ------------------------------------------- | ------------------------------------------------ |
 | `<path d="M0,0 L10,5 L0,10 Z"/>` (triangle) | `<a:tailEnd type="triangle" w="med" len="med"/>` |
-| `<polygon points="0,0 10,5 0,10"/>` | `<a:tailEnd type="triangle" w="med" len="med"/>` |
-| 4-vertex closed path/polygon | `<a:tailEnd type="diamond" .../>` |
-| `<circle cx="5" cy="5" r="4"/>` | `<a:tailEnd type="oval" .../>` |
+| `<polygon points="0,0 10,5 0,10"/>`         | `<a:tailEnd type="triangle" w="med" len="med"/>` |
+| 4-vertex closed path/polygon                | `<a:tailEnd type="diamond" .../>`                |
+| `<circle cx="5" cy="5" r="4"/>`             | `<a:tailEnd type="oval" .../>`                   |
 
 **Recommended template** — a standard arrow-head definition ready to reuse:
 
@@ -98,12 +99,12 @@ One offending character invalidates the file and aborts export. Numeric refs (`&
 
 `clip-path` on `<image>` elements is allowed when the referenced `<clipPath>` satisfies the following:
 
-| Requirement | Reason |
-|-------------|--------|
-| `<clipPath>` element defined inside `<defs>` | Converter looks up clip defs via id index |
-| Contains a **single** shape child | First child is used; multiple children are not composited |
-| Shape is one of: `<circle>`, `<ellipse>`, `<rect>` (with rx/ry), `<path>`, `<polygon>` | These map to DrawingML geometry (preset or custom) |
-| Used **only on `<image>` elements** | Non-image elements with clip-path are **forbidden** |
+| Requirement                                                                            | Reason                                                    |
+| -------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `<clipPath>` element defined inside `<defs>`                                           | Converter looks up clip defs via id index                 |
+| Contains a **single** shape child                                                      | First child is used; multiple children are not composited |
+| Shape is one of: `<circle>`, `<ellipse>`, `<rect>` (with rx/ry), `<path>`, `<polygon>` | These map to DrawingML geometry (preset or custom)        |
+| Used **only on `<image>` elements**                                                    | Non-image elements with clip-path are **forbidden**       |
 
 **Use boundary**:
 
@@ -113,11 +114,11 @@ One offending character invalidates the file and aborts export. Numeric refs (`&
 
 **Supported DrawingML mapping**:
 
-| SVG Clip Shape | DrawingML Output | Use Case |
-|----------------|------------------|----------|
-| `<circle>` / `<ellipse>` | `<a:prstGeom prst="ellipse"/>` | Circular avatar, oval frame |
-| `<rect rx="..."/>` | `<a:prstGeom prst="roundRect"/>` with adj value | Rounded rectangle photo frame |
-| `<path>` / `<polygon>` | `<a:custGeom>` with path commands | Hexagon, diamond, custom shape |
+| SVG Clip Shape           | DrawingML Output                                | Use Case                       |
+| ------------------------ | ----------------------------------------------- | ------------------------------ |
+| `<circle>` / `<ellipse>` | `<a:prstGeom prst="ellipse"/>`                  | Circular avatar, oval frame    |
+| `<rect rx="..."/>`       | `<a:prstGeom prst="roundRect"/>` with adj value | Rounded rectangle photo frame  |
+| `<path>` / `<polygon>`   | `<a:custGeom>` with path commands               | Hexagon, diamond, custom shape |
 
 **Recommended template** — circular image clip:
 
@@ -149,11 +150,11 @@ One offending character invalidates the file and aborts export. Numeric refs (`&
 
 ## 2. PPT Compatibility Alternatives
 
-| Banned Syntax | Correct Alternative |
-|---------------|---------------------|
-| `fill="rgba(255,255,255,0.1)"` | `fill="#FFFFFF" fill-opacity="0.1"` |
-| `<g opacity="0.2">...</g>` | Set `fill-opacity` / `stroke-opacity` on each child element individually |
-| `<image opacity="0.3"/>` | Overlay a `<rect fill="background-color" opacity="0.7"/>` mask layer after the image |
+| Banned Syntax                  | Correct Alternative                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| `fill="rgba(255,255,255,0.1)"` | `fill="#FFFFFF" fill-opacity="0.1"`                                                  |
+| `<g opacity="0.2">...</g>`     | Set `fill-opacity` / `stroke-opacity` on each child element individually             |
+| `<image opacity="0.3"/>`       | Overlay a `<rect fill="background-color" opacity="0.7"/>` mask layer after the image |
 
 **Mnemonic**: PPT does not recognize rgba, group opacity, or image opacity.
 
@@ -257,15 +258,15 @@ Wrap logically related elements in top-level `<g id="...">` groups. Produces Pow
 
 **What to group**:
 
-| Grouping Unit | Contains |
-|---------------|----------|
-| Card / panel | Background rect + (optional shadow only if the card floats over a photo/colored panel — see §6) + icon + title + body text |
-| Process step | Number circle + icon + label + description |
-| List item | Bullet / number + icon + title + description |
-| Icon-text combo | Icon element + adjacent label |
-| Page header | Title + subtitle + accent decoration |
-| Page footer | Page number + branding |
-| Decorative cluster | Related decorative shapes (rings, orbs, dots) |
+| Grouping Unit      | Contains                                                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Card / panel       | Background rect + (optional shadow only if the card floats over a photo/colored panel — see §6) + icon + title + body text |
+| Process step       | Number circle + icon + label + description                                                                                 |
+| List item          | Bullet / number + icon + title + description                                                                               |
+| Icon-text combo    | Icon element + adjacent label                                                                                              |
+| Page header        | Title + subtitle + accent decoration                                                                                       |
+| Page footer        | Page number + branding                                                                                                     |
+| Decorative cluster | Related decorative shapes (rings, orbs, dots)                                                                              |
 
 **Do not**:
 
@@ -313,6 +314,7 @@ python3 scripts/svg_to_pptx.py <project_path>
 ```
 
 **Optional animation flags** (only when the user asks):
+
 - `-t <effect>` — page transition (`fade` / `push` / `wipe` / `split` / `strips` / `cover` / `random` / `none`; default `fade`)
 - `-a <effect>` — per-element entrance animation (`fade` / `auto` / `mixed` / `random` / one of 22 named effects / `none`; default `auto`, maps effect from group id — image-like ids cycle zoom/dissolve/circle/box/diamond/wheel, other matches map to a single effect, unmatched ids cycle fade/wipe/fly/zoom). Anchors on top-level `<g id="...">` groups.
 - `--animation-trigger {on-click,with-previous,after-previous}` — Start mode matching PowerPoint's animation-pane Start dropdown. Default `after-previous` (cascade on slide entry; pace via `--animation-stagger <seconds>`); `on-click` advances per click; `with-previous` plays all groups together.
@@ -335,6 +337,7 @@ python3 scripts/svg_to_pptx.py <project_path> --recorded-narration audio
 Full reference: [`animations.md`](animations.md).
 
 **Prohibited**:
+
 - NEVER use `cp` as a substitute for `finalize_svg.py`
 - NEVER force `-s output` for the legacy/preview pptx (PowerPoint's internal SVG parser drops icons and rounded corners). Default auto-split already gives native the high-fidelity source it needs without affecting legacy.
 - NEVER use `--only` (it suppresses one of the two output files)
@@ -356,6 +359,7 @@ Full reference: [`animations.md`](animations.md).
 #### When to use
 
 Only when the element genuinely floats above another layer:
+
 - Card / quote bubble / annotation on a photo or colored panel
 - Single primary CTA or "recommended" item picked out from peers
 - Overlay layer (callout, tooltip, modal emphasis)
@@ -380,6 +384,7 @@ All `feOffset` on a page must share the same `dx`/`dy` direction. Default: `dx="
 #### Restraint over visibility
 
 Standard: "the shadow is felt, not seen." If noticed, it's too strong.
+
 - Resting cards: `flood-opacity` 0.06-0.12
 - Raised elements (CTA, overlay): max `flood-opacity` 0.20
 - Above 0.20 = Office 2007 hard-shadow look
@@ -389,11 +394,11 @@ Standard: "the shadow is felt, not seen." If noticed, it's too strong.
 
 A page may have at most two non-floor tiers.
 
-| Tier | When | dy | stdDeviation | flood-opacity |
-|------|------|----|--------------|---------------|
-| Floor (no shadow) | Backgrounds, peer-grid cards, dividers, body-text containers | — | — | — |
-| Resting | Cards on photos/panels, secondary callouts | 2-4 | 4-8 | 0.06-0.10 |
-| Raised | Primary CTA, focused/recommended card, overlay | 6-10 | 10-16 | 0.12-0.20 |
+| Tier              | When                                                         | dy   | stdDeviation | flood-opacity |
+| ----------------- | ------------------------------------------------------------ | ---- | ------------ | ------------- |
+| Floor (no shadow) | Backgrounds, peer-grid cards, dividers, body-text containers | —    | —            | —             |
+| Resting           | Cards on photos/panels, secondary callouts                   | 2-4  | 4-8          | 0.06-0.10     |
+| Raised            | Primary CTA, focused/recommended card, overlay               | 6-10 | 10-16        | 0.12-0.20     |
 
 #### Don't stack visual-weight tools
 
@@ -422,6 +427,7 @@ Best for: cards, floating panels, elevated elements. The `svg_to_pptx` converter
 ```
 
 Recommended parameters (see "Two-tier elevation maximum" above for tier guidance):
+
 ```
 stdDeviation:   4–16       (resting cards: 4–8;  raised elements: 10–16)
 flood-opacity:  0.06–0.12  (resting cards — default)
@@ -470,6 +476,7 @@ Best for: title highlights, key metrics, hero text. The converter automatically 
 ```
 
 Recommended parameters:
+
 ```
 stdDeviation:   4–8      (smaller = subtle, larger = prominent)
 flood-color:    brand color or accent color (NOT black)
@@ -553,17 +560,17 @@ Best for: slides needing strong visual brand identity.
 
 ### Quick-Reference Table
 
-| Scenario | Recommended Technique | Avoid |
-|----------|-----------------------|-------|
-| Card / panel shadow (only when floating over photo/colored panel) | Filter soft shadow (`flood-opacity` 0.06–0.12, single light source) | Hard black shadow, full-page abundance |
-| Equal peer cards in a grid | All flat (no shadow) | Lifting every card uniformly |
-| Page-section background panel | Flat fill, no shadow | Treating panels as floating cards |
-| Accent / CTA button (one per page) | Colored shadow (same hue family, `flood-opacity` 0.12–0.20) | Generic gray shadow, applying to every button |
-| Title / metric highlight | Glow filter (brand color, no offset) | Overuse on body text |
-| Text over image | Linear gradient overlay (direction matches text side) | Uniform flat opacity over whole image |
-| Cover / full-image slide | Bottom gradient bar + brand color | Solid black overlay |
-| Atmosphere / hero slide | Radial vignette | Unprocessed raw image |
-| Max PPT compatibility needed | Layered rect shadow | Filter-based shadow |
+| Scenario                                                          | Recommended Technique                                               | Avoid                                         |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| Card / panel shadow (only when floating over photo/colored panel) | Filter soft shadow (`flood-opacity` 0.06–0.12, single light source) | Hard black shadow, full-page abundance        |
+| Equal peer cards in a grid                                        | All flat (no shadow)                                                | Lifting every card uniformly                  |
+| Page-section background panel                                     | Flat fill, no shadow                                                | Treating panels as floating cards             |
+| Accent / CTA button (one per page)                                | Colored shadow (same hue family, `flood-opacity` 0.12–0.20)         | Generic gray shadow, applying to every button |
+| Title / metric highlight                                          | Glow filter (brand color, no offset)                                | Overuse on body text                          |
+| Text over image                                                   | Linear gradient overlay (direction matches text side)               | Uniform flat opacity over whole image         |
+| Cover / full-image slide                                          | Bottom gradient bar + brand color                                   | Solid black overlay                           |
+| Atmosphere / hero slide                                           | Radial vignette                                                     | Unprocessed raw image                         |
+| Max PPT compatibility needed                                      | Layered rect shadow                                                 | Filter-based shadow                           |
 
 ---
 
@@ -573,12 +580,12 @@ Best for: slides needing strong visual brand identity.
 
 Converts to native PPTX `<a:prstDash>`. Use preset patterns for best results:
 
-| SVG Value | PPTX Preset | Best For |
-|-----------|-------------|----------|
-| `4,4` | Dash | General dashed lines, separators |
-| `2,2` | Dot (sysDot) | Subtle dotted borders, placeholder outlines |
-| `8,4` | Long dash | Timeline connectors, flow arrows |
-| `8,4,2,4` | Long dash-dot | Technical drawings, dimension lines |
+| SVG Value | PPTX Preset   | Best For                                    |
+| --------- | ------------- | ------------------------------------------- |
+| `4,4`     | Dash          | General dashed lines, separators            |
+| `2,2`     | Dot (sysDot)  | Subtle dotted borders, placeholder outlines |
+| `8,4`     | Long dash     | Timeline connectors, flow arrows            |
+| `8,4,2,4` | Long dash-dot | Technical drawings, dimension lines         |
 
 ```xml
 <rect x="60" y="60" width="400" height="240" rx="12"
@@ -592,11 +599,11 @@ Converts to native PPTX `<a:prstDash>`. Use preset patterns for best results:
 
 Controls how line segments join at corners. Supported values convert to native PPTX line join types:
 
-| SVG Value | PPTX Equivalent | Best For |
-|-----------|-----------------|----------|
-| `round` | Round join | Smooth polyline charts, organic shapes |
-| `bevel` | Bevel join | Technical diagrams |
-| `miter` | Miter join (default) | Sharp-cornered rectangles, arrows |
+| SVG Value | PPTX Equivalent      | Best For                               |
+| --------- | -------------------- | -------------------------------------- |
+| `round`   | Round join           | Smooth polyline charts, organic shapes |
+| `bevel`   | Bevel join           | Technical diagrams                     |
+| `miter`   | Miter join (default) | Sharp-cornered rectangles, arrows      |
 
 ```xml
 <polyline points="100,200 200,100 300,200" fill="none"
@@ -607,10 +614,10 @@ Controls how line segments join at corners. Supported values convert to native P
 
 Supported text decorations convert to native PPTX text formatting:
 
-| SVG Value | PPTX Equivalent | Best For |
-|-----------|-----------------|----------|
-| `underline` | Single underline | Emphasis, links, key terms |
-| `line-through` | Strikethrough | Removed items, before/after comparisons |
+| SVG Value      | PPTX Equivalent  | Best For                                |
+| -------------- | ---------------- | --------------------------------------- |
+| `underline`    | Single underline | Emphasis, links, key terms              |
+| `line-through` | Strikethrough    | Removed items, before/after comparisons |
 
 ```xml
 <text x="100" y="200" font-size="20" fill="#333333" text-decoration="underline">Important Term</text>
@@ -655,10 +662,10 @@ Gradients defined in `<defs>` and referenced via `fill="url(#id)"` convert to na
 
 **Required annotations**:
 
-| Attribute | Purpose | Without it |
-|---|---|---|
-| `data-pptx-pattern="<preset>"` | Names the PPTX preset (one of the enum below) | Falls back to `ltUpDiag` — diagonal stripes, not your geometry |
-| Child `<rect fill="<bg-hex>"/>` | Background color of the pattern tile | `bg` falls back to `#FFFFFF`, painting over the page background |
+| Attribute                       | Purpose                                       | Without it                                                      |
+| ------------------------------- | --------------------------------------------- | --------------------------------------------------------------- |
+| `data-pptx-pattern="<preset>"`  | Names the PPTX preset (one of the enum below) | Falls back to `ltUpDiag` — diagonal stripes, not your geometry  |
+| Child `<rect fill="<bg-hex>"/>` | Background color of the pattern tile          | `bg` falls back to `#FFFFFF`, painting over the page background |
 
 The child `<path>`'s `stroke` becomes the foreground color (the pattern's line color).
 
@@ -675,14 +682,14 @@ The child `<path>`'s `stroke` becomes the foreground color (the pattern's line c
 
 **Valid `data-pptx-pattern` values** (OOXML `ST_PresetPatternVal` — closed enum, anything outside makes PowerPoint open with "needs to be repaired"):
 
-| Category | Values |
-|---|---|
-| Grids | `smGrid` · `lgGrid` · `dotGrid` *(no `ltGrid` — common typo)* |
-| Diagonal lines | `ltUpDiag` · `ltDnDiag` · `dkUpDiag` · `dkDnDiag` · `wdUpDiag` · `wdDnDiag` · `dashUpDiag` · `dashDnDiag` · `diagCross` |
-| Horizontal / vertical lines | `horz` · `vert` · `ltHorz` · `ltVert` · `dkHorz` · `dkVert` · `narHorz` · `narVert` · `dashHorz` · `dashVert` · `cross` |
-| Percent fills | `pct5` · `pct10` · `pct20` · `pct25` · `pct30` · `pct40` · `pct50` · `pct60` · `pct70` · `pct75` · `pct80` · `pct90` |
-| Checks & confetti | `smCheck` · `lgCheck` · `smConfetti` · `lgConfetti` |
-| Decorative | `horzBrick` · `diagBrick` · `weave` · `plaid` · `trellis` · `zigZag` · `wave` · `sphere` · `divot` · `shingle` · `solidDmnd` · `openDmnd` · `dotDmnd` |
+| Category                    | Values                                                                                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Grids                       | `smGrid` · `lgGrid` · `dotGrid` _(no `ltGrid` — common typo)_                                                                                         |
+| Diagonal lines              | `ltUpDiag` · `ltDnDiag` · `dkUpDiag` · `dkDnDiag` · `wdUpDiag` · `wdDnDiag` · `dashUpDiag` · `dashDnDiag` · `diagCross`                               |
+| Horizontal / vertical lines | `horz` · `vert` · `ltHorz` · `ltVert` · `dkHorz` · `dkVert` · `narHorz` · `narVert` · `dashHorz` · `dashVert` · `cross`                               |
+| Percent fills               | `pct5` · `pct10` · `pct20` · `pct25` · `pct30` · `pct40` · `pct50` · `pct60` · `pct70` · `pct75` · `pct80` · `pct90`                                  |
+| Checks & confetti           | `smCheck` · `lgCheck` · `smConfetti` · `lgConfetti`                                                                                                   |
+| Decorative                  | `horzBrick` · `diagBrick` · `weave` · `plaid` · `trellis` · `zigZag` · `wave` · `sphere` · `divot` · `shingle` · `solidDmnd` · `openDmnd` · `dotDmnd` |
 
 > `svg_quality_checker.py` warns on missing `data-pptx-pattern` and errors on values outside the enum. Catch these pre-export — PowerPoint's repair dialog hides which pattern broke.
 
@@ -707,12 +714,14 @@ Rotation converts to native PPTX `<a:xfrm rot="...">`. Supported on all element 
 Calculate arc endpoint coordinates precisely with trigonometry. Never estimate — small errors produce wildly wrong shapes.
 
 **Calculation formula** (center `cx,cy`, radius `r`, angle `θ` in degrees):
+
 ```
 x = cx + r × cos(θ × π / 180)
 y = cy + r × sin(θ × π / 180)
 ```
 
 **Key rules**:
+
 1. Start at **-90°** (12 o'clock position) and go clockwise
 2. Each sector spans `percentage × 360°`
 3. Use **large-arc flag = 1** when the sector is > 180°, **0** otherwise
@@ -720,6 +729,7 @@ y = cy + r × sin(θ × π / 180)
 5. **Always verify** that the sum of all sector angles equals 360° and that the last sector's end point matches the first sector's start point
 
 **Example — 75% donut sector** (center 400,400, outer r=180, inner r=100):
+
 ```
 Start angle: -90°    → outer(400, 220), inner(400, 300)
 End angle: -90+270=180° → outer(220, 400), inner(300, 400)
@@ -747,6 +757,7 @@ Given line from (x1,y1) to (x2,y2):
 ```
 
 **Example — diagonal line** from (260,310) to (370,430):
+
 ```
 dx=110, dy=120, len≈162.8, ux=0.676, uy=0.737
 px=-0.737, py=0.676

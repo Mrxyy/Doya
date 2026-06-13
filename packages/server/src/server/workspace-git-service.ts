@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { LRUCache } from "lru-cache";
 import pLimit from "p-limit";
 import type pino from "pino";
-import type { ProjectCheckoutLitePayload } from "@getpaseo/protocol/messages";
+import type { ProjectCheckoutLitePayload } from "@getdoya/protocol/messages";
 import type { CheckoutContext } from "../utils/checkout-git.js";
 import {
   type BranchCheckoutResolution,
@@ -32,7 +32,7 @@ import {
 import { parseGitRevParsePath } from "../utils/git-rev-parse-path.js";
 import { runGitCommand } from "../utils/run-git-command.js";
 import { resolveGitHubRemote, type GitHubRemoteIdentity } from "../utils/github-remote.js";
-import { listPaseoWorktrees, type PaseoWorktreeInfo } from "../utils/worktree.js";
+import { listDoyaWorktrees, type DoyaWorktreeInfo } from "../utils/worktree.js";
 import { READ_ONLY_GIT_ENV } from "./checkout-git-utils.js";
 import {
   buildWorkspaceGitMetadataFromSnapshot,
@@ -58,7 +58,7 @@ const LINUX_WATCH_REFRESH_COOLDOWN_MS = 2_000;
 const LINUX_WATCH_IGNORE_TTL_MS = 5 * 60 * 1_000;
 
 const linuxWatchReaddirConcurrency =
-  parseInt(process.env.PASEO_LINUX_WATCH_READDIR_CONCURRENCY ?? "16", 10) || 16;
+  parseInt(process.env.DOYA_LINUX_WATCH_READDIR_CONCURRENCY ?? "16", 10) || 16;
 const linuxWatchReaddirLimit = pLimit(linuxWatchReaddirConcurrency);
 
 export interface WorkspaceGitRuntimeSnapshot {
@@ -69,7 +69,7 @@ export interface WorkspaceGitRuntimeSnapshot {
     mainRepoRoot: string | null;
     currentBranch: string | null;
     remoteUrl: string | null;
-    isPaseoOwnedWorktree: boolean;
+    isDoyaOwnedWorktree: boolean;
     isDirty: boolean | null;
     baseRef: string | null;
     aheadBehind: { ahead: number; behind: number } | null;
@@ -184,19 +184,19 @@ export interface WorkspaceGitBranchSuggestionsOptions {
 }
 
 export interface WorkspaceGitStashListOptions {
-  paseoOnly?: boolean;
+  doyaOnly?: boolean;
 }
 
 export interface WorkspaceGitStashEntry {
   index: number;
   message: string;
   branch: string | null;
-  isPaseo: boolean;
+  isDoya: boolean;
 }
 
 export type WorkspaceGitBranchValidationResult = BranchCheckoutResolution;
 export type WorkspaceGitBranchSuggestion = BranchSuggestion;
-export type WorkspaceGitWorktreeInfo = PaseoWorktreeInfo;
+export type WorkspaceGitWorktreeInfo = DoyaWorktreeInfo;
 
 export type WorkspaceGitSnapshotOptions =
   | {
@@ -247,7 +247,7 @@ interface WorkspaceGitServiceDependencies {
   resolveBranchCheckout: typeof resolveBranchCheckout;
   resolveRepositoryDefaultBranch: typeof resolveRepositoryDefaultBranch;
   listBranchSuggestions: typeof listBranchSuggestions;
-  listPaseoWorktrees: typeof listPaseoWorktrees;
+  listDoyaWorktrees: typeof listDoyaWorktrees;
   github: GitHubService;
   resolveAbsoluteGitDir: (cwd: string) => Promise<string | null>;
   hasOriginRemote: (cwd: string) => Promise<boolean>;
@@ -258,7 +258,7 @@ interface WorkspaceGitServiceDependencies {
 
 interface WorkspaceGitServiceOptions {
   logger: pino.Logger;
-  paseoHome: string;
+  doyaHome?: string;
   worktreesRoot?: string;
   deps?: Partial<WorkspaceGitServiceDependencies>;
 }
@@ -329,7 +329,7 @@ function buildDefaultWorkspaceGitServiceDeps(): WorkspaceGitServiceDependencies 
     resolveBranchCheckout,
     resolveRepositoryDefaultBranch,
     listBranchSuggestions,
-    listPaseoWorktrees,
+    listDoyaWorktrees,
     github: createGitHubService(),
     resolveAbsoluteGitDir,
     hasOriginRemote,
@@ -347,7 +347,7 @@ function resolveWorkspaceGitServiceDeps(
 
 export class WorkspaceGitServiceImpl implements WorkspaceGitService {
   private readonly logger: pino.Logger;
-  private readonly paseoHome: string;
+  private readonly doyaHome: string;
   private readonly worktreesRoot: string | undefined;
   private readonly deps: WorkspaceGitServiceDependencies;
   private readonly snapshotUpdatedListeners = new Set<WorkspaceGitSnapshotUpdatedListener>();
@@ -386,7 +386,11 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
   >({ max: WORKSPACE_GIT_CHECKOUT_DIFF_CACHE_MAX });
   constructor(options: WorkspaceGitServiceOptions) {
     this.logger = options.logger.child({ module: "workspace-git-service" });
-    this.paseoHome = options.paseoHome;
+    const doyaHome = options.doyaHome;
+    if (!doyaHome) {
+      throw new Error("WorkspaceGitService requires doyaHome");
+    }
+    this.doyaHome = doyaHome;
     this.worktreesRoot = options.worktreesRoot;
     this.deps = resolveWorkspaceGitServiceDeps(options.deps);
   }
@@ -440,7 +444,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     const normalizedCwd = normalizeWorkspaceId(cwd);
     try {
       const status = await this.deps.getCheckoutStatus(normalizedCwd, {
-        paseoHome: this.paseoHome,
+        doyaHome: this.doyaHome,
         worktreesRoot: this.worktreesRoot,
         logger: this.logger,
       });
@@ -450,7 +454,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
           currentBranch: null,
           remoteUrl: null,
           repoRoot: null,
-          isPaseoOwnedWorktree: false,
+          isDoyaOwnedWorktree: false,
           mainRepoRoot: null,
         });
       }
@@ -459,7 +463,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
         currentBranch: status.currentBranch,
         remoteUrl: status.remoteUrl,
         repoRoot: status.repoRoot,
-        isPaseoOwnedWorktree: status.isPaseoOwnedWorktree,
+        isDoyaOwnedWorktree: status.isDoyaOwnedWorktree,
         mainRepoRoot: status.mainRepoRoot,
       });
     } catch {
@@ -468,7 +472,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
         currentBranch: null,
         remoteUrl: null,
         repoRoot: null,
-        isPaseoOwnedWorktree: false,
+        isDoyaOwnedWorktree: false,
         mainRepoRoot: null,
       });
     }
@@ -489,7 +493,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     const key = this.buildCheckoutDiffCacheKey(normalizedCwd, normalizedOptions);
     return this.readAuxiliaryCache(this.checkoutDiffCache, key, readOptions, () =>
       this.deps.getCheckoutDiff(normalizedCwd, normalizedOptions, {
-        paseoHome: this.paseoHome,
+        doyaHome: this.doyaHome,
         worktreesRoot: this.worktreesRoot,
       }),
     );
@@ -567,14 +571,14 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     readOptions?: WorkspaceGitReadOptions,
   ): Promise<WorkspaceGitStashEntry[]> {
     const normalizedCwd = normalizeWorkspaceId(cwd);
-    const paseoOnly = options?.paseoOnly !== false;
-    const key = JSON.stringify(["stashes", normalizedCwd, paseoOnly]);
+    const doyaOnly = options?.doyaOnly !== false;
+    const key = JSON.stringify(["stashes", normalizedCwd, doyaOnly]);
     return this.readAuxiliaryCache(this.stashListCache, key, readOptions, async () => {
       const { stdout } = await this.deps.runGitCommand(["stash", "list", "--format=%gd%x00%s"], {
         cwd: normalizedCwd,
         envOverlay: READ_ONLY_GIT_ENV,
       });
-      return parseWorkspaceGitStashList(stdout, { paseoOnly });
+      return parseWorkspaceGitStashList(stdout, { doyaOnly });
     });
   }
 
@@ -585,9 +589,9 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     const repoRoot = await this.resolveRepoRoot(cwdOrRepoRoot, options);
     const key = JSON.stringify(["worktrees", repoRoot]);
     return this.readAuxiliaryCache(this.worktreeListCache, key, options, () =>
-      this.deps.listPaseoWorktrees({
+      this.deps.listDoyaWorktrees({
         cwd: repoRoot,
-        paseoHome: this.paseoHome,
+        doyaHome: this.doyaHome,
         worktreesRoot: this.worktreesRoot,
       }),
     );
@@ -599,7 +603,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       throw new Error("Create worktree requires a git repository");
     }
 
-    return snapshot.git.isPaseoOwnedWorktree
+    return snapshot.git.isDoyaOwnedWorktree
       ? (snapshot.git.mainRepoRoot ?? snapshot.git.repoRoot ?? normalizeWorkspaceId(cwd))
       : (snapshot.git.repoRoot ?? normalizeWorkspaceId(cwd));
   }
@@ -886,7 +890,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     target: WorkspaceGitTarget,
   ): Promise<CheckoutSnapshotFacts | null> {
     return this.loadCheckoutFacts(target, {
-      paseoHome: this.paseoHome,
+      doyaHome: this.doyaHome,
       logger: this.logger,
       allowRecent: true,
     });
@@ -1575,7 +1579,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
     const cwd = target.cwd;
     const previousGitHubPollKey = this.getGitHubPollKey(target);
     const baseContext: CheckoutContext = {
-      paseoHome: this.paseoHome,
+      doyaHome: this.doyaHome,
       worktreesRoot: this.worktreesRoot,
       logger: this.logger,
     };
@@ -1605,7 +1609,7 @@ export class WorkspaceGitServiceImpl implements WorkspaceGitService {
       mainRepoRoot: checkoutStatus.mainRepoRoot,
       currentBranch: checkoutStatus.currentBranch,
       remoteUrl: checkoutStatus.remoteUrl,
-      isPaseoOwnedWorktree: checkoutStatus.isPaseoOwnedWorktree,
+      isDoyaOwnedWorktree: checkoutStatus.isDoyaOwnedWorktree,
       isDirty: checkoutStatus.isDirty,
       baseRef: checkoutStatus.baseRef,
       aheadBehind: checkoutStatus.aheadBehind,
@@ -1902,7 +1906,7 @@ async function loadGitHubSnapshot(options: {
 
 function parseWorkspaceGitStashList(
   stdout: string,
-  options: { paseoOnly: boolean },
+  options: { doyaOnly: boolean },
 ): WorkspaceGitStashEntry[] {
   const entries: WorkspaceGitStashEntry[] = [];
   const lines = stdout.trim().split("\n").filter(Boolean);
@@ -1921,16 +1925,22 @@ function parseWorkspaceGitStashList(
     }
 
     const index = Number(indexMatch[1]);
-    const prefix = "paseo-auto-stash:";
+    const prefix = "doya-auto-stash:";
+    const legacyPrefix = "doya-auto-stash:";
     const prefixIdx = subject.indexOf(prefix);
-    const isPaseo = prefixIdx >= 0;
-    const branch = isPaseo ? subject.slice(prefixIdx + prefix.length).trim() || null : null;
+    const legacyPrefixIdx = subject.indexOf(legacyPrefix);
+    const matchedPrefix = prefixIdx >= 0 ? prefix : legacyPrefix;
+    const matchedPrefixIdx = prefixIdx >= 0 ? prefixIdx : legacyPrefixIdx;
+    const isDoya = prefixIdx >= 0 || legacyPrefixIdx >= 0;
+    const branch = isDoya
+      ? subject.slice(matchedPrefixIdx + matchedPrefix.length).trim() || null
+      : null;
 
-    if (options.paseoOnly && !isPaseo) {
+    if (options.doyaOnly && !isDoya) {
       continue;
     }
 
-    entries.push({ index, message: subject, branch, isPaseo });
+    entries.push({ index, message: subject, branch, isDoya });
   }
 
   return entries;
@@ -1945,7 +1955,7 @@ function buildNotGitSnapshot(cwd: string): WorkspaceGitRuntimeSnapshot {
       mainRepoRoot: null,
       currentBranch: null,
       remoteUrl: null,
-      isPaseoOwnedWorktree: false,
+      isDoyaOwnedWorktree: false,
       isDirty: null,
       baseRef: null,
       aheadBehind: null,

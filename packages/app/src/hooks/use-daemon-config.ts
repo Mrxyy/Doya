@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@getpaseo/protocol/messages";
+import type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@getdoya/protocol/messages";
 import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
 import { translateNow } from "@/i18n/i18n";
 

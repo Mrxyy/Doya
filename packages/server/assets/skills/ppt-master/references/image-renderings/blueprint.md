@@ -10,13 +10,13 @@ Technical schematic aesthetic — clean lines on a grid, monospace cues, restrai
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
+| Aspect       | Treatment                                                                        |
+| ------------ | -------------------------------------------------------------------------------- |
 | Line quality | Crisp uniform stroke, often 1-1.5px feel; perfectly straight or precisely curved |
-| Texture | None; optional very-low-opacity grid background |
-| Depth | Flat — schematic, not perspectival |
-| Material | None — abstract schematic |
-| Mood | Analytical, engineering-precise, restrained |
+| Texture      | None; optional very-low-opacity grid background                                  |
+| Depth        | Flat — schematic, not perspectival                                               |
+| Material     | None — abstract schematic                                                        |
+| Mood         | Analytical, engineering-precise, restrained                                      |
 
 ## 3. Using the deck's HEX values
 

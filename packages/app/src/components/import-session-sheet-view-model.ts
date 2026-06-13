@@ -1,6 +1,6 @@
-import type { FetchRecentProviderSessionEntry } from "@getpaseo/client/internal/daemon-client";
-import type { AgentProvider } from "@getpaseo/protocol/agent-types";
-import { IMPORTABLE_PROVIDERS } from "@getpaseo/protocol/importable-providers";
+import type { FetchRecentProviderSessionEntry } from "@getdoya/client/internal/daemon-client";
+import type { AgentProvider } from "@getdoya/protocol/agent-types";
+import { IMPORTABLE_PROVIDERS } from "@getdoya/protocol/importable-providers";
 import { translateNow } from "@/i18n/i18n";
 
 export const IMPORTABLE_PROVIDER_IDS: Set<string> = new Set(IMPORTABLE_PROVIDERS);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { AgentModelDefinition, ProviderSnapshotEntry } from "@getpaseo/protocol/agent-types";
-import type { AgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
+import type { AgentModelDefinition, ProviderSnapshotEntry } from "@getdoya/protocol/agent-types";
+import type { AgentProviderDefinition } from "@getdoya/protocol/provider-manifest";
 import {
   buildProviderSelectorProviders,
   buildSelectableProviderSelectorProviders,

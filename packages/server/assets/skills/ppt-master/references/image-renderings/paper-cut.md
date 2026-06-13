@@ -12,13 +12,13 @@ Layered paper-craft aesthetic — crisp scissor-cut edges, subtle paper shadows 
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
+| Aspect       | Treatment                                                                 |
+| ------------ | ------------------------------------------------------------------------- |
 | Line quality | No outlines — shapes are defined by paper edges (slightly irregular cuts) |
-| Texture | Paper grain at 10-15% opacity over each color sheet |
-| Depth | Real layered depth via soft 8-12% drop shadow under each cut-paper layer |
-| Material | Construction paper / cardstock — matte, slightly fibrous |
-| Mood | Warm, tactile, approachable, hand-made |
+| Texture      | Paper grain at 10-15% opacity over each color sheet                       |
+| Depth        | Real layered depth via soft 8-12% drop shadow under each cut-paper layer  |
+| Material     | Construction paper / cardstock — matte, slightly fibrous                  |
+| Mood         | Warm, tactile, approachable, hand-made                                    |
 
 ## 3. Using the deck's HEX values
 

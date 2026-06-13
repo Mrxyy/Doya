@@ -10,13 +10,13 @@ Pure white paper, black ink, sparse semantic color accents — the Mike Rohde sk
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
+| Aspect       | Treatment                                             |
+| ------------ | ----------------------------------------------------- |
 | Line quality | Black ink with slight wobble; confident medium weight |
-| Texture | Pure white background; no paper grain |
-| Depth | Flat |
-| Material | Pen-on-paper |
-| Mood | Professional, considered, manifesto |
+| Texture      | Pure white background; no paper grain                 |
+| Depth        | Flat                                                  |
+| Material     | Pen-on-paper                                          |
+| Mood         | Professional, considered, manifesto                   |
 
 ## 3. Using the deck's HEX values
 

@@ -4,7 +4,7 @@ import type {
   ConversationRecordingEvent,
   ConversationRecording,
   AgentStreamEventPayload,
-} from "@getpaseo/protocol/messages";
+} from "@getdoya/protocol/messages";
 import type { AssistantMessageItem, StreamItem, ThoughtItem } from "@/types/stream";
 
 export interface ReplayEventView {
@@ -534,9 +534,7 @@ export function projectConversationTimelineReplay(input: {
   };
 }
 
-function getRecordingItemSignatures(
-  events: readonly ConversationRecordingEvent[],
-): Set<string> {
+function getRecordingItemSignatures(events: readonly ConversationRecordingEvent[]): Set<string> {
   const signatures = new Set<string>();
   for (const event of events) {
     if (event.kind === "user_input") {

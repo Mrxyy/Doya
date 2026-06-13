@@ -1,9 +1,9 @@
-# Paseo Client SDK Examples
+# Doya Client SDK Examples
 
 These examples use only the public SDK root:
 
 ```ts
-import { createPaseoClient, type PaseoClient } from "@getpaseo/client";
+import { createDoyaClient, type DoyaClient } from "@getdoya/client";
 ```
 
 Pass the daemon WebSocket URL into the exported functions. In worktree dev, read it

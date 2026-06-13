@@ -4,9 +4,9 @@ PPT Master's exported PPTX supports **page transitions** (slide-to-slide) and **
 
 ## Defaults
 
-| Layer | Default | Why |
-|---|---|---|
-| Page transition | `fade`, 0.4s | Calm baseline that suits most decks |
+| Layer                 | Default                                                                | Why                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Page transition       | `fade`, 0.4s                                                           | Calm baseline that suits most decks                                                                                                                                                                                                                                                                                                                                                              |
 | Per-element animation | `auto` effect + `after-previous` trigger, 0.4s duration + 0.5s stagger | Effects are mapped from group id (chart→wipe, card-/step-/pillar-→fly, title/takeaway→fade); image-like ids (`hero` / `figure-` / `image` / `img-` / `kpi`) cycle a richer visual pool (zoom / dissolve / circle / box / diamond / wheel) so multiple images vary across the deck; unmatched ids cycle a small fade/wipe/fly/zoom pool. Cascades automatically on slide entry — zero interaction |
 
 To regenerate a deck with different settings, rerun `svg_to_pptx.py` against the same `svg_output/` (or `svg_final/`) — no need to rerun the LLM. To turn per-element animation off entirely, pass `-a none`.
@@ -147,17 +147,17 @@ Executors should wrap logical sections in `<g id>` regardless of whether you pla
 
 ## Quick Reference
 
-| Goal | Command |
-|---|---|
-| Disable transitions | `-t none` |
-| Change transition effect | `-t push` (or any from the list above) |
-| Slower transition | `--transition-duration 0.8` |
-| Auto-play | `--auto-advance 5` |
-| Disable element animation | `-a none` |
-| Switch to on-click trigger | `--animation-trigger on-click` |
-| Use a single effect instead of auto | `--animation fade` |
-| All groups animate together | `--animation-trigger with-previous` |
-| Slower per-element reveal | `--animation-duration 0.5` |
-| Wider gap in after-previous | `--animation-stagger 0.7` |
+| Goal                                | Command                                |
+| ----------------------------------- | -------------------------------------- |
+| Disable transitions                 | `-t none`                              |
+| Change transition effect            | `-t push` (or any from the list above) |
+| Slower transition                   | `--transition-duration 0.8`            |
+| Auto-play                           | `--auto-advance 5`                     |
+| Disable element animation           | `-a none`                              |
+| Switch to on-click trigger          | `--animation-trigger on-click`         |
+| Use a single effect instead of auto | `--animation fade`                     |
+| All groups animate together         | `--animation-trigger with-previous`    |
+| Slower per-element reveal           | `--animation-duration 0.5`             |
+| Wider gap in after-previous         | `--animation-stagger 0.7`              |
 
 See also: [`scripts/docs/svg-pipeline.md`](../scripts/docs/svg-pipeline.md) for the full `svg_to_pptx.py` reference.

@@ -15,7 +15,7 @@ describe("ppt preview service", () => {
   let baseUrl: string;
 
   beforeEach(async () => {
-    root = await mkdtemp(path.join(os.tmpdir(), "paseo-ppt-preview-"));
+    root = await mkdtemp(path.join(os.tmpdir(), "doya-ppt-preview-"));
     const svgDir = path.join(root, "projects/demo/svg_output");
     await mkdir(svgDir, { recursive: true });
     await writeFile(

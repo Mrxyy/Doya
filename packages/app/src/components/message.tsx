@@ -72,8 +72,8 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from "reac
 import { createMarkdownStyles } from "@/styles/markdown-styles";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
 import type { TodoEntry, UserMessageImageAttachment } from "@/types/stream";
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
-import type { ToolCallDetail } from "@getpaseo/protocol/agent-types";
+import type { AgentAttachment } from "@getdoya/protocol/messages";
+import type { ToolCallDetail } from "@getdoya/protocol/agent-types";
 import { buildToolCallPresentation } from "@/tool-calls/presentation";
 import { resolveToolCallIcon } from "@/utils/tool-call-icon";
 import { getMarkdownListMarker, getMarkdownListSpacing } from "@/utils/markdown-list";
@@ -108,14 +108,14 @@ import type { AttachmentMetadata } from "@/attachments/types";
 import { Button } from "@/components/ui/button";
 import { filterUserMessageDisplayAttachments } from "@/components/user-message-attachments";
 import {
-  getPaseoMessageVisibleText,
-  parsePaseoMessageCard,
-  parsePaseoMessageRenderParts,
-  type PaseoMessageCard,
-} from "@/utils/paseo-message-markup";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+  getDoyaMessageVisibleText,
+  parseDoyaMessageCard,
+  parseDoyaMessageRenderParts,
+  type DoyaMessageCard,
+} from "@/utils/doya-message-markup";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import { isWeb, isNative } from "@/constants/platform";
-import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
+import type { AgentCapabilityFlags } from "@getdoya/protocol/agent-types";
 import { RewindMenu, type RewindMode } from "@/components/rewind/rewind-menu";
 import { useRewindAgentMutation } from "@/components/rewind/use-rewind-agent-mutation";
 import { translateNow } from "@/i18n/i18n";
@@ -163,8 +163,8 @@ function useDisableOuterSpacing(disableOuterSpacing: boolean | undefined) {
   return disableOuterSpacing ?? contextValue;
 }
 
-const WEB_TOOLCALL_SHIMMER_KEYFRAME_ID = "paseo-toolcall-shimmer-keyframes";
-const WEB_TOOLCALL_SHIMMER_ANIMATION_NAME = "paseo-toolcall-shimmer";
+const WEB_TOOLCALL_SHIMMER_KEYFRAME_ID = "doya-toolcall-shimmer-keyframes";
+const WEB_TOOLCALL_SHIMMER_ANIMATION_NAME = "doya-toolcall-shimmer";
 const MARKDOWN_ALLOWED_IMAGE_HANDLERS = [
   "data:image/png;base64",
   "data:image/gif;base64",
@@ -210,10 +210,10 @@ const destructiveColorMapping = (theme: Theme) => ({ color: theme.colors.destruc
 const WEB_TOOLCALL_SHIMMER_KEYFRAME_CSS = `
   @keyframes ${WEB_TOOLCALL_SHIMMER_ANIMATION_NAME} {
     0% {
-      background-position: var(--paseo-shimmer-start, -200px) 0;
+      background-position: var(--doya-shimmer-start, -200px) 0;
     }
     100% {
-      background-position: var(--paseo-shimmer-end, 200px) 0;
+      background-position: var(--doya-shimmer-end, 200px) 0;
     }
   }
 `;
@@ -379,7 +379,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     minWidth: 0,
     flexShrink: 1,
   },
-  paseoBubble: {
+  doyaBubble: {
     backgroundColor: "transparent",
     borderRadius: 0,
     paddingHorizontal: 0,
@@ -488,7 +488,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     fontWeight: theme.fontWeight.semibold,
     lineHeight: 14,
   },
-  paseoCard: {
+  doyaCard: {
     width: 620,
     maxWidth: "100%",
     minHeight: 176,
@@ -505,32 +505,32 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
   },
-  paseoCardResult: {
+  doyaCardResult: {
     width: 620,
     minHeight: 116,
     paddingLeft: 34,
     paddingVertical: 16,
     gap: theme.spacing[2],
   },
-  paseoCardStripe: {
+  doyaCardStripe: {
     position: "absolute",
     left: 0,
     top: 0,
     bottom: 0,
     width: 4,
   },
-  paseoCardHeader: {
+  doyaCardHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[3],
     paddingRight: 148,
   },
-  paseoCardHeaderResult: {
+  doyaCardHeaderResult: {
     gap: theme.spacing[2],
     paddingRight: 110,
     paddingLeft: 2,
   },
-  paseoCardIconBox: {
+  doyaCardIconBox: {
     width: 48,
     height: 48,
     borderRadius: theme.borderRadius.md,
@@ -538,99 +538,99 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     justifyContent: "center",
     borderWidth: theme.borderWidth[1],
   },
-  paseoCardIconBoxResult: {
+  doyaCardIconBoxResult: {
     width: 40,
     height: 40,
     borderRadius: theme.borderRadius.md,
     marginLeft: 2,
   },
-  paseoCardTitleGroup: {
+  doyaCardTitleGroup: {
     flex: 1,
     minWidth: 0,
   },
-  paseoCardResultTitleRow: {
+  doyaCardResultTitleRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
     minWidth: 0,
   },
-  paseoCardTitle: {
+  doyaCardTitle: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.lg,
     fontWeight: theme.fontWeight.medium,
     lineHeight: 24,
     marginBottom: 1,
   },
-  paseoCardTitleResult: {
+  doyaCardTitleResult: {
     flexShrink: 1,
     fontSize: theme.fontSize.base,
     lineHeight: 22,
     marginBottom: 0,
   },
-  paseoCardKind: {
+  doyaCardKind: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 18,
     flexShrink: 1,
   },
-  paseoCardMetaRow: {
+  doyaCardMetaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
     minWidth: 0,
   },
-  paseoCardBadge: {
+  doyaCardBadge: {
     borderRadius: theme.borderRadius.full,
     borderWidth: theme.borderWidth[1],
     paddingHorizontal: theme.spacing[2],
     paddingVertical: 1,
   },
-  paseoCardBadgeText: {
+  doyaCardBadgeText: {
     fontSize: theme.fontSize.xs,
     fontWeight: theme.fontWeight.semibold,
     lineHeight: 14,
   },
-  paseoCardSummary: {
+  doyaCardSummary: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     lineHeight: 22,
     paddingRight: 148,
   },
-  paseoCardSummaryResult: {
+  doyaCardSummaryResult: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 20,
     paddingRight: 112,
   },
-  paseoCardFieldList: {
+  doyaCardFieldList: {
     gap: 3,
     paddingRight: 132,
     marginTop: 2,
   },
-  paseoCardFieldListResult: {
+  doyaCardFieldListResult: {
     paddingRight: 112,
     marginTop: 0,
   },
-  paseoCardFieldRow: {
+  doyaCardFieldRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: theme.spacing[3],
     minWidth: 0,
   },
-  paseoCardFieldLabel: {
+  doyaCardFieldLabel: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 20,
     minWidth: 38,
   },
-  paseoCardFieldValue: {
+  doyaCardFieldValue: {
     flex: 1,
     minWidth: 0,
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
     lineHeight: 20,
   },
-  paseoCardIllustration: {
+  doyaCardIllustration: {
     position: "absolute",
     right: 0,
     top: 0,
@@ -638,12 +638,12 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     height: 154,
     opacity: 1,
   },
-  paseoCardIllustrationResult: {
+  doyaCardIllustrationResult: {
     width: 126,
     height: 112,
     opacity: 0.82,
   },
-  paseoCardHalo: {
+  doyaCardHalo: {
     position: "absolute",
     right: -50,
     top: -58,
@@ -651,7 +651,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     height: 196,
     borderRadius: 98,
   },
-  paseoCardIllustrationPlate: {
+  doyaCardIllustrationPlate: {
     position: "absolute",
     right: 18,
     top: 24,
@@ -660,7 +660,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.lg,
     borderWidth: theme.borderWidth[1],
   },
-  paseoCardAccentWash: {
+  doyaCardAccentWash: {
     position: "absolute",
     right: -40,
     bottom: -30,
@@ -668,7 +668,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     height: 112,
     borderTopLeftRadius: 90,
   },
-  paseoCardDecorRail: {
+  doyaCardDecorRail: {
     position: "absolute",
     right: 17,
     bottom: 16,
@@ -681,29 +681,29 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     gap: 4,
     opacity: 0.72,
   },
-  paseoCardDecorRailLine: {
+  doyaCardDecorRailLine: {
     height: 4,
     borderRadius: 3,
   },
-  paseoCardDecorRailLineShort: {
+  doyaCardDecorRailLineShort: {
     width: "58%",
   },
-  paseoCardDecorRailLineLong: {
+  doyaCardDecorRailLineLong: {
     width: "86%",
   },
-  paseoCardDecorDots: {
+  doyaCardDecorDots: {
     position: "absolute",
     right: 30,
     bottom: 58,
     flexDirection: "row",
     gap: 4,
   },
-  paseoCardDecorDot: {
+  doyaCardDecorDot: {
     width: 4,
     height: 4,
     borderRadius: 3,
   },
-  paseoCardMiniDoc: {
+  doyaCardMiniDoc: {
     position: "absolute",
     right: 32,
     top: 31,
@@ -716,7 +716,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     paddingTop: 24,
     gap: 5,
   },
-  paseoCardMiniDocFold: {
+  doyaCardMiniDocFold: {
     position: "absolute",
     right: -1,
     top: -1,
@@ -725,7 +725,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     borderBottomLeftRadius: theme.borderRadius.sm,
     borderWidth: theme.borderWidth[1],
   },
-  paseoCardMiniBadge: {
+  doyaCardMiniBadge: {
     position: "absolute",
     left: 7,
     top: 7,
@@ -734,23 +734,23 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
-  paseoCardMiniBadgeText: {
+  doyaCardMiniBadgeText: {
     color: "#ffffff",
     fontSize: 7,
     fontWeight: theme.fontWeight.semibold,
     lineHeight: 9,
   },
-  paseoCardMiniLine: {
+  doyaCardMiniLine: {
     height: 4,
     borderRadius: 2,
   },
-  paseoCardMiniLineShort: {
+  doyaCardMiniLineShort: {
     width: "58%",
   },
-  paseoCardMiniLineLong: {
+  doyaCardMiniLineLong: {
     width: "86%",
   },
-  paseoCardMiniSlide: {
+  doyaCardMiniSlide: {
     position: "absolute",
     right: 27,
     top: 34,
@@ -762,12 +762,12 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     padding: 7,
     gap: 5,
   },
-  paseoCardMiniSlideBar: {
+  doyaCardMiniSlideBar: {
     width: "54%",
     height: 5,
     borderRadius: 3,
   },
-  paseoCardMiniTypeText: {
+  doyaCardMiniTypeText: {
     position: "absolute",
     right: 7,
     top: 6,
@@ -775,17 +775,17 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     fontWeight: theme.fontWeight.semibold,
     lineHeight: 9,
   },
-  paseoCardMiniSlideRow: {
+  doyaCardMiniSlideRow: {
     flexDirection: "row",
     gap: 4,
     alignItems: "flex-end",
     marginTop: 2,
   },
-  paseoCardMiniSlideColumn: {
+  doyaCardMiniSlideColumn: {
     width: 7,
     borderRadius: 3,
   },
-  paseoCardMiniSheet: {
+  doyaCardMiniSheet: {
     position: "absolute",
     right: 27,
     top: 32,
@@ -799,7 +799,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     paddingTop: 18,
     gap: 4,
   },
-  paseoCardMiniSheetHeader: {
+  doyaCardMiniSheetHeader: {
     position: "absolute",
     left: 0,
     right: 0,
@@ -810,22 +810,22 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "center",
   },
-  paseoCardMiniSheetHeaderText: {
+  doyaCardMiniSheetHeaderText: {
     color: "#ffffff",
     fontSize: 7,
     fontWeight: theme.fontWeight.semibold,
     lineHeight: 9,
   },
-  paseoCardMiniSheetRow: {
+  doyaCardMiniSheetRow: {
     flexDirection: "row",
     gap: 4,
   },
-  paseoCardMiniSheetCell: {
+  doyaCardMiniSheetCell: {
     width: 13,
     height: 7,
     borderRadius: 2,
   },
-  paseoCardMiniImage: {
+  doyaCardMiniImage: {
     position: "absolute",
     right: 27,
     top: 32,
@@ -836,7 +836,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     backgroundColor: "rgba(255, 255, 255, 0.84)",
     overflow: "hidden",
   },
-  paseoCardMiniImageSun: {
+  doyaCardMiniImageSun: {
     position: "absolute",
     right: 9,
     top: 8,
@@ -844,7 +844,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     height: 11,
     borderRadius: 6,
   },
-  paseoCardMiniImageFrame: {
+  doyaCardMiniImageFrame: {
     position: "absolute",
     left: 8,
     top: 8,
@@ -853,7 +853,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     borderRadius: 4,
     borderWidth: theme.borderWidth[1],
   },
-  paseoCardMiniImageHill: {
+  doyaCardMiniImageHill: {
     position: "absolute",
     left: 0,
     right: 0,
@@ -862,7 +862,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
   },
-  paseoProgressCard: {
+  doyaProgressCard: {
     width: 620,
     maxWidth: "100%",
     borderRadius: theme.borderRadius.md,
@@ -875,7 +875,7 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     alignItems: "flex-start",
     gap: theme.spacing[3],
   },
-  paseoProgressIconBox: {
+  doyaProgressIconBox: {
     width: 30,
     height: 30,
     borderRadius: theme.borderRadius.full,
@@ -886,38 +886,38 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     borderColor: "rgba(179, 90, 24, 0.18)",
     marginTop: 1,
   },
-  paseoProgressBody: {
+  doyaProgressBody: {
     flex: 1,
     minWidth: 0,
     gap: 2,
   },
-  paseoProgressTitle: {
+  doyaProgressTitle: {
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
     fontWeight: theme.fontWeight.medium,
     lineHeight: 21,
   },
-  paseoProgressSummary: {
+  doyaProgressSummary: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 20,
   },
-  paseoProgressFieldList: {
+  doyaProgressFieldList: {
     marginTop: theme.spacing[1],
     gap: 2,
   },
-  paseoProgressFieldRow: {
+  doyaProgressFieldRow: {
     flexDirection: "row",
     gap: theme.spacing[2],
     minWidth: 0,
   },
-  paseoProgressFieldLabel: {
+  doyaProgressFieldLabel: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.xs,
     lineHeight: 17,
     minWidth: 34,
   },
-  paseoProgressFieldValue: {
+  doyaProgressFieldValue: {
     flex: 1,
     minWidth: 0,
     color: theme.colors.foregroundMuted,
@@ -1294,7 +1294,7 @@ function UserMessageStructuredAttachment({ attachment }: { attachment: AgentAtta
   );
 }
 
-function getPaseoMessageKindLabel(kind: string): string {
+function getDoyaMessageKindLabel(kind: string): string {
   switch (kind) {
     case "ppt.apply_annotations":
       return "PPT 标注任务";
@@ -1315,17 +1315,17 @@ function getPaseoMessageKindLabel(kind: string): string {
   }
 }
 
-function isPaseoSlidesProgressCard(card: PaseoMessageCard): boolean {
+function isDoyaSlidesProgressCard(card: DoyaMessageCard): boolean {
   return card.kind === "ai_creation.slides.progress";
 }
 
-type PaseoMessageCardIllustrationKind = "image" | "slides" | "pdf" | "word" | "sheet" | "generic";
+type DoyaMessageCardIllustrationKind = "image" | "slides" | "pdf" | "word" | "sheet" | "generic";
 
-const PASEO_SLIDE_COLUMN_HEIGHTS = [16, 24, 11] as const;
-const PASEO_SHEET_ROWS = [0, 1, 2, 3] as const;
-const PASEO_SHEET_COLUMNS = [0, 1, 2] as const;
+const DOYA_SLIDE_COLUMN_HEIGHTS = [16, 24, 11] as const;
+const DOYA_SHEET_ROWS = [0, 1, 2, 3] as const;
+const DOYA_SHEET_COLUMNS = [0, 1, 2] as const;
 
-interface PaseoMessageCardVisual {
+interface DoyaMessageCardVisual {
   Icon: LucideIcon;
   badge: string;
   accent: string;
@@ -1336,11 +1336,11 @@ interface PaseoMessageCardVisual {
   borderColor: string;
   stripeColor: string;
   haloColor: string;
-  illustration: PaseoMessageCardIllustrationKind;
+  illustration: DoyaMessageCardIllustrationKind;
 }
 
-function getPaseoMessageCardVisual(card: PaseoMessageCard): PaseoMessageCardVisual {
-  const fileType = getPaseoMessageCardFileType(card);
+function getDoyaMessageCardVisual(card: DoyaMessageCard): DoyaMessageCardVisual {
+  const fileType = getDoyaMessageCardFileType(card);
   if (card.kind.includes(".spreadsheet.") || fileType === "xlsx" || fileType === "csv") {
     return {
       Icon: FileSpreadsheet,
@@ -1452,8 +1452,8 @@ function getPaseoMessageCardVisual(card: PaseoMessageCard): PaseoMessageCardVisu
   };
 }
 
-function getPaseoMessageCardFileType(
-  card: PaseoMessageCard,
+function getDoyaMessageCardFileType(
+  card: DoyaMessageCard,
 ): "image" | "pptx" | "pdf" | "docx" | "xlsx" | "csv" | null {
   const haystack = [card.kind, card.title, card.summary, ...card.fields.map((field) => field.value)]
     .join(" ")
@@ -1479,32 +1479,32 @@ function getPaseoMessageCardFileType(
   return null;
 }
 
-function PaseoCardIllustration({
+function DoyaCardIllustration({
   visual,
   isResult,
 }: {
-  visual: PaseoMessageCardVisual;
+  visual: DoyaMessageCardVisual;
   isResult: boolean;
 }) {
   const haloStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardHalo, { backgroundColor: visual.haloColor }],
+    () => [userMessageStylesheet.doyaCardHalo, { backgroundColor: visual.haloColor }],
     [visual.haloColor],
   );
   const washStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardAccentWash, { backgroundColor: visual.haloColor }],
+    () => [userMessageStylesheet.doyaCardAccentWash, { backgroundColor: visual.haloColor }],
     [visual.haloColor],
   );
   const plateStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardIllustrationPlate,
+      userMessageStylesheet.doyaCardIllustrationPlate,
       { backgroundColor: visual.iconBackground, borderColor: visual.borderColor },
     ],
     [visual.borderColor, visual.iconBackground],
   );
   const illustrationStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardIllustration,
-      isResult ? userMessageStylesheet.paseoCardIllustrationResult : null,
+      userMessageStylesheet.doyaCardIllustration,
+      isResult ? userMessageStylesheet.doyaCardIllustrationResult : null,
     ],
     [isResult],
   );
@@ -1514,50 +1514,50 @@ function PaseoCardIllustration({
       <View style={washStyle} />
       <View style={haloStyle} />
       <View style={plateStyle} />
-      {visual.illustration === "sheet" ? <PaseoSheetIllustration visual={visual} /> : null}
-      {visual.illustration === "slides" ? <PaseoSlidesIllustration visual={visual} /> : null}
-      {visual.illustration === "image" ? <PaseoImageIllustration visual={visual} /> : null}
+      {visual.illustration === "sheet" ? <DoyaSheetIllustration visual={visual} /> : null}
+      {visual.illustration === "slides" ? <DoyaSlidesIllustration visual={visual} /> : null}
+      {visual.illustration === "image" ? <DoyaImageIllustration visual={visual} /> : null}
       {visual.illustration === "pdf" || visual.illustration === "word" ? (
-        <PaseoDocumentIllustration visual={visual} />
+        <DoyaDocumentIllustration visual={visual} />
       ) : null}
-      {visual.illustration === "generic" ? <PaseoDocumentIllustration visual={visual} /> : null}
-      <PaseoCardDecor visual={visual} />
+      {visual.illustration === "generic" ? <DoyaDocumentIllustration visual={visual} /> : null}
+      <DoyaCardDecor visual={visual} />
     </View>
   );
 }
 
-function PaseoCardDecor({ visual }: { visual: PaseoMessageCardVisual }) {
+function DoyaCardDecor({ visual }: { visual: DoyaMessageCardVisual }) {
   const railStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardDecorRail,
+      userMessageStylesheet.doyaCardDecorRail,
       { backgroundColor: visual.iconBackground, borderColor: visual.borderColor },
     ],
     [visual.borderColor, visual.iconBackground],
   );
   const longLineStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardDecorRailLine,
-      userMessageStylesheet.paseoCardDecorRailLineLong,
+      userMessageStylesheet.doyaCardDecorRailLine,
+      userMessageStylesheet.doyaCardDecorRailLineLong,
       { backgroundColor: visual.accentMuted },
     ],
     [visual.accentMuted],
   );
   const shortLineStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardDecorRailLine,
-      userMessageStylesheet.paseoCardDecorRailLineShort,
+      userMessageStylesheet.doyaCardDecorRailLine,
+      userMessageStylesheet.doyaCardDecorRailLineShort,
       { backgroundColor: visual.iconBackground },
     ],
     [visual.iconBackground],
   );
   const dotStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardDecorDot, { backgroundColor: visual.accentMuted }],
+    () => [userMessageStylesheet.doyaCardDecorDot, { backgroundColor: visual.accentMuted }],
     [visual.accentMuted],
   );
 
   return (
     <>
-      <View style={userMessageStylesheet.paseoCardDecorDots}>
+      <View style={userMessageStylesheet.doyaCardDecorDots}>
         <View style={dotStyle} />
         <View style={dotStyle} />
         <View style={dotStyle} />
@@ -1570,45 +1570,45 @@ function PaseoCardDecor({ visual }: { visual: PaseoMessageCardVisual }) {
   );
 }
 
-function PaseoDocumentIllustration({ visual }: { visual: PaseoMessageCardVisual }) {
+function DoyaDocumentIllustration({ visual }: { visual: DoyaMessageCardVisual }) {
   const docStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardMiniDoc, { borderColor: visual.borderColor }],
+    () => [userMessageStylesheet.doyaCardMiniDoc, { borderColor: visual.borderColor }],
     [visual.borderColor],
   );
   const foldStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardMiniDocFold,
+      userMessageStylesheet.doyaCardMiniDocFold,
       { backgroundColor: visual.iconBackground, borderColor: visual.borderColor },
     ],
     [visual.borderColor, visual.iconBackground],
   );
   const accentLineStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardMiniLine,
-      userMessageStylesheet.paseoCardMiniLineLong,
+      userMessageStylesheet.doyaCardMiniLine,
+      userMessageStylesheet.doyaCardMiniLineLong,
       { backgroundColor: visual.accent },
     ],
     [visual.accent],
   );
   const mutedLongLineStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardMiniLine,
-      userMessageStylesheet.paseoCardMiniLineLong,
+      userMessageStylesheet.doyaCardMiniLine,
+      userMessageStylesheet.doyaCardMiniLineLong,
       { backgroundColor: visual.iconBackground },
     ],
     [visual.iconBackground],
   );
   const mutedShortLineStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardMiniLine,
-      userMessageStylesheet.paseoCardMiniLineShort,
+      userMessageStylesheet.doyaCardMiniLine,
+      userMessageStylesheet.doyaCardMiniLineShort,
       { backgroundColor: visual.iconBackground },
     ],
     [visual.iconBackground],
   );
   const badgeStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardMiniBadge,
+      userMessageStylesheet.doyaCardMiniBadge,
       { backgroundColor: visual.accent, borderColor: visual.borderColor },
     ],
     [visual.accent, visual.borderColor],
@@ -1618,7 +1618,7 @@ function PaseoDocumentIllustration({ visual }: { visual: PaseoMessageCardVisual 
     <View style={docStyle}>
       <View style={foldStyle} />
       <View style={badgeStyle}>
-        <Text style={userMessageStylesheet.paseoCardMiniBadgeText}>{visual.badge}</Text>
+        <Text style={userMessageStylesheet.doyaCardMiniBadgeText}>{visual.badge}</Text>
       </View>
       <View style={accentLineStyle} />
       <View style={mutedLongLineStyle} />
@@ -1627,25 +1627,25 @@ function PaseoDocumentIllustration({ visual }: { visual: PaseoMessageCardVisual 
   );
 }
 
-function PaseoSlidesIllustration({ visual }: { visual: PaseoMessageCardVisual }) {
+function DoyaSlidesIllustration({ visual }: { visual: DoyaMessageCardVisual }) {
   const slideStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardMiniSlide, { borderColor: visual.borderColor }],
+    () => [userMessageStylesheet.doyaCardMiniSlide, { borderColor: visual.borderColor }],
     [visual.borderColor],
   );
   const barStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardMiniSlideBar, { backgroundColor: visual.accent }],
+    () => [userMessageStylesheet.doyaCardMiniSlideBar, { backgroundColor: visual.accent }],
     [visual.accent],
   );
   const columnStyles = useMemo(
     () =>
-      PASEO_SLIDE_COLUMN_HEIGHTS.map((height) => [
-        userMessageStylesheet.paseoCardMiniSlideColumn,
+      DOYA_SLIDE_COLUMN_HEIGHTS.map((height) => [
+        userMessageStylesheet.doyaCardMiniSlideColumn,
         { height, backgroundColor: visual.iconBackground },
       ]),
     [visual.iconBackground],
   );
   const typeTextStyle = useMemo<StyleProp<TextStyle>>(
-    () => [userMessageStylesheet.paseoCardMiniTypeText, { color: visual.accent }],
+    () => [userMessageStylesheet.doyaCardMiniTypeText, { color: visual.accent }],
     [visual.accent],
   );
 
@@ -1653,25 +1653,25 @@ function PaseoSlidesIllustration({ visual }: { visual: PaseoMessageCardVisual })
     <View style={slideStyle}>
       <View style={barStyle} />
       <Text style={typeTextStyle}>{visual.badge}</Text>
-      <View style={userMessageStylesheet.paseoCardMiniSlideRow}>
+      <View style={userMessageStylesheet.doyaCardMiniSlideRow}>
         {columnStyles.map((columnStyle, index) => (
-          <View key={PASEO_SLIDE_COLUMN_HEIGHTS[index]} style={columnStyle} />
+          <View key={DOYA_SLIDE_COLUMN_HEIGHTS[index]} style={columnStyle} />
         ))}
       </View>
     </View>
   );
 }
 
-function PaseoSheetIllustration({ visual }: { visual: PaseoMessageCardVisual }) {
+function DoyaSheetIllustration({ visual }: { visual: DoyaMessageCardVisual }) {
   const sheetStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardMiniSheet, { borderColor: visual.borderColor }],
+    () => [userMessageStylesheet.doyaCardMiniSheet, { borderColor: visual.borderColor }],
     [visual.borderColor],
   );
   const cellStyles = useMemo(
     () =>
-      PASEO_SHEET_ROWS.map((row) =>
-        PASEO_SHEET_COLUMNS.map((column) => [
-          userMessageStylesheet.paseoCardMiniSheetCell,
+      DOYA_SHEET_ROWS.map((row) =>
+        DOYA_SHEET_COLUMNS.map((column) => [
+          userMessageStylesheet.doyaCardMiniSheetCell,
           {
             backgroundColor: row === 0 || column === 0 ? visual.accent : visual.iconBackground,
             opacity: row === 0 || column === 0 ? 0.72 : 1,
@@ -1681,18 +1681,18 @@ function PaseoSheetIllustration({ visual }: { visual: PaseoMessageCardVisual }) 
     [visual.accent, visual.iconBackground],
   );
   const headerStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardMiniSheetHeader, { backgroundColor: visual.accent }],
+    () => [userMessageStylesheet.doyaCardMiniSheetHeader, { backgroundColor: visual.accent }],
     [visual.accent],
   );
 
   return (
     <View style={sheetStyle}>
       <View style={headerStyle}>
-        <Text style={userMessageStylesheet.paseoCardMiniSheetHeaderText}>{visual.badge}</Text>
+        <Text style={userMessageStylesheet.doyaCardMiniSheetHeaderText}>{visual.badge}</Text>
       </View>
-      {PASEO_SHEET_ROWS.map((row) => (
-        <View key={row} style={userMessageStylesheet.paseoCardMiniSheetRow}>
-          {PASEO_SHEET_COLUMNS.map((column) => (
+      {DOYA_SHEET_ROWS.map((row) => (
+        <View key={row} style={userMessageStylesheet.doyaCardMiniSheetRow}>
+          {DOYA_SHEET_COLUMNS.map((column) => (
             <View key={column} style={cellStyles[row][column]} />
           ))}
         </View>
@@ -1701,24 +1701,21 @@ function PaseoSheetIllustration({ visual }: { visual: PaseoMessageCardVisual }) 
   );
 }
 
-function PaseoImageIllustration({ visual }: { visual: PaseoMessageCardVisual }) {
+function DoyaImageIllustration({ visual }: { visual: DoyaMessageCardVisual }) {
   const imageStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardMiniImage, { borderColor: visual.borderColor }],
+    () => [userMessageStylesheet.doyaCardMiniImage, { borderColor: visual.borderColor }],
     [visual.borderColor],
   );
   const sunStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardMiniImageSun, { backgroundColor: visual.accent }],
+    () => [userMessageStylesheet.doyaCardMiniImageSun, { backgroundColor: visual.accent }],
     [visual.accent],
   );
   const hillStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [
-      userMessageStylesheet.paseoCardMiniImageHill,
-      { backgroundColor: visual.iconBackground },
-    ],
+    () => [userMessageStylesheet.doyaCardMiniImageHill, { backgroundColor: visual.iconBackground }],
     [visual.iconBackground],
   );
   const frameStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardMiniImageFrame, { borderColor: visual.accentMuted }],
+    () => [userMessageStylesheet.doyaCardMiniImageFrame, { borderColor: visual.accentMuted }],
     [visual.accentMuted],
   );
 
@@ -1731,23 +1728,23 @@ function PaseoImageIllustration({ visual }: { visual: PaseoMessageCardVisual }) 
   );
 }
 
-function UserMessagePaseoProgressCard({ card }: { card: PaseoMessageCard }) {
+function UserMessageDoyaProgressCard({ card }: { card: DoyaMessageCard }) {
   return (
-    <View style={userMessageStylesheet.paseoProgressCard}>
-      <View style={userMessageStylesheet.paseoProgressIconBox}>
+    <View style={userMessageStylesheet.doyaProgressCard}>
+      <View style={userMessageStylesheet.doyaProgressIconBox}>
         <CheckCircle size={16} color="#b35a18" strokeWidth={2.4} />
       </View>
-      <View style={userMessageStylesheet.paseoProgressBody}>
-        <Text style={userMessageStylesheet.paseoProgressTitle} numberOfLines={1}>
+      <View style={userMessageStylesheet.doyaProgressBody}>
+        <Text style={userMessageStylesheet.doyaProgressTitle} numberOfLines={1}>
           {card.title}
         </Text>
-        <Text style={userMessageStylesheet.paseoProgressSummary}>{card.summary}</Text>
+        <Text style={userMessageStylesheet.doyaProgressSummary}>{card.summary}</Text>
         {card.fields.length > 0 ? (
-          <View style={userMessageStylesheet.paseoProgressFieldList}>
+          <View style={userMessageStylesheet.doyaProgressFieldList}>
             {card.fields.map((field) => (
-              <View key={field.name} style={userMessageStylesheet.paseoProgressFieldRow}>
-                <Text style={userMessageStylesheet.paseoProgressFieldLabel}>{field.label}</Text>
-                <Text style={userMessageStylesheet.paseoProgressFieldValue} numberOfLines={1}>
+              <View key={field.name} style={userMessageStylesheet.doyaProgressFieldRow}>
+                <Text style={userMessageStylesheet.doyaProgressFieldLabel}>{field.label}</Text>
+                <Text style={userMessageStylesheet.doyaProgressFieldValue} numberOfLines={1}>
                   {field.value}
                 </Text>
               </View>
@@ -1759,63 +1756,63 @@ function UserMessagePaseoProgressCard({ card }: { card: PaseoMessageCard }) {
   );
 }
 
-function UserMessagePaseoTaskCard({ card }: { card: PaseoMessageCard }) {
+function UserMessageDoyaTaskCard({ card }: { card: DoyaMessageCard }) {
   const isResult = card.kind.endsWith(".result");
-  const visual = getPaseoMessageCardVisual(card);
+  const visual = getDoyaMessageCardVisual(card);
   const Icon = visual.Icon;
   const cardStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCard,
-      isResult ? userMessageStylesheet.paseoCardResult : null,
+      userMessageStylesheet.doyaCard,
+      isResult ? userMessageStylesheet.doyaCardResult : null,
       { backgroundColor: visual.cardBackground, borderColor: visual.borderColor },
     ],
     [isResult, visual.borderColor, visual.cardBackground],
   );
   const iconBoxStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardIconBox,
-      isResult ? userMessageStylesheet.paseoCardIconBoxResult : null,
+      userMessageStylesheet.doyaCardIconBox,
+      isResult ? userMessageStylesheet.doyaCardIconBoxResult : null,
       { backgroundColor: visual.iconBackground, borderColor: visual.iconBorder },
     ],
     [isResult, visual.iconBackground, visual.iconBorder],
   );
   const stripeStyle = useMemo<StyleProp<ViewStyle>>(
-    () => [userMessageStylesheet.paseoCardStripe, { backgroundColor: visual.stripeColor }],
+    () => [userMessageStylesheet.doyaCardStripe, { backgroundColor: visual.stripeColor }],
     [visual.stripeColor],
   );
   const badgeStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardBadge,
+      userMessageStylesheet.doyaCardBadge,
       { backgroundColor: visual.iconBackground, borderColor: visual.iconBorder },
     ],
     [visual.iconBackground, visual.iconBorder],
   );
   const badgeTextStyle = useMemo<StyleProp<TextStyle>>(
-    () => [userMessageStylesheet.paseoCardBadgeText, { color: visual.accent }],
+    () => [userMessageStylesheet.doyaCardBadgeText, { color: visual.accent }],
     [visual.accent],
   );
   const headerStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardHeader,
-      isResult ? userMessageStylesheet.paseoCardHeaderResult : null,
+      userMessageStylesheet.doyaCardHeader,
+      isResult ? userMessageStylesheet.doyaCardHeaderResult : null,
     ],
     [isResult],
   );
   const resultTitleStyle = useMemo<StyleProp<TextStyle>>(
-    () => [userMessageStylesheet.paseoCardTitle, userMessageStylesheet.paseoCardTitleResult],
+    () => [userMessageStylesheet.doyaCardTitle, userMessageStylesheet.doyaCardTitleResult],
     [],
   );
   const summaryStyle = useMemo<StyleProp<TextStyle>>(
     () => [
-      userMessageStylesheet.paseoCardSummary,
-      isResult ? userMessageStylesheet.paseoCardSummaryResult : null,
+      userMessageStylesheet.doyaCardSummary,
+      isResult ? userMessageStylesheet.doyaCardSummaryResult : null,
     ],
     [isResult],
   );
   const fieldListStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
-      userMessageStylesheet.paseoCardFieldList,
-      isResult ? userMessageStylesheet.paseoCardFieldListResult : null,
+      userMessageStylesheet.doyaCardFieldList,
+      isResult ? userMessageStylesheet.doyaCardFieldListResult : null,
     ],
     [isResult],
   );
@@ -1823,14 +1820,14 @@ function UserMessagePaseoTaskCard({ card }: { card: PaseoMessageCard }) {
   return (
     <View style={cardStyle}>
       <View style={stripeStyle} />
-      <PaseoCardIllustration visual={visual} isResult={isResult} />
+      <DoyaCardIllustration visual={visual} isResult={isResult} />
       <View style={headerStyle}>
         <View style={iconBoxStyle}>
           <Icon size={isResult ? 20 : 22} color={visual.accent} strokeWidth={2.2} />
         </View>
-        <View style={userMessageStylesheet.paseoCardTitleGroup}>
+        <View style={userMessageStylesheet.doyaCardTitleGroup}>
           {isResult ? (
-            <View style={userMessageStylesheet.paseoCardResultTitleRow}>
+            <View style={userMessageStylesheet.doyaCardResultTitleRow}>
               <Text style={resultTitleStyle} numberOfLines={1}>
                 {card.title}
               </Text>
@@ -1842,12 +1839,12 @@ function UserMessagePaseoTaskCard({ card }: { card: PaseoMessageCard }) {
             </View>
           ) : (
             <>
-              <Text style={userMessageStylesheet.paseoCardTitle} numberOfLines={1}>
+              <Text style={userMessageStylesheet.doyaCardTitle} numberOfLines={1}>
                 {card.title}
               </Text>
-              <View style={userMessageStylesheet.paseoCardMetaRow}>
-                <Text style={userMessageStylesheet.paseoCardKind} numberOfLines={1}>
-                  {getPaseoMessageKindLabel(card.kind)}
+              <View style={userMessageStylesheet.doyaCardMetaRow}>
+                <Text style={userMessageStylesheet.doyaCardKind} numberOfLines={1}>
+                  {getDoyaMessageKindLabel(card.kind)}
                 </Text>
                 <View style={badgeStyle}>
                   <Text style={badgeTextStyle} numberOfLines={1}>
@@ -1863,9 +1860,9 @@ function UserMessagePaseoTaskCard({ card }: { card: PaseoMessageCard }) {
       {card.fields.length > 0 ? (
         <View style={fieldListStyle}>
           {card.fields.map((field) => (
-            <View key={field.name} style={userMessageStylesheet.paseoCardFieldRow}>
-              <Text style={userMessageStylesheet.paseoCardFieldLabel}>{field.label}</Text>
-              <Text style={userMessageStylesheet.paseoCardFieldValue} numberOfLines={2}>
+            <View key={field.name} style={userMessageStylesheet.doyaCardFieldRow}>
+              <Text style={userMessageStylesheet.doyaCardFieldLabel}>{field.label}</Text>
+              <Text style={userMessageStylesheet.doyaCardFieldValue} numberOfLines={2}>
                 {field.value}
               </Text>
             </View>
@@ -1876,23 +1873,23 @@ function UserMessagePaseoTaskCard({ card }: { card: PaseoMessageCard }) {
   );
 }
 
-function UserMessagePaseoCard({ card }: { card: PaseoMessageCard }) {
-  if (isPaseoSlidesProgressCard(card)) {
-    return <UserMessagePaseoProgressCard card={card} />;
+function UserMessageDoyaCard({ card }: { card: DoyaMessageCard }) {
+  if (isDoyaSlidesProgressCard(card)) {
+    return <UserMessageDoyaProgressCard card={card} />;
   }
 
-  return <UserMessagePaseoTaskCard card={card} />;
+  return <UserMessageDoyaTaskCard card={card} />;
 }
 
-function shouldUsePaseoCardBubble(input: {
-  hasPaseoCard: boolean;
+function shouldUseDoyaCardBubble(input: {
+  hasDoyaCard: boolean;
   shouldRenderRawText: boolean;
   hasImages: boolean;
   hasAttachments: boolean;
   hasSelectionPreview: boolean;
 }): boolean {
   return (
-    input.hasPaseoCard &&
+    input.hasDoyaCard &&
     !input.shouldRenderRawText &&
     !input.hasImages &&
     !input.hasAttachments &&
@@ -1929,14 +1926,14 @@ export const UserMessage = memo(function UserMessage({
     () => filterUserMessageDisplayAttachments({ images: displayImages, attachments }),
     [attachments, displayImages],
   );
-  const visibleMessage = useMemo(() => getPaseoMessageVisibleText(message), [message]);
+  const visibleMessage = useMemo(() => getDoyaMessageVisibleText(message), [message]);
   const hasText = visibleMessage.trim().length > 0 || message.trim().length > 0;
-  const paseoCard = useMemo(() => parsePaseoMessageCard(message), [message]);
-  const shouldRenderRawText = visibleMessage.trim().length > 0 && !paseoCard;
+  const doyaCard = useMemo(() => parseDoyaMessageCard(message), [message]);
+  const shouldRenderRawText = visibleMessage.trim().length > 0 && !doyaCard;
   const hasImages = displayImages.length > 0;
   const hasAttachments = displayAttachments.length > 0;
-  const shouldUsePaseoBubble = shouldUsePaseoCardBubble({
-    hasPaseoCard: Boolean(paseoCard),
+  const shouldUseDoyaBubble = shouldUseDoyaCardBubble({
+    hasDoyaCard: Boolean(doyaCard),
     shouldRenderRawText,
     hasImages,
     hasAttachments,
@@ -1996,9 +1993,9 @@ export const UserMessage = memo(function UserMessage({
   const bubbleStyle = useMemo(
     () => [
       userMessageStylesheet.bubble,
-      shouldUsePaseoBubble ? userMessageStylesheet.paseoBubble : null,
+      shouldUseDoyaBubble ? userMessageStylesheet.doyaBubble : null,
     ],
-    [shouldUsePaseoBubble],
+    [shouldUseDoyaBubble],
   );
 
   return (
@@ -2043,7 +2040,7 @@ export const UserMessage = memo(function UserMessage({
               ))}
             </View>
           ) : null}
-          {paseoCard ? <UserMessagePaseoCard card={paseoCard} /> : null}
+          {doyaCard ? <UserMessageDoyaCard card={doyaCard} /> : null}
           {shouldRenderRawText ? (
             <Text selectable style={userMessageStylesheet.text}>
               {visibleMessage}
@@ -2246,17 +2243,17 @@ interface AssistantMessageProps {
 interface AssistantMessageRenderBlock {
   key: string;
   block: string;
-  card: PaseoMessageCard | null;
+  card: DoyaMessageCard | null;
   text: string | null;
 }
 
 function buildAssistantMessageRenderBlocks(message: string): AssistantMessageRenderBlock[] {
-  const renderParts = parsePaseoMessageRenderParts(message);
+  const renderParts = parseDoyaMessageRenderParts(message);
   const blocks: AssistantMessageRenderBlock[] = [];
 
   renderParts.forEach((part, partIndex) => {
     if (part.kind === "card") {
-      const block = `paseo-card:${part.card.kind}:${part.card.title}`;
+      const block = `doya-card:${part.card.kind}:${part.card.title}`;
       blocks.push({ key: `${partIndex}:${block}`, block, card: part.card, text: null });
       return;
     }
@@ -3382,7 +3379,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           marginBottom={index < keyedBlocks.length - 1 ? 12 : 0}
         >
           {card ? (
-            <UserMessagePaseoCard card={card} />
+            <UserMessageDoyaCard card={card} />
           ) : (
             <MemoizedMarkdownBlock
               text={text ?? ""}
@@ -4168,8 +4165,8 @@ function buildShimmerTextStyle(input: {
     WebkitBackgroundClip: "text",
     WebkitTextFillColor: "transparent",
     animation: `${WEB_TOOLCALL_SHIMMER_ANIMATION_NAME} ${input.shimmerDuration}s linear infinite`,
-    "--paseo-shimmer-start": `${input.webShimmerTrackStart - input.offsetX}px`,
-    "--paseo-shimmer-end": `${input.webShimmerTrackEnd - input.offsetX}px`,
+    "--doya-shimmer-start": `${input.webShimmerTrackStart - input.offsetX}px`,
+    "--doya-shimmer-end": `${input.webShimmerTrackEnd - input.offsetX}px`,
   };
 }
 

@@ -5,10 +5,10 @@ import {
   isDocumentAnnotationKind,
 } from "./document-annotation-prompt";
 import {
-  getPaseoMessageVisibleText,
-  parsePaseoExpectedTargets,
-  parsePaseoMessageCard,
-} from "./paseo-message-markup";
+  getDoyaMessageVisibleText,
+  parseDoyaExpectedTargets,
+  parseDoyaMessageCard,
+} from "./doya-message-markup";
 
 describe("document annotation prompt", () => {
   it("builds a spreadsheet annotation prompt with cell locator data", () => {
@@ -36,7 +36,7 @@ describe("document annotation prompt", () => {
       ],
     });
 
-    expect(parsePaseoExpectedTargets(prompt)).toEqual([
+    expect(parseDoyaExpectedTargets(prompt)).toEqual([
       {
         kind: "document.apply_annotations",
         goal: "modify_spreadsheet",
@@ -44,7 +44,7 @@ describe("document annotation prompt", () => {
         text: "修改文件",
       },
     ]);
-    expect(parsePaseoMessageCard(prompt)).toMatchObject({
+    expect(parseDoyaMessageCard(prompt)).toMatchObject({
       kind: "document.apply_annotations",
       title: "应用文件标注",
       fields: [
@@ -57,15 +57,15 @@ describe("document annotation prompt", () => {
     expect(prompt).toContain("把预算改成 15 万，并保持公式联动");
     expect(prompt).toContain('kind="document.apply_annotations.result"');
     expect(prompt).toContain('id="msg_1"');
-    expect(prompt).toContain('<paseo-field name="updated_file" label="文件"');
+    expect(prompt).toContain('<doya-field name="updated_file" label="文件"');
     expect(prompt).toContain("Save the applied changes back to the exact file path above");
-    expect(prompt).toContain("required for the currently open Paseo preview to hot refresh");
+    expect(prompt).toContain("required for the currently open Doya preview to hot refresh");
     expect(prompt).toContain(
       "For in-place edits, updated_file must be the original file path above.",
     );
     expect(prompt).toContain("sheet + cell address identify the target");
     expect(prompt).toContain("Preserve formulas unless the annotation explicitly asks");
-    expect(getPaseoMessageVisibleText(prompt).trim()).toBe(
+    expect(getDoyaMessageVisibleText(prompt).trim()).toBe(
       "请根据当前文件预览中保存的标注修改文件，并尽量保存回当前文件路径以便预览自动刷新。",
     );
   });
@@ -164,7 +164,7 @@ describe("document annotation prompt", () => {
       ],
     });
 
-    expect(parsePaseoExpectedTargets(prompt)[0]).toMatchObject({
+    expect(parseDoyaExpectedTargets(prompt)[0]).toMatchObject({
       kind: "document.apply_annotations",
       goal: "modify_spreadsheet",
       text: "修改文件",

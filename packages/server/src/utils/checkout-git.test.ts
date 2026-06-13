@@ -37,7 +37,7 @@ import {
   resolveRepositoryDefaultBranch,
   parseWorktreeList,
   renameCurrentBranch,
-  isPaseoWorktreePath,
+  isDoyaWorktreePath,
   isDescendantPath,
   warmCheckoutShortstatInBackground,
 } from "./checkout-git.js";
@@ -60,7 +60,7 @@ interface LegacyCreateWorktreeTestOptions {
   baseBranch: string;
   worktreeSlug: string;
   runSetup?: boolean;
-  paseoHome?: string;
+  doyaHome?: string;
 }
 
 function createLegacyWorktreeForTest(
@@ -79,10 +79,10 @@ function createLegacyWorktreeForTest(
       branchName: options.branchName,
     },
     runSetup: options.runSetup ?? true,
-    paseoHome: options.paseoHome,
+    doyaHome: options.doyaHome,
   });
 }
-import { getPaseoWorktreeMetadataPath } from "./worktree-metadata.js";
+import { getDoyaWorktreeMetadataPath } from "./worktree-metadata.js";
 
 function initRepo(): { tempDir: string; repoDir: string } {
   const tempDir = realpathSync.native(mkdtempSync(join(tmpdir(), "checkout-git-test-")));
@@ -112,7 +112,7 @@ function createGitHubServiceForStatus(
     getPullRequest: async () => ({
       number: 1,
       title: "PR",
-      url: "https://github.com/getpaseo/paseo/pull/1",
+      url: "https://github.com/getdoya/doya/pull/1",
       state: "OPEN",
       body: null,
       baseRefName: "main",
@@ -125,7 +125,7 @@ function createGitHubServiceForStatus(
       return status;
     },
     createPullRequest: async () => ({
-      url: "https://github.com/getpaseo/paseo/pull/1",
+      url: "https://github.com/getdoya/doya/pull/1",
       number: 1,
     }),
     mergePullRequest: async () => ({ success: true }),
@@ -136,7 +136,7 @@ function createGitHubServiceForStatus(
 
 function createPullRequestStatus(overrides?: Partial<GitHubCurrentPullRequestStatus>) {
   return {
-    url: "https://github.com/getpaseo/paseo/pull/123",
+    url: "https://github.com/getdoya/doya/pull/123",
     title: "Ship feature",
     state: "open",
     baseRefName: "main",
@@ -173,13 +173,13 @@ function commitFile(cwd: string, path: string, content: string, message: string)
 describe("checkout git utilities", () => {
   let tempDir: string;
   let repoDir: string;
-  let paseoHome: string;
+  let doyaHome: string;
 
   beforeEach(() => {
     const setup = initRepo();
     tempDir = setup.tempDir;
     repoDir = setup.repoDir;
-    paseoHome = join(tempDir, "paseo-home");
+    doyaHome = join(tempDir, "doya-home");
     __resetCheckoutShortstatCacheForTests();
     __resetPullRequestStatusCacheForTests();
   });
@@ -339,30 +339,30 @@ describe("checkout git utilities", () => {
     writeFileSync(join(repoDir, "feature.txt"), "feature\nchanged\n");
     const github = createGitHubServiceForStatus(createPullRequestStatus());
 
-    const facts = await getCheckoutSnapshotFacts(repoDir, { paseoHome });
-    const status = await getCheckoutStatus(repoDir, { paseoHome, facts });
-    const shortstat = await getCheckoutShortstat(repoDir, { paseoHome, facts }, { force: true });
+    const facts = await getCheckoutSnapshotFacts(repoDir, { doyaHome });
+    const status = await getCheckoutStatus(repoDir, { doyaHome, facts });
+    const shortstat = await getCheckoutShortstat(repoDir, { doyaHome, facts }, { force: true });
     const prStatus = await getPullRequestStatus(
       repoDir,
       github,
       { force: true, reason: "snapshot-equivalence" },
-      { paseoHome, facts },
+      { doyaHome, facts },
     );
 
     __resetCheckoutShortstatCacheForTests();
     __resetPullRequestStatusCacheForTests();
     startGitCommandMetrics();
-    const statusWithFacts = await getCheckoutStatus(repoDir, { paseoHome, facts });
+    const statusWithFacts = await getCheckoutStatus(repoDir, { doyaHome, facts });
     const shortstatWithFacts = await getCheckoutShortstat(
       repoDir,
-      { paseoHome, facts },
+      { doyaHome, facts },
       { force: true },
     );
     const prStatusWithFacts = await getPullRequestStatus(
       repoDir,
       github,
       { force: true, reason: "snapshot-equivalence-with-facts" },
-      { paseoHome, facts },
+      { doyaHome, facts },
     );
     const metrics = stopGitCommandMetrics();
     const commands = metrics.commands.map((command) => command.args.join(" "));
@@ -465,7 +465,7 @@ const x = 1;
     }
     expect(status.currentBranch).toBe("main");
     expect(realpathSync.native(status.repoRoot)).toBe(realpathSync.native(repoDir));
-    expect(status.isPaseoOwnedWorktree).toBe(false);
+    expect(status.isDoyaOwnedWorktree).toBe(false);
     expect(status.mainRepoRoot ?? null).toBeNull();
   });
 
@@ -538,7 +538,7 @@ const x = 1;
     expect(status.aheadOfOrigin).toBeNull();
   });
 
-  it("does not report full history as unpushed for fresh no-track Paseo worktrees", async () => {
+  it("does not report full history as unpushed for fresh no-track Doya worktrees", async () => {
     setupRemoteTrackingMain(repoDir, tempDir);
     commitFile(repoDir, "second.txt", "second\n", "second commit");
     execFileSync("git", ["push"], { cwd: repoDir });
@@ -548,13 +548,13 @@ const x = 1;
       cwd: repoDir,
       baseBranch: "main",
       worktreeSlug: "fresh-feature",
-      paseoHome,
+      doyaHome,
     });
 
-    const status = await getCheckoutStatus(worktree.worktreePath, { paseoHome });
+    const status = await getCheckoutStatus(worktree.worktreePath, { doyaHome });
     expect(status).toMatchObject({
       isGit: true,
-      isPaseoOwnedWorktree: true,
+      isDoyaOwnedWorktree: true,
       baseRef: "main",
       aheadBehind: { ahead: 0, behind: 0 },
       aheadOfOrigin: 0,
@@ -571,14 +571,14 @@ const x = 1;
       cwd: repoDir,
       baseBranch: "main",
       worktreeSlug: "fresh-feature",
-      paseoHome,
+      doyaHome,
     });
     commitFile(worktree.worktreePath, "feature.txt", "feature\n", "feature commit");
 
-    const status = await getCheckoutStatus(worktree.worktreePath, { paseoHome });
+    const status = await getCheckoutStatus(worktree.worktreePath, { doyaHome });
     expect(status).toMatchObject({
       isGit: true,
-      isPaseoOwnedWorktree: true,
+      isDoyaOwnedWorktree: true,
       baseRef: "main",
       aheadBehind: { ahead: 1, behind: 0 },
       aheadOfOrigin: 1,
@@ -1086,31 +1086,31 @@ const x = 1;
     expect(diff.diff).toContain("# untracked-large.txt: diff too large omitted");
   });
 
-  it("handles status/diff/commit in a .paseo worktree", async () => {
+  it("handles status/diff/commit in a .doya worktree", async () => {
     const result = await createLegacyWorktreeForTest({
       branchName: "main",
       cwd: repoDir,
       baseBranch: "main",
       worktreeSlug: "alpha",
-      paseoHome,
+      doyaHome,
     });
 
     writeFileSync(join(result.worktreePath, "file.txt"), "worktree change\n");
 
-    const status = await getCheckoutStatus(result.worktreePath, { paseoHome });
+    const status = await getCheckoutStatus(result.worktreePath, { doyaHome });
     expect(status.isGit).toBe(true);
     expect(realpathSync.native(status.repoRoot)).toBe(realpathSync.native(result.worktreePath));
     expect(status.isDirty).toBe(true);
-    expect(status.isPaseoOwnedWorktree).toBe(true);
+    expect(status.isDoyaOwnedWorktree).toBe(true);
     expect(realpathSync.native(status.mainRepoRoot ?? "")).toBe(realpathSync.native(repoDir));
 
-    const diff = await getCheckoutDiff(result.worktreePath, { mode: "uncommitted" }, { paseoHome });
+    const diff = await getCheckoutDiff(result.worktreePath, { mode: "uncommitted" }, { doyaHome });
     expect(diff.diff).toContain("-hello");
     expect(diff.diff).toContain("+worktree change");
 
     await commitAll(result.worktreePath, "worktree update");
 
-    const cleanStatus = await getCheckoutStatus(result.worktreePath, { paseoHome });
+    const cleanStatus = await getCheckoutStatus(result.worktreePath, { doyaHome });
     expect(cleanStatus.isDirty).toBe(false);
     const message = execFileSync("git", ["log", "-1", "--pretty=%B"], {
       cwd: result.worktreePath,
@@ -1120,22 +1120,22 @@ const x = 1;
     expect(message).toBe("worktree update");
   });
 
-  it("returns checkout root metadata for .paseo worktrees", async () => {
+  it("returns checkout root metadata for .doya worktrees", async () => {
     const result = await createLegacyWorktreeForTest({
       branchName: "main",
       cwd: repoDir,
       baseBranch: "main",
       worktreeSlug: "lite-alpha",
-      paseoHome,
+      doyaHome,
     });
 
-    const status = await getCheckoutStatus(result.worktreePath, { paseoHome });
+    const status = await getCheckoutStatus(result.worktreePath, { doyaHome });
     expect(status.isGit).toBe(true);
     if (!status.isGit) {
       return;
     }
     expect(realpathSync.native(status.repoRoot)).toBe(realpathSync.native(result.worktreePath));
-    expect(status.isPaseoOwnedWorktree).toBe(true);
+    expect(status.isDoyaOwnedWorktree).toBe(true);
     expect(realpathSync.native(status.mainRepoRoot ?? "")).toBe(realpathSync.native(repoDir));
   });
 
@@ -1153,12 +1153,12 @@ const x = 1;
       cwd: mainCheckoutDir,
       baseBranch: "main",
       worktreeSlug: "feature-worktree",
-      paseoHome,
+      doyaHome,
     });
 
-    const status = await getCheckoutStatus(worktree.worktreePath, { paseoHome });
+    const status = await getCheckoutStatus(worktree.worktreePath, { doyaHome });
     expect(status.isGit).toBe(true);
-    expect(status.isPaseoOwnedWorktree).toBe(true);
+    expect(status.isDoyaOwnedWorktree).toBe(true);
     expect(realpathSync.native(status.mainRepoRoot ?? "")).toBe(
       realpathSync.native(mainCheckoutDir),
     );
@@ -1170,10 +1170,10 @@ const x = 1;
       cwd: repoDir,
     });
 
-    const status = await getCheckoutStatus(worktreeDir, { paseoHome });
+    const status = await getCheckoutStatus(worktreeDir, { doyaHome });
     expect(status.isGit).toBe(true);
     expect(realpathSync.native(status.repoRoot)).toBe(realpathSync.native(worktreeDir));
-    expect(status.isPaseoOwnedWorktree).toBe(false);
+    expect(status.isDoyaOwnedWorktree).toBe(false);
     expect(realpathSync.native(status.mainRepoRoot ?? "")).toBe(realpathSync.native(repoDir));
     expect(status.currentBranch).toBe("feature/plain");
   });
@@ -1184,7 +1184,7 @@ const x = 1;
       cwd: repoDir,
       baseBranch: "main",
       worktreeSlug: "merge",
-      paseoHome,
+      doyaHome,
     });
 
     writeFileSync(join(worktree.worktreePath, "merge.txt"), "feature\n");
@@ -1197,7 +1197,7 @@ const x = 1;
       .toString()
       .trim();
 
-    await mergeToBase(worktree.worktreePath, { baseRef: "main" }, { paseoHome });
+    await mergeToBase(worktree.worktreePath, { baseRef: "main" }, { doyaHome });
 
     const baseContainsFeature = execFileSync(
       "git",
@@ -1209,7 +1209,7 @@ const x = 1;
     );
     expect(baseContainsFeature).toBeDefined();
 
-    const statusAfterMerge = await getCheckoutStatus(worktree.worktreePath, { paseoHome });
+    const statusAfterMerge = await getCheckoutStatus(worktree.worktreePath, { doyaHome });
     expect(statusAfterMerge.isGit).toBe(true);
     if (statusAfterMerge.isGit) {
       expect(statusAfterMerge.aheadBehind?.ahead ?? 0).toBe(0);
@@ -1240,7 +1240,7 @@ const x = 1;
       cwd: repoDir,
       baseBranch: "develop",
       worktreeSlug: "feature-worktree",
-      paseoHome,
+      doyaHome,
     });
 
     writeFileSync(join(featureWorktree.worktreePath, "feature.txt"), "feature\n");
@@ -1249,7 +1249,7 @@ const x = 1;
       cwd: featureWorktree.worktreePath,
     });
 
-    const mutatedCwd = await mergeToBase(featureWorktree.worktreePath, {}, { paseoHome });
+    const mutatedCwd = await mergeToBase(featureWorktree.worktreePath, {}, { doyaHome });
 
     expect(realpathSync.native(mutatedCwd)).toBe(realpathSync.native(baseWorktreePath));
     expect(mutatedCwd).not.toBe(featureWorktree.worktreePath);
@@ -1757,7 +1757,7 @@ const x = 1;
   });
 
   it("disables GitHub features when gh is unavailable", async () => {
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -1772,7 +1772,7 @@ const x = 1;
 
   it("returns merged PR status when no open PR exists for the current branch", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -1796,7 +1796,7 @@ const x = 1;
 
   it("propagates S1 PR metadata and check display fields through checkout PR status", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -1810,7 +1810,7 @@ const x = 1;
             {
               name: "server-tests",
               status: "success",
-              url: "https://github.com/getpaseo/paseo/actions/runs/123",
+              url: "https://github.com/getdoya/doya/actions/runs/123",
               workflow: "Server CI",
               duration: "2m 14s",
             },
@@ -1823,7 +1823,7 @@ const x = 1;
       githubFeaturesEnabled: true,
       status: {
         number: 123,
-        url: "https://github.com/getpaseo/paseo/pull/123",
+        url: "https://github.com/getdoya/doya/pull/123",
         title: "Ship feature",
         state: "open",
         baseRefName: "main",
@@ -1834,7 +1834,7 @@ const x = 1;
           {
             name: "server-tests",
             status: "success",
-            url: "https://github.com/getpaseo/paseo/actions/runs/123",
+            url: "https://github.com/getdoya/doya/actions/runs/123",
             workflow: "Server CI",
             duration: "2m 14s",
           },
@@ -1847,13 +1847,13 @@ const x = 1;
 
   it("uses the tracked fork branch for PR worktree status lookup", async () => {
     execFileSync("git", ["checkout", "-b", "chethanuk/main"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
-    execFileSync("git", ["remote", "add", "paseo-pr-345", "git@github.com:chethanuk/paseo.git"], {
+    execFileSync("git", ["remote", "add", "doya-pr-345", "git@github.com:chethanuk/doya.git"], {
       cwd: repoDir,
     });
-    execFileSync("git", ["config", "branch.chethanuk/main.remote", "paseo-pr-345"], {
+    execFileSync("git", ["config", "branch.chethanuk/main.remote", "doya-pr-345"], {
       cwd: repoDir,
     });
     execFileSync("git", ["config", "branch.chethanuk/main.merge", "refs/heads/main"], {
@@ -1864,7 +1864,7 @@ const x = 1;
     const github = createGitHubServiceForStatus(
       createPullRequestStatus({
         number: 345,
-        url: "https://github.com/getpaseo/paseo/pull/345",
+        url: "https://github.com/getdoya/doya/pull/345",
         headRefName: "main",
       }),
       {
@@ -1880,7 +1880,7 @@ const x = 1;
       });
       return createPullRequestStatus({
         number: 345,
-        url: "https://github.com/getpaseo/paseo/pull/345",
+        url: "https://github.com/getdoya/doya/pull/345",
         headRefName: options.headRef,
       });
     };
@@ -1894,7 +1894,7 @@ const x = 1;
 
   it("returns closed-unmerged PR status without marking it as merged", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -1902,7 +1902,7 @@ const x = 1;
       repoDir,
       createGitHubServiceForStatus(
         createPullRequestStatus({
-          url: "https://github.com/getpaseo/paseo/pull/999",
+          url: "https://github.com/getdoya/doya/pull/999",
           title: "Closed without merge",
           state: "closed",
         }),
@@ -1919,7 +1919,7 @@ const x = 1;
 
   it("caches PR status results for duplicate lookups", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -1938,7 +1938,7 @@ const x = 1;
 
   it("passes forced PR status reads through to the GitHub service", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -1962,7 +1962,7 @@ const x = 1;
 
   it("expires cached PR status after the TTL", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -1977,7 +1977,7 @@ const x = 1;
       github.getCurrentPullRequestStatus = async () => {
         callCount += 1;
         return createPullRequestStatus({
-          url: `https://github.com/getpaseo/paseo/pull/${callCount}`,
+          url: `https://github.com/getdoya/doya/pull/${callCount}`,
         });
       };
       const first = await getPullRequestStatus(repoDir, github);
@@ -1993,7 +1993,7 @@ const x = 1;
 
   it("keeps stale PR status when a refresh hits a transient GitHub error", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -2005,7 +2005,7 @@ const x = 1;
         callCount += 1;
         if (callCount === 1) {
           return createPullRequestStatus({
-            url: "https://github.com/getpaseo/paseo/pull/123",
+            url: "https://github.com/getdoya/doya/pull/123",
           });
         }
         throw new GitHubCommandError({
@@ -2031,14 +2031,14 @@ const x = 1;
 
   it("does not use stale PR status fallback for forced GitHub errors", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
     const github = createGitHubServiceForStatus(null);
     github.getCurrentPullRequestStatus = async () =>
       createPullRequestStatus({
-        url: "https://github.com/getpaseo/paseo/pull/123",
+        url: "https://github.com/getdoya/doya/pull/123",
       });
 
     const fresh = await getPullRequestStatus(repoDir, github);
@@ -2064,7 +2064,7 @@ const x = 1;
 
   it("clears stale PR status after a successful no-PR refresh", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -2076,7 +2076,7 @@ const x = 1;
         callCount += 1;
         if (callCount === 1) {
           return createPullRequestStatus({
-            url: "https://github.com/getpaseo/paseo/pull/123",
+            url: "https://github.com/getdoya/doya/pull/123",
           });
         }
         return null;
@@ -2099,7 +2099,7 @@ const x = 1;
 
   it("dedupes concurrent PR status lookups for the same cwd", async () => {
     execFileSync("git", ["checkout", "-b", "feature"], { cwd: repoDir });
-    execFileSync("git", ["remote", "add", "origin", "https://github.com/getpaseo/paseo.git"], {
+    execFileSync("git", ["remote", "add", "origin", "https://github.com/getdoya/doya.git"], {
       cwd: repoDir,
     });
 
@@ -2146,7 +2146,7 @@ const x = 1;
     );
   });
 
-  it("uses stored baseRefName for Paseo worktrees (no heuristics)", async () => {
+  it("uses stored baseRefName for Doya worktrees (no heuristics)", async () => {
     // Create a non-default base branch with a unique commit.
     execFileSync("git", ["checkout", "-b", "develop"], { cwd: repoDir });
     writeFileSync(join(repoDir, "file.txt"), "develop\n");
@@ -2162,7 +2162,7 @@ const x = 1;
       cwd: repoDir,
       baseBranch: "develop",
       worktreeSlug: "feature",
-      paseoHome,
+      doyaHome,
     });
 
     writeFileSync(join(worktree.worktreePath, "feature.txt"), "feature\n");
@@ -2171,23 +2171,23 @@ const x = 1;
       cwd: worktree.worktreePath,
     });
 
-    const status = await getCheckoutStatus(worktree.worktreePath, { paseoHome });
+    const status = await getCheckoutStatus(worktree.worktreePath, { doyaHome });
     expect(status.isGit).toBe(true);
     expect(status.baseRef).toBe("develop");
     expect(status.aheadBehind?.ahead).toBe(1);
 
-    const baseDiff = await getCheckoutDiff(worktree.worktreePath, { mode: "base" }, { paseoHome });
+    const baseDiff = await getCheckoutDiff(worktree.worktreePath, { mode: "base" }, { doyaHome });
     expect(baseDiff.diff).toContain("feature.txt");
     expect(baseDiff.diff).not.toContain("file.txt");
   });
 
-  it("excludes dirty working tree changes from Paseo worktree base diffs", async () => {
+  it("excludes dirty working tree changes from Doya worktree base diffs", async () => {
     const worktree = await createLegacyWorktreeForTest({
       branchName: "feature",
       cwd: repoDir,
       baseBranch: "main",
       worktreeSlug: "dirty-feature",
-      paseoHome,
+      doyaHome,
     });
 
     writeFileSync(join(worktree.worktreePath, "feature.txt"), "feature\n");
@@ -2202,7 +2202,7 @@ const x = 1;
     const baseDiff = await getCheckoutDiff(
       worktree.worktreePath,
       { mode: "base", includeStructured: true },
-      { paseoHome },
+      { doyaHome },
     );
 
     expect(baseDiff.diff).toContain("feature.txt");
@@ -2240,13 +2240,13 @@ const x = 1;
     });
     execFileSync("git", ["checkout", "main"], { cwd: repoDir });
 
-    // Create a Paseo worktree configured to use develop as base.
+    // Create a Doya worktree configured to use develop as base.
     const worktree = await createLegacyWorktreeForTest({
       branchName: "feature",
       cwd: repoDir,
       baseBranch: "develop",
       worktreeSlug: "merge-to-develop",
-      paseoHome,
+      doyaHome,
     });
 
     writeFileSync(join(worktree.worktreePath, "feature.txt"), "feature\n");
@@ -2259,7 +2259,7 @@ const x = 1;
       .trim();
 
     // No baseRef passed: should merge into the configured base (develop), not default/main.
-    await mergeToBase(worktree.worktreePath, {}, { paseoHome });
+    await mergeToBase(worktree.worktreePath, {}, { doyaHome });
 
     execFileSync("git", ["merge-base", "--is-ancestor", featureCommit, "develop"], {
       cwd: repoDir,
@@ -2279,7 +2279,7 @@ const x = 1;
       cwd: repoDir,
       baseBranch: "main",
       worktreeSlug: "missing-metadata",
-      paseoHome,
+      doyaHome,
     });
 
     writeFileSync(join(worktree.worktreePath, "feature.txt"), "feature\n");
@@ -2288,33 +2288,33 @@ const x = 1;
       cwd: worktree.worktreePath,
     });
 
-    const metadataPath = getPaseoWorktreeMetadataPath(worktree.worktreePath);
+    const metadataPath = getDoyaWorktreeMetadataPath(worktree.worktreePath);
     rmSync(metadataPath, { force: true });
 
-    const baseDiff = await getCheckoutDiff(worktree.worktreePath, { mode: "base" }, { paseoHome });
+    const baseDiff = await getCheckoutDiff(worktree.worktreePath, { mode: "base" }, { doyaHome });
     expect(baseDiff.diff).toContain("feature.txt");
 
-    const shortstat = await getCheckoutShortstat(worktree.worktreePath, { paseoHome });
+    const shortstat = await getCheckoutShortstat(worktree.worktreePath, { doyaHome });
     expect(shortstat).toEqual({ additions: 1, deletions: 0 });
   });
 
-  it("falls back to plain git checkout status when Paseo worktree metadata is missing", async () => {
+  it("falls back to plain git checkout status when Doya worktree metadata is missing", async () => {
     const worktree = await createLegacyWorktreeForTest({
       branchName: "feature",
       cwd: repoDir,
       baseBranch: "main",
       worktreeSlug: "missing-metadata-status-fallback",
-      paseoHome,
+      doyaHome,
     });
 
-    const metadataPath = getPaseoWorktreeMetadataPath(worktree.worktreePath);
+    const metadataPath = getDoyaWorktreeMetadataPath(worktree.worktreePath);
     rmSync(metadataPath, { force: true });
 
-    const status = await getCheckoutStatus(worktree.worktreePath, { paseoHome });
+    const status = await getCheckoutStatus(worktree.worktreePath, { doyaHome });
     expect(status.isGit).toBe(true);
     expect(status.currentBranch).toBe("feature");
     expect(realpathSync.native(status.repoRoot)).toBe(realpathSync.native(worktree.worktreePath));
-    expect(status.isPaseoOwnedWorktree).toBe(true);
+    expect(status.isDoyaOwnedWorktree).toBe(true);
     expect(realpathSync.native(status.mainRepoRoot ?? "")).toBe(realpathSync.native(repoDir));
     expect(status.baseRef).toBe("main");
   });
@@ -2325,7 +2325,7 @@ const x = 1;
         "worktree /home/user/repo",
         "branch refs/heads/main",
         "",
-        "worktree /home/user/.paseo/worktrees/feature",
+        "worktree /home/user/.doya/worktrees/feature",
         "branch refs/heads/feature",
         "",
       ].join("\n");
@@ -2334,7 +2334,7 @@ const x = 1;
       expect(entries).toHaveLength(2);
       expect(entries[0]).toEqual({ path: "/home/user/repo", branchRef: "refs/heads/main" });
       expect(entries[1]).toEqual({
-        path: "/home/user/.paseo/worktrees/feature",
+        path: "/home/user/.doya/worktrees/feature",
         branchRef: "refs/heads/feature",
       });
     });
@@ -2347,32 +2347,32 @@ const x = 1;
     });
   });
 
-  describe("isPaseoWorktreePath", () => {
-    it("matches Unix .paseo/worktrees/ paths", () => {
-      expect(isPaseoWorktreePath("/home/user/.paseo/worktrees/feature")).toBe(true);
+  describe("isDoyaWorktreePath", () => {
+    it("matches Unix .doya/worktrees/ paths", () => {
+      expect(isDoyaWorktreePath("/home/user/.doya/worktrees/feature")).toBe(true);
     });
 
-    it("matches Windows .paseo\\worktrees\\ paths", () => {
-      expect(isPaseoWorktreePath("C:\\Users\\dev\\.paseo\\worktrees\\feature")).toBe(true);
+    it("matches Windows .doya\\worktrees\\ paths", () => {
+      expect(isDoyaWorktreePath("C:\\Users\\dev\\.doya\\worktrees\\feature")).toBe(true);
     });
 
-    it("matches worktrees under a custom PASEO_HOME", () => {
-      const customPaseoHome = process.platform === "win32" ? "C:\\paseo" : "/var/lib/paseo";
+    it("matches worktrees under a custom DOYA_HOME", () => {
+      const customDoyaHome = process.platform === "win32" ? "C:\\doya" : "/var/lib/doya";
       const worktreePath =
         process.platform === "win32"
-          ? win32.join(customPaseoHome, "worktrees", "project", "feature")
-          : `${customPaseoHome}/worktrees/project/feature`;
+          ? win32.join(customDoyaHome, "worktrees", "project", "feature")
+          : `${customDoyaHome}/worktrees/project/feature`;
 
       expect(
-        isPaseoWorktreePath(worktreePath, {
-          paseoHome: customPaseoHome,
+        isDoyaWorktreePath(worktreePath, {
+          doyaHome: customDoyaHome,
         }),
       ).toBe(true);
     });
 
-    it("rejects paths without .paseo/worktrees segment", () => {
-      expect(isPaseoWorktreePath("/home/user/repo")).toBe(false);
-      expect(isPaseoWorktreePath("C:\\Users\\dev\\repo")).toBe(false);
+    it("rejects paths without .doya/worktrees segment", () => {
+      expect(isDoyaWorktreePath("/home/user/repo")).toBe(false);
+      expect(isDoyaWorktreePath("C:\\Users\\dev\\repo")).toBe(false);
     });
   });
 

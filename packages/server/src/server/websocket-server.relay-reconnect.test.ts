@@ -16,8 +16,8 @@ import {
   decodeTerminalStreamFrame,
   encodeTerminalStreamFrame,
   TerminalStreamOpcode,
-} from "@getpaseo/protocol/terminal-stream-protocol";
-import { CLIENT_CAPS } from "@getpaseo/protocol/client-capabilities";
+} from "@getdoya/protocol/terminal-stream-protocol";
+import { CLIENT_CAPS } from "@getdoya/protocol/client-capabilities";
 
 type SocketListener = (...args: unknown[]) => void;
 
@@ -209,7 +209,7 @@ function createServer(options?: { speechReadiness?: SpeechReadinessSnapshot | nu
     }),
     createStub<AgentStorage>({}),
     createStub<DownloadTokenStore>({}),
-    "/tmp/paseo-test",
+    "/tmp/doya-test",
     createStub<DaemonConfigStore>(daemonConfigStore),
     null,
     { allowedOrigins: new Set() },

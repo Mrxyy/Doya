@@ -3,7 +3,7 @@ import type { Logger } from "pino";
 import type { AgentManager } from "../agent/agent-manager.js";
 import type { AgentStorage } from "../agent/agent-storage.js";
 import type { DaemonConfigStore } from "../daemon-config-store.js";
-import { archivePaseoWorktree, killTerminalsUnderPath } from "../paseo-worktree-archive-service.js";
+import { archiveDoyaWorktree, killTerminalsUnderPath } from "../doya-worktree-archive-service.js";
 import { isSameOrDescendantPath } from "../path-utils.js";
 import type {
   WorkspaceGitRuntimeSnapshot,
@@ -11,10 +11,10 @@ import type {
 } from "../workspace-git-service.js";
 import type { GitHubService } from "../../services/github-service.js";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
-import { isPaseoOwnedWorktreeCwd } from "../../utils/worktree.js";
+import { isDoyaOwnedWorktreeCwd } from "../../utils/worktree.js";
 
 export interface AutoArchiveArchiveOptions {
-  paseoHome: string;
+  doyaHome?: string;
   worktreesRoot?: string;
   daemonConfigStore: DaemonConfigStore;
   workspaceGitService: WorkspaceGitServiceImpl;
@@ -29,15 +29,15 @@ export interface AutoArchiveArchiveOptions {
 }
 
 export interface ArchiveIfSafeDependencies {
-  archivePaseoWorktree: typeof archivePaseoWorktree;
-  isPaseoOwnedWorktreeCwd: typeof isPaseoOwnedWorktreeCwd;
+  archiveDoyaWorktree: typeof archiveDoyaWorktree;
+  isDoyaOwnedWorktreeCwd: typeof isDoyaOwnedWorktreeCwd;
   killTerminalsUnderPath: typeof killTerminalsUnderPath;
   isPathWithinRoot: typeof isSameOrDescendantPath;
 }
 
 const defaultDependencies: ArchiveIfSafeDependencies = {
-  archivePaseoWorktree,
-  isPaseoOwnedWorktreeCwd,
+  archiveDoyaWorktree,
+  isDoyaOwnedWorktreeCwd,
   killTerminalsUnderPath,
   isPathWithinRoot: isSameOrDescendantPath,
 };
@@ -52,6 +52,10 @@ export async function archiveIfSafe(input: {
 }): Promise<void> {
   const { cwd, pullRequest, inFlight, options, log } = input;
   const deps = input.deps ?? defaultDependencies;
+  const doyaHome = options.doyaHome;
+  if (!doyaHome) {
+    throw new Error("doyaHome is required to auto-archive Doya worktrees");
+  }
 
   if (!pullRequest?.isMerged) {
     return;
@@ -82,8 +86,8 @@ export async function archiveIfSafe(input: {
       return;
     }
 
-    const ownership = await deps.isPaseoOwnedWorktreeCwd(cwd, {
-      paseoHome: options.paseoHome,
+    const ownership = await deps.isDoyaOwnedWorktreeCwd(cwd, {
+      doyaHome,
       worktreesRoot: options.worktreesRoot,
     });
     if (!ownership.allowed) {
@@ -91,9 +95,9 @@ export async function archiveIfSafe(input: {
     }
 
     try {
-      await deps.archivePaseoWorktree(
+      await deps.archiveDoyaWorktree(
         {
-          paseoHome: options.paseoHome,
+          doyaHome,
           worktreesRoot: options.worktreesRoot,
           github: options.github,
           workspaceGitService: options.workspaceGitService,

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({
   app: {
-    getPath: vi.fn(() => "/tmp/paseo-user-data"),
+    getPath: vi.fn(() => "/tmp/doya-user-data"),
     isPackaged: false,
   },
 }));
@@ -13,7 +13,7 @@ vi.mock("electron", () => ({
 import {
   getSkillsStatus,
   installSkills,
-  PASEO_SKILL_NAMES,
+  DOYA_SKILL_NAMES,
   type SkillTargets,
   uninstallSkills,
   updateSkills,
@@ -25,7 +25,7 @@ interface Sandbox {
 }
 
 async function makeSandbox(): Promise<Sandbox> {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "paseo-skills-"));
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "doya-skills-"));
   const targets: SkillTargets = {
     sourceDir: path.join(root, "bundle"),
     agentsDir: path.join(root, "home", ".agents", "skills"),
@@ -61,8 +61,8 @@ async function writeOnDiskSkill(
 }
 
 async function writeCurrentBundle(sourceDir: string): Promise<void> {
-  await writeBundleSkill(sourceDir, "paseo", { "SKILL.md": "paseo-v1" });
-  await writeBundleSkill(sourceDir, "paseo-loop", { "SKILL.md": "loop-v1" });
+  await writeBundleSkill(sourceDir, "doya", { "SKILL.md": "doya-v1" });
+  await writeBundleSkill(sourceDir, "doya-loop", { "SKILL.md": "loop-v1" });
 }
 
 async function pathExists(p: string): Promise<boolean> {
@@ -90,8 +90,8 @@ describe("getSkillsStatus", () => {
 
     expect(status.state).toBe("not-installed");
     expect(status.ops).toEqual([
-      { kind: "add", name: "paseo" },
-      { kind: "add", name: "paseo-loop" },
+      { kind: "add", name: "doya" },
+      { kind: "add", name: "doya-loop" },
     ]);
   });
 
@@ -105,15 +105,15 @@ describe("getSkillsStatus", () => {
 
     expect(status.state).toBe("not-installed");
     expect(status.ops).toEqual([
-      { kind: "add", name: "paseo" },
-      { kind: "add", name: "paseo-loop" },
+      { kind: "add", name: "doya" },
+      { kind: "add", name: "doya-loop" },
     ]);
   });
 
   it("returns up-to-date when every bundled skill matches on disk", async () => {
     await writeCurrentBundle(sandbox.targets.sourceDir);
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo", { "SKILL.md": "paseo-v1" });
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo-loop", { "SKILL.md": "loop-v1" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya", { "SKILL.md": "doya-v1" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya-loop", { "SKILL.md": "loop-v1" });
 
     const status = await getSkillsStatus(sandbox.targets);
 
@@ -122,49 +122,49 @@ describe("getSkillsStatus", () => {
 
   it("returns drift with a single update op when one bundled file diverges", async () => {
     await writeCurrentBundle(sandbox.targets.sourceDir);
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo", { "SKILL.md": "stale" });
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo-loop", { "SKILL.md": "loop-v1" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya", { "SKILL.md": "stale" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya-loop", { "SKILL.md": "loop-v1" });
 
     const status = await getSkillsStatus(sandbox.targets);
 
     expect(status.state).toBe("drift");
-    expect(status.ops).toEqual([{ kind: "update", name: "paseo" }]);
+    expect(status.ops).toEqual([{ kind: "update", name: "doya" }]);
   });
 
   it("returns drift with add ops for the bundled skills missing from disk", async () => {
     await writeCurrentBundle(sandbox.targets.sourceDir);
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo", { "SKILL.md": "paseo-v1" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya", { "SKILL.md": "doya-v1" });
 
     const status = await getSkillsStatus(sandbox.targets);
 
     expect(status.state).toBe("drift");
-    expect(status.ops).toEqual([{ kind: "add", name: "paseo-loop" }]);
+    expect(status.ops).toEqual([{ kind: "add", name: "doya-loop" }]);
   });
 
   it("returns drift with a delete op for a legacy skill name still on disk", async () => {
     await writeCurrentBundle(sandbox.targets.sourceDir);
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo", { "SKILL.md": "paseo-v1" });
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo-loop", { "SKILL.md": "loop-v1" });
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo-chat", { "SKILL.md": "chat-old" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya", { "SKILL.md": "doya-v1" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya-loop", { "SKILL.md": "loop-v1" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya-chat", { "SKILL.md": "chat-old" });
 
     const status = await getSkillsStatus(sandbox.targets);
 
     expect(status.state).toBe("drift");
-    expect(status.ops).toEqual([{ kind: "delete", name: "paseo-chat" }]);
+    expect(status.ops).toEqual([{ kind: "delete", name: "doya-chat" }]);
   });
 
   it("emits add + update + delete ops sorted by name when state is mixed", async () => {
     await writeCurrentBundle(sandbox.targets.sourceDir);
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo", { "SKILL.md": "stale" });
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo-chat", { "SKILL.md": "chat-old" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya", { "SKILL.md": "stale" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya-chat", { "SKILL.md": "chat-old" });
 
     const status = await getSkillsStatus(sandbox.targets);
 
     expect(status.state).toBe("drift");
     expect(status.ops).toEqual([
-      { kind: "update", name: "paseo" },
-      { kind: "delete", name: "paseo-chat" },
-      { kind: "add", name: "paseo-loop" },
+      { kind: "update", name: "doya" },
+      { kind: "delete", name: "doya-chat" },
+      { kind: "add", name: "doya-loop" },
     ]);
   });
 });
@@ -187,13 +187,13 @@ describe("installSkills / updateSkills", () => {
     const status = await installSkills(sandbox.targets);
 
     expect(status).toEqual({ state: "up-to-date", ops: [] });
-    for (const name of ["paseo", "paseo-loop"]) {
+    for (const name of ["doya", "doya-loop"]) {
       expect(
         await fs.readFile(path.join(sandbox.targets.agentsDir, name, "SKILL.md"), "utf-8"),
-      ).toBe(name === "paseo" ? "paseo-v1" : "loop-v1");
+      ).toBe(name === "doya" ? "doya-v1" : "loop-v1");
       expect(
         await fs.readFile(path.join(sandbox.targets.codexDir, name, "SKILL.md"), "utf-8"),
-      ).toBe(name === "paseo" ? "paseo-v1" : "loop-v1");
+      ).toBe(name === "doya" ? "doya-v1" : "loop-v1");
       expect(await pathExists(path.join(sandbox.targets.claudeDir, name))).toBe(true);
     }
     expect(
@@ -203,26 +203,26 @@ describe("installSkills / updateSkills", () => {
 
   it("converges to up-to-date when state has missing + edited + legacy skills", async () => {
     await writeCurrentBundle(sandbox.targets.sourceDir);
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo", { "SKILL.md": "stale" });
-    await writeOnDiskSkill(sandbox.targets.agentsDir, "paseo-chat", { "SKILL.md": "chat-old" });
-    await writeOnDiskSkill(sandbox.targets.claudeDir, "paseo-chat", { "SKILL.md": "chat-old" });
-    await writeOnDiskSkill(sandbox.targets.codexDir, "paseo-chat", { "SKILL.md": "chat-old" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya", { "SKILL.md": "stale" });
+    await writeOnDiskSkill(sandbox.targets.agentsDir, "doya-chat", { "SKILL.md": "chat-old" });
+    await writeOnDiskSkill(sandbox.targets.claudeDir, "doya-chat", { "SKILL.md": "chat-old" });
+    await writeOnDiskSkill(sandbox.targets.codexDir, "doya-chat", { "SKILL.md": "chat-old" });
 
     const status = await updateSkills(sandbox.targets);
 
     expect(status).toEqual({ state: "up-to-date", ops: [] });
     expect(
-      await fs.readFile(path.join(sandbox.targets.agentsDir, "paseo", "SKILL.md"), "utf-8"),
-    ).toBe("paseo-v1");
+      await fs.readFile(path.join(sandbox.targets.agentsDir, "doya", "SKILL.md"), "utf-8"),
+    ).toBe("doya-v1");
     expect(
-      await fs.readFile(path.join(sandbox.targets.agentsDir, "paseo-loop", "SKILL.md"), "utf-8"),
+      await fs.readFile(path.join(sandbox.targets.agentsDir, "doya-loop", "SKILL.md"), "utf-8"),
     ).toBe("loop-v1");
     for (const dir of [
       sandbox.targets.agentsDir,
       sandbox.targets.claudeDir,
       sandbox.targets.codexDir,
     ]) {
-      expect(await pathExists(path.join(dir, "paseo-chat"))).toBe(false);
+      expect(await pathExists(path.join(dir, "doya-chat"))).toBe(false);
     }
   });
 
@@ -248,7 +248,7 @@ describe("uninstallSkills", () => {
     await fs.rm(sandbox.root, { recursive: true, force: true });
   });
 
-  it("removes every Paseo skill from all three targets and preserves user dirs", async () => {
+  it("removes every Doya skill from all three targets and preserves user dirs", async () => {
     await writeCurrentBundle(sandbox.targets.sourceDir);
     await installSkills(sandbox.targets);
     for (const name of ["unslop", "tdd", "devbox"]) {
@@ -258,7 +258,7 @@ describe("uninstallSkills", () => {
     const status = await uninstallSkills(sandbox.targets);
 
     expect(status.state).toBe("not-installed");
-    for (const name of PASEO_SKILL_NAMES) {
+    for (const name of DOYA_SKILL_NAMES) {
       expect(await pathExists(path.join(sandbox.targets.agentsDir, name))).toBe(false);
       expect(await pathExists(path.join(sandbox.targets.claudeDir, name))).toBe(false);
       expect(await pathExists(path.join(sandbox.targets.codexDir, name))).toBe(false);
@@ -285,7 +285,7 @@ describe("uninstallSkills", () => {
       sandbox.targets.claudeDir,
       sandbox.targets.codexDir,
     ]) {
-      await writeOnDiskSkill(dir, "paseo-chat", { "SKILL.md": "chat-old" });
+      await writeOnDiskSkill(dir, "doya-chat", { "SKILL.md": "chat-old" });
     }
 
     const status = await uninstallSkills(sandbox.targets);
@@ -296,7 +296,7 @@ describe("uninstallSkills", () => {
       sandbox.targets.claudeDir,
       sandbox.targets.codexDir,
     ]) {
-      expect(await pathExists(path.join(dir, "paseo-chat"))).toBe(false);
+      expect(await pathExists(path.join(dir, "doya-chat"))).toBe(false);
     }
   });
 });

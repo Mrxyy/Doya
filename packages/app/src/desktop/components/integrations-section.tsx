@@ -16,8 +16,8 @@ import {
 } from "@/desktop/daemon/desktop-daemon";
 import { useCliInstall, useSkillsStatus } from "@/desktop/hooks/use-install-status";
 
-const CLI_DOCS_URL = "https://paseo.sh/docs/cli";
-const SKILLS_DOCS_URL = "https://paseo.sh/docs/skills";
+const CLI_DOCS_URL = "https://doya.sh/docs/cli";
+const SKILLS_DOCS_URL = "https://doya.sh/docs/skills";
 const ROW_WITH_BORDER_STYLE = [settingsStyles.row, settingsStyles.rowBorder];
 const UNINSTALL_MESSAGE = `Removes all ${translateNow("brand.nameEnglish")} orchestration skills from ~/.agents, ~/.claude, ~/.codex.`;
 
@@ -78,7 +78,7 @@ export function IntegrationsSection() {
     if (isSkillsWorking) return;
     const ops = skillsStatus?.ops ?? [];
     const confirmed = await confirmDialog({
-      title: translateNow("ui.update.paseo.skills.1823idu"),
+      title: translateNow("ui.update.doya.skills.1823idu"),
       message: ops.length > 0 ? formatUpdateMessage(ops) : "Sync bundled skills to your machine.",
       confirmLabel: translateNow("ui.update.1608rft"),
     });
@@ -89,7 +89,7 @@ export function IntegrationsSection() {
   const handleUninstallSkills = useCallback(async () => {
     if (isSkillsWorking) return;
     const confirmed = await confirmDialog({
-      title: translateNow("ui.uninstall.paseo.skills.1vdf65n"),
+      title: translateNow("ui.uninstall.doya.skills.1vdf65n"),
       message: UNINSTALL_MESSAGE,
       confirmLabel: translateNow("ui.uninstall.msnagy"),
       destructive: true,

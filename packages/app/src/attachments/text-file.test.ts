@@ -91,7 +91,7 @@ describe("encodeFilesAsTextAttachments", () => {
         attachment({
           mimeType: "application/pdf",
           storageType: "desktop-file",
-          storageKey: "/Users/test/.paseo/attachments/report.pdf",
+          storageKey: "/Users/test/.doya/attachments/report.pdf",
           fileName: "report.pdf",
           byteSize: 2048,
         }),
@@ -105,7 +105,7 @@ describe("encodeFilesAsTextAttachments", () => {
         type: "file",
         mimeType: "application/pdf",
         title: "report.pdf",
-        sourcePath: "/Users/test/.paseo/attachments/report.pdf",
+        sourcePath: "/Users/test/.doya/attachments/report.pdf",
       },
     ]);
   });

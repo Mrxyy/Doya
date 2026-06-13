@@ -1,7 +1,7 @@
 import type { AttachmentMetadata } from "@/attachments/types";
 import { isWeb } from "@/constants/platform";
 
-const STORAGE_KEY = "paseo:ai-creation-edit-source:v1";
+const STORAGE_KEY = "doya:ai-creation-edit-source:v1";
 
 type EditableAttachmentMetadata = AttachmentMetadata & {
   fallbackPreviewUrl?: string | null;

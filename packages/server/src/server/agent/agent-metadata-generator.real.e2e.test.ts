@@ -72,7 +72,7 @@ function tmpCwd(prefix: string): string {
 describe("agent metadata generation (real agents)", () => {
   const logger = pino({ level: "silent" });
   let cwd: string;
-  let paseoHome: string;
+  let doyaHome: string;
   let manager: AgentManager;
   let storage: AgentStorage;
   let codexAvailable = false;
@@ -89,8 +89,8 @@ describe("agent metadata generation (real agents)", () => {
 
   beforeEach(() => {
     cwd = tmpCwd("metadata-cwd-");
-    paseoHome = tmpCwd("metadata-paseo-home-");
-    storage = new AgentStorage(path.join(paseoHome, "agents"), logger);
+    doyaHome = tmpCwd("metadata-doya-home-");
+    storage = new AgentStorage(path.join(doyaHome, "agents"), logger);
     manager = new AgentManager({
       clients: createRealProviderClients(["codex", "claude", "opencode"], logger),
       registry: storage,
@@ -101,7 +101,7 @@ describe("agent metadata generation (real agents)", () => {
   afterEach(async () => {
     await shutdownProviders(logger);
     rmSync(cwd, { recursive: true, force: true });
-    rmSync(paseoHome, { recursive: true, force: true });
+    rmSync(doyaHome, { recursive: true, force: true });
   }, 60000);
 
   test("generates a title using a real Codex agent without persisting a rollout", async (ctx) => {
@@ -130,7 +130,7 @@ describe("agent metadata generation (real agents)", () => {
       cwd: cwd,
       initialPrompt: "Use the exact title 'Metadata Title E2E'.",
       explicitTitle: null,
-      paseoHome,
+      doyaHome,
       logger,
     });
 
@@ -168,7 +168,7 @@ describe("agent metadata generation (real agents)", () => {
       cwd: cwd,
       initialPrompt: "Use the exact title 'Claude Metadata Title'.",
       explicitTitle: null,
-      paseoHome,
+      doyaHome,
       logger,
     });
 
@@ -213,7 +213,7 @@ describe("agent metadata generation (real agents)", () => {
         cwd: cwd,
         initialPrompt: "Use the exact title 'OpenCode Metadata Title'.",
         explicitTitle: null,
-        paseoHome,
+        doyaHome,
         logger,
       });
 

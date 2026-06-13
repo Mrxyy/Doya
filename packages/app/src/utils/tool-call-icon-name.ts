@@ -1,7 +1,7 @@
-import type { ToolCallDetail, ToolCallIconName } from "@getpaseo/protocol/agent-types";
-import { isPaseoToolName } from "@getpaseo/protocol/tool-name-normalization";
+import type { ToolCallDetail, ToolCallIconName } from "@getdoya/protocol/agent-types";
+import { isDoyaToolName } from "@getdoya/protocol/tool-name-normalization";
 
-export type ToolCallIcon = ToolCallIconName | "paseo";
+export type ToolCallIcon = ToolCallIconName | "doya";
 
 const TOOL_DETAIL_ICON_NAMES: Record<ToolCallDetail["type"], ToolCallIcon> = {
   shell: "square_terminal",
@@ -31,8 +31,8 @@ export function resolveToolCallIconName(toolName: string, detail?: ToolCallDetai
   if (lowerName === "speak") {
     return "mic_vocal";
   }
-  if (isPaseoToolName(lowerName)) {
-    return "paseo";
+  if (isDoyaToolName(lowerName)) {
+    return "doya";
   }
   if (lowerName === "task") {
     return "bot";

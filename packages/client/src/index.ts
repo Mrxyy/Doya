@@ -17,7 +17,7 @@ import type {
   SendAgentMessageRequest,
   SessionOutboundMessage,
   WorkspaceDescriptorPayload,
-} from "@getpaseo/protocol/messages";
+} from "@getdoya/protocol/messages";
 import { DaemonClient } from "./daemon-client.js";
 import type {
   FetchAgentTimelineCursor,
@@ -42,14 +42,14 @@ export type ConnectionState =
   | { status: "disconnected"; reason?: string }
   | { status: "disposed" };
 
-export interface PaseoLogger {
+export interface DoyaLogger {
   debug(obj: object, msg?: string): void;
   info(obj: object, msg?: string): void;
   warn(obj: object, msg?: string): void;
   error(obj: object, msg?: string): void;
 }
 
-export interface PaseoClientConfig {
+export interface DoyaClientConfig {
   url: string;
   clientId?: string;
   appVersion?: string;
@@ -57,7 +57,7 @@ export interface PaseoClientConfig {
   password?: string;
   authHeader?: string;
   suppressSendErrors?: boolean;
-  logger?: PaseoLogger;
+  logger?: DoyaLogger;
   connectTimeoutMs?: number;
   e2ee?: {
     enabled?: boolean;
@@ -72,98 +72,95 @@ export interface PaseoClientConfig {
   runtimeMetricsWindowMs?: number;
 }
 
-export type PaseoWorkspace = WorkspaceDescriptorPayload;
-export type PaseoAgent = AgentSnapshotPayload;
-export type PaseoWorkspaceListOptions = Omit<
-  FetchWorkspacesRequestMessage,
-  "type" | "requestId"
-> & {
+export type DoyaWorkspace = WorkspaceDescriptorPayload;
+export type DoyaAgent = AgentSnapshotPayload;
+export type DoyaWorkspaceListOptions = Omit<FetchWorkspacesRequestMessage, "type" | "requestId"> & {
   requestId?: string;
 };
 
-export interface PaseoWorkspaceListResult {
+export interface DoyaWorkspaceListResult {
   requestId: string;
   subscriptionId?: string | null;
-  entries: PaseoWorkspace[];
+  entries: DoyaWorkspace[];
   pageInfo: FetchWorkspacesResponseMessage["payload"]["pageInfo"];
 }
 
-export interface PaseoWorkspaceOpenOptions {
+export interface DoyaWorkspaceOpenOptions {
   cwd: string;
   requestId?: string;
 }
 
-export interface PaseoWorkspaceOpenResult {
+export interface DoyaWorkspaceOpenResult {
   requestId: string;
-  workspace: PaseoWorkspaceHandle | null;
+  workspace: DoyaWorkspaceHandle | null;
   error: string | null;
 }
 
-export interface PaseoWorkspaceArchiveResult {
+export interface DoyaWorkspaceArchiveResult {
   requestId: string;
   workspaceId: string;
   archivedAt: string | null;
   error: string | null;
 }
 
-export type PaseoWorkspaceUpdate = Extract<
+export type DoyaWorkspaceUpdate = Extract<
   SessionOutboundMessage,
   { type: "workspace_update" }
 >["payload"];
 
-export type PaseoWorkspaceUpdateHandler = (update: PaseoWorkspaceUpdate) => void;
+export type DoyaWorkspaceUpdateHandler = (update: DoyaWorkspaceUpdate) => void;
 
 /**
  * A handle is a stable typed reference to a daemon resource. Its identity is the
  * daemon id, and `latest()` only returns the most recent snapshot this handle has
  * seen through construction, `refetch()`, or this handle's local subscription.
  */
-export interface PaseoWorkspaceHandle {
+export interface DoyaWorkspaceHandle {
   readonly id: string;
-  latest(): PaseoWorkspace | null;
+  latest(): DoyaWorkspace | null;
   /**
    * Fetches a fresh workspace snapshot through the existing workspace list RPC,
    * exact-matches this handle id from the result, and updates `latest()`.
    */
-  refetch(options?: { requestId?: string }): Promise<PaseoWorkspace | null>;
-  archive(requestId?: string): Promise<PaseoWorkspaceArchiveResult>;
+  refetch(options?: { requestId?: string }): Promise<DoyaWorkspace | null>;
+  archive(requestId?: string): Promise<DoyaWorkspaceArchiveResult>;
   /**
    * Subscribes to already-emitted daemon workspace_update events for this id.
    * This returns a local unsubscribe function; it does not own app cache state or
    * send a daemon unsubscribe RPC. Call `workspaces.list({ subscribe: {} })` when
    * the daemon should start streaming workspace directory updates.
    */
-  subscribe(handler: (update: PaseoWorkspaceUpdate) => void): () => void;
+  subscribe(handler: (update: DoyaWorkspaceUpdate) => void): () => void;
 }
 
-export interface PaseoWorkspaceActions {
-  list(options?: PaseoWorkspaceListOptions): Promise<PaseoWorkspaceListResult>;
-  ref(workspace: string | PaseoWorkspace): PaseoWorkspaceHandle;
+export interface DoyaWorkspaceActions {
+  list(options?: DoyaWorkspaceListOptions): Promise<DoyaWorkspaceListResult>;
+  ref(workspace: string | DoyaWorkspace): DoyaWorkspaceHandle;
   open(
-    input: string | PaseoWorkspaceOpenOptions,
+    input: string | DoyaWorkspaceOpenOptions,
     requestId?: string,
-  ): Promise<PaseoWorkspaceOpenResult>;
+  ): Promise<DoyaWorkspaceOpenResult>;
   create(
-    input: string | PaseoWorkspaceOpenOptions,
+    input: string | DoyaWorkspaceOpenOptions,
     requestId?: string,
-  ): Promise<PaseoWorkspaceOpenResult>;
+  ): Promise<DoyaWorkspaceOpenResult>;
   archive(
-    workspace: string | PaseoWorkspaceHandle,
+    workspace: string | DoyaWorkspaceHandle,
     requestId?: string,
-  ): Promise<PaseoWorkspaceArchiveResult>;
+  ): Promise<DoyaWorkspaceArchiveResult>;
   /**
    * Local event subscription over the low-level driver's workspace_update stream.
    * The returned function only removes this SDK listener.
    */
-  subscribe(handler: PaseoWorkspaceUpdateHandler): () => void;
+  subscribe(handler: DoyaWorkspaceUpdateHandler): () => void;
 }
 
-type PaseoAgentSessionConfig = CreateAgentRequestMessage["config"];
-type PaseoAgentProvider = PaseoAgentSessionConfig["provider"];
-type PaseoAgentConfigOverrides = Partial<Omit<PaseoAgentSessionConfig, "provider" | "cwd">>;
+type DoyaAgentSessionConfig = CreateAgentRequestMessage["config"];
+type DoyaAgentProvider = DoyaAgentSessionConfig["provider"];
+type DoyaAgentConfigOverrides = Partial<Omit<DoyaAgentSessionConfig, "provider" | "cwd">>;
 
-export interface PaseoAgentCreateOptions extends PaseoAgentConfigOverrides {
-  config?: PaseoAgentSessionConfig;
+export interface DoyaAgentCreateOptions extends DoyaAgentConfigOverrides {
+  config?: DoyaAgentSessionConfig;
   provider?: CreateAgentRequestMessage["config"]["provider"];
   cwd?: string;
   workspaceId?: string;
@@ -178,12 +175,12 @@ export interface PaseoAgentCreateOptions extends PaseoAgentConfigOverrides {
   labels?: Record<string, string>;
 }
 
-export interface PaseoAgentRefetchResult {
-  agent: PaseoAgent;
+export interface DoyaAgentRefetchResult {
+  agent: DoyaAgent;
   project: ProjectPlacementPayload | null;
 }
 
-export interface PaseoAgentTimelineRefetchOptions {
+export interface DoyaAgentTimelineRefetchOptions {
   direction?: FetchAgentTimelineDirection;
   cursor?: FetchAgentTimelineCursor;
   limit?: number;
@@ -191,30 +188,30 @@ export interface PaseoAgentTimelineRefetchOptions {
   requestId?: string;
 }
 
-export interface PaseoAgentSendOptions {
+export interface DoyaAgentSendOptions {
   messageId?: string;
   images?: Array<{ data: string; mimeType: string; fileName?: string }>;
   attachments?: SendAgentMessageRequest["attachments"];
 }
 
-export type PaseoAgentUpdate = Extract<SessionOutboundMessage, { type: "agent_update" }>["payload"];
+export type DoyaAgentUpdate = Extract<SessionOutboundMessage, { type: "agent_update" }>["payload"];
 
-export type PaseoAgentStream = Extract<SessionOutboundMessage, { type: "agent_stream" }>["payload"];
+export type DoyaAgentStream = Extract<SessionOutboundMessage, { type: "agent_stream" }>["payload"];
 
-export type PaseoAgentUpdateHandler = (update: PaseoAgentUpdate) => void;
+export type DoyaAgentUpdateHandler = (update: DoyaAgentUpdate) => void;
 
-export interface PaseoAgentTimelineHandle {
+export interface DoyaAgentTimelineHandle {
   /**
    * Fetches a fresh timeline page through the existing daemon RPC. If the daemon
    * includes an agent snapshot in the response, the parent handle's `latest()`
    * is updated to that snapshot.
    */
-  refetch(options?: PaseoAgentTimelineRefetchOptions): Promise<FetchAgentTimelinePayload>;
+  refetch(options?: DoyaAgentTimelineRefetchOptions): Promise<FetchAgentTimelinePayload>;
   /**
    * Local listener for agent_stream events matching this handle id. It does not
    * retain timeline entries or own application cache state.
    */
-  subscribe(handler: (event: PaseoAgentStream) => void): () => void;
+  subscribe(handler: (event: DoyaAgentStream) => void): () => void;
 }
 
 /**
@@ -223,91 +220,91 @@ export interface PaseoAgentTimelineHandle {
  * handle through construction, `refetch()`, timeline refetch, archive, or local
  * agent_update subscription.
  */
-export interface PaseoAgentHandle {
+export interface DoyaAgentHandle {
   readonly id: string;
-  readonly timeline: PaseoAgentTimelineHandle;
-  latest(): PaseoAgent | null;
-  refetch(requestId?: string): Promise<PaseoAgentRefetchResult | null>;
-  send(text: string, options?: PaseoAgentSendOptions): Promise<void>;
+  readonly timeline: DoyaAgentTimelineHandle;
+  latest(): DoyaAgent | null;
+  refetch(requestId?: string): Promise<DoyaAgentRefetchResult | null>;
+  send(text: string, options?: DoyaAgentSendOptions): Promise<void>;
   archive(): Promise<{ archivedAt: string }>;
-  subscribe(handler: (update: PaseoAgentUpdate) => void): () => void;
+  subscribe(handler: (update: DoyaAgentUpdate) => void): () => void;
 }
 
-export interface PaseoAgentActions {
-  ref(agent: string | PaseoAgent): PaseoAgentHandle;
-  create(options: PaseoAgentCreateOptions): Promise<PaseoAgentHandle>;
+export interface DoyaAgentActions {
+  ref(agent: string | DoyaAgent): DoyaAgentHandle;
+  create(options: DoyaAgentCreateOptions): Promise<DoyaAgentHandle>;
   /**
    * Local event subscription over the low-level driver's agent_update stream.
    * The returned function only removes this SDK listener.
    */
-  subscribe(handler: PaseoAgentUpdateHandler): () => void;
+  subscribe(handler: DoyaAgentUpdateHandler): () => void;
 }
 
-export interface PaseoProviderConfig extends PaseoProviderConfigInput {
-  provider: PaseoAgentProvider;
+export interface DoyaProviderConfig extends DoyaProviderConfigInput {
+  provider: DoyaAgentProvider;
 }
-export type PaseoProviderFeatureValues = Record<string, unknown>;
+export type DoyaProviderFeatureValues = Record<string, unknown>;
 
-export interface PaseoProviderConfigInput {
+export interface DoyaProviderConfigInput {
   model?: string;
   modeId?: string;
   thinkingOptionId?: string;
-  featureValues?: PaseoProviderFeatureValues;
+  featureValues?: DoyaProviderFeatureValues;
 }
 
-export type PaseoProviderModelsResult = ListProviderModelsResponseMessage["payload"];
-export type PaseoProviderModesResult = ListProviderModesResponseMessage["payload"];
-export type PaseoProviderFeaturesInput = ListProviderFeaturesRequestMessage["draftConfig"];
-export type PaseoProviderFeaturesResult = ListProviderFeaturesResponseMessage["payload"];
-export type PaseoProviderAvailabilityResult = ListAvailableProvidersResponse["payload"];
-export type PaseoProviderSnapshotResult = GetProvidersSnapshotResponseMessage["payload"];
-export type PaseoProviderSnapshotUpdate = Extract<
+export type DoyaProviderModelsResult = ListProviderModelsResponseMessage["payload"];
+export type DoyaProviderModesResult = ListProviderModesResponseMessage["payload"];
+export type DoyaProviderFeaturesInput = ListProviderFeaturesRequestMessage["draftConfig"];
+export type DoyaProviderFeaturesResult = ListProviderFeaturesResponseMessage["payload"];
+export type DoyaProviderAvailabilityResult = ListAvailableProvidersResponse["payload"];
+export type DoyaProviderSnapshotResult = GetProvidersSnapshotResponseMessage["payload"];
+export type DoyaProviderSnapshotUpdate = Extract<
   SessionOutboundMessage,
   { type: "providers_snapshot_update" }
 >["payload"];
-export type PaseoProviderRefreshResult = RefreshProvidersSnapshotResponseMessage["payload"];
-export type PaseoProviderDiagnosticResult = ProviderDiagnosticResponseMessage["payload"];
+export type DoyaProviderRefreshResult = RefreshProvidersSnapshotResponseMessage["payload"];
+export type DoyaProviderDiagnosticResult = ProviderDiagnosticResponseMessage["payload"];
 
-export interface PaseoProviderListOptions {
+export interface DoyaProviderListOptions {
   cwd?: string;
   requestId?: string;
 }
 
-export interface PaseoProviderRefreshOptions {
+export interface DoyaProviderRefreshOptions {
   cwd?: string;
-  providers?: PaseoAgentProvider[];
+  providers?: DoyaAgentProvider[];
   requestId?: string;
 }
 
-export interface PaseoProviderActions {
-  codex(input?: PaseoProviderConfigInput): PaseoProviderConfig;
-  claude(input?: PaseoProviderConfigInput): PaseoProviderConfig;
-  opencode(input?: PaseoProviderConfigInput): PaseoProviderConfig;
-  copilot(input?: PaseoProviderConfigInput): PaseoProviderConfig;
-  config(provider: PaseoAgentProvider, input?: PaseoProviderConfigInput): PaseoProviderConfig;
+export interface DoyaProviderActions {
+  codex(input?: DoyaProviderConfigInput): DoyaProviderConfig;
+  claude(input?: DoyaProviderConfigInput): DoyaProviderConfig;
+  opencode(input?: DoyaProviderConfigInput): DoyaProviderConfig;
+  copilot(input?: DoyaProviderConfigInput): DoyaProviderConfig;
+  config(provider: DoyaAgentProvider, input?: DoyaProviderConfigInput): DoyaProviderConfig;
   listModels(
-    provider: PaseoAgentProvider,
-    options?: PaseoProviderListOptions,
-  ): Promise<PaseoProviderModelsResult>;
+    provider: DoyaAgentProvider,
+    options?: DoyaProviderListOptions,
+  ): Promise<DoyaProviderModelsResult>;
   listModes(
-    provider: PaseoAgentProvider,
-    options?: PaseoProviderListOptions,
-  ): Promise<PaseoProviderModesResult>;
+    provider: DoyaAgentProvider,
+    options?: DoyaProviderListOptions,
+  ): Promise<DoyaProviderModesResult>;
   listFeatures(
-    draftConfig: PaseoProviderFeaturesInput,
+    draftConfig: DoyaProviderFeaturesInput,
     options?: { requestId?: string },
-  ): Promise<PaseoProviderFeaturesResult>;
-  listAvailable(options?: { requestId?: string }): Promise<PaseoProviderAvailabilityResult>;
-  snapshot(options?: PaseoProviderListOptions): Promise<PaseoProviderSnapshotResult>;
-  refresh(options?: PaseoProviderRefreshOptions): Promise<PaseoProviderRefreshResult>;
+  ): Promise<DoyaProviderFeaturesResult>;
+  listAvailable(options?: { requestId?: string }): Promise<DoyaProviderAvailabilityResult>;
+  snapshot(options?: DoyaProviderListOptions): Promise<DoyaProviderSnapshotResult>;
+  refresh(options?: DoyaProviderRefreshOptions): Promise<DoyaProviderRefreshResult>;
   diagnostic(
-    provider: PaseoAgentProvider,
+    provider: DoyaAgentProvider,
     options?: { requestId?: string },
-  ): Promise<PaseoProviderDiagnosticResult>;
-  subscribe(handler: (update: PaseoProviderSnapshotUpdate) => void): () => void;
+  ): Promise<DoyaProviderDiagnosticResult>;
+  subscribe(handler: (update: DoyaProviderSnapshotUpdate) => void): () => void;
 }
 
-export interface PaseoConfigActions {
+export interface DoyaConfigActions {
   /**
    * Reads daemon config through the existing config RPC. Provider profiles,
    * custom provider entries, keys/env, custom binaries, and provider enablement
@@ -327,18 +324,18 @@ export interface PaseoConfigActions {
   ): Promise<{ requestId: string; config: MutableDaemonConfig }>;
 }
 
-export interface PaseoClient {
-  readonly workspaces: PaseoWorkspaceActions;
-  readonly agents: PaseoAgentActions;
-  readonly providers: PaseoProviderActions;
-  readonly config: PaseoConfigActions;
+export interface DoyaClient {
+  readonly workspaces: DoyaWorkspaceActions;
+  readonly agents: DoyaAgentActions;
+  readonly providers: DoyaProviderActions;
+  readonly config: DoyaConfigActions;
   connect(): Promise<void>;
   close(): Promise<void>;
   ensureConnected(): void;
   getConnectionState(): ConnectionState;
 }
 
-export function createPaseoClient(config: PaseoClientConfig): PaseoClient {
+export function createDoyaClient(config: DoyaClientConfig): DoyaClient {
   const daemonClient = new DaemonClient({
     ...config,
     clientId: config.clientId ?? createGeneratedClientId(),
@@ -403,8 +400,8 @@ export function createPaseoClient(config: PaseoClientConfig): PaseoClient {
   };
 }
 
-type WorkspaceHandleFactory = (workspace: string | PaseoWorkspace) => PaseoWorkspaceHandle;
-type AgentHandleFactory = (agent: string | PaseoAgent) => PaseoAgentHandle;
+type WorkspaceHandleFactory = (workspace: string | DoyaWorkspace) => DoyaWorkspaceHandle;
+type AgentHandleFactory = (agent: string | DoyaAgent) => DoyaAgentHandle;
 
 function createWorkspaceHandleFactory(daemonClient: DaemonClient): WorkspaceHandleFactory {
   return (workspace) => {
@@ -451,7 +448,7 @@ function createAgentHandleFactory(daemonClient: DaemonClient): AgentHandleFactor
     const id = typeof agent === "string" ? agent : agent.id;
     let latest = typeof agent === "string" ? null : agent;
 
-    const handle: PaseoAgentHandle = {
+    const handle: DoyaAgentHandle = {
       id,
       timeline: {
         refetch: async (options) => {
@@ -503,9 +500,9 @@ function createAgentHandleFactory(daemonClient: DaemonClient): AgentHandleFactor
 async function openWorkspace(
   daemonClient: DaemonClient,
   createWorkspaceHandle: WorkspaceHandleFactory,
-  input: string | PaseoWorkspaceOpenOptions,
+  input: string | DoyaWorkspaceOpenOptions,
   requestId?: string,
-): Promise<PaseoWorkspaceOpenResult> {
+): Promise<DoyaWorkspaceOpenResult> {
   const options = typeof input === "string" ? { cwd: input, requestId } : input;
   const result = await daemonClient.openProject(options.cwd, options.requestId);
   return {
@@ -514,14 +511,14 @@ async function openWorkspace(
   };
 }
 
-function resolveWorkspaceId(workspace: string | PaseoWorkspaceHandle): string {
+function resolveWorkspaceId(workspace: string | DoyaWorkspaceHandle): string {
   return typeof workspace === "string" ? workspace : workspace.id;
 }
 
 function providerConfig(
-  provider: PaseoAgentProvider,
-  input: PaseoProviderConfigInput = {},
-): PaseoProviderConfig {
+  provider: DoyaAgentProvider,
+  input: DoyaProviderConfigInput = {},
+): DoyaProviderConfig {
   return {
     provider,
     ...(input.model !== undefined ? { model: input.model } : {}),
@@ -536,5 +533,5 @@ function createGeneratedClientId(): string {
     typeof globalThis.crypto?.randomUUID === "function"
       ? globalThis.crypto.randomUUID()
       : Math.random().toString(36).slice(2);
-  return `paseo-sdk-${randomId}`;
+  return `doya-sdk-${randomId}`;
 }

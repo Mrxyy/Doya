@@ -2,7 +2,7 @@ import { spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { loadConfig, resolvePaseoHome, spawnProcess } from "@getpaseo/server";
+import { loadConfig, resolveDoyaHome, spawnProcess } from "@getdoya/server";
 import treeKill from "tree-kill";
 import { tryConnectToDaemon } from "../../utils/client.js";
 
@@ -94,7 +94,8 @@ export interface DaemonLaunchRuntime {
 const DETACHED_STARTUP_GRACE_MS = 1200;
 const PID_POLL_INTERVAL_MS = 100;
 const DAEMON_LOG_FILENAME = "daemon.log";
-const DAEMON_PID_FILENAME = "paseo.pid";
+const DAEMON_PID_FILENAME = "doya.pid";
+const LEGACY_DAEMON_PID_FILENAME = "doya.pid";
 
 export const DEFAULT_STOP_TIMEOUT_MS = 15_000;
 export const DEFAULT_KILL_TIMEOUT_MS = 3_000;
@@ -103,7 +104,7 @@ const require = createRequire(import.meta.url);
 
 const defaultDaemonLaunchRuntime: DaemonLaunchRuntime = {
   resolveRunnerEntry: resolveDaemonRunnerEntry,
-  resolveHome: resolvePaseoHome,
+  resolveHome: resolveDoyaHome,
   spawnDetached: spawnProcess,
   spawnForeground: spawnSync,
 };
@@ -120,7 +121,7 @@ function envWithHome(home?: string): NodeJS.ProcessEnv {
     return process.env;
   }
 
-  return { ...process.env, PASEO_HOME: home };
+  return { ...process.env, DOYA_HOME: home };
 }
 
 function buildRunnerArgs(options: DaemonStartOptions): string[] {
@@ -145,18 +146,18 @@ function buildRunnerArgs(options: DaemonStartOptions): string[] {
 function buildChildEnv(options: DaemonStartOptions): NodeJS.ProcessEnv {
   const childEnv: NodeJS.ProcessEnv = { ...process.env };
   if (options.home) {
-    childEnv.PASEO_HOME = options.home;
+    childEnv.DOYA_HOME = options.home;
   }
   if (options.listen) {
-    childEnv.PASEO_LISTEN = options.listen;
+    childEnv.DOYA_LISTEN = options.listen;
   } else if (options.port) {
-    childEnv.PASEO_LISTEN = `127.0.0.1:${options.port}`;
+    childEnv.DOYA_LISTEN = `127.0.0.1:${options.port}`;
   }
   if (options.hostnames) {
-    childEnv.PASEO_HOSTNAMES = options.hostnames;
+    childEnv.DOYA_HOSTNAMES = options.hostnames;
   }
   if (options.relayUseTls === true) {
-    childEnv.PASEO_RELAY_USE_TLS = "true";
+    childEnv.DOYA_RELAY_USE_TLS = "true";
   }
   return childEnv;
 }
@@ -166,7 +167,7 @@ function resolveServerRunnerFromDir(currentDir: string): string | null {
   if (!existsSync(packageJsonPath)) return null;
   try {
     const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8")) as { name?: string };
-    if (packageJson.name !== "@getpaseo/server") return null;
+    if (packageJson.name !== "@getdoya/server") return null;
     const distRunner = path.join(currentDir, "dist", "scripts", "supervisor-entrypoint.js");
     if (existsSync(distRunner)) {
       return distRunner;
@@ -178,7 +179,7 @@ function resolveServerRunnerFromDir(currentDir: string): string | null {
 }
 
 function resolveDaemonRunnerEntry(): string {
-  const serverExportPath = require.resolve("@getpaseo/server");
+  const serverExportPath = require.resolve("@getdoya/server");
   let currentDir = path.dirname(serverExportPath);
 
   while (true) {
@@ -194,11 +195,20 @@ function resolveDaemonRunnerEntry(): string {
     currentDir = parentDir;
   }
 
-  throw new Error("Unable to resolve @getpaseo/server package root for daemon runner");
+  throw new Error("Unable to resolve @getdoya/server package root for daemon runner");
 }
 
-function pidFilePath(paseoHome: string): string {
-  return path.join(paseoHome, DAEMON_PID_FILENAME);
+function pidFilePath(doyaHome: string): string {
+  return path.join(doyaHome, DAEMON_PID_FILENAME);
+}
+
+function resolvePidFilePath(doyaHome: string): string {
+  const primaryPath = pidFilePath(doyaHome);
+  if (existsSync(primaryPath)) {
+    return primaryPath;
+  }
+  const legacyPath = path.join(doyaHome, LEGACY_DAEMON_PID_FILENAME);
+  return existsSync(legacyPath) ? legacyPath : primaryPath;
 }
 
 function resolveListenField(listen: unknown, sockPath: unknown): string | undefined {
@@ -357,8 +367,8 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export function resolveLocalPaseoHome(home?: string): string {
-  return resolvePaseoHome(envWithHome(home));
+export function resolveLocalDoyaHome(home?: string): string {
+  return resolveDoyaHome(envWithHome(home));
 }
 
 export function resolveTcpHostFromListen(listen: string): string | null {
@@ -393,18 +403,18 @@ export function resolveLocalDaemonState(options: { home?: string } = {}): LocalD
     ...envWithHome(options.home),
     // Status should reflect local persisted config + pid file, not inherited daemon env overrides.
     // This is CLI-side defensive scrubbing; the daemon RPC is authoritative when available.
-    PASEO_LISTEN: undefined,
-    PASEO_HOSTNAMES: undefined,
-    PASEO_ALLOWED_HOSTS: undefined,
-    PASEO_RELAY_ENABLED: undefined,
-    PASEO_RELAY_ENDPOINT: undefined,
-    PASEO_RELAY_PUBLIC_ENDPOINT: undefined,
-    PASEO_RELAY_USE_TLS: undefined,
-    PASEO_RELAY_PUBLIC_USE_TLS: undefined,
+    DOYA_LISTEN: undefined,
+    DOYA_HOSTNAMES: undefined,
+    DOYA_ALLOWED_HOSTS: undefined,
+    DOYA_RELAY_ENABLED: undefined,
+    DOYA_RELAY_ENDPOINT: undefined,
+    DOYA_RELAY_PUBLIC_ENDPOINT: undefined,
+    DOYA_RELAY_USE_TLS: undefined,
+    DOYA_RELAY_PUBLIC_USE_TLS: undefined,
   };
-  const home = resolvePaseoHome(env);
+  const home = resolveDoyaHome(env);
   const config = loadConfig(home, { env });
-  const pidPath = pidFilePath(home);
+  const pidPath = resolvePidFilePath(home);
   const logPath = path.join(home, DAEMON_LOG_FILENAME);
   const pidInfo = existsSync(pidPath) ? readPidFile(pidPath) : null;
   const running = pidInfo ? isProcessRunning(pidInfo.pid) : false;
@@ -414,7 +424,7 @@ export function resolveLocalDaemonState(options: { home?: string } = {}): LocalD
     home,
     listen,
     relayEnabled: config.relayEnabled ?? true,
-    relayEndpoint: config.relayPublicEndpoint ?? config.relayEndpoint ?? "relay.paseo.sh:443",
+    relayEndpoint: config.relayPublicEndpoint ?? config.relayEndpoint ?? "relay.doya.sh:443",
     relayUseTls: config.relayUseTls ?? false,
     relayPublicUseTls: config.relayPublicUseTls ?? config.relayUseTls ?? false,
     logPath,
@@ -426,7 +436,7 @@ export function resolveLocalDaemonState(options: { home?: string } = {}): LocalD
 }
 
 export function tailDaemonLog(home?: string, lines = 30): string | null {
-  const logPath = path.join(resolveLocalPaseoHome(home), DAEMON_LOG_FILENAME);
+  const logPath = path.join(resolveLocalDoyaHome(home), DAEMON_LOG_FILENAME);
   return tailFile(logPath, lines);
 }
 
@@ -441,8 +451,8 @@ export async function startLocalDaemonDetached(
   const daemonRunnerEntry = runtime.resolveRunnerEntry();
   const childEnv = buildChildEnv(options);
 
-  const paseoHome = runtime.resolveHome(childEnv);
-  const logPath = path.join(paseoHome, DAEMON_LOG_FILENAME);
+  const doyaHome = runtime.resolveHome(childEnv);
+  const logPath = path.join(doyaHome, DAEMON_LOG_FILENAME);
   const child = runtime.spawnDetached(
     process.execPath,
     [...process.execArgv, daemonRunnerEntry, ...buildRunnerArgs(options)],

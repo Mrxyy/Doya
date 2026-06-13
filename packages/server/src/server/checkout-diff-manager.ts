@@ -38,11 +38,7 @@ export class CheckoutDiffManager {
   private readonly workspaceGitService: WorkspaceGitService;
   private readonly targets = new Map<string, CheckoutDiffWatchTarget>();
 
-  constructor(options: {
-    logger: pino.Logger;
-    paseoHome: string;
-    workspaceGitService: WorkspaceGitService;
-  }) {
+  constructor(options: { logger: pino.Logger; workspaceGitService: WorkspaceGitService }) {
     this.workspaceGitService = options.workspaceGitService;
   }
 

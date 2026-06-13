@@ -13,14 +13,14 @@ interface SupervisorLogFileOptions {
 
 type WorkerLifecycleMessage =
   | {
-      type: "paseo:shutdown";
+      type: "doya:shutdown";
     }
   | {
-      type: "paseo:ready";
+      type: "doya:ready";
       listen: string;
     }
   | {
-      type: "paseo:restart";
+      type: "doya:restart";
       reason?: string;
     };
 
@@ -51,20 +51,20 @@ function parseLifecycleMessage(msg: unknown): WorkerLifecycleMessage | null {
     return null;
   }
   const type = (msg as { type?: unknown }).type;
-  if (type === "paseo:shutdown") {
-    return { type: "paseo:shutdown" };
+  if (type === "doya:shutdown") {
+    return { type: "doya:shutdown" };
   }
-  if (type === "paseo:ready") {
+  if (type === "doya:ready") {
     const listen = (msg as { listen?: unknown }).listen;
     if (typeof listen !== "string" || listen.trim().length === 0) {
       return null;
     }
-    return { type: "paseo:ready", listen };
+    return { type: "doya:ready", listen };
   }
-  if (type === "paseo:restart") {
+  if (type === "doya:restart") {
     const reason = (msg as { reason?: unknown }).reason;
     return {
-      type: "paseo:restart",
+      type: "doya:restart",
       ...(typeof reason === "string" && reason.trim().length > 0 ? { reason } : {}),
     };
   }
@@ -199,7 +199,7 @@ export function runSupervisor(options: SupervisorOptions): void {
         return;
       }
 
-      if (lifecycleMessage.type === "paseo:ready") {
+      if (lifecycleMessage.type === "doya:ready") {
         writeLifecycleLog("Worker ready", { listen: lifecycleMessage.listen });
         Promise.resolve(options.onWorkerReady?.({ listen: lifecycleMessage.listen })).catch(
           (error) => {
@@ -210,7 +210,7 @@ export function runSupervisor(options: SupervisorOptions): void {
         return;
       }
 
-      if (lifecycleMessage.type === "paseo:shutdown") {
+      if (lifecycleMessage.type === "doya:shutdown") {
         writeLifecycleLog("Worker requested shutdown");
         requestShutdown("Shutdown requested by worker");
         return;

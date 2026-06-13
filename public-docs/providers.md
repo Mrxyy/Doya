@@ -23,5 +23,5 @@ Either way, **you install the underlying CLI**. Doya runs it.
 ## Where to go next
 
 - [Supported providers](/docs/supported-providers), the full list with install links.
-- [Custom providers](/docs/custom-providers), add your own provider, point an existing one at a different endpoint, run multiple profiles, or override the binary in `~/.paseo/config.json`.
+- [Custom providers](/docs/custom-providers), add your own provider, point an existing one at a different endpoint, run multiple profiles, or override the binary in `~/.doya/config.json`.
 - [Doya agents](/agents), per-agent landing page for each supported provider.

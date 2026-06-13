@@ -5,17 +5,21 @@ import { chromium } from "playwright";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
-const baseUrl = process.env.PASEO_PROFILE_APP_URL ?? "http://localhost:19010";
-const serverId = requiredEnv("PASEO_PROFILE_SERVER_ID");
-const workspaceId = requiredEnv("PASEO_PROFILE_WORKSPACE_ID");
-const agentId = requiredEnv("PASEO_PROFILE_AGENT_ID");
-const switchCount = Number(process.env.PASEO_PROFILE_SWITCH_COUNT ?? 6);
-const switchWaitMs = Number(process.env.PASEO_PROFILE_SWITCH_WAIT_MS ?? 250);
-const idleWaitMs = Number(process.env.PASEO_PROFILE_IDLE_WAIT_MS ?? 0);
-const dumpCommits = process.env.PASEO_PROFILE_DUMP_COMMITS === "1";
+const baseUrl = envValue("DOYA_PROFILE_APP_URL") ?? "http://localhost:19010";
+const serverId = requiredEnv("DOYA_PROFILE_SERVER_ID");
+const workspaceId = requiredEnv("DOYA_PROFILE_WORKSPACE_ID");
+const agentId = requiredEnv("DOYA_PROFILE_AGENT_ID");
+const switchCount = Number(envValue("DOYA_PROFILE_SWITCH_COUNT") ?? 6);
+const switchWaitMs = Number(envValue("DOYA_PROFILE_SWITCH_WAIT_MS") ?? 250);
+const idleWaitMs = Number(envValue("DOYA_PROFILE_IDLE_WAIT_MS") ?? 0);
+const dumpCommits = envValue("DOYA_PROFILE_DUMP_COMMITS") === "1";
+
+function envValue(name) {
+  return process.env[name]?.trim() || null;
+}
 
 function requiredEnv(name) {
-  const value = process.env[name]?.trim();
+  const value = envValue(name);
   if (!value) {
     throw new Error(`${name} is required`);
   }
@@ -53,8 +57,9 @@ function killTerminal(terminalId) {
   });
 }
 
-const createdTerminalId = process.env.PASEO_PROFILE_TERMINAL_ID ? null : createTerminal();
-const terminalId = process.env.PASEO_PROFILE_TERMINAL_ID ?? createdTerminalId;
+const profileTerminalId = envValue("DOYA_PROFILE_TERMINAL_ID");
+const createdTerminalId = profileTerminalId ? null : createTerminal();
+const terminalId = profileTerminalId ?? createdTerminalId;
 const workspaceSegment = `b64_${Buffer.from(workspaceId, "utf8").toString("base64url")}`;
 const workspaceUrl = `${baseUrl}/h/${serverId}/workspace/${workspaceSegment}`;
 
@@ -128,7 +133,7 @@ async function main() {
     await clickTab(page, agentTab);
     await clickTab(page, terminalTab);
     await page.waitForTimeout(500);
-    await page.evaluate(() => globalThis.__PASEO_RESET_RENDER_PROFILE__?.());
+    await page.evaluate(() => globalThis.__DOYA_RESET_RENDER_PROFILE__?.());
 
     if (idleWaitMs > 0) {
       await page.waitForTimeout(idleWaitMs);
@@ -139,8 +144,8 @@ async function main() {
       await clickTab(page, terminalTab);
     }
 
-    const samples = await page.evaluate(() => globalThis.__PASEO_RENDER_PROFILE__ ?? []);
-    const reasons = await page.evaluate(() => globalThis.__PASEO_RENDER_PROFILE_REASONS__ ?? {});
+    const samples = await page.evaluate(() => globalThis.__DOYA_RENDER_PROFILE__ ?? []);
+    const reasons = await page.evaluate(() => globalThis.__DOYA_RENDER_PROFILE_REASONS__ ?? {});
     console.log(
       JSON.stringify(
         {

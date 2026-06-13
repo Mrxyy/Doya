@@ -15,24 +15,24 @@ page_types: [cover, toc, chapter, content, ending]
 
 ## I. Template Overview
 
-| Property       | Description                                            |
-| -------------- | ------------------------------------------------------ |
-| **Template Name** | academic_defense                                    |
-| **Use Cases**  | Thesis defense, academic presentations, research progress reports, grant applications |
-| **Design Tone** | Professional, rigorous, research-oriented, clear hierarchy |
-| **Theme Mode** | Light theme (white background + dark blue title bar)   |
+| Property          | Description                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| **Template Name** | academic_defense                                                                      |
+| **Use Cases**     | Thesis defense, academic presentations, research progress reports, grant applications |
+| **Design Tone**   | Professional, rigorous, research-oriented, clear hierarchy                            |
+| **Theme Mode**    | Light theme (white background + dark blue title bar)                                  |
 
 ---
 
 ## II. Canvas Specification
 
-| Property       | Value                         |
-| -------------- | ----------------------------- |
-| **Format**     | Standard 16:9                 |
-| **Dimensions** | 1280 × 720 px                |
-| **viewBox**    | `0 0 1280 720`                |
+| Property         | Value                                 |
+| ---------------- | ------------------------------------- |
+| **Format**       | Standard 16:9                         |
+| **Dimensions**   | 1280 × 720 px                         |
+| **viewBox**      | `0 0 1280 720`                        |
 | **Page Margins** | Left/Right 40px, Top 0px, Bottom 35px |
-| **Safe Area**  | x: 40-1240, y: 70-665        |
+| **Safe Area**    | x: 40-1240, y: 70-665                 |
 
 ---
 
@@ -40,12 +40,12 @@ page_types: [cover, toc, chapter, content, ending]
 
 ### General Layout
 
-| Area           | Position/Height | Description                            |
-| -------------- | --------------- | -------------------------------------- |
-| **Header**     | y=0, h=70px     | Dark blue background + red left bar + page title |
-| **Key Message Bar** | y=70, h=50px | Core message/summary area (light blue-gray background) |
-| **Content Area** | y=135, h=515px | Main content area                    |
-| **Footer**     | y=665, h=55px   | Data source, section name, page number |
+| Area                | Position/Height | Description                                            |
+| ------------------- | --------------- | ------------------------------------------------------ |
+| **Header**          | y=0, h=70px     | Dark blue background + red left bar + page title       |
+| **Key Message Bar** | y=70, h=50px    | Core message/summary area (light blue-gray background) |
+| **Content Area**    | y=135, h=515px  | Main content area                                      |
+| **Footer**          | y=665, h=55px   | Data source, section name, page number                 |
 
 ### Decorative Elements
 
@@ -107,37 +107,37 @@ page_types: [cover, toc, chapter, content, ending]
 
 ## V. SVG Page Roster
 
-| File | Role | Description |
-|------|------|-------------|
-| `01_cover.svg` | cover | Title slide; project name, presenter, date |
+| File             | Role    | Description                                         |
+| ---------------- | ------- | --------------------------------------------------- |
+| `01_cover.svg`   | cover   | Title slide; project name, presenter, date          |
 | `02_chapter.svg` | chapter | Chapter divider page (large number + chapter title) |
-| `02_toc.svg` | toc | Table of contents listing major sections |
-| `03_content.svg` | content | Main content page; body of the deck |
-| `04_ending.svg` | ending | Closing/thank-you page |
+| `02_toc.svg`     | toc     | Table of contents listing major sections            |
+| `03_content.svg` | content | Main content page; body of the deck                 |
+| `04_ending.svg`  | ending  | Closing/thank-you page                              |
 
 ## VI. Layout Patterns
 
-| Pattern            | Use Cases                      |
-| ------------------ | ------------------------------ |
-| **Single Column Centered** | Cover, ending, key points |
-| **Two-Column Cards** | Table of contents            |
-| **Left-Right Split (5:5)** | Comparison display      |
-| **Left-Right Split (4:6)** | Image-text mixed layout |
-| **Card Grid**      | Research content list           |
-| **Timeline**       | Research progress               |
-| **Table**          | Data comparison, experiment results |
+| Pattern                    | Use Cases                           |
+| -------------------------- | ----------------------------------- |
+| **Single Column Centered** | Cover, ending, key points           |
+| **Two-Column Cards**       | Table of contents                   |
+| **Left-Right Split (5:5)** | Comparison display                  |
+| **Left-Right Split (4:6)** | Image-text mixed layout             |
+| **Card Grid**              | Research content list               |
+| **Timeline**               | Research progress                   |
+| **Table**                  | Data comparison, experiment results |
 
 ---
 
 ## VII. Spacing Guidelines
 
-| Element            | Value  |
-| ------------------ | ------ |
-| Card gap           | 20px   |
-| Content block gap  | 24px   |
-| Card padding       | 20px   |
-| Card border radius | 8px    |
-| Icon-to-text gap   | 12px   |
+| Element            | Value |
+| ------------------ | ----- |
+| Card gap           | 20px  |
+| Content block gap  | 24px  |
+| Card padding       | 20px  |
+| Card border radius | 8px   |
+| Icon-to-text gap   | 12px  |
 
 ---
 
@@ -165,31 +165,31 @@ page_types: [cover, toc, chapter, content, ending]
 
 Templates use `{{PLACEHOLDER}}` format placeholders. Common placeholders:
 
-| Placeholder        | Description        |
-| ------------------ | ------------------ |
-| `{{TITLE}}`        | Thesis/project main title |
-| `{{SUBTITLE}}`     | Subtitle           |
-| `{{AUTHOR}}`       | Presenter name     |
-| `{{ADVISOR}}`      | Advisor            |
-| `{{INSTITUTION}}`  | University/institution |
-| `{{DATE}}`         | Defense date       |
-| `{{PAGE_TITLE}}`   | Page title         |
-| `{{SECTION_NUM}}`  | Section number     |
-| `{{CHAPTER_NUM}}`  | Chapter number (large) |
-| `{{CHAPTER_TITLE}}`| Chapter title      |
-| `{{CHAPTER_DESC}}` | Chapter description |
-| `{{KEY_MESSAGE}}`  | Key message        |
-| `{{PAGE_NUM}}`     | Page number        |
-| `{{SOURCE}}`       | Data source        |
-| `{{SECTION_NAME}}` | Section name (footer) |
-| `{{TOC_ITEM_N_TITLE}}` | TOC item title (N=1..n) |
-| `{{TOC_ITEM_N_DESC}}` | TOC item description (N=1..n) |
-| `{{THANK_YOU}}`    | Thank-you message  |
-| `{{ENDING_SUBTITLE}}` | Ending subtitle/tagline |
-| `{{CONTACT_INFO}}` | Contact information |
-| `{{EMAIL}}`        | Email address      |
-| `{{COPYRIGHT}}`    | Copyright info     |
-| `{{LOGO}}`         | Logo text          |
+| Placeholder            | Description                   |
+| ---------------------- | ----------------------------- |
+| `{{TITLE}}`            | Thesis/project main title     |
+| `{{SUBTITLE}}`         | Subtitle                      |
+| `{{AUTHOR}}`           | Presenter name                |
+| `{{ADVISOR}}`          | Advisor                       |
+| `{{INSTITUTION}}`      | University/institution        |
+| `{{DATE}}`             | Defense date                  |
+| `{{PAGE_TITLE}}`       | Page title                    |
+| `{{SECTION_NUM}}`      | Section number                |
+| `{{CHAPTER_NUM}}`      | Chapter number (large)        |
+| `{{CHAPTER_TITLE}}`    | Chapter title                 |
+| `{{CHAPTER_DESC}}`     | Chapter description           |
+| `{{KEY_MESSAGE}}`      | Key message                   |
+| `{{PAGE_NUM}}`         | Page number                   |
+| `{{SOURCE}}`           | Data source                   |
+| `{{SECTION_NAME}}`     | Section name (footer)         |
+| `{{TOC_ITEM_N_TITLE}}` | TOC item title (N=1..n)       |
+| `{{TOC_ITEM_N_DESC}}`  | TOC item description (N=1..n) |
+| `{{THANK_YOU}}`        | Thank-you message             |
+| `{{ENDING_SUBTITLE}}`  | Ending subtitle/tagline       |
+| `{{CONTACT_INFO}}`     | Contact information           |
+| `{{EMAIL}}`            | Email address                 |
+| `{{COPYRIGHT}}`        | Copyright info                |
+| `{{LOGO}}`             | Logo text                     |
 
 ---
 

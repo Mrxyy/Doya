@@ -28,8 +28,8 @@ import { useToast } from "@/contexts/toast-context";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { toErrorMessage } from "@/utils/error-messages";
 import { formatAgentModeLabel } from "@/composer/agent-controls/utils";
-import type { AgentMode, AgentProvider } from "@getpaseo/protocol/agent-types";
-import { getModeVisuals, type AgentProviderDefinition } from "@getpaseo/protocol/provider-manifest";
+import type { AgentMode, AgentProvider } from "@getdoya/protocol/agent-types";
+import { getModeVisuals, type AgentProviderDefinition } from "@getdoya/protocol/provider-manifest";
 import { translateNow } from "@/i18n/i18n";
 
 export type AgentModeControlPlacement = "toolbar" | "footer";

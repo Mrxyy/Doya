@@ -101,6 +101,7 @@ export OPENAI_OUTPUT_FORMAT=png
 Current process environment wins over `.env`.
 
 OpenAI backend notes:
+
 - `gpt-image-2` is the default OpenAI model.
 - Requests are sent with plain `requests.post()` to improve compatibility with
   OpenAI-compatible proxies that block the OpenAI SDK's `httpx` transport.
@@ -115,6 +116,7 @@ Use provider-specific keys only (e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`). See `
 If you keep multiple providers in one `.env` or environment, `IMAGE_BACKEND` must explicitly select the active provider.
 
 Recommendation:
+
 - Default to the Core tier for routine PPT work
 - Use Extended only when you need a specific model style
 - Treat Experimental backends as opt-in
@@ -152,12 +154,12 @@ python3 scripts/image_search.py "offshore wind farm" \
 
 Providers (Openverse and Wikimedia work with no key; configure Pexels / Pixabay for better stock-photo quality):
 
-| Provider | Config | Strength |
-|---|---|---|
-| `openverse` | zero-config | fallback aggregator: Wikimedia + Flickr + museums + rawpixel |
-| `wikimedia` | zero-config | educational, scientific, geographic, historical |
-| `pexels` | recommended: `PEXELS_API_KEY` | modern stock photography, people, workplace, lifestyle |
-| `pixabay` | recommended: `PIXABAY_API_KEY` | broad type coverage including photos and illustrations |
+| Provider    | Config                         | Strength                                                     |
+| ----------- | ------------------------------ | ------------------------------------------------------------ |
+| `openverse` | zero-config                    | fallback aggregator: Wikimedia + Flickr + museums + rawpixel |
+| `wikimedia` | zero-config                    | educational, scientific, geographic, historical              |
+| `pexels`    | recommended: `PEXELS_API_KEY`  | modern stock photography, people, workplace, lifestyle       |
+| `pixabay`   | recommended: `PIXABAY_API_KEY` | broad type coverage including photos and illustrations       |
 
 Default search chain (when `--provider` is unset): zero-config providers first, then keyed providers whose API key is set in the environment. Keyed providers without a key are silently skipped. For polished visual decks, configure at least one keyed provider.
 
@@ -165,11 +167,11 @@ Default search chain (when `--provider` is unset): zero-config providers first, 
 
 Query guidance:
 
-| Case | Pattern |
-|---|---|
-| Generic stock concept | `boardroom meeting, professional editorial photography, natural light` |
-| China-specific landmark | Official Chinese place name + concrete scene |
-| Avoid | Negative prompt wording such as `not tourist snapshot` |
+| Case                    | Pattern                                                                |
+| ----------------------- | ---------------------------------------------------------------------- |
+| Generic stock concept   | `boardroom meeting, professional editorial photography, natural light` |
+| China-specific landmark | Official Chinese place name + concrete scene                           |
+| Avoid                   | Negative prompt wording such as `not tourist snapshot`                 |
 
 License filter:
 
@@ -211,6 +213,7 @@ python3 scripts/gemini_watermark_remover.py <image_path> -q
 ```
 
 Notes:
+
 - Requires `scripts/assets/bg_48.png` and `scripts/assets/bg_96.png`
 - Best used after downloading “full size” Gemini images
 

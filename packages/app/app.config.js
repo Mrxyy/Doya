@@ -20,7 +20,7 @@ function resolveSecretFile(params) {
 const variants = {
   production: {
     name: "Doya",
-    packageId: "sh.paseo",
+    packageId: "sh.doya",
     googleServicesFile: resolveSecretFile({
       envKey: "GOOGLE_SERVICES_FILE_PROD",
       fallbackRelativePath: "./.secrets/google-services.prod.json",
@@ -32,7 +32,7 @@ const variants = {
   },
   development: {
     name: "Doya Debug",
-    packageId: "sh.paseo.debug",
+    packageId: "sh.doya.debug",
     googleServicesFile: resolveSecretFile({
       envKey: "GOOGLE_SERVICES_FILE_DEBUG",
       fallbackRelativePath: "./.secrets/google-services.debug.json",
@@ -49,11 +49,11 @@ const variant = variants[appVariant] ?? variants.production;
 export default {
   expo: {
     name: variant.name,
-    slug: "voice-mobile",
+    slug: "doya",
     version: pkg.version,
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "paseo",
+    scheme: "doya",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     runtimeVersion: {
@@ -151,6 +151,6 @@ export default {
         projectId: "0e7f65ce-0367-46c8-a238-2b65963d235a",
       },
     },
-    owner: "getpaseo",
+    owner: "getdoya",
   },
 };

@@ -4,7 +4,7 @@
 import React, { type ReactElement } from "react";
 import { act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { WorkspaceScriptPayload } from "@getpaseo/protocol/messages";
+import type { WorkspaceScriptPayload } from "@getdoya/protocol/messages";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRoot } from "react-dom/client";
 import { WorkspaceScriptsButton } from "@/screens/workspace/workspace-scripts-button";
@@ -299,7 +299,7 @@ describe("WorkspaceScriptsButton", () => {
       script({
         scriptName: "web",
         type: "service",
-        hostname: "web.paseo.localhost",
+        hostname: "web.doya.localhost",
         lifecycle: "running",
         health: "healthy",
         port: 3000,
@@ -307,7 +307,7 @@ describe("WorkspaceScriptsButton", () => {
       script({
         scriptName: "api",
         type: "service",
-        hostname: "api.paseo.localhost",
+        hostname: "api.doya.localhost",
         lifecycle: "running",
         health: "unhealthy",
         port: 4000,
@@ -315,7 +315,7 @@ describe("WorkspaceScriptsButton", () => {
       script({
         scriptName: "worker",
         type: "service",
-        hostname: "worker.paseo.localhost",
+        hostname: "worker.doya.localhost",
         lifecycle: "running",
         health: null,
         port: 5000,
@@ -323,7 +323,7 @@ describe("WorkspaceScriptsButton", () => {
       script({
         scriptName: "old-service",
         type: "service",
-        hostname: "old-service.paseo.localhost",
+        hostname: "old-service.doya.localhost",
         lifecycle: "stopped",
         exitCode: 1,
       }),

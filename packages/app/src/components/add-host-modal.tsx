@@ -435,7 +435,7 @@ export function AddHostModal({ visible, onClose, onCancel, onSaved }: AddHostMod
       testID="add-host-modal"
     >
       <Text style={styles.helper}>
-        {translateNow("ui.enter.the.address.of.a.paseo.server.96wi")}
+        {translateNow("ui.enter.the.address.of.a.doya.server.96wi")}
       </Text>
 
       <View style={styles.portRow}>

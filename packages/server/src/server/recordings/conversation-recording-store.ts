@@ -7,8 +7,8 @@ import type {
   ConversationRecordingEdits,
   ConversationRecordingEvent,
   ConversationRecordingSummary,
-} from "@getpaseo/protocol/messages";
-import { ConversationRecordingSchema } from "@getpaseo/protocol/messages";
+} from "@getdoya/protocol/messages";
+import { ConversationRecordingSchema } from "@getdoya/protocol/messages";
 import type { AgentProvider, AgentStreamEvent } from "../agent/agent-sdk-types.js";
 import { serializeAgentStreamEvent } from "../messages.js";
 
@@ -19,7 +19,7 @@ export interface StartConversationRecordingInput {
   title?: string | null;
 }
 
-export interface UserInputRecordingPayload {
+export interface UserInputRecordingPayload extends Record<string, unknown> {
   source?: "send_agent_message_request" | "create_agent_request.initialPrompt";
   requestId?: string;
   cwd?: string;
@@ -40,6 +40,12 @@ interface ConversationRecordingClock {
   nowDate: () => Date;
   nowMonotonicMs: () => number;
 }
+
+type UserInputRecordingEvent = Extract<ConversationRecordingEvent, { kind: "user_input" }>;
+type AgentStreamRawRecordingEvent = Extract<
+  ConversationRecordingEvent,
+  { kind: "agent_stream_raw" }
+>;
 
 const defaultClock: ConversationRecordingClock = {
   nowDate: () => new Date(),
@@ -177,14 +183,14 @@ export class ConversationRecordingStore {
     }
     const recordedAt = this.clock.nowDate();
     const offsetMsPrecise = Math.max(0, this.clock.nowMonotonicMs() - active.startedAtMonotonicMs);
-    const event: ConversationRecordingEvent = {
+    const event = createRecordingEvent({
       seq: active.nextSeq,
       recordedAt: recordedAt.toISOString(),
       offsetMs: Math.max(0, recordedAt.getTime() - active.startedAtMs),
       offsetMsPrecise,
       kind,
       payload,
-    };
+    });
     active.nextSeq += 1;
 
     const previous = this.writeTails.get(agentId) ?? Promise.resolve();
@@ -228,4 +234,32 @@ export class ConversationRecordingStore {
   private recordingPath(agentId: string, recordingId: string): string {
     return join(this.agentDir(agentId), `${recordingId}.json`);
   }
+}
+
+function createRecordingEvent(input: {
+  seq: number;
+  recordedAt: string;
+  offsetMs: number;
+  offsetMsPrecise: number;
+  kind: ConversationRecordingEvent["kind"];
+  payload: ConversationRecordingEvent["payload"];
+}): ConversationRecordingEvent {
+  if (input.kind === "user_input") {
+    return {
+      seq: input.seq,
+      recordedAt: input.recordedAt,
+      offsetMs: input.offsetMs,
+      offsetMsPrecise: input.offsetMsPrecise,
+      kind: input.kind,
+      payload: input.payload as UserInputRecordingEvent["payload"],
+    };
+  }
+  return {
+    seq: input.seq,
+    recordedAt: input.recordedAt,
+    offsetMs: input.offsetMs,
+    offsetMsPrecise: input.offsetMsPrecise,
+    kind: input.kind,
+    payload: input.payload as AgentStreamRawRecordingEvent["payload"],
+  };
 }

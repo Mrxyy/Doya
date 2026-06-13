@@ -15,24 +15,24 @@ primary_color: "#C00000"
 
 ## I. Template Overview
 
-| Property | Description |
-| --- | --- |
-| **Template Name** | `中国电信` |
-| **Use Cases** | China Telecom related briefings, 政企数字化方案, 转型规划, 内部汇报 |
-| **Design Tone** | Authoritative, structured, restrained, enterprise-government hybrid |
-| **Theme Mode** | Light theme (white background + telecom red title bar + silver-gray structural lane + restrained brand imagery) |
+| Property          | Description                                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Template Name** | `中国电信`                                                                                                      |
+| **Use Cases**     | China Telecom related briefings, 政企数字化方案, 转型规划, 内部汇报                                             |
+| **Design Tone**   | Authoritative, structured, restrained, enterprise-government hybrid                                             |
+| **Theme Mode**    | Light theme (white background + telecom red title bar + silver-gray structural lane + restrained brand imagery) |
 
 ---
 
 ## II. Canvas Specification
 
-| Property | Value |
-| --- | --- |
-| **Format** | Standard 16:9 |
-| **Dimensions** | 1280 × 720 px |
-| **viewBox** | `0 0 1280 720` |
+| Property         | Value                                  |
+| ---------------- | -------------------------------------- |
+| **Format**       | Standard 16:9                          |
+| **Dimensions**   | 1280 × 720 px                          |
+| **viewBox**      | `0 0 1280 720`                         |
 | **Page Margins** | Left/Right 72px, Top 88px, Bottom 56px |
-| **Safe Area** | x: 72-1208, y: 88-664 |
+| **Safe Area**    | x: 72-1208, y: 88-664                  |
 
 ---
 
@@ -40,21 +40,21 @@ primary_color: "#C00000"
 
 ### Primary Colors
 
-| Role | Value | Notes |
-| --- | --- | --- |
-| **Telecom Red** | `#C00000` | Main header blocks, numbering, emphasis |
+| Role                  | Value     | Notes                                   |
+| --------------------- | --------- | --------------------------------------- |
+| **Telecom Red**       | `#C00000` | Main header blocks, numbering, emphasis |
 | **Light Silver Gray** | `#D9D9D9` | Structural lane, chapter ribbon backing |
-| **Warm White** | `#FFFFFF` | Main background |
-| **Line Gray** | `#CFCFCF` | Divider lines and subtle frames |
-| **Graphite** | `#2B2F33` | Primary text |
+| **Warm White**        | `#FFFFFF` | Main background                         |
+| **Line Gray**         | `#CFCFCF` | Divider lines and subtle frames         |
+| **Graphite**          | `#2B2F33` | Primary text                            |
 
 ### Secondary Colors
 
-| Role | Value | Notes |
-| --- | --- | --- |
-| **Muted Gray** | `#6B7280` | Secondary text and descriptions |
-| **Soft Red** | `#E55B5B` | Auxiliary emphasis |
-| **Near Black** | `#111827` | Key headings |
+| Role             | Value     | Notes                                 |
+| ---------------- | --------- | ------------------------------------- |
+| **Muted Gray**   | `#6B7280` | Secondary text and descriptions       |
+| **Soft Red**     | `#E55B5B` | Auxiliary emphasis                    |
+| **Near Black**   | `#111827` | Key headings                          |
 | **Skyline Blue** | `#DCEAF8` | Decorative cityline / digital texture |
 
 ---
@@ -67,14 +67,14 @@ primary_color: "#C00000"
 
 ### Font Size Hierarchy
 
-| Level | Usage | Size | Weight |
-| --- | --- | --- | --- |
-| H1 | Cover title | 42px | Bold |
-| H2 | Chapter / content title | 28px | Bold |
-| H3 | Section label / TOC item | 20px | Bold |
-| P | Body text | 16px | Regular |
-| Meta | Subtitle / annotations | 13px | Regular |
-| Number | TOC / chapter index | 30px | Bold |
+| Level  | Usage                    | Size | Weight  |
+| ------ | ------------------------ | ---- | ------- |
+| H1     | Cover title              | 42px | Bold    |
+| H2     | Chapter / content title  | 28px | Bold    |
+| H3     | Section label / TOC item | 20px | Bold    |
+| P      | Body text                | 16px | Regular |
+| Meta   | Subtitle / annotations   | 13px | Regular |
+| Number | TOC / chapter index      | 30px | Bold    |
 
 ---
 
@@ -82,14 +82,14 @@ primary_color: "#C00000"
 
 ### General Layout
 
-| Area | Position | Description |
-| --- | --- | --- |
-| **Logo Area** | x=72, y=36 | Fixed top-left brand logo |
-| **Header Ribbon** | y=32 to 96 | Red capsule + gray lane for TOC/content pages |
-| **Main Content Area** | y=132 to 618 | Main text/layout body |
-| **Visual Sidebar** | x=922 to 1208 | Fixed image-only rail on cover / TOC / chapter / ending pages |
-| **Footer Ribbon** | y=548 to 720 | Fixed decorative bottom image area on cover/ending |
-| **Footer Meta** | y=650 to 690 | Source / page number / contact info |
+| Area                  | Position      | Description                                                   |
+| --------------------- | ------------- | ------------------------------------------------------------- |
+| **Logo Area**         | x=72, y=36    | Fixed top-left brand logo                                     |
+| **Header Ribbon**     | y=32 to 96    | Red capsule + gray lane for TOC/content pages                 |
+| **Main Content Area** | y=132 to 618  | Main text/layout body                                         |
+| **Visual Sidebar**    | x=922 to 1208 | Fixed image-only rail on cover / TOC / chapter / ending pages |
+| **Footer Ribbon**     | y=548 to 720  | Fixed decorative bottom image area on cover/ending            |
+| **Footer Meta**       | y=650 to 690  | Source / page number / contact info                           |
 
 ### Structural Rules
 
@@ -145,37 +145,37 @@ primary_color: "#C00000"
 
 ## VII. SVG Page Roster
 
-| File | Role | Description |
-|------|------|-------------|
-| `01_cover.svg` | cover | Title slide; brand/project name + presenter + date |
+| File             | Role    | Description                                         |
+| ---------------- | ------- | --------------------------------------------------- |
+| `01_cover.svg`   | cover   | Title slide; brand/project name + presenter + date  |
 | `02_chapter.svg` | chapter | Chapter divider page (large number + chapter title) |
-| `02_toc.svg` | toc | Table of contents listing major sections |
-| `03_content.svg` | content | Main content page; body of the deck |
-| `04_ending.svg` | ending | Closing/thank-you page |
+| `02_toc.svg`     | toc     | Table of contents listing major sections            |
+| `03_content.svg` | content | Main content page; body of the deck                 |
+| `04_ending.svg`  | ending  | Closing/thank-you page                              |
 
 ## VIII. Layout Modes
 
-| Mode | Use Cases |
-| --- | --- |
-| **Title + Open Canvas** | Executive summary, key messages |
-| **Two Column** | Solution architecture, comparison |
-| **Card Grid** | Capability modules, initiatives |
-| **Timeline / Process** | Implementation roadmap |
-| **Chart + Notes** | Data dashboards, KPI explanation |
+| Mode                    | Use Cases                         |
+| ----------------------- | --------------------------------- |
+| **Title + Open Canvas** | Executive summary, key messages   |
+| **Two Column**          | Solution architecture, comparison |
+| **Card Grid**           | Capability modules, initiatives   |
+| **Timeline / Process**  | Implementation roadmap            |
+| **Chart + Notes**       | Data dashboards, KPI explanation  |
 
 ---
 
 ## IX. Spacing Specification
 
-| Element | Value |
-| --- | --- |
-| Outer margin | 72px |
-| Header inner padding | 24px |
-| Content block gap | 24px |
-| Card padding | 20px |
-| Border radius | 18px |
-| Title-to-subtitle gap | 18px |
-| Text-to-image safety gap | 32px |
+| Element                  | Value |
+| ------------------------ | ----- |
+| Outer margin             | 72px  |
+| Header inner padding     | 24px  |
+| Content block gap        | 24px  |
+| Card padding             | 20px  |
+| Border radius            | 18px  |
+| Title-to-subtitle gap    | 18px  |
+| Text-to-image safety gap | 32px  |
 
 ---
 
@@ -192,24 +192,24 @@ primary_color: "#C00000"
 
 ## XI. Placeholder Specification
 
-| Placeholder | Purpose | Applicable Page |
-| --- | --- | --- |
-| `{{TITLE}}` | Main title | Cover |
-| `{{SUBTITLE}}` | Subtitle | Cover |
-| `{{DATE}}` | Date | Cover |
-| `{{AUTHOR}}` | Author / organization | Cover |
-| `{{CHAPTER_NUM}}` | Chapter number | Chapter |
-| `{{CHAPTER_TITLE}}` | Chapter title | Chapter |
-| `{{PAGE_TITLE}}` | Page title | Content |
-| `{{CONTENT_AREA}}` | Content placeholder | Content |
-| `{{SECTION_NAME}}` | Section name | Content |
-| `{{SOURCE}}` | Source note | Content |
-| `{{PAGE_NUM}}` | Page number | Content, Ending |
-| `{{TOC_ITEM_1_TITLE}}` ~ `{{TOC_ITEM_4_TITLE}}` | TOC titles | TOC |
-| `{{TOC_ITEM_1_DESC}}` ~ `{{TOC_ITEM_4_DESC}}` | TOC descriptions | TOC |
-| `{{THANK_YOU}}` | Closing heading | Ending |
-| `{{ENDING_SUBTITLE}}` | Closing subtitle | Ending |
-| `{{CONTACT_INFO}}` | Contact information | Ending |
+| Placeholder                                     | Purpose               | Applicable Page |
+| ----------------------------------------------- | --------------------- | --------------- |
+| `{{TITLE}}`                                     | Main title            | Cover           |
+| `{{SUBTITLE}}`                                  | Subtitle              | Cover           |
+| `{{DATE}}`                                      | Date                  | Cover           |
+| `{{AUTHOR}}`                                    | Author / organization | Cover           |
+| `{{CHAPTER_NUM}}`                               | Chapter number        | Chapter         |
+| `{{CHAPTER_TITLE}}`                             | Chapter title         | Chapter         |
+| `{{PAGE_TITLE}}`                                | Page title            | Content         |
+| `{{CONTENT_AREA}}`                              | Content placeholder   | Content         |
+| `{{SECTION_NAME}}`                              | Section name          | Content         |
+| `{{SOURCE}}`                                    | Source note           | Content         |
+| `{{PAGE_NUM}}`                                  | Page number           | Content, Ending |
+| `{{TOC_ITEM_1_TITLE}}` ~ `{{TOC_ITEM_4_TITLE}}` | TOC titles            | TOC             |
+| `{{TOC_ITEM_1_DESC}}` ~ `{{TOC_ITEM_4_DESC}}`   | TOC descriptions      | TOC             |
+| `{{THANK_YOU}}`                                 | Closing heading       | Ending          |
+| `{{ENDING_SUBTITLE}}`                           | Closing subtitle      | Ending          |
+| `{{CONTACT_INFO}}`                              | Contact information   | Ending          |
 
 ---
 

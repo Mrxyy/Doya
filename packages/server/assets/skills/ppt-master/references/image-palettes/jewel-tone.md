@@ -6,16 +6,16 @@ Deep saturated gemstone colors — emerald, sapphire, ruby, amethyst, gold. Prem
 
 ## 1. Compatible renderings
 
-| Rendering | Notes |
-|---|---|
-| ✓✓ editorial | Magazine luxury — natural pairing |
-| ✓✓ corporate-photo | High-end product/lifestyle photography graded toward jewel tones |
-| ✓✓ dark-cinematic combinations are handled by `dark-cinematic` palette; jewel-tone is the *richer alternative* — use jewel-tone when you want saturation, dark-cinematic when you want atmospheric |
-| ✓ flat | Bold flat jewel blocks |
-| ✓ vector-illustration | Acceptable but loses material implication |
-| ✓ screen-print | Limited-color poster luxury |
-| ✗ sketch-notes / chalkboard / pixel-art / fantasy-animation | Wrong temperament |
-| ✗ digital-dashboard | Data UI conflicts with luxury |
+| Rendering                                                                                                                                                                                          | Notes                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| ✓✓ editorial                                                                                                                                                                                       | Magazine luxury — natural pairing                                |
+| ✓✓ corporate-photo                                                                                                                                                                                 | High-end product/lifestyle photography graded toward jewel tones |
+| ✓✓ dark-cinematic combinations are handled by `dark-cinematic` palette; jewel-tone is the _richer alternative_ — use jewel-tone when you want saturation, dark-cinematic when you want atmospheric |
+| ✓ flat                                                                                                                                                                                             | Bold flat jewel blocks                                           |
+| ✓ vector-illustration                                                                                                                                                                              | Acceptable but loses material implication                        |
+| ✓ screen-print                                                                                                                                                                                     | Limited-color poster luxury                                      |
+| ✗ sketch-notes / chalkboard / pixel-art / fantasy-animation                                                                                                                                        | Wrong temperament                                                |
+| ✗ digital-dashboard                                                                                                                                                                                | Data UI conflicts with luxury                                    |
 
 ---
 

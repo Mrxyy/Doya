@@ -1,14 +1,15 @@
 import type {
   DaemonTransport,
   DaemonTransportFactory,
-} from "@getpaseo/client/internal/daemon-client";
+} from "@getdoya/client/internal/daemon-client";
 import type { LocalTransportTarget } from "./desktop-daemon";
 import {
   defaultLocalDaemonTransportRpc,
   type LocalDaemonTransportRpc,
 } from "./local-daemon-transport-rpc";
 
-const LOCAL_TRANSPORT_SCHEME = "paseo+local:";
+const LOCAL_TRANSPORT_SCHEME = "doya+local:";
+const LEGACY_LOCAL_TRANSPORT_SCHEME = "doya+local:";
 
 function encodeBinaryToBase64(data: Uint8Array | ArrayBuffer): string {
   const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
@@ -36,7 +37,10 @@ export function buildLocalDaemonTransportUrl(target: LocalTransportTarget): stri
 
 function parseLocalDaemonTransportUrl(url: string): LocalTransportTarget {
   const parsed = new URL(url);
-  if (parsed.protocol !== LOCAL_TRANSPORT_SCHEME) {
+  if (
+    parsed.protocol !== LOCAL_TRANSPORT_SCHEME &&
+    parsed.protocol !== LEGACY_LOCAL_TRANSPORT_SCHEME
+  ) {
     throw new Error(`Unsupported local transport URL: ${url}`);
   }
   const transportType = parsed.hostname;

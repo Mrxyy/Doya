@@ -3,7 +3,7 @@ import type {
   DaemonClient,
   FetchAgentHistoryEntry,
   FetchAgentHistoryOptions,
-} from "@getpaseo/client/internal/daemon-client";
+} from "@getdoya/client/internal/daemon-client";
 import { type AgentHistoryClient, fetchAgentHistoryPage } from "./use-agent-history";
 
 type FetchAgentHistory = DaemonClient["fetchAgentHistory"];
@@ -97,7 +97,7 @@ function historyEntry(input: {
         currentBranch: null,
         remoteUrl: null,
         worktreeRoot: null,
-        isPaseoOwnedWorktree: false,
+        isDoyaOwnedWorktree: false,
         mainRepoRoot: null,
       },
     },

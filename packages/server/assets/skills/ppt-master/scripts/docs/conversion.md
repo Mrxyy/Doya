@@ -21,11 +21,13 @@ python3 scripts/source_to_md/pdf_to_md.py book.pdf --images none      # skip all
 ```
 
 Use cases:
+
 - Native PDFs exported from Word, PowerPoint, LaTeX, or similar tools
 - Privacy-sensitive documents that should stay local
 - Fast first-pass extraction before falling back to OCR-heavy tools
 
 Prefer MinerU or another OCR/layout tool when:
+
 - The PDF is scanned or image-based
 - Multi-column layout parsing is poor
 - Encoding is garbled
@@ -41,12 +43,14 @@ pip install PyMuPDF
 Hybrid converter: pure-Python for the common formats, pandoc fallback for the rest.
 
 Native path (no external binary required):
+
 - `.docx` — via `mammoth`
 - `.html` / `.htm` — via `markdownify` + `beautifulsoup4`
 - `.epub` — via `ebooklib` + `markdownify`
 - `.ipynb` — via `nbconvert`
 
 Pandoc fallback (only if you need these):
+
 - `.doc`, `.odt`, `.rtf`, `.tex`/`.latex`, `.rst`, `.org`, `.typ`
 
 ```bash
@@ -75,10 +79,12 @@ All paths produce the same output convention: `<input>.md` plus a sibling `<inpu
 Excel workbook converter for presentation source intake.
 
 Supported formats:
+
 - `.xlsx`
 - `.xlsm`
 
 Unsupported by default:
+
 - `.xls` — resave as `.xlsx` first
 
 ```bash
@@ -88,6 +94,7 @@ python3 scripts/source_to_md/excel_to_md.py report.xlsm --max-rows 200 --max-col
 ```
 
 Behavior:
+
 - preserves workbook and sheet structure in Markdown
 - exports visible sheets only
 - trims empty outer rows and columns
@@ -107,6 +114,7 @@ CSV/TSV files are already plain-text table sources and do not require this conve
 Structured PowerPoint-to-Markdown converter for Open XML slide decks.
 
 Supported formats include:
+
 - `.pptx`, `.pptm`
 - `.ppsx`, `.ppsm`
 - `.potx`, `.potm`
@@ -120,6 +128,7 @@ python3 scripts/source_to_md/ppt_to_md.py template.ppsx -o notes/template.md
 ```
 
 Behavior:
+
 - extracts slide text in reading order
 - converts PowerPoint tables to Markdown tables
 - exports embedded pictures to a sibling `_files/` directory
@@ -149,7 +158,6 @@ automatically impersonates a modern Chrome TLS fingerprint, which lets it
 fetch WeChat Official Accounts (`mp.weixin.qq.com`) and other sites that
 block Python's default TLS fingerprint. No extra flags needed. If
 `curl_cffi` is not available, it falls back to plain `requests`.
-
 
 ## `rotate_images.py`
 

@@ -2,17 +2,17 @@ import { translateNow } from "@/i18n/i18n";
 
 const IMAGEGEN_PROMPT_PREFIX = "Use the Codex imagegen skill for this request.";
 const SLIDES_PROMPT_PREFIX =
-  "You are creating a PowerPoint deck for the Paseo AI Creation slides surface.";
+  "You are creating a PowerPoint deck for the Doya AI Creation slides surface.";
 const DOCUMENT_PROMPT_PREFIXES = {
-  pdf: "You are creating a PDF document for the Paseo AI Creation surface.",
-  word: "You are creating a Word document for the Paseo AI Creation surface.",
-  spreadsheet: "You are creating a spreadsheet for the Paseo AI Creation surface.",
+  pdf: "You are creating a PDF document for the Doya AI Creation surface.",
+  word: "You are creating a Word document for the Doya AI Creation surface.",
+  spreadsheet: "You are creating a spreadsheet for the Doya AI Creation surface.",
 } as const;
 
 type AiCreationTitleMode = "image" | "slides" | "pdf" | "word" | "spreadsheet" | "edit";
 
 export function extractAiCreationDisplayText(text: string): string | null {
-  if (text.includes("<paseo-ui")) {
+  if (text.includes("<doya-ui")) {
     return null;
   }
 

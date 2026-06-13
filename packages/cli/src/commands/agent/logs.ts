@@ -2,10 +2,10 @@ import { Command } from "commander";
 import { connectToDaemon, getDaemonHost } from "../../utils/client.js";
 import type { CommandOptions } from "../../output/index.js";
 import { fetchProjectedTimelineItems } from "../../utils/timeline.js";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { AgentTimelineItem } from "@getpaseo/protocol/agent-types";
-import type { AgentStreamMessage } from "@getpaseo/protocol/messages";
-import { curateAgentActivity } from "@getpaseo/server";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
+import type { AgentTimelineItem } from "@getdoya/protocol/agent-types";
+import type { AgentStreamMessage } from "@getdoya/protocol/messages";
+import { curateAgentActivity } from "@getdoya/server";
 
 export function addLogsOptions(cmd: Command): Command {
   return cmd
@@ -92,7 +92,7 @@ export async function runLogsCommand(
 
   if (!id) {
     console.error("Error: Agent ID required");
-    console.error("Usage: paseo agent logs <id>");
+    console.error("Usage: doya agent logs <id>");
     process.exit(1);
   }
 
@@ -102,7 +102,7 @@ export async function runLogsCommand(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`Error: Cannot connect to daemon at ${host}: ${message}`);
-    console.error("Start the daemon with: paseo daemon start");
+    console.error("Start the daemon with: doya daemon start");
     process.exit(1);
   }
 
@@ -110,7 +110,7 @@ export async function runLogsCommand(
     const fetchResult = await client.fetchAgent(id);
     if (!fetchResult) {
       console.error(`Error: No agent found matching: ${id}`);
-      console.error("Use `paseo ls` to list available agents");
+      console.error("Use `doya ls` to list available agents");
       await client.close();
       process.exit(1);
     }

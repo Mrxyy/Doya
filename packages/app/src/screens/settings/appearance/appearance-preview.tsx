@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Text, View, type TextStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import type { HighlightToken } from "@getpaseo/highlight";
+import type { HighlightToken } from "@getdoya/highlight";
 import { isWeb } from "@/constants/platform";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
 import { syntaxTokenStyleFor } from "@/styles/syntax-token-styles";

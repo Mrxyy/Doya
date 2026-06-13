@@ -36,7 +36,7 @@ The intent of the default order is to prefer small, fast, cheap models for these
 
 ## Configuring the providers
 
-To control which models Doya uses — for example to keep all metadata generation on one provider, or to prefer a local model — set `agents.metadataGeneration.providers` in `~/.paseo/config.json`. Your entries are tried before the built-in defaults.
+To control which models Doya uses — for example to keep all metadata generation on one provider, or to prefer a local model — set `agents.metadataGeneration.providers` in `~/.doya/config.json`. Your entries are tried before the built-in defaults.
 
 ```json
 {
@@ -61,7 +61,7 @@ Restart the daemon after editing the file.
 
 ## Per-project instructions
 
-You can steer the wording of each kind of metadata per repository with a `paseo.json` file at your repo root. Doya reads it from the committed version of the base branch, the same way it reads worktree config.
+You can steer the wording of each kind of metadata per repository with a `doya.json` file at your repo root. Doya reads it from the committed version of the base branch, the same way it reads worktree config.
 
 ```json
 {

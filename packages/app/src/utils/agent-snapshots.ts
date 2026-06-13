@@ -1,6 +1,9 @@
-import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
-import type { AgentPermissionRequest } from "@getpaseo/protocol/agent-types";
-import { PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
+import type { AgentSnapshotPayload } from "@getdoya/protocol/messages";
+import type { AgentPermissionRequest } from "@getdoya/protocol/agent-types";
+import {
+  LEGACY_PARENT_AGENT_ID_LABEL,
+  PARENT_AGENT_ID_LABEL,
+} from "@getdoya/protocol/agent-labels";
 
 export function derivePendingPermissionKey(
   agentId: string,
@@ -26,7 +29,8 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     ? new Date(snapshot.attentionTimestamp)
     : null;
   const archivedAt = snapshot.archivedAt ? new Date(snapshot.archivedAt) : null;
-  const parentAgentLabel = snapshot.labels?.[PARENT_AGENT_ID_LABEL];
+  const parentAgentLabel =
+    snapshot.labels?.[PARENT_AGENT_ID_LABEL] ?? snapshot.labels?.[LEGACY_PARENT_AGENT_ID_LABEL];
   const parentAgentId =
     typeof parentAgentLabel === "string" && parentAgentLabel.trim().length > 0
       ? parentAgentLabel.trim()

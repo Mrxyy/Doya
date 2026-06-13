@@ -91,8 +91,8 @@ function formatListenTarget(listenTarget: ListenTarget | null): string | null {
 
 import { VoiceAssistantWebSocketServer } from "./websocket-server.js";
 import { createGitHubService } from "../services/github-service.js";
-import { createPaseoWorktree as createRegisteredPaseoWorktree } from "./paseo-worktree-service.js";
-import { createPaseoWorktreeWorkflow } from "./worktree-session.js";
+import { createDoyaWorktree as createRegisteredDoyaWorktree } from "./doya-worktree-service.js";
+import { createDoyaWorktreeWorkflow } from "./worktree-session.js";
 import { DownloadTokenStore } from "./file-download/token-store.js";
 import type { OpenAiSpeechProviderConfig } from "./speech/providers/openai/config.js";
 import type { LocalSpeechProviderConfig } from "./speech/providers/local/config.js";
@@ -291,18 +291,18 @@ function summarizeAgentMcpDebugBody(body: unknown): Record<string, unknown> {
   };
 }
 
-export type PaseoOpenAIConfig = OpenAiSpeechProviderConfig;
-export type PaseoLocalSpeechConfig = LocalSpeechProviderConfig;
+export type DoyaOpenAIConfig = OpenAiSpeechProviderConfig;
+export type DoyaLocalSpeechConfig = LocalSpeechProviderConfig;
 
-export interface PaseoSpeechSttLanguages {
+export interface DoyaSpeechSttLanguages {
   dictation: string;
   voice: string;
 }
 
-export interface PaseoSpeechConfig {
+export interface DoyaSpeechConfig {
   providers: RequestedSpeechProviders;
-  sttLanguages?: PaseoSpeechSttLanguages;
-  local?: PaseoLocalSpeechConfig;
+  sttLanguages?: DoyaSpeechSttLanguages;
+  local?: DoyaLocalSpeechConfig;
 }
 
 export type DaemonLifecycleIntent =
@@ -318,9 +318,9 @@ export type DaemonLifecycleIntent =
       reason?: string;
     };
 
-export interface PaseoDaemonConfig {
+export interface DoyaDaemonConfig {
   listen: string;
-  paseoHome: string;
+  doyaHome?: string;
   worktreesRoot?: string;
   corsAllowedOrigins: string[];
   allowedHosts?: HostnamesConfig;
@@ -341,8 +341,8 @@ export interface PaseoDaemonConfig {
   relayPublicUseTls?: boolean;
   appBaseUrl?: string;
   auth?: DaemonAuthConfig;
-  openai?: PaseoOpenAIConfig;
-  speech?: PaseoSpeechConfig;
+  openai?: DoyaOpenAIConfig;
+  speech?: DoyaSpeechConfig;
   smsVerification?: SmsVerificationConfig | null;
   voiceLlmProvider?: AgentProvider | null;
   voiceLlmProviderExplicit?: boolean;
@@ -363,8 +363,8 @@ export interface PaseoDaemonConfig {
   pushNotificationSender?: PushNotificationSender;
 }
 
-export interface PaseoDaemon {
-  config: PaseoDaemonConfig;
+export interface DoyaDaemon {
+  config: DoyaDaemonConfig;
   agentManager: AgentManager;
   agentStorage: AgentStorage;
   terminalManager: TerminalManager;
@@ -375,16 +375,20 @@ export interface PaseoDaemon {
   getListenTarget(): ListenTarget | null;
 }
 
-export async function createPaseoDaemon(
-  config: PaseoDaemonConfig,
+export async function createDoyaDaemon(
+  config: DoyaDaemonConfig,
   rootLogger: Logger,
-): Promise<PaseoDaemon> {
+): Promise<DoyaDaemon> {
   const logger = rootLogger.child({ module: "bootstrap" });
   const bootstrapStart = performance.now();
   const elapsed = () => `${(performance.now() - bootstrapStart).toFixed(0)}ms`;
   const daemonVersion = resolveDaemonVersion(import.meta.url);
+  const doyaHome = config.doyaHome;
+  if (!doyaHome) {
+    throw new Error("Doya daemon requires doyaHome");
+  }
   const daemonConfigStore = new DaemonConfigStore(
-    config.paseoHome,
+    doyaHome,
     {
       mcp: { injectIntoAgents: config.mcpInjectIntoAgents ?? true },
       providers: Object.fromEntries(
@@ -405,8 +409,8 @@ export async function createPaseoDaemon(
     logger,
   );
 
-  const serverId = getOrCreateServerId(config.paseoHome, { logger });
-  const daemonKeyPair = await loadOrCreateDaemonKeyPair(config.paseoHome, logger);
+  const serverId = getOrCreateServerId(doyaHome, { logger });
+  const daemonKeyPair = await loadOrCreateDaemonKeyPair(doyaHome, logger);
   let relayTransport: RelayTransportController | null = null;
 
   const staticDir = config.staticDir;
@@ -465,8 +469,8 @@ export async function createPaseoDaemon(
   // CORS - allow same-origin + configured origins
   const allowedOrigins = new Set([
     ...config.corsAllowedOrigins,
-    // Packaged desktop renderers use the custom paseo:// protocol scheme.
-    "paseo://app",
+    // Packaged desktop renderers use custom protocol schemes.
+    "doya://app",
     // For TCP, add localhost variants
     ...(listenTarget.type === "tcp"
       ? [
@@ -484,7 +488,7 @@ export async function createPaseoDaemon(
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
       res.setHeader(
         "Access-Control-Allow-Headers",
-        "Content-Type, Authorization, X-Paseo-File-Mime-Type",
+        "Content-Type, Authorization, X-Doya-File-Mime-Type",
       );
       res.setHeader("Access-Control-Allow-Credentials", "true");
     }
@@ -513,7 +517,7 @@ export async function createPaseoDaemon(
   app.use(express.json());
   const onlyOfficeSelectionCaptures = new Map<string, OnlyOfficeSelectionCapture>();
 
-  const accountControlPlane = new AccountControlPlane({ paseoHome: config.paseoHome });
+  const accountControlPlane = new AccountControlPlane({ doyaHome });
   const smsVerificationService = new SmsVerificationService(config.smsVerification ?? null);
   const sendAccountError = (res: express.Response, error: unknown): void => {
     if (error instanceof AccountControlPlaneError) {
@@ -828,7 +832,7 @@ export async function createPaseoDaemon(
     void handleWorkspaceFileOnlyOfficePreview(req, res);
   });
 
-  app.get("/api/onlyoffice/paseo-selection-plugin/config.json", (req, res) => {
+  app.get("/api/onlyoffice/doya-selection-plugin/config.json", (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     const documentKey =
       typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
@@ -836,7 +840,7 @@ export async function createPaseoDaemon(
       typeof req.query.access_token === "string" ? req.query.access_token.trim() : "";
     const version = typeof req.query.v === "string" ? req.query.v.trim() : "";
     const baseUrl = `${req.protocol}://${req.get("host") ?? "localhost"}`;
-    const pluginBaseUrl = `${baseUrl}/api/onlyoffice/paseo-selection-plugin/`;
+    const pluginBaseUrl = `${baseUrl}/api/onlyoffice/doya-selection-plugin/`;
     const url = new URL("index.html", pluginBaseUrl);
     url.searchParams.set("document_key", documentKey);
     if (version) {
@@ -850,11 +854,11 @@ export async function createPaseoDaemon(
     res.json({
       baseUrl: pluginBaseUrl,
       guid: ONLYOFFICE_SELECTION_PLUGIN_GUID,
-      name: "Paseo Selection Bridge",
+      name: "Doya Selection Bridge",
       variations: [
         {
           EditorsSupport: ["cell"],
-          description: "Shares the current spreadsheet selection with Paseo.",
+          description: "Shares the current spreadsheet selection with Doya.",
           events: ["onDocumentContentReady"],
           initDataType: "none",
           initOnSelectionChanged: true,
@@ -869,7 +873,7 @@ export async function createPaseoDaemon(
     });
   });
 
-  app.get("/api/onlyoffice/paseo-selection-plugin/index.html", (req, res) => {
+  app.get("/api/onlyoffice/doya-selection-plugin/index.html", (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     const documentKey =
       typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
@@ -877,7 +881,7 @@ export async function createPaseoDaemon(
       typeof req.query.access_token === "string" ? req.query.access_token.trim() : "";
     const version = typeof req.query.v === "string" ? req.query.v.trim() : "";
     const baseUrl = `${req.protocol}://${req.get("host") ?? "localhost"}`;
-    const scriptUrl = new URL("/api/onlyoffice/paseo-selection-plugin/plugin.js", baseUrl);
+    const scriptUrl = new URL("/api/onlyoffice/doya-selection-plugin/plugin.js", baseUrl);
     scriptUrl.searchParams.set("document_key", documentKey);
     if (version) {
       scriptUrl.searchParams.set("v", version);
@@ -891,7 +895,7 @@ export async function createPaseoDaemon(
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>Paseo Selection Bridge</title>
+    <title>Doya Selection Bridge</title>
     <script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"></script>
     <script type="text/javascript" src="${escapeHtmlAttribute(scriptUrl.toString())}"></script>
   </head>
@@ -899,7 +903,7 @@ export async function createPaseoDaemon(
 </html>`);
   });
 
-  app.get("/api/onlyoffice/paseo-selection-plugin/plugin.js", (req, res) => {
+  app.get("/api/onlyoffice/doya-selection-plugin/plugin.js", (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     const documentKey =
       typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
@@ -1041,7 +1045,9 @@ export async function createPaseoDaemon(
     const documentKey =
       typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
     res.setHeader("Cache-Control", "no-store");
-    res.json({ selection: documentKey ? (onlyOfficeSelectionCaptures.get(documentKey) ?? null) : null });
+    res.json({
+      selection: documentKey ? (onlyOfficeSelectionCaptures.get(documentKey) ?? null) : null,
+    });
   });
 
   app.post("/api/onlyoffice/callback", (_req, res) => {
@@ -1062,22 +1068,22 @@ export async function createPaseoDaemon(
 
   const agentStorage = new AgentStorage(config.agentStoragePath, logger);
   const projectRegistry = new FileBackedProjectRegistry(
-    path.join(config.paseoHome, "projects", "projects.json"),
+    path.join(doyaHome, "projects", "projects.json"),
     logger,
   );
   workspaceRegistry = new FileBackedWorkspaceRegistry(
-    path.join(config.paseoHome, "projects", "workspaces.json"),
+    path.join(doyaHome, "projects", "workspaces.json"),
     logger,
   );
   const chatService = new FileBackedChatService({
-    paseoHome: config.paseoHome,
+    doyaHome,
     logger,
   });
   const terminalManager = createConfiguredTerminalManager();
   const github = createGitHubService();
   const workspaceGitService = new WorkspaceGitServiceImpl({
     logger,
-    paseoHome: config.paseoHome,
+    doyaHome,
     worktreesRoot: config.worktreesRoot,
     deps: {
       github,
@@ -1094,7 +1100,7 @@ export async function createPaseoDaemon(
   });
   const initialAgentManagerState = providerSnapshotManager.getAgentManagerProviderState();
   const conversationRecordingStore = new ConversationRecordingStore(
-    path.join(config.paseoHome, "recordings"),
+    path.join(doyaHome, "recordings"),
   );
   const agentManager = new AgentManager({
     clients: initialAgentManagerState.clients,
@@ -1180,7 +1186,7 @@ export async function createPaseoDaemon(
   await agentStorage.initialize();
   logger.info({ elapsed: elapsed() }, "Agent storage initialized");
   await bootstrapWorkspaceRegistries({
-    paseoHome: config.paseoHome,
+    doyaHome,
     agentStorage,
     projectRegistry,
     workspaceRegistry,
@@ -1212,18 +1218,17 @@ export async function createPaseoDaemon(
   logger.info({ elapsed: elapsed() }, "Chat service initialized");
   const checkoutDiffManager = new CheckoutDiffManager({
     logger,
-    paseoHome: config.paseoHome,
     workspaceGitService,
   });
   const loopService = new LoopService({
-    paseoHome: config.paseoHome,
+    doyaHome,
     logger,
     agentManager,
   });
   await loopService.initialize();
   logger.info({ elapsed: elapsed() }, "Loop service initialized");
   const scheduleService = new ScheduleService({
-    paseoHome: config.paseoHome,
+    doyaHome,
     logger,
     agentManager,
     agentStorage,
@@ -1288,7 +1293,7 @@ export async function createPaseoDaemon(
   };
 
   setupAutoArchiveOnMerge({
-    paseoHome: config.paseoHome,
+    doyaHome,
     worktreesRoot: config.worktreesRoot,
     daemonConfigStore,
     workspaceGitService,
@@ -1323,13 +1328,13 @@ export async function createPaseoDaemon(
         emitWorkspaceUpdatesForWorkspaceIds: emitWorkspaceUpdatesExternal,
         markWorkspaceArchiving: markWorkspaceArchivingExternal,
         clearWorkspaceArchiving: clearWorkspaceArchivingExternal,
-        createPaseoWorktree: async (input, serviceOptions) => {
-          return createPaseoWorktreeWorkflow(
+        createDoyaWorktree: async (input, serviceOptions) => {
+          return createDoyaWorktreeWorkflow(
             {
-              paseoHome: config.paseoHome,
+              doyaHome,
               worktreesRoot: config.worktreesRoot,
-              createPaseoWorktree: async (workflowInput, workflowOptions) => {
-                return createRegisteredPaseoWorktree(workflowInput, {
+              createDoyaWorktree: async (workflowInput, workflowOptions) => {
+                return createRegisteredDoyaWorktree(workflowInput, {
                   github,
                   ...(workflowOptions?.resolveDefaultBranch
                     ? {
@@ -1373,7 +1378,7 @@ export async function createPaseoDaemon(
             serviceOptions,
           );
         },
-        paseoHome: config.paseoHome,
+        doyaHome,
         worktreesRoot: config.worktreesRoot,
         callerAgentId,
         enableVoiceTools: false,
@@ -1527,11 +1532,11 @@ export async function createPaseoDaemon(
             agentManager.setAppendSystemPrompt(typeof value === "string" ? value : "");
           });
           const relayEnabled = config.relayEnabled ?? true;
-          const relayEndpoint = config.relayEndpoint ?? "relay.paseo.sh:443";
+          const relayEndpoint = config.relayEndpoint ?? "relay.doya.sh:443";
           const relayPublicEndpoint = config.relayPublicEndpoint ?? relayEndpoint;
-          const relayUseTls = config.relayUseTls ?? relayEndpoint === "relay.paseo.sh:443";
+          const relayUseTls = config.relayUseTls ?? relayEndpoint === "relay.doya.sh:443";
           const relayPublicUseTls = config.relayPublicUseTls ?? relayUseTls;
-          const appBaseUrl = config.appBaseUrl ?? "https://app.paseo.sh";
+          const appBaseUrl = config.appBaseUrl ?? "https://app.doya.sh";
 
           if (boundListenTarget.type === "tcp") {
             logger.info(
@@ -1564,7 +1569,7 @@ export async function createPaseoDaemon(
             agentManager,
             agentStorage,
             downloadTokenStore,
-            config.paseoHome,
+            doyaHome,
             daemonConfigStore,
             mcpBaseUrl,
             { allowedOrigins, hostnames: configuredHostnames },
@@ -1799,7 +1804,7 @@ async function parseMultipartFormData(req: express.Request): Promise<FormData> {
       }
     }
   }
-  const request = new Request("http://paseo.local/workspace-attachment-upload", {
+  const request = new Request("http://doya.local/workspace-attachment-upload", {
     method: "POST",
     headers,
     body: Readable.toWeb(req),

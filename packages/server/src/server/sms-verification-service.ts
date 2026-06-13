@@ -116,16 +116,16 @@ export class SmsVerificationService {
 }
 
 export function resolveSmsVerificationConfig(env: NodeJS.ProcessEnv): SmsVerificationConfig | null {
-  const apiKey = env.PASEO_DOTSMS_APIKEY?.trim();
-  const secret = env.PASEO_DOTSMS_SECRET?.trim();
-  const signId = env.PASEO_DOTSMS_SIGN_ID?.trim();
-  const templateId = env.PASEO_DOTSMS_TEMPLATE_ID?.trim();
+  const apiKey = env.DOYA_DOTSMS_APIKEY?.trim();
+  const secret = env.DOYA_DOTSMS_SECRET?.trim();
+  const signId = env.DOYA_DOTSMS_SIGN_ID?.trim();
+  const templateId = env.DOYA_DOTSMS_TEMPLATE_ID?.trim();
   if (!apiKey || !secret || !signId || !templateId) {
     return null;
   }
   return {
     provider: "dotsms",
-    url: env.PASEO_DOTSMS_URL?.trim() || DEFAULT_DOTSMS_TEMPLATE_URL,
+    url: env.DOYA_DOTSMS_URL?.trim() || DEFAULT_DOTSMS_TEMPLATE_URL,
     apiKey,
     secret,
     signId,

@@ -6,17 +6,17 @@ Earthy, natural, wellness. The palette for environment / sustainability / wellne
 
 ## 1. Compatible renderings
 
-| Rendering | Notes |
-|---|---|
-| ✓✓ nature | Direct alignment |
-| ✓✓ watercolor | Natural washes |
-| ✓✓ warm-scene | Outdoor warm cinematic |
-| ✓✓ fantasy-animation | Storybook nature |
-| ✓✓ sketch-notes | Educational nature content |
-| ✓✓ corporate-photo | Outdoor / wellness photography |
-| ✓ vector-illustration | Natural vector |
-| ✗ tech-neon / dark-cinematic / digital-dashboard / blueprint | Wrong temperament |
-| ✗ pixel-art | Earth feel doesn't fit pixel grid |
+| Rendering                                                    | Notes                             |
+| ------------------------------------------------------------ | --------------------------------- |
+| ✓✓ nature                                                    | Direct alignment                  |
+| ✓✓ watercolor                                                | Natural washes                    |
+| ✓✓ warm-scene                                                | Outdoor warm cinematic            |
+| ✓✓ fantasy-animation                                         | Storybook nature                  |
+| ✓✓ sketch-notes                                              | Educational nature content        |
+| ✓✓ corporate-photo                                           | Outdoor / wellness photography    |
+| ✓ vector-illustration                                        | Natural vector                    |
+| ✗ tech-neon / dark-cinematic / digital-dashboard / blueprint | Wrong temperament                 |
+| ✗ pixel-art                                                  | Earth feel doesn't fit pixel grid |
 
 ---
 

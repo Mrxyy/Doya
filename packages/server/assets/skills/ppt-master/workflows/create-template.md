@@ -16,10 +16,10 @@ Generate a complete set of reusable PPT templates for the **global template libr
 
 This workflow produces one of two kinds of templates depending on whether the source PPT carries a specific brand identity:
 
-| Kind | When | Output dir | What `design_spec.md` writes |
-|---|---|---|---|
-| **deck** (default) | Source is a specific organization's branded PPT (e.g. company report, university defense template); the visual identity is part of the replica | `templates/decks/<id>/` | Full segments: identity + structure + middle |
-| **layout** | Source is a generic stylistic template (no specific brand); only the structural skeleton should be reusable; color / typography decided per-deck downstream | `templates/layouts/<id>/` | Structure segments only (canvas / page structure / page types / SVG roster); identity segment omitted |
+| Kind               | When                                                                                                                                                        | Output dir                | What `design_spec.md` writes                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **deck** (default) | Source is a specific organization's branded PPT (e.g. company report, university defense template); the visual identity is part of the replica              | `templates/decks/<id>/`   | Full segments: identity + structure + middle                                                          |
+| **layout**         | Source is a generic stylistic template (no specific brand); only the structural skeleton should be reusable; color / typography decided per-deck downstream | `templates/layouts/<id>/` | Structure segments only (canvas / page structure / page types / SVG roster); identity segment omitted |
 
 Default to **deck** unless the user explicitly says "structure only" / "layout only" / "no brand identity". When in doubt, lean deck — losing identity later is easy; reconstructing it from a layout-mode strip is not. See [`docs/zh/templates-architecture.md`](../../../docs/zh/templates-architecture.md) for the full kind / schema / fusion model.
 
@@ -39,12 +39,12 @@ Branch by the type of reference source the user supplied. This step produces ana
 
 ### Input source taxonomy
 
-| Type | What the user supplied | Tool / read path | Replication modes available |
-|------|-------------------------|------------------|------------------------------|
-| **A** `.pptx` reference | A `.pptx` file path | `pptx_template_import.py` → `manifest.json` + `svg/master_*.svg` + `svg/layout_*.svg` + `svg/slide_*.svg` + `svg-flat/slide_*.svg` + `assets/` | `standard` / `fidelity` / `mirror` |
-| **B** Existing SVG assets | `projects/<x>/svg_output/`, `templates/layouts/<existing>`, or a loose `.svg` folder | `ls` + `Read` each `*.svg`; plus `design_spec.md` / `spec_lock.md` if present | `standard` / `fidelity` (AI visual clustering) / `mirror` (direct 1:1 copy) |
-| **C** Image / visual references | Screenshot folder, single image, PDF pages | `ls` + `Read` each file (multimodal visual recognition) | `standard` only |
-| **D** No reference source | Verbal description only ("McKinsey style", "tech blue", "dark minimal") | — | `standard` only |
+| Type                            | What the user supplied                                                               | Tool / read path                                                                                                                               | Replication modes available                                                 |
+| ------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **A** `.pptx` reference         | A `.pptx` file path                                                                  | `pptx_template_import.py` → `manifest.json` + `svg/master_*.svg` + `svg/layout_*.svg` + `svg/slide_*.svg` + `svg-flat/slide_*.svg` + `assets/` | `standard` / `fidelity` / `mirror`                                          |
+| **B** Existing SVG assets       | `projects/<x>/svg_output/`, `templates/layouts/<existing>`, or a loose `.svg` folder | `ls` + `Read` each `*.svg`; plus `design_spec.md` / `spec_lock.md` if present                                                                  | `standard` / `fidelity` (AI visual clustering) / `mirror` (direct 1:1 copy) |
+| **C** Image / visual references | Screenshot folder, single image, PDF pages                                           | `ls` + `Read` each file (multimodal visual recognition)                                                                                        | `standard` only                                                             |
+| **D** No reference source       | Verbal description only ("McKinsey style", "tech blue", "dark minimal")              | —                                                                                                                                              | `standard` only                                                             |
 
 `fidelity` and `mirror` are not available for type C / D — visual references and verbal-only briefs cannot drive page-by-page replication. Type A is the canonical path: `manifest.json` page-type candidates and the layered `svg/` workspace anchor cluster detection (fidelity) and verbatim copy (mirror) with factual data. Type B is supported with caveats:
 
@@ -109,6 +109,7 @@ Interpretation rule (carries forward into Steps 2 and 4):
 Do **not** treat the imported PPTX or exported slide SVGs as direct final template assets — Step 4 reconstructs them as a clean, maintainable PPT Master template package, not a 1:1 shape translation.
 
 > **Mirror-mode fast path** — when the user has indicated mirror replication (verbatim copy of every source slide):
+>
 > - Read **only** `svg-flat/slide_*.svg` (the self-contained, what-PowerPoint-shows view) and `manifest.json` (for theme colors, fonts, asset inventory).
 > - Skip `svg/master_*.svg` / `svg/layout_*.svg` / `svg/inheritance.json` — chrome / content separation is irrelevant in mirror mode (no placeholder insertion happens).
 > - Mirror is explicitly a verbatim copy flow — every slide becomes a template page as-is. The "reconstruct, don't translate" rule applies to `standard` / `fidelity` only.
@@ -152,23 +153,23 @@ Compose a single message that surfaces every Required brief item to the user, **
 
 Items to surface:
 
-| Item | Required | Provenance by input type |
-|------|----------|--------------------------|
-| New template ID | Yes | `[decision]` — user chooses ASCII slug; if Chinese brand name, must be filesystem-safe and match `layouts_index.json` exactly |
-| Template display name | Yes | `[decision]` (often the source deck title — `[suggested]` from `summary.md` for type A) |
-| Category | Yes | `[decision]` — one of `brand` / `general` / `scenario` / `government` / `special` |
-| Applicable scenarios | Yes | `[suggested]` from analysis; user confirms |
-| Tone summary | Yes | `[suggested]` from analysis (e.g. `Modern, restrained, data-driven`) |
-| Theme mode | Yes | A: `[fact]` from `manifest.json` background colors. B: `[fact]` from SVG `fill`. C: `[suggested]` from visual estimate. D: `[decision]` |
-| Canvas format | Yes | A/B: `[fact]` from slide size or SVG `viewBox`. C: `[suggested]` from image aspect ratio. D: `[decision]`, default `ppt169` |
-| Replication mode | Yes | `[decision]` — `standard` always available; `fidelity` and `mirror` available for type A (canonical, manifest-anchored) and type B (AI visual clustering / direct 1:1 copy — see Step 1 caveats); reject `fidelity` / `mirror` upfront for type C / D |
+| Item                            | Required                                                                                                   | Provenance by input type                                                                                                                                                                                                                                          |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| New template ID                 | Yes                                                                                                        | `[decision]` — user chooses ASCII slug; if Chinese brand name, must be filesystem-safe and match `layouts_index.json` exactly                                                                                                                                     |
+| Template display name           | Yes                                                                                                        | `[decision]` (often the source deck title — `[suggested]` from `summary.md` for type A)                                                                                                                                                                           |
+| Category                        | Yes                                                                                                        | `[decision]` — one of `brand` / `general` / `scenario` / `government` / `special`                                                                                                                                                                                 |
+| Applicable scenarios            | Yes                                                                                                        | `[suggested]` from analysis; user confirms                                                                                                                                                                                                                        |
+| Tone summary                    | Yes                                                                                                        | `[suggested]` from analysis (e.g. `Modern, restrained, data-driven`)                                                                                                                                                                                              |
+| Theme mode                      | Yes                                                                                                        | A: `[fact]` from `manifest.json` background colors. B: `[fact]` from SVG `fill`. C: `[suggested]` from visual estimate. D: `[decision]`                                                                                                                           |
+| Canvas format                   | Yes                                                                                                        | A/B: `[fact]` from slide size or SVG `viewBox`. C: `[suggested]` from image aspect ratio. D: `[decision]`, default `ppt169`                                                                                                                                       |
+| Replication mode                | Yes                                                                                                        | `[decision]` — `standard` always available; `fidelity` and `mirror` available for type A (canonical, manifest-anchored) and type B (AI visual clustering / direct 1:1 copy — see Step 1 caveats); reject `fidelity` / `mirror` upfront for type C / D             |
 | Visual fidelity for fixed pages | Yes for `standard` / `fidelity` when reference exists; **N/A for `mirror`** (mirror is implicitly literal) | `[decision]` — `literal` (preserve original geometry / decoration / sprite crops as-is; for cover / chapter / ending especially) or `adapted` (use the reference for tone/structure but allow design evolution). Different page types may take different settings |
-| Reference source | Optional | already known if Step 1 ran |
-| Theme color | Optional | A: `[fact]` from theme XML. B: `[fact]` from dominant SVG `fill`. C: `[suggested]` from visual estimate (HEX is approximate). D: `[decision]` |
-| Fonts | Optional | A: `[fact]` from `manifest.json`. B: `[fact]` from SVG `font-family`. C / D: not derivable — `[decision]` if user wants a custom stack |
-| Design style | Optional | `[suggested]` from analysis |
-| Assets list | Optional | A: `[fact]` from `assets/` listing; user picks which to bundle. B / C: `[decision]` per file. D: none |
-| Keywords | Yes | `[suggested]` from analysis (3–5 short tags); user confirms |
+| Reference source                | Optional                                                                                                   | already known if Step 1 ran                                                                                                                                                                                                                                       |
+| Theme color                     | Optional                                                                                                   | A: `[fact]` from theme XML. B: `[fact]` from dominant SVG `fill`. C: `[suggested]` from visual estimate (HEX is approximate). D: `[decision]`                                                                                                                     |
+| Fonts                           | Optional                                                                                                   | A: `[fact]` from `manifest.json`. B: `[fact]` from SVG `font-family`. C / D: not derivable — `[decision]` if user wants a custom stack                                                                                                                            |
+| Design style                    | Optional                                                                                                   | `[suggested]` from analysis                                                                                                                                                                                                                                       |
+| Assets list                     | Optional                                                                                                   | A: `[fact]` from `assets/` listing; user picks which to bundle. B / C: `[decision]` per file. D: none                                                                                                                                                             |
+| Keywords                        | Yes                                                                                                        | `[suggested]` from analysis (3–5 short tags); user confirms                                                                                                                                                                                                       |
 
 For type A, also include in this message:
 
@@ -313,11 +314,11 @@ python3 skills/ppt-master/scripts/register_template.py <template_id> --kind layo
 
 Outputs by kind (the JSON index is the single source of truth — READMEs describe the kind in prose but do not enumerate templates):
 
-| `--kind` | Index updated |
-|---|---|
-| `deck` | `templates/decks/decks_index.json` |
+| `--kind` | Index updated                          |
+| -------- | -------------------------------------- |
+| `deck`   | `templates/decks/decks_index.json`     |
 | `layout` | `templates/layouts/layouts_index.json` |
-| `brand` | `templates/brands/brands_index.json` |
+| `brand`  | `templates/brands/brands_index.json`   |
 
 The completion card's file roster is collected by globbing `*.svg` in the template directory.
 
@@ -335,7 +336,6 @@ The index file is a **discovery index** — it lets the AI answer "what template
 > page_count: 5
 > primary_color: "#005587"
 > ---
->
 > # layout example
 > ---
 > layout_id: my_layout
@@ -370,30 +370,30 @@ For a standard-mode template the card looks like:
 **Template Name**: <template_id> (<display_name>)
 **Kind**: deck | layout
 **Template Path**: `templates/<kind_dir>/<template_id>/`
-**Primary Color**: <hex>  ← deck only; omit for layout
+**Primary Color**: <hex> ← deck only; omit for layout
 **Index Registration**: Done
 
 ### Files Included
 
-| File | Status |
-|------|--------|
-| `01_cover.svg` | Done |
-| `02_chapter.svg` | Done |
-| `02_toc.svg` | Done |
-| `03_content.svg` | Done |
-| `04_ending.svg` | Done |
+| File             | Status |
+| ---------------- | ------ |
+| `01_cover.svg`   | Done   |
+| `02_chapter.svg` | Done   |
+| `02_toc.svg`     | Done   |
+| `03_content.svg` | Done   |
+| `04_ending.svg`  | Done   |
 ```
 
 ---
 
 ## Color Scheme Quick Reference
 
-| Style | Primary Color | Use Cases |
-|-------|---------------|-----------|
-| Tech Blue | `#004098` | Certification, evaluation |
-| McKinsey | `#005587` | Strategic consulting |
-| Government Blue | `#003366` | Government projects |
-| Business Gray | `#2C3E50` | General business |
+| Style           | Primary Color | Use Cases                 |
+| --------------- | ------------- | ------------------------- |
+| Tech Blue       | `#004098`     | Certification, evaluation |
+| McKinsey        | `#005587`     | Strategic consulting      |
+| Government Blue | `#003366`     | Government projects       |
+| Business Gray   | `#2C3E50`     | General business          |
 
 ---
 

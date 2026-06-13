@@ -203,7 +203,7 @@ export function HostOrchestrationPage({ serverId }: { serverId: string }) {
     <View>
       {isConnected ? (
         <SettingsSection title={translateNow("ui.orchestration.1i7le75")}>
-          <InjectPaseoToolsCard serverId={serverId} />
+          <InjectDoyaToolsCard serverId={serverId} />
           <AppendSystemPromptCard serverId={serverId} />
         </SettingsSection>
       ) : (
@@ -536,7 +536,7 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
     if (!isHostConnected()) {
       Alert.alert(
         translateNow("ui.host.offline.j4wgi3"),
-        translateNow("ui.this.host.is.offline.paseo.reconnects.automatically.kn27va"),
+        translateNow("ui.this.host.is.offline.doya.reconnects.automatically.kn27va"),
       );
       return;
     }
@@ -559,7 +559,7 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
             setIsRestarting(false);
             Alert.alert(
               translateNow("ui.error.1410q0"),
-              translateNow("ui.failed.to.send.the.restart.request.paseo.17n7sos"),
+              translateNow("ui.failed.to.send.the.restart.request.doya.17n7sos"),
             );
           });
         void waitForDaemonRestart();
@@ -603,7 +603,7 @@ function RestartDaemonCard({ host }: { host: HostProfile }) {
   );
 }
 
-function InjectPaseoToolsCard({ serverId }: { serverId: string }) {
+function InjectDoyaToolsCard({ serverId }: { serverId: string }) {
   const isConnected = useHostRuntimeIsConnected(serverId);
   const { config, patchConfig } = useDaemonConfig(serverId);
 
@@ -625,7 +625,7 @@ function InjectPaseoToolsCard({ serverId }: { serverId: string }) {
       <View style={settingsStyles.row}>
         <View style={settingsStyles.rowContent}>
           <Text style={settingsStyles.rowTitle}>
-            {translateNow("ui.enable.paseo.tools.1erbjhm")}
+            {translateNow("ui.enable.doya.tools.1erbjhm")}
           </Text>
           <Text style={settingsStyles.rowHint}>
             {translateNow("ui.agents.will.be.able.to.manage.worktrees.bnzb32")}
@@ -634,7 +634,7 @@ function InjectPaseoToolsCard({ serverId }: { serverId: string }) {
         <Switch
           value={config?.mcp.injectIntoAgents !== false}
           onValueChange={handleValueChange}
-          accessibilityLabel={translateNow("ui.inject.paseo.tools.1l3ngc8")}
+          accessibilityLabel={translateNow("ui.inject.doya.tools.1l3ngc8")}
         />
       </View>
     </View>

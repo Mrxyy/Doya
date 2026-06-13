@@ -94,7 +94,7 @@ export function SiteFooter({ width = "default" }: SiteFooterProps) {
               Google Play
             </a>
             <a
-              href="https://github.com/getpaseo/paseo/releases"
+              href="https://github.com/getdoya/doya/releases"
               target="_blank"
               rel="noopener noreferrer"
               className="block text-muted-foreground hover:text-foreground transition-colors"

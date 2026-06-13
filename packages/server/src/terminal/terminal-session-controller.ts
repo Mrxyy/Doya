@@ -13,13 +13,13 @@ import type {
   UnsubscribeTerminalRequest,
   UnsubscribeTerminalsRequest,
 } from "../server/messages.js";
-import { killTerminalsUnderPath as killWorktreeTerminalsUnderPath } from "../server/paseo-worktree-archive-service.js";
+import { killTerminalsUnderPath as killWorktreeTerminalsUnderPath } from "../server/doya-worktree-archive-service.js";
 import {
   TerminalStreamOpcode,
   decodeTerminalResizePayload,
   encodeTerminalStreamFrame,
   type TerminalStreamFrame,
-} from "@getpaseo/protocol/binary-frames/index";
+} from "@getdoya/protocol/binary-frames/index";
 import { TerminalOutputCoalescer } from "./terminal-output-coalescer.js";
 import {
   MAX_TERMINAL_OUTPUT_FRAME_BYTES,

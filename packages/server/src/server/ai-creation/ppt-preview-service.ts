@@ -11,7 +11,6 @@ const SVG_ROOT_TAG_RE = /^svg$/i;
 const ANNOTATION_TARGET_RE = /\sdata-edit-target="true"/g;
 const ANNOTATION_TEXT_RE = /\sdata-edit-annotation="[^"]*"/g;
 const ID_ATTR_RE = /\sid="([^"]+)"/;
-const HREF_RE = /\s(?:href|xlink:href)="[^"]*"/i;
 const MAX_EDIT_TEXT_LENGTH = 5000;
 const MAX_ATTR_VALUE_LENGTH = 256;
 const EDITABLE_ATTR_RE = /^[A-Za-z_][A-Za-z0-9_.:-]*$/;
@@ -64,8 +63,8 @@ class PptPreviewService {
     this.router.get("/:agentId/:projectName/static/:fileName", (req, res) => {
       void this.handleStatic(req, res);
     });
-    this.router.get("/:agentId/:projectName/api/config", (req, res) => {
-      res.json({ live: true, paseoPreview: true });
+    this.router.get("/:agentId/:projectName/api/config", (_req, res) => {
+      res.json({ live: true, doyaPreview: true });
     });
     this.router.get("/:agentId/:projectName/api/slides", (req, res) => {
       void this.handleSlides(req, res);
@@ -92,7 +91,7 @@ class PptPreviewService {
       void this.handleSaveAll(req, res);
     });
     this.router.post("/:agentId/:projectName/api/shutdown", (_req, res) => {
-      res.json({ status: "ok", managed_by: "paseo" });
+      res.json({ status: "ok", managed_by: "doya" });
     });
     this.router.get("/:agentId/:projectName/images/*", (req, res) => {
       void this.handleProjectFile(req, res, "images");
@@ -154,9 +153,9 @@ class PptPreviewService {
       .type("application/javascript")
       .send(
         [
-          `window.__PASEO_PPT_PREVIEW_BASE__ = ${JSON.stringify(basePath)};`,
+          `window.__DOYA_PPT_PREVIEW_BASE__ = ${JSON.stringify(basePath)};`,
           `window.fetch = ((originalFetch) => (input, init) => {`,
-          `  if (typeof input === "string" && (input === "/api/save-all" || input === "/api/shutdown" || input.startsWith("/api/"))) input = window.__PASEO_PPT_PREVIEW_BASE__ + input;`,
+          `  if (typeof input === "string" && (input === "/api/save-all" || input === "/api/shutdown" || input.startsWith("/api/"))) input = window.__DOYA_PPT_PREVIEW_BASE__ + input;`,
           `  return originalFetch(input, init);`,
           `})(window.fetch.bind(window));`,
           source,

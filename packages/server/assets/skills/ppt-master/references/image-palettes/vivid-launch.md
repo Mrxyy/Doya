@@ -6,17 +6,17 @@ Bold, saturated, attention-grabbing. The palette for product launches, marketing
 
 ## 1. Compatible renderings
 
-| Rendering | Notes |
-|---|---|
-| ✓✓ flat | Vivid flat blocks for marketing |
-| ✓✓ vector-illustration | Bold vector launch visuals |
-| ✓✓ 3d-isometric | Vivid product 3D |
-| ✓✓ screen-print | Vivid promotional poster |
-| ✓✓ pixel-art | Retro vivid gaming launch |
-| ✓ digital-dashboard | Acceptable if launch product is software |
-| ✓ corporate-photo | Vivid-graded photography |
+| Rendering                           | Notes                                    |
+| ----------------------------------- | ---------------------------------------- |
+| ✓✓ flat                             | Vivid flat blocks for marketing          |
+| ✓✓ vector-illustration              | Bold vector launch visuals               |
+| ✓✓ 3d-isometric                     | Vivid product 3D                         |
+| ✓✓ screen-print                     | Vivid promotional poster                 |
+| ✓✓ pixel-art                        | Retro vivid gaming launch                |
+| ✓ digital-dashboard                 | Acceptable if launch product is software |
+| ✓ corporate-photo                   | Vivid-graded photography                 |
 | ✗ sketch-notes / ink-notes / nature | Wrong temperament — those are restrained |
-| ✗ watercolor / warm-scene | Wrong saturation level |
+| ✗ watercolor / warm-scene           | Wrong saturation level                   |
 
 ---
 

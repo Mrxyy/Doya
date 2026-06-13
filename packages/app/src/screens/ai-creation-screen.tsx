@@ -46,9 +46,9 @@ import {
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { AgentProvider } from "@getpaseo/protocol/agent-types";
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
+import type { AgentProvider } from "@getdoya/protocol/agent-types";
+import type { AgentAttachment } from "@getdoya/protocol/messages";
 import {
   createAccountProject,
   saveAccountBootstrapSession,
@@ -113,10 +113,10 @@ import { useRecommendedProjectPaths, useWorkspaceFields } from "@/stores/session
 import { buildAiCreationTitle } from "@/utils/ai-creation-display";
 import { encodeImages } from "@/utils/encode-images";
 import {
-  buildPaseoMessageMeta,
-  buildPaseoResponseLanguageInstruction,
-  escapePaseoMarkupText,
-} from "@/utils/paseo-message-markup";
+  buildDoyaMessageMeta,
+  buildDoyaResponseLanguageInstruction,
+  escapeDoyaMarkupText,
+} from "@/utils/doya-message-markup";
 import {
   buildHostAgentDetailRoute,
   buildHostHomeRoute,
@@ -521,8 +521,8 @@ const IMAGE_EXTENSION_BY_MIME_TYPE: Record<string, string> = {
   "image/svg+xml": "svg",
 };
 
-const AI_CREATION_TITLE_GRADIENT_KEYFRAME_ID = "paseo-ai-creation-title-gradient-keyframes";
-const AI_CREATION_TITLE_GRADIENT_ANIMATION_NAME = "paseo-ai-creation-title-gradient";
+const AI_CREATION_TITLE_GRADIENT_KEYFRAME_ID = "doya-ai-creation-title-gradient-keyframes";
+const AI_CREATION_TITLE_GRADIENT_ANIMATION_NAME = "doya-ai-creation-title-gradient";
 const AI_CREATION_CONTROL_TEXT_COLOR = "#71717a";
 const AI_CREATION_CONTROL_MUTED_COLOR = "#71717a";
 const AI_CREATION_CONTROL_ICON_COLOR = "#71717a";
@@ -3447,7 +3447,7 @@ function buildWorkspacePathAttachment(input: {
 }
 
 function resolveDownloadFileName(attachment: AttachmentMetadata): string {
-  const fallback = `paseo-image.${getAttachmentExtension(attachment)}`;
+  const fallback = `doya-image.${getAttachmentExtension(attachment)}`;
   const fileName = attachment.fileName?.trim() || fallback;
   return fileName.replace(/[\\/:*?"<>|]+/g, "-");
 }
@@ -3654,9 +3654,9 @@ function buildAiCreationMarkupPrompt(input: {
   includeExpectedTarget?: boolean;
 }): string {
   const config = getAiCreationMarkupConfig(input.mode);
-  const escapedMessageId = escapePaseoMarkupText(input.messageId);
-  const escapedPrompt = escapePaseoMarkupText(input.prompt);
-  const languageInstruction = buildPaseoResponseLanguageInstruction({
+  const escapedMessageId = escapeDoyaMarkupText(input.messageId);
+  const escapedPrompt = escapeDoyaMarkupText(input.prompt);
+  const languageInstruction = buildDoyaResponseLanguageInstruction({
     defaultLocale: input.defaultLocale,
     userText: input.prompt,
   });
@@ -3664,7 +3664,7 @@ function buildAiCreationMarkupPrompt(input: {
     input.includeExpectedTarget === false
       ? ""
       : `
-<paseo-expected-target
+<doya-expected-target
   version="1"
   kind="${config.kind}"
   goal="${config.goal}"
@@ -3674,23 +3674,23 @@ function buildAiCreationMarkupPrompt(input: {
 />
 `;
   const fields = [
-    `<paseo-field name="request" label="需求" desc="Original user creation request.">${escapedPrompt}</paseo-field>`,
+    `<doya-field name="request" label="需求" desc="Original user creation request.">${escapedPrompt}</doya-field>`,
     input.ratio
-      ? `<paseo-field name="ratio" label="比例" desc="Requested output aspect ratio.">${escapePaseoMarkupText(input.ratio)}</paseo-field>`
+      ? `<doya-field name="ratio" label="比例" desc="Requested output aspect ratio.">${escapeDoyaMarkupText(input.ratio)}</doya-field>`
       : null,
     input.style
-      ? `<paseo-field name="style" label="风格" desc="Requested visual style.">${escapePaseoMarkupText(input.style)}</paseo-field>`
+      ? `<doya-field name="style" label="风格" desc="Requested visual style.">${escapeDoyaMarkupText(input.style)}</doya-field>`
       : null,
     typeof input.sourceCount === "number" && input.sourceCount > 0
-      ? `<paseo-field name="source_count" label="素材数" desc="Number of attached source files or images.">${input.sourceCount}</paseo-field>`
+      ? `<doya-field name="source_count" label="素材数" desc="Number of attached source files or images.">${input.sourceCount}</doya-field>`
       : null,
   ].filter((field): field is string => Boolean(field));
 
-  return `${buildPaseoMessageMeta()}
+  return `${buildDoyaMessageMeta()}
 
 ${config.normalInstruction}
 ${expectedTarget}
-<paseo-ui
+<doya-ui
   version="1"
   kind="${config.kind}"
   render="card"
@@ -3698,22 +3698,22 @@ ${expectedTarget}
   id="${escapedMessageId}"
   desc="${config.cardDesc}"
 >
-  <paseo-ui-content desc="User-visible card content. Paseo may render this instead of the full prompt.">
-    <paseo-title desc="Title shown in the user message card.">${config.title}</paseo-title>
-    <paseo-summary desc="Short user-visible summary of this task.">${escapedPrompt}</paseo-summary>
+  <doya-ui-content desc="User-visible card content. Doya may render this instead of the full prompt.">
+    <doya-title desc="Title shown in the user message card.">${config.title}</doya-title>
+    <doya-summary desc="Short user-visible summary of this task.">${escapedPrompt}</doya-summary>
     ${fields.join("\n    ")}
-  </paseo-ui-content>
+  </doya-ui-content>
 
-  <paseo-ai desc="Task instructions the AI must follow. Paseo may hide this section from the chat UI.">
-${escapePaseoMarkupText(languageInstruction)}
+  <doya-ai desc="Task instructions the AI must follow. Doya may hide this section from the chat UI.">
+${escapeDoyaMarkupText(languageInstruction)}
 
-${escapePaseoMarkupText(input.aiInstructions)}
-  </paseo-ai>
+${escapeDoyaMarkupText(input.aiInstructions)}
+  </doya-ai>
 
-  <paseo-reply desc="Preferred response format. Paseo may render a matching result block specially.">
-Follow the final reply requirements in <paseo-ai>. Preserve the request id "${escapedMessageId}" if you emit a matching result block.
-  </paseo-reply>
-</paseo-ui>`;
+  <doya-reply desc="Preferred response format. Doya may render a matching result block specially.">
+Follow the final reply requirements in <doya-ai>. Preserve the request id "${escapedMessageId}" if you emit a matching result block.
+  </doya-reply>
+</doya-ui>`;
 }
 
 function getAiCreationMarkupConfig(mode: CreationMode): {
@@ -3731,7 +3731,7 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
       targetText: "编辑图片",
       title: "编辑图片",
       normalInstruction: "请根据用户需求编辑图片。",
-      cardDesc: "A Paseo-renderable task card for an AI image editing request.",
+      cardDesc: "A Doya-renderable task card for an AI image editing request.",
     };
   }
   if (mode === "slides") {
@@ -3741,7 +3741,7 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
       targetText: "创建 PPT",
       title: "创建 PPT",
       normalInstruction: "请根据用户需求创建可编辑 PPTX。",
-      cardDesc: "A Paseo-renderable task card for an AI slide deck creation request.",
+      cardDesc: "A Doya-renderable task card for an AI slide deck creation request.",
     };
   }
   if (mode === "pdf") {
@@ -3751,7 +3751,7 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
       targetText: "创建 PDF",
       title: "创建 PDF",
       normalInstruction: "请根据用户需求创建 PDF 文档。",
-      cardDesc: "A Paseo-renderable task card for an AI PDF creation request.",
+      cardDesc: "A Doya-renderable task card for an AI PDF creation request.",
     };
   }
   if (mode === "word") {
@@ -3761,7 +3761,7 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
       targetText: "创建 Word",
       title: "创建 Word",
       normalInstruction: "请根据用户需求创建 Word 文档。",
-      cardDesc: "A Paseo-renderable task card for an AI Word document creation request.",
+      cardDesc: "A Doya-renderable task card for an AI Word document creation request.",
     };
   }
   if (mode === "spreadsheet") {
@@ -3771,7 +3771,7 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
       targetText: "创建表格",
       title: "创建表格",
       normalInstruction: "请根据用户需求创建电子表格。",
-      cardDesc: "A Paseo-renderable task card for an AI spreadsheet creation request.",
+      cardDesc: "A Doya-renderable task card for an AI spreadsheet creation request.",
     };
   }
   return {
@@ -3780,7 +3780,7 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
     targetText: "生成图片",
     title: "生成图片",
     normalInstruction: "请根据用户需求生成图片。",
-    cardDesc: "A Paseo-renderable task card for an AI image generation request.",
+    cardDesc: "A Doya-renderable task card for an AI image generation request.",
   };
 }
 
@@ -3816,7 +3816,7 @@ function buildDocumentCreationPrompt(input: {
     },
   }[input.kind];
   const lines = [
-    `You are creating a ${config.surface} for the Paseo AI Creation surface.`,
+    `You are creating a ${config.surface} for the Doya AI Creation surface.`,
     `Use the agent's available built-in ${config.skill} skill or workflow. Codex and Claude Code both have default capabilities for this artifact type; choose the appropriate one for the current provider.`,
     "This is an AI creation surface. Do not explain your reasoning, workflow, skill usage, shell commands, or implementation steps in the final conversation.",
     "If you must send progress text while creating, keep it to one short user-facing sentence in Chinese.",
@@ -3852,32 +3852,32 @@ function buildSlidesPrompt(input: {
   });
   const coverReadySummary = translate("aiCreation.progress.slidesCoverReady", input.defaultLocale);
   const lines = [
-    "You are creating a PowerPoint deck for the Paseo AI Creation slides surface.",
-    "Paseo has already prepared the bundled PPT Master skill link at `.paseo/skills/ppt-master` before this agent starts.",
+    "You are creating a PowerPoint deck for the Doya AI Creation slides surface.",
+    "Doya has already prepared the bundled PPT Master skill link at `.doya/skills/ppt-master` before this agent starts.",
     "This is an AI creation surface. Keep user-facing progress minimal.",
     "Do not narrate skill reading, dependency installation, shell commands, file inspection, design reasoning, or implementation steps.",
-    'Human-visible progress protocol: before the final reply, only send progress by emitting a `<paseo-ui kind="ai_creation.slides.progress">` block.',
+    'Human-visible progress protocol: before the final reply, only send progress by emitting a `<doya-ui kind="ai_creation.slides.progress">` block.',
     "Only mark information as human-visible when it helps the user follow PPT creation: preview readiness, deck outline, design direction, source processing, each slide becoming ready, export start, or PPTX readiness.",
     "Do not expose implementation details in human-visible progress: no SVG, .svg filenames, shell commands, script names, dependency names, or internal file inspection.",
     "All human-visible progress titles and summaries must follow the response-language instruction above. Do not copy English titles such as `Slide 1 ready`, `Deck outline ready`, or `Preview ready` when the response language is Chinese.",
     "Use this protocol shape for progress:",
-    `<paseo-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" desc="Human-visible PPT creation progress."><paseo-ui-content desc="Visible progress content."><paseo-title desc="Progress title.">${slideReadyTitle}</paseo-title><paseo-summary desc="Progress summary.">${coverReadySummary}</paseo-summary></paseo-ui-content></paseo-ui>`,
+    `<doya-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" desc="Human-visible PPT creation progress."><doya-ui-content desc="Visible progress content."><doya-title desc="Progress title.">${slideReadyTitle}</doya-title><doya-summary desc="Progress summary.">${coverReadySummary}</doya-summary></doya-ui-content></doya-ui>`,
     "For preview readiness, include the preview path in a field named `preview_path` inside the same progress block.",
     "Do not search for PPT Master in other directories.",
     "Do not use web search for PPT Master.",
     "Do not git clone, fetch, or download PPT Master.",
-    'If `.paseo/skills/ppt-master/SKILL.md` is missing, stop immediately and reply exactly: "PPT Master skill link missing: .paseo/skills/ppt-master/SKILL.md".',
-    "Read `.paseo/skills/ppt-master/SKILL.md` and follow that workflow exactly.",
+    'If `.doya/skills/ppt-master/SKILL.md` is missing, stop immediately and reply exactly: "PPT Master skill link missing: .doya/skills/ppt-master/SKILL.md".',
+    "Read `.doya/skills/ppt-master/SKILL.md` and follow that workflow exactly.",
     "Begin the PPT Master workflow immediately. Do not wait for a target handshake, confirmation, or user reply before creating the project.",
-    "Paseo provides its own built-in slide preview service. Do not run PPT Master's `scripts/svg_editor/server.py`, do not start Flask, and do not open localhost preview ports yourself.",
+    "Doya provides its own built-in slide preview service. Do not run PPT Master's `scripts/svg_editor/server.py`, do not start Flask, and do not open localhost preview ports yourself.",
     `Streaming preview contract: after project initialization creates \`projects/<project>/\`, ensure \`projects/<project>/svg_output/\` exists even if it is still empty, then immediately send a human-visible progress block titled \`${previewReadyTitle}\` with a \`preview_path\` field set to \`projects/<project>/svg_output/\`.`,
     "You must send the preview-ready progress block before generating or writing the first slide.",
     "After sending preview progress, continue the PPT Master workflow without waiting for the user.",
     "Write generated SVG pages into `projects/<project>/svg_output/` strictly one page at a time. Save `slide_01.svg` as soon as it is complete, then continue to `slide_02.svg`, and so on.",
     "Do not batch-generate all slide SVG files before writing them to disk. Do not wait until all slides are ready before exposing the preview directory.",
     `After each slide page is saved, send one human-visible progress block titled like \`${slideReadyTitle}\`, with a summary using the user-facing slide title, for example \`${coverReadySummary}\` Then continue with the next page.`,
-    "Paseo polls the preview directory and will show new slides as they appear.",
-    "Only after the skill link exists, install Python requirements if needed: `pip install -r .paseo/skills/ppt-master/requirements.txt`.",
+    "Doya polls the preview directory and will show new slides as they appear.",
+    "Only after the skill link exists, install Python requirements if needed: `pip install -r .doya/skills/ppt-master/requirements.txt`.",
     "",
     "User request:",
     input.prompt,

@@ -10,13 +10,13 @@ Magazine-style infographic look — sophisticated layout, refined type-as-shape 
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
+| Aspect       | Treatment                                                     |
+| ------------ | ------------------------------------------------------------- |
 | Line quality | Refined — thin precise rules as dividers; clean filled shapes |
-| Texture | Minimal — optional very subtle paper grain at 5-10% opacity |
-| Depth | Flat with intentional layering; no shadows |
-| Material | None — abstract editorial composition |
-| Mood | Refined, intelligent, premium-restrained |
+| Texture      | Minimal — optional very subtle paper grain at 5-10% opacity   |
+| Depth        | Flat with intentional layering; no shadows                    |
+| Material     | None — abstract editorial composition                         |
+| Mood         | Refined, intelligent, premium-restrained                      |
 
 ## 3. Using the deck's HEX values
 

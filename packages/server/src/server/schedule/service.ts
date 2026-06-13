@@ -7,7 +7,7 @@ import type { AgentSessionConfig } from "../agent/agent-sdk-types.js";
 import { curateAgentActivity } from "../agent/activity-curator.js";
 import { ensureAgentLoaded } from "../agent/agent-loading.js";
 import { formatSystemNotificationPrompt } from "../agent/agent-prompt.js";
-import { getUnattendedModeId } from "@getpaseo/protocol/provider-manifest";
+import { getUnattendedModeId } from "@getdoya/protocol/provider-manifest";
 import { ScheduleStore } from "./store.js";
 import { computeNextRunAt, validateScheduleCadence } from "./cron.js";
 import type {
@@ -18,7 +18,7 @@ import type {
   StoredSchedule,
   UpdateScheduleInput,
   UpdateScheduleNewAgentConfig,
-} from "@getpaseo/protocol/schedule/types";
+} from "@getdoya/protocol/schedule/types";
 
 const SCHEDULE_TICK_INTERVAL_MS = 1000;
 
@@ -135,7 +135,7 @@ function buildRunOutput(params: {
 }
 
 export interface ScheduleServiceOptions {
-  paseoHome: string;
+  doyaHome?: string;
   logger: Logger;
   agentManager: AgentManager;
   agentStorage: AgentStorage;
@@ -157,7 +157,11 @@ export class ScheduleService {
   private tickTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(options: ScheduleServiceOptions) {
-    this.store = new ScheduleStore(join(options.paseoHome, "schedules"));
+    const doyaHome = options.doyaHome;
+    if (!doyaHome) {
+      throw new Error("ScheduleService requires doyaHome");
+    }
+    this.store = new ScheduleStore(join(doyaHome, "schedules"));
     this.logger = options.logger.child({ module: "schedule-service" });
     this.agentManager = options.agentManager;
     this.agentStorage = options.agentStorage;
@@ -564,8 +568,8 @@ export class ScheduleService {
       mcpServers: schedule.target.config.mcpServers as AgentSessionConfig["mcpServers"],
     };
     const labels = {
-      "paseo.schedule-id": schedule.id,
-      "paseo.schedule-run": runId,
+      "doya.schedule-id": schedule.id,
+      "doya.schedule-run": runId,
     };
     const agent = await this.agentManager.createAgent(config, undefined, { labels });
     let result;

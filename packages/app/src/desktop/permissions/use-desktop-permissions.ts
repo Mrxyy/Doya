@@ -125,7 +125,7 @@ export function useDesktopPermissions(): UseDesktopPermissionsReturn {
     setTestNotificationError(null);
     try {
       const sent = await sendOsNotification({
-        title: translateNow("ui.paseo.notification.test.14f6fqr"),
+        title: translateNow("ui.doya.notification.test.14f6fqr"),
         body: "If you can see this, desktop notifications work.",
       });
       if (!sent) {

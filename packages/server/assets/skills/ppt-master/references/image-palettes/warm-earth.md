@@ -6,19 +6,19 @@ Friendly, grounded, human. The warm counterpart to cool-corporate — used in br
 
 ## 1. Compatible renderings
 
-| Rendering | Notes |
-|---|---|
-| ✓✓ vector-illustration | Warm vector forms work well |
-| ✓✓ flat | Warm flat blocks are friendly |
-| ✓✓ sketch-notes | Natural pairing — both warm-earth and sketch-notes share warmth |
-| ✓✓ watercolor | Warm washes pair perfectly |
-| ✓✓ warm-scene | Direct alignment |
-| ✓✓ fantasy-animation | Storybook warmth |
-| ✓✓ nature | Earth-tone alignment |
-| ✓✓ corporate-photo | Warm-graded photography |
-| ✓ editorial | Acceptable — editorial restraint sometimes prefers cool |
-| ✗ tech-neon themes / dark-cinematic | Temperament conflict |
-| ✗ blueprint | Blueprint wants restraint; warm-earth wants warmth |
+| Rendering                           | Notes                                                           |
+| ----------------------------------- | --------------------------------------------------------------- |
+| ✓✓ vector-illustration              | Warm vector forms work well                                     |
+| ✓✓ flat                             | Warm flat blocks are friendly                                   |
+| ✓✓ sketch-notes                     | Natural pairing — both warm-earth and sketch-notes share warmth |
+| ✓✓ watercolor                       | Warm washes pair perfectly                                      |
+| ✓✓ warm-scene                       | Direct alignment                                                |
+| ✓✓ fantasy-animation                | Storybook warmth                                                |
+| ✓✓ nature                           | Earth-tone alignment                                            |
+| ✓✓ corporate-photo                  | Warm-graded photography                                         |
+| ✓ editorial                         | Acceptable — editorial restraint sometimes prefers cool         |
+| ✗ tech-neon themes / dark-cinematic | Temperament conflict                                            |
+| ✗ blueprint                         | Blueprint wants restraint; warm-earth wants warmth              |
 
 ---
 

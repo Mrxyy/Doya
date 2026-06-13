@@ -1,5 +1,5 @@
 import log from "electron-log/main";
-import { spawnProcess } from "../../system/paseo-runtime.js";
+import { spawnProcess } from "../../system/doya-runtime.js";
 import type { NodeEntrypointInvocation } from "../node-entrypoint-launcher.js";
 import { createNodeEntrypointInvocation } from "../runtime-paths.js";
 import { resolveExternalCliEntrypoint } from "./entrypoints.js";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StreamItem } from "@/types/stream";
-import { parsePaseoMessageRenderParts } from "@/utils/paseo-message-markup";
+import { parseDoyaMessageRenderParts } from "@/utils/doya-message-markup";
 import {
   AI_CREATION_PLACEHOLDER_ID,
   extractDocumentAnnotationResultDisplay,
@@ -32,7 +32,7 @@ function handshakeUserMessage(
     ...userMessage(id, seed),
     text: [
       input.prompt ?? id,
-      `<paseo-expected-target version="1" kind="${input.kind}" goal="${input.goal}" id="${id}" text="${input.text}" desc="Expected task handshake." />`,
+      `<doya-expected-target version="1" kind="${input.kind}" goal="${input.goal}" id="${id}" text="${input.text}" desc="Expected task handshake." />`,
     ].join("\n\n"),
   };
 }
@@ -44,13 +44,13 @@ function aiCreationCardUserMessage(
 ): Extract<StreamItem, { kind: "user_message" }> {
   return {
     ...userMessage(id, seed),
-    text: `<paseo-ui version="1" kind="${input.kind}" render="card" visibility="summary" id="${id}" desc="AI creation card.">
-  <paseo-ui-content desc="User-visible card content.">
-    <paseo-title desc="Title shown in the user message card.">${input.title}</paseo-title>
-    <paseo-summary desc="Short user-visible summary.">${input.summary ?? "Create it"}</paseo-summary>
-  </paseo-ui-content>
-  <paseo-ai desc="Task instructions.">Create it.</paseo-ai>
-</paseo-ui>`,
+    text: `<doya-ui version="1" kind="${input.kind}" render="card" visibility="summary" id="${id}" desc="AI creation card.">
+  <doya-ui-content desc="User-visible card content.">
+    <doya-title desc="Title shown in the user message card.">${input.title}</doya-title>
+    <doya-summary desc="Short user-visible summary.">${input.summary ?? "Create it"}</doya-summary>
+  </doya-ui-content>
+  <doya-ai desc="Task instructions.">Create it.</doya-ai>
+</doya-ui>`,
   };
 }
 
@@ -74,7 +74,7 @@ function targetMessage(
 ): Extract<StreamItem, { kind: "assistant_message" }> {
   return assistantMessage(
     id,
-    `<paseo-target version="1" kind="${input.kind}" goal="${input.goal}" id="${input.targetId}" desc="Active response target.">${input.text}</paseo-target>`,
+    `<doya-target version="1" kind="${input.kind}" goal="${input.goal}" id="${input.targetId}" desc="Active response target.">${input.text}</doya-target>`,
     seed,
   );
 }
@@ -85,17 +85,17 @@ function pptProgressMessage(
   input: { title: string; summary: string; previewPath?: string },
 ): Extract<StreamItem, { kind: "assistant_message" }> {
   const previewField = input.previewPath
-    ? `<paseo-field name="preview_path" label="预览" desc="Live PPT preview path.">${input.previewPath}</paseo-field>`
+    ? `<doya-field name="preview_path" label="预览" desc="Live PPT preview path.">${input.previewPath}</doya-field>`
     : "";
   return assistantMessage(
     id,
-    `<paseo-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" desc="Human-visible PPT creation progress.">
-  <paseo-ui-content desc="Visible progress content.">
-    <paseo-title desc="Progress title.">${input.title}</paseo-title>
-    <paseo-summary desc="Progress summary.">${input.summary}</paseo-summary>
+    `<doya-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" desc="Human-visible PPT creation progress.">
+  <doya-ui-content desc="Visible progress content.">
+    <doya-title desc="Progress title.">${input.title}</doya-title>
+    <doya-summary desc="Progress summary.">${input.summary}</doya-summary>
     ${previewField}
-  </paseo-ui-content>
-</paseo-ui>`,
+  </doya-ui-content>
+</doya-ui>`,
     seed,
   );
 }
@@ -268,10 +268,10 @@ describe("normalizeAiCreationStream", () => {
     expect(extractAiCreationPptPreviewPath(streamItemText(result.tail[1]))).toBe(
       "projects/seasonal_best_cities_ppt169_20260609/svg_output/",
     );
-    expect(parsePaseoMessageRenderParts(streamItemText(result.tail[2]))).toMatchObject([
+    expect(parseDoyaMessageRenderParts(streamItemText(result.tail[2]))).toMatchObject([
       { kind: "card", card: { kind: "ai_creation.slides.progress", title: "Slide 1 ready" } },
     ]);
-    expect(parsePaseoMessageRenderParts(streamItemText(result.tail[3]))).toMatchObject([
+    expect(parseDoyaMessageRenderParts(streamItemText(result.tail[3]))).toMatchObject([
       { kind: "card", card: { kind: "ai_creation.slides.progress", title: "Slide 2 ready" } },
     ]);
   });
@@ -318,7 +318,7 @@ describe("normalizeAiCreationStream", () => {
         { ...userMessage("provider-owned-id", 1), text: "生成一份含公式和图表的餐厅季度预算表" },
         assistantMessage(
           "target",
-          'prefix <paseo-target version="1" kind="ai_creation.spreadsheet.create" goal="create_spreadsheet" id="client-message-id">创建表格</paseo-target>',
+          'prefix <doya-target version="1" kind="ai_creation.spreadsheet.create" goal="create_spreadsheet" id="client-message-id">创建表格</doya-target>',
           2,
         ),
         assistantMessage("status", "我将生成真实的 XLSX 文件。", 3),
@@ -429,7 +429,7 @@ describe("normalizeAiCreationStream", () => {
       head: [
         assistantMessage(
           "partial-target",
-          '<paseo-target version="1" kind="ai_creation.spreadsheet.create" goal="create_spreadsheet" id="u1">创建表格</',
+          '<doya-target version="1" kind="ai_creation.spreadsheet.create" goal="create_spreadsheet" id="u1">创建表格</',
           2,
         ),
       ],
@@ -450,7 +450,7 @@ describe("normalizeAiCreationStream", () => {
           text: "创建表格",
         }),
       ],
-      head: [assistantMessage("partial-target", '<paseo-target version="1" kind=', 2)],
+      head: [assistantMessage("partial-target", '<doya-target version="1" kind=', 2)],
     });
 
     expect(result.tail.map((item) => item.id)).toEqual(["u1"]);
@@ -553,19 +553,19 @@ describe("normalizeAiCreationStream", () => {
   });
 
   it("preserves document annotation result cards instead of flattening them to links", () => {
-    const resultCard = `<paseo-ui
+    const resultCard = `<doya-ui
   version="1"
   kind="document.apply_annotations.result"
   render="result-card"
   visibility="summary"
   id="u1"
 >
-  <paseo-ui-content>
-    <paseo-title>文件标注已应用</paseo-title>
-    <paseo-summary>已按标注更新预算表。</paseo-summary>
-    <paseo-field name="updated_file" label="文件">output/spreadsheets/restaurant_budget_updated.xlsx</paseo-field>
-  </paseo-ui-content>
-</paseo-ui>`;
+  <doya-ui-content>
+    <doya-title>文件标注已应用</doya-title>
+    <doya-summary>已按标注更新预算表。</doya-summary>
+    <doya-field name="updated_file" label="文件">output/spreadsheets/restaurant_budget_updated.xlsx</doya-field>
+  </doya-ui-content>
+</doya-ui>`;
 
     const result = normalizeAiCreationStream({
       agentStatus: "idle",
@@ -590,7 +590,7 @@ describe("normalizeAiCreationStream", () => {
 
     expect(result.tail.map((item) => item.id)).toEqual(["u1", "final"]);
     expect(streamItemText(result.tail[1])).toBe(resultCard);
-    expect(parsePaseoMessageRenderParts(streamItemText(result.tail[1]))).toMatchObject([
+    expect(parseDoyaMessageRenderParts(streamItemText(result.tail[1]))).toMatchObject([
       {
         kind: "card",
         card: {

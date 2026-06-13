@@ -339,8 +339,8 @@ describe("WorkspaceReconciliationService", () => {
   test("moves workspaces from a path-keyed duplicate project to the existing remote-keyed project", async () => {
     const repoDir = createTempGitRepo("reconcile-duplicate-project-");
     tempDirs.push(repoDir);
-    const canonicalWorktreeDir = path.join(repoDir, ".paseo", "worktrees", "focused-bat");
-    const duplicateWorktreeDir = path.join(repoDir, ".paseo", "worktrees", "gigantic-blowfish");
+    const canonicalWorktreeDir = path.join(repoDir, ".doya", "worktrees", "focused-bat");
+    const duplicateWorktreeDir = path.join(repoDir, ".doya", "worktrees", "gigantic-blowfish");
     mkdirSync(canonicalWorktreeDir, { recursive: true });
     mkdirSync(duplicateWorktreeDir, { recursive: true });
     const { projects, workspaces, projectRegistry, workspaceRegistry } = createTestRegistries();

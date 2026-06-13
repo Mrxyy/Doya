@@ -1088,7 +1088,7 @@ const SERVER_INSTALL_TRIGGER = (
 
 const SERVER_INSTALL_FOOTNOTE = (
   <>
-    Requires Node.js 18+. Run <span className="font-mono text-white/40">paseo</span> to start the
+    Requires Node.js 18+. Run <span className="font-mono text-white/40">doya</span> to start the
     daemon.
   </>
 );
@@ -1099,7 +1099,7 @@ function ServerInstallButton() {
       trigger={SERVER_INSTALL_TRIGGER}
       title="Run agents on a remote machine"
       description="For headless machines you want to connect to from the Doya apps. The desktop app already includes a built-in daemon."
-      command="npm install -g @getpaseo/cli && paseo"
+      command="npm install -g @getdoya/cli && doya"
       footnote={SERVER_INSTALL_FOOTNOTE}
     />
   );
@@ -1202,7 +1202,7 @@ const bashKeywords = new Set([
   "true",
   "false",
 ]);
-const bashCommands = new Set(["paseo", "echo", "jq"]);
+const bashCommands = new Set(["doya", "echo", "jq"]);
 
 function tokenizeBashComment(code: string, i: number): { node: React.ReactNode; len: number } {
   const end = code.indexOf("\n", i);
@@ -1376,38 +1376,38 @@ const cliExamples: CLIExample[] = [
     title: "Run agents",
     description:
       "Launch agents locally or on any remote host. The --worktree flag spins up an isolated git branch so you can run multiple agents on the same repo without conflicts.",
-    code: `paseo run "implement user authentication"
-paseo run --provider codex --worktree feature-x "implement feature X"
-paseo run --host devbox:6767 "run the full test suite"
+    code: `doya run "implement user authentication"
+doya run --provider codex --worktree feature-x "implement feature X"
+doya run --host devbox:6767 "run the full test suite"
 
-paseo ls                           # list running agents
-paseo attach abc123                # stream live output
-paseo send abc123 "also add tests" # follow-up task`,
+doya ls                           # list running agents
+doya attach abc123                # stream live output
+doya send abc123 "also add tests" # follow-up task`,
   },
   {
     title: "Loops",
     description:
       "Have one agent do the work, another verify the result, and loop until it passes. Built-in, no shell scripting needed.",
     code: `# Worker-verifier loop: fix tests until they pass
-paseo loop run "make all tests pass" \\
+doya loop run "make all tests pass" \\
   --verify "verify tests pass and the code is production-ready" \\
   --verify-check "npm test" \\
   --max-iterations 5
 
-paseo loop ls                        # list running loops
-paseo loop logs abc123               # stream loop output`,
+doya loop ls                        # list running loops
+doya loop logs abc123               # stream loop output`,
   },
   {
     title: "Schedules",
     description:
       "Run agents on a cron schedule. Automate recurring tasks like dependency updates, security audits, or report generation.",
     code: `# Run a security audit every Monday at 9am
-paseo schedule create --cron "0 9 * * 1" \\
+doya schedule create --cron "0 9 * * 1" \\
   "audit the codebase for security issues and open PRs for fixes"
 
-paseo schedule ls                    # list all schedules
-paseo schedule pause abc123          # pause a schedule
-paseo schedule delete abc123         # remove a schedule`,
+doya schedule ls                    # list all schedules
+doya schedule pause abc123          # pause a schedule
+doya schedule delete abc123         # remove a schedule`,
   },
 ];
 
@@ -1644,7 +1644,7 @@ function FAQ() {
         <FAQItem question="Do I need the desktop app?">
           No. You can run the daemon headless with{" "}
           <code className="font-mono text-muted-foreground">
-            npm install -g @getpaseo/cli && paseo
+            npm install -g @getdoya/cli && doya
           </code>{" "}
           and use the CLI, web app, or mobile app to connect. The desktop app just bundles the
           daemon with a UI.

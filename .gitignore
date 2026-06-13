@@ -64,8 +64,8 @@ CLAUDE.local.md
 
 .debug.conversations/
 .debug/
-.paseo/
-.paseo-hosted/
+.doya/
+.doya-hosted/
 .wrangler/
 **/.wrangler/
 **/.tanstack/
@@ -76,7 +76,7 @@ PLAN.md
 valknut-report.html/
 valknut-report.json/
 **/.playwright-mcp/
-**/.paseo-provider-history/
+**/.doya-provider-history/
 .claude/settings.local.json
 **/.claude/settings.local.json
 .claude/scheduled_tasks.lock

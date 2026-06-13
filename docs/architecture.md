@@ -43,7 +43,7 @@ Your code never leaves your machine. Doya is local-first.
 
 The daemon includes a lightweight account/workspace control plane for local
 multi-user flows. Registration creates a user record and an assigned workspace
-directory under `$PASEO_HOME/accounts/workspaces/{workspaceId}`. Creating a
+directory under `$DOYA_HOME/accounts/workspaces/{workspaceId}`. Creating a
 project from the app creates a subdirectory inside that workspace, then opens it
 through the normal project/workspace and agent lifecycle. See
 [multi-tenant](multi-tenant/README.md) for the current model.
@@ -70,7 +70,7 @@ All paths are under `packages/server/src/`.
 | `server/websocket-server.ts`    | WebSocket connection management, hello handshake, binary frame routing       |
 | `server/session.ts`             | Per-client session state, timeline subscriptions, terminal operations        |
 | `server/agent/agent-manager.ts` | Agent lifecycle state machine, timeline tracking, subscriber management      |
-| `server/agent/agent-storage.ts` | File-backed JSON persistence at `$PASEO_HOME/agents/`                        |
+| `server/agent/agent-storage.ts` | File-backed JSON persistence at `$DOYA_HOME/agents/`                         |
 | `server/agent/mcp-server.ts`    | MCP server for sub-agent creation, permissions, timeouts                     |
 | `server/agent/providers/`       | Provider adapters (see "Agent providers" below)                              |
 | `server/relay-transport.ts`     | Outbound relay connection with E2E encryption                                |
@@ -82,15 +82,15 @@ All paths are under `packages/server/src/`.
 
 The source of truth for WebSocket messages, binary frame codecs, endpoint parsing,
 agent timeline types, provider config schemas, and other values shared by daemon
-and clients. Server, app, CLI, and `@getpaseo/client` all depend on this package;
+and clients. Server, app, CLI, and `@getdoya/client` all depend on this package;
 it does not depend on the server.
 
 ### `packages/client` — Daemon client library and SDK facade
 
-Owns the low-level daemon WebSocket driver plus the higher-level `PaseoClient`
+Owns the low-level daemon WebSocket driver plus the higher-level `DoyaClient`
 facade. App and CLI may import the low-level driver from
-`@getpaseo/client/internal/daemon-client` during migration, while new SDK-shaped
-code imports from `@getpaseo/client`.
+`@getdoya/client/internal/daemon-client` during migration, while new SDK-shaped
+code imports from `@getdoya/client`.
 
 ### `packages/app` — Mobile + web client (Expo)
 
@@ -102,23 +102,23 @@ Cross-platform React Native app that connects to one or more daemons.
 - Composer UI and submit/draft behavior live in `packages/app/src/composer/`; screens and panels should integrate it from there instead of dropping composer internals into `components/`, `hooks/`, or `screens/workspace/`
 - Timeline reducers in `timeline/session-stream-reducers.ts` handle compaction, gap detection, sequence-based deduplication
 - Timeline sync correctness is documented in [docs/timeline-sync.md](timeline-sync.md): live streams are for immediacy, `fetch_agent_timeline_request` is authoritative, and catch-up is paged but complete.
-- Messages that mix full agent prompts with special rendered chat UI use [Paseo Message Markup](paseo-message-markup.md).
+- Messages that mix full agent prompts with special rendered chat UI use [Doya Message Markup](doya-message-markup.md).
 - Voice features: dictation (STT) and voice agent (realtime)
 
 ### `packages/cli` — Command-line client
 
-Commander.js CLI with Docker-style commands. Common agent operations are also exposed at the top level (e.g. `paseo ls`, `paseo run`).
+Commander.js CLI with Docker-style commands. Common agent operations are also exposed at the top level (e.g. `doya ls`, `doya run`).
 
-- `paseo agent ls/run/import/attach/logs/stop/delete/send/inspect/wait/archive/reload/update/mode`
-- `paseo daemon start/stop/restart/status/pair/set-password`
-- `paseo chat ls/create/inspect/post/read/wait/delete`
-- `paseo terminal ls/create/capture/send-keys/kill`
-- `paseo loop run/ls/inspect/logs/stop`
-- `paseo schedule create/ls/inspect/update/pause/resume/run-once/logs/delete`
-- `paseo permit allow/deny/ls`
-- `paseo provider ls/models`
-- `paseo worktree create/ls/archive`
-- `paseo speech …`
+- `doya agent ls/run/import/attach/logs/stop/delete/send/inspect/wait/archive/reload/update/mode`
+- `doya daemon start/stop/restart/status/pair/set-password`
+- `doya chat ls/create/inspect/post/read/wait/delete`
+- `doya terminal ls/create/capture/send-keys/kill`
+- `doya loop run/ls/inspect/logs/stop`
+- `doya schedule create/ls/inspect/update/pause/resume/run-once/logs/delete`
+- `doya permit allow/deny/ls`
+- `doya provider ls/models`
+- `doya worktree create/ls/archive`
+- `doya speech …`
 
 Communicates with the daemon via the same WebSocket protocol as the app.
 
@@ -130,7 +130,7 @@ Enables remote access when the daemon is behind a firewall.
 - Relay server is zero-knowledge — it routes encrypted bytes, cannot read content
 - Client and daemon channels with identical API (`createClientChannel`, `createDaemonChannel`)
 - Pairing via QR code transfers the daemon's public key to the client
-- Self-hosted relays opt into TLS with `daemon.relay.useTls` or `PASEO_RELAY_USE_TLS=true`; the public (client-facing) TLS setting can be overridden independently via `daemon.relay.publicUseTls` or `PASEO_RELAY_PUBLIC_USE_TLS`
+- Self-hosted relays opt into TLS with `daemon.relay.useTls` or `DOYA_RELAY_USE_TLS=true`; the public (client-facing) TLS setting can be overridden independently via `daemon.relay.publicUseTls` or `DOYA_RELAY_PUBLIC_USE_TLS`
 
 See [SECURITY.md](../SECURITY.md) for the full threat model.
 
@@ -144,7 +144,7 @@ Electron wrapper for macOS, Linux, and Windows.
 
 ### `packages/website` — Marketing site
 
-TanStack Router + Cloudflare Workers. Serves paseo.sh.
+TanStack Router + Cloudflare Workers. Serves doya.sh.
 
 ## WebSocket protocol
 
@@ -236,7 +236,7 @@ initializing → idle ⇄ running
 - Timeline is append-only with epochs (each run starts a new epoch). Storage uses sequence numbers for client-side dedup; the default fetch page is 200 items
 - Timeline row `timestamp` values are canonical daemon-owned timestamps. Providers may supply original replay timestamps, but clients must not guess timestamp trust or hide time UI based on local clock heuristics.
 - Events stream to connected clients in real time; correctness is backed by authoritative timeline fetches and paged-to-completion catch-up.
-- Agent state persists to `$PASEO_HOME/agents/{cwd-with-dashes}/{agent-id}.json` (timeline rows live alongside the record)
+- Agent state persists to `$DOYA_HOME/agents/{cwd-with-dashes}/{agent-id}.json` (timeline rows live alongside the record)
 
 ## Agent providers
 
@@ -274,10 +274,10 @@ All providers:
 
 ## Storage
 
-`$PASEO_HOME` defaults to `~/.paseo`. The most important files:
+`$DOYA_HOME` defaults to `~/.doya`. The most important files:
 
 ```
-$PASEO_HOME/
+$DOYA_HOME/
 ├── agents/{cwd-with-dashes}/{agent-id}.json   # Agent record + persisted timeline rows
 ├── projects/projects.json                      # Project registry
 ├── projects/workspaces.json                    # Workspace registry
@@ -287,12 +287,12 @@ $PASEO_HOME/
 ├── config.json                                 # Daemon config (mutable)
 ├── daemon-keypair.json                         # Daemon identity for relay/E2EE
 ├── push-tokens.json                            # Mobile push tokens
-├── paseo.sock / paseo.pid                      # Local IPC socket and pidfile
+├── doya.sock / doya.pid                      # Local IPC socket and pidfile
 └── daemon.log                                  # Daemon trace logs (rotated)
 ```
 
 ## Deployment models
 
-1. **Local daemon** (default): `paseo daemon start` on `127.0.0.1:6767`
+1. **Local daemon** (default): `doya daemon start` on `127.0.0.1:6767`
 2. **Managed desktop**: Electron app spawns daemon as subprocess
 3. **Remote + relay**: Daemon behind firewall, relay bridges with E2E encryption

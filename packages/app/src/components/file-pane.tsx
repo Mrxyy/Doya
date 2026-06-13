@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { DaemonClient, FileReadResult } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient, FileReadResult } from "@getdoya/client/internal/daemon-client";
 import Markdown, { MarkdownIt } from "react-native-markdown-display";
 import {
   ActivityIndicator,
@@ -15,7 +15,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { useSessionStore, type ExplorerFile } from "@/stores/session-store";
 import { useWebScrollViewScrollbar } from "@/components/use-web-scrollbar";
 import { useWebScrollbarStyle } from "@/hooks/use-web-scrollbar-style";
-import { highlightCode, type HighlightToken } from "@getpaseo/highlight";
+import { highlightCode, type HighlightToken } from "@getdoya/highlight";
 import { Button } from "@/components/ui/button";
 import { syntaxTokenStyleFor } from "@/styles/syntax-token-styles";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";

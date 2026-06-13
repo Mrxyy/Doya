@@ -91,7 +91,7 @@ export async function primeAdditionalPage(page: Page): Promise<void> {
   });
   await page.addInitScript(
     ({ daemon: seededDaemon, preferences: seededPreferences, seedNonce: nonce }) => {
-      const disableOnceKey = "@paseo:e2e-disable-default-seed-once";
+      const disableOnceKey = "@doya:e2e-disable-default-seed-once";
       const disableValue = localStorage.getItem(disableOnceKey);
       if (disableValue) {
         localStorage.removeItem(disableOnceKey);
@@ -100,11 +100,11 @@ export async function primeAdditionalPage(page: Page): Promise<void> {
         }
       }
 
-      localStorage.setItem("@paseo:e2e", "1");
-      localStorage.setItem("@paseo:e2e-seed-nonce", nonce);
-      localStorage.setItem("@paseo:daemon-registry", JSON.stringify([seededDaemon]));
-      localStorage.removeItem("@paseo:settings");
-      localStorage.setItem("@paseo:create-agent-preferences", JSON.stringify(seededPreferences));
+      localStorage.setItem("@doya:e2e", "1");
+      localStorage.setItem("@doya:e2e-seed-nonce", nonce);
+      localStorage.setItem("@doya:daemon-registry", JSON.stringify([seededDaemon]));
+      localStorage.removeItem("@doya:settings");
+      localStorage.setItem("@doya:create-agent-preferences", JSON.stringify(seededPreferences));
     },
     { daemon, preferences, seedNonce },
   );
@@ -117,10 +117,10 @@ export async function resetSeededPageState(page: Page): Promise<void> {
   await page.evaluate(
     ({ daemon: seededDaemon, preferences: seededPreferences }) => {
       localStorage.clear();
-      localStorage.setItem("@paseo:e2e", "1");
-      localStorage.setItem("@paseo:daemon-registry", JSON.stringify([seededDaemon]));
-      localStorage.setItem("@paseo:create-agent-preferences", JSON.stringify(seededPreferences));
-      localStorage.removeItem("@paseo:settings");
+      localStorage.setItem("@doya:e2e", "1");
+      localStorage.setItem("@doya:daemon-registry", JSON.stringify([seededDaemon]));
+      localStorage.setItem("@doya:create-agent-preferences", JSON.stringify(seededPreferences));
+      localStorage.removeItem("@doya:settings");
     },
     { daemon, preferences },
   );

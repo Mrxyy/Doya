@@ -3,6 +3,7 @@
 ## Design Specification & Outline Reference
 
 `design_spec_reference.md` is an all-in-one reference template for defining:
+
 1.  **Visual Specifications**: Canvas dimensions, color scheme, typography, layout principles
 2.  **Content Outline**: Slide-by-slide page structure planning
 3.  **Technical Constraints**: Hard requirements for SVG generation and PPT compatibility
@@ -55,13 +56,13 @@ The `charts/` directory contains 57 standardized visualization templates. For ba
 
 The `icons/` directory contains 11,600+ vector icons across five libraries:
 
-| Library | Style | Count |
-|---------|-------|-------|
-| `chunk-filled` | fill / straight-line geometry | 640 |
-| `tabler-filled` | fill / bezier-curve forms | 1000+ |
-| `tabler-outline` | stroke / line | 5000+ |
+| Library            | Style                                          | Count |
+| ------------------ | ---------------------------------------------- | ----- |
+| `chunk-filled`     | fill / straight-line geometry                  | 640   |
+| `tabler-filled`    | fill / bezier-curve forms                      | 1000+ |
+| `tabler-outline`   | stroke / line                                  | 5000+ |
 | `phosphor-duotone` | duotone / single color + 0.2 opacity backplate | 1200+ |
-| `simple-icons` | brand logos (company / product marks) | 3400+ |
+| `simple-icons`     | brand logos (company / product marks)          | 3400+ |
 
 - **Usage & style rules**: [icons/README.md](./icons/README.md)
 - **Search icons**: `ls skills/ppt-master/templates/icons/<library>/ | grep <keyword>`

@@ -1,7 +1,7 @@
 import * as React from "react";
 
 export function releaseBase(version: string) {
-  return `https://github.com/getpaseo/paseo/releases/download/v${version}`;
+  return `https://github.com/getdoya/doya/releases/download/v${version}`;
 }
 
 export interface ReleaseAssetInfo {
@@ -14,20 +14,20 @@ export function downloadUrls(release: ReleaseAssetInfo) {
   const { version, windowsX64Asset, windowsArm64Asset } = release;
   const base = releaseBase(version);
   return {
-    macAppleSilicon: `${base}/Paseo-${version}-arm64.dmg`,
-    macIntel: `${base}/Paseo-${version}-x64.dmg`,
-    linuxAppImage: `${base}/Paseo-${version}-x86_64.AppImage`,
-    linuxDeb: `${base}/Paseo-${version}-amd64.deb`,
-    linuxRpm: `${base}/Paseo-${version}-x86_64.rpm`,
-    windowsExeX64: `${base}/${windowsX64Asset ?? `Paseo-Setup-${version}.exe`}`,
+    macAppleSilicon: `${base}/Doya-${version}-arm64.dmg`,
+    macIntel: `${base}/Doya-${version}-x64.dmg`,
+    linuxAppImage: `${base}/Doya-${version}-x86_64.AppImage`,
+    linuxDeb: `${base}/Doya-${version}-amd64.deb`,
+    linuxRpm: `${base}/Doya-${version}-x86_64.rpm`,
+    windowsExeX64: `${base}/${windowsX64Asset ?? `Doya-Setup-${version}.exe`}`,
     windowsExeArm64: windowsArm64Asset ? `${base}/${windowsArm64Asset}` : null,
-    androidApk: `${base}/paseo-v${version}-android.apk`,
+    androidApk: `${base}/doya-v${version}-android.apk`,
   };
 }
 
-export const appStoreUrl = "https://apps.apple.com/app/paseo-pocket-engineer/id6758887924";
-export const playStoreUrl = "https://play.google.com/store/apps/details?id=sh.paseo";
-export const webAppUrl = "https://app.paseo.sh";
+export const appStoreUrl = "https://apps.apple.com/app/doya-pocket-engineer/id6758887924";
+export const playStoreUrl = "https://play.google.com/store/apps/details?id=sh.doya";
+export const webAppUrl = "https://app.doya.sh";
 
 type Platform = "mac-silicon" | "mac-intel" | "windows" | "linux";
 

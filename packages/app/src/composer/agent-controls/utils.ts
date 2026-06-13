@@ -1,4 +1,4 @@
-import type { AgentFeature, AgentModelDefinition } from "@getpaseo/protocol/agent-types";
+import type { AgentFeature, AgentModelDefinition } from "@getdoya/protocol/agent-types";
 import { translateNow } from "@/i18n/translate";
 
 export type ExplainedAgentControl = "mode" | "model" | "thinking";

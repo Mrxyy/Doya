@@ -5,58 +5,58 @@ describe("buildScriptHostname", () => {
   it("builds default branch hostnames with script and project labels", () => {
     expect(
       buildScriptHostname({
-        projectSlug: "paseo",
+        projectSlug: "doya",
         branchName: null,
         scriptName: "web",
       }),
-    ).toBe("web.paseo.localhost");
+    ).toBe("web.doya.localhost");
   });
 
   it("omits the branch label for main and master", () => {
     expect(
       buildScriptHostname({
-        projectSlug: "paseo",
+        projectSlug: "doya",
         branchName: "main",
         scriptName: "web",
       }),
-    ).toBe("web.paseo.localhost");
+    ).toBe("web.doya.localhost");
     expect(
       buildScriptHostname({
-        projectSlug: "paseo",
+        projectSlug: "doya",
         branchName: "master",
         scriptName: "web",
       }),
-    ).toBe("web.paseo.localhost");
+    ).toBe("web.doya.localhost");
   });
 
   it("builds non-default branch hostnames with script, branch, and project labels", () => {
     expect(
       buildScriptHostname({
-        projectSlug: "paseo",
+        projectSlug: "doya",
         branchName: "feature-auth",
         scriptName: "web",
       }),
-    ).toBe("web.feature-auth.paseo.localhost");
+    ).toBe("web.feature-auth.doya.localhost");
   });
 
   it("slugifies script, default branch project, and non-default branch labels", () => {
     expect(
       buildScriptHostname({
-        projectSlug: "Paseo App",
+        projectSlug: "Doya App",
         branchName: "Feature/Auth Flow",
         scriptName: "Web/API @ Dev",
       }),
-    ).toBe("web-api-dev.feature-auth-flow.paseo-app.localhost");
+    ).toBe("web-api-dev.feature-auth-flow.doya-app.localhost");
   });
 
   it("accepts already slugified labels because slugify is idempotent", () => {
     expect(
       buildScriptHostname({
-        projectSlug: "paseo-app",
+        projectSlug: "doya-app",
         branchName: "feature-auth-flow",
         scriptName: "web-api-dev",
       }),
-    ).toBe("web-api-dev.feature-auth-flow.paseo-app.localhost");
+    ).toBe("web-api-dev.feature-auth-flow.doya-app.localhost");
   });
 
   it("uses untitled as the hostname-label fallback when labels collapse to empty", () => {

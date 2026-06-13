@@ -55,10 +55,10 @@ function createCoreDeps(options?: { github?: GitHubService }) {
   };
 }
 
-function createGitRepo(): { tempDir: string; repoDir: string; paseoHome: string } {
+function createGitRepo(): { tempDir: string; repoDir: string; doyaHome: string } {
   const tempDir = realpathSync(mkdtempSync(path.join(tmpdir(), "worktree-core-test-")));
   const repoDir = path.join(tempDir, "repo");
-  const paseoHome = path.join(tempDir, ".paseo");
+  const doyaHome = path.join(tempDir, ".doya");
   mkdirSync(repoDir, { recursive: true });
   execFileSync("git", ["init", "-b", "main"], { cwd: repoDir, stdio: "pipe" });
   execFileSync("git", ["config", "user.email", "test@test.com"], { cwd: repoDir, stdio: "pipe" });
@@ -69,11 +69,11 @@ function createGitRepo(): { tempDir: string; repoDir: string; paseoHome: string 
     cwd: repoDir,
     stdio: "pipe",
   });
-  return { tempDir, repoDir, paseoHome };
+  return { tempDir, repoDir, doyaHome };
 }
 
-function createGitRepoWithDevBranch(): { tempDir: string; repoDir: string; paseoHome: string } {
-  const { tempDir, repoDir, paseoHome } = createGitRepo();
+function createGitRepoWithDevBranch(): { tempDir: string; repoDir: string; doyaHome: string } {
+  const { tempDir, repoDir, doyaHome } = createGitRepo();
   execFileSync("git", ["checkout", "-b", "dev"], { cwd: repoDir, stdio: "pipe" });
   writeFileSync(path.join(repoDir, "README.md"), "dev branch\n");
   execFileSync("git", ["add", "README.md"], { cwd: repoDir, stdio: "pipe" });
@@ -82,20 +82,20 @@ function createGitRepoWithDevBranch(): { tempDir: string; repoDir: string; paseo
     stdio: "pipe",
   });
   execFileSync("git", ["checkout", "main"], { cwd: repoDir, stdio: "pipe" });
-  return { tempDir, repoDir, paseoHome };
+  return { tempDir, repoDir, doyaHome };
 }
 
-function createGitRepoWithOriginMain(): { tempDir: string; repoDir: string; paseoHome: string } {
-  const { tempDir, repoDir, paseoHome } = createGitRepo();
+function createGitRepoWithOriginMain(): { tempDir: string; repoDir: string; doyaHome: string } {
+  const { tempDir, repoDir, doyaHome } = createGitRepo();
   const remoteDir = path.join(tempDir, "origin.git");
   execFileSync("git", ["clone", "--bare", repoDir, remoteDir], { stdio: "pipe" });
   execFileSync("git", ["remote", "add", "origin", remoteDir], { cwd: repoDir, stdio: "pipe" });
   execFileSync("git", ["fetch", "origin"], { cwd: repoDir, stdio: "pipe" });
-  return { tempDir, repoDir, paseoHome };
+  return { tempDir, repoDir, doyaHome };
 }
 
-function createGitHubPrRemoteRepo(): { tempDir: string; repoDir: string; paseoHome: string } {
-  const { tempDir, repoDir, paseoHome } = createGitRepo();
+function createGitHubPrRemoteRepo(): { tempDir: string; repoDir: string; doyaHome: string } {
+  const { tempDir, repoDir, doyaHome } = createGitRepo();
   const featureBranch = "feature/review-pr";
   execFileSync("git", ["checkout", "-b", featureBranch], { cwd: repoDir, stdio: "pipe" });
   writeFileSync(path.join(repoDir, "README.md"), "review branch\n");
@@ -120,16 +120,16 @@ function createGitHubPrRemoteRepo(): { tempDir: string; repoDir: string; paseoHo
   execFileSync("git", ["remote", "add", "origin", remoteDir], { cwd: repoDir, stdio: "pipe" });
   execFileSync("git", ["fetch", "origin"], { cwd: repoDir, stdio: "pipe" });
 
-  return { tempDir, repoDir, paseoHome };
+  return { tempDir, repoDir, doyaHome };
 }
 
 function createForkGitHubPrRemoteRepo(): {
   tempDir: string;
   repoDir: string;
   headRemoteDir: string;
-  paseoHome: string;
+  doyaHome: string;
 } {
-  const { tempDir, repoDir, paseoHome } = createGitRepo();
+  const { tempDir, repoDir, doyaHome } = createGitRepo();
   const baseRemoteDir = path.join(tempDir, "base.git");
   const headRemoteDir = path.join(tempDir, "therainisme.git");
   const headCloneDir = path.join(tempDir, "therainisme-clone");
@@ -171,7 +171,7 @@ function createForkGitHubPrRemoteRepo(): {
   });
   execFileSync("git", ["fetch", "origin"], { cwd: repoDir, stdio: "pipe" });
 
-  return { tempDir, repoDir, headRemoteDir, paseoHome };
+  return { tempDir, repoDir, headRemoteDir, doyaHome };
 }
 
 function getBranchUpstream(cwd: string): string | null {
@@ -193,14 +193,14 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("creates the legacy RPC branch-off worktree from the repo default branch", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitRepo();
+      const { tempDir, repoDir, doyaHome } = createGitRepo();
       cleanupPaths.push(tempDir);
 
       const result = await createCoreWorktree(
         {
           cwd: repoDir,
           worktreeSlug: "legacy-rpc",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -217,7 +217,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("creates branch-off worktrees from origin main without tracking origin main", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitRepoWithOriginMain();
+      const { tempDir, repoDir, doyaHome } = createGitRepoWithOriginMain();
       cleanupPaths.push(tempDir);
 
       const result = await createCoreWorktree(
@@ -226,7 +226,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           worktreeSlug: "no-upstream-feature",
           action: "branch-off",
           refName: "main",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -241,13 +241,13 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("creates a branch-off worktree with a mnemonic slug when no slug is supplied", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitRepo();
+      const { tempDir, repoDir, doyaHome } = createGitRepo();
       cleanupPaths.push(tempDir);
 
       const result = await createCoreWorktree(
         {
           cwd: repoDir,
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -261,7 +261,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("checks out an explicit GitHub PR branch with legacy RPC fields", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitHubPrRemoteRepo();
+      const { tempDir, repoDir, doyaHome } = createGitHubPrRemoteRepo();
       cleanupPaths.push(tempDir);
 
       const result = await createCoreWorktree(
@@ -270,7 +270,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           worktreeSlug: "review-pr-123",
           githubPrNumber: 123,
           refName: "feature/review-pr",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -286,7 +286,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("uses the PR head ref as the default slug when no slug is supplied", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitHubPrRemoteRepo();
+      const { tempDir, repoDir, doyaHome } = createGitHubPrRemoteRepo();
       cleanupPaths.push(tempDir);
 
       const result = await createCoreWorktree(
@@ -294,7 +294,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           cwd: repoDir,
           githubPrNumber: 123,
           refName: "feature/review-pr",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -305,14 +305,14 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("creates the MCP standalone worktree input shape", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitRepo();
+      const { tempDir, repoDir, doyaHome } = createGitRepo();
       cleanupPaths.push(tempDir);
 
       const result = await createCoreWorktree(
         {
           cwd: repoDir,
           worktreeSlug: "mcp-standalone",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -327,7 +327,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("branches off an explicit refName base", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitRepoWithDevBranch();
+      const { tempDir, repoDir, doyaHome } = createGitRepoWithDevBranch();
       cleanupPaths.push(tempDir);
       const devTip = execFileSync("git", ["rev-parse", "dev"], { cwd: repoDir, stdio: "pipe" })
         .toString()
@@ -339,7 +339,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           worktreeSlug: "from-dev",
           action: "branch-off",
           refName: "dev",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -360,7 +360,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("checks out an explicit existing branch", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitRepoWithDevBranch();
+      const { tempDir, repoDir, doyaHome } = createGitRepoWithDevBranch();
       cleanupPaths.push(tempDir);
 
       const result = await createCoreWorktree(
@@ -368,7 +368,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           cwd: repoDir,
           action: "checkout",
           refName: "dev",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -388,7 +388,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("checks out an explicit GitHub PR target", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitHubPrRemoteRepo();
+      const { tempDir, repoDir, doyaHome } = createGitHubPrRemoteRepo();
       cleanupPaths.push(tempDir);
 
       const result = await createCoreWorktree(
@@ -396,7 +396,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           cwd: repoDir,
           action: "checkout",
           githubPrNumber: 123,
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -412,7 +412,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("checks out a fork PR whose head branch collides with local main", async () => {
-      const { tempDir, repoDir, headRemoteDir, paseoHome } = createForkGitHubPrRemoteRepo();
+      const { tempDir, repoDir, headRemoteDir, doyaHome } = createForkGitHubPrRemoteRepo();
       cleanupPaths.push(tempDir);
       const github = {
         ...createGitHubServiceStub(),
@@ -433,7 +433,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 526,
           refName: "main",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps({ github }),
@@ -484,7 +484,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("uses a unique local branch when the same fork PR branch already exists", async () => {
-      const { tempDir, repoDir, headRemoteDir, paseoHome } = createForkGitHubPrRemoteRepo();
+      const { tempDir, repoDir, headRemoteDir, doyaHome } = createForkGitHubPrRemoteRepo();
       cleanupPaths.push(tempDir);
       const github = {
         ...createGitHubServiceStub(),
@@ -506,7 +506,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 526,
           refName: "main",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps({ github }),
@@ -518,7 +518,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           action: "checkout",
           githubPrNumber: 526,
           refName: "main",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps({ github }),
@@ -527,7 +527,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
       expect(first.worktree.branchName).toBe("therainisme/main");
       expect(second.worktree.branchName).toBe("therainisme/main-1");
       expect(
-        execFileSync("git", ["config", "--get", "remote.paseo-pr-526.push"], {
+        execFileSync("git", ["config", "--get", "remote.doya-pr-526.push"], {
           cwd: second.worktree.worktreePath,
           stdio: "pipe",
         })
@@ -537,7 +537,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("throws a typed error for an unknown checkout branch", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitRepo();
+      const { tempDir, repoDir, doyaHome } = createGitRepo();
       cleanupPaths.push(tempDir);
 
       await expect(
@@ -546,7 +546,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
             cwd: repoDir,
             action: "checkout",
             refName: "missing-branch",
-            paseoHome,
+            doyaHome,
             runSetup: false,
           },
           createCoreDeps(),
@@ -555,14 +555,14 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("creates the agent-create worktree input shape", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitRepo();
+      const { tempDir, repoDir, doyaHome } = createGitRepo();
       cleanupPaths.push(tempDir);
 
       const result = await createCoreWorktree(
         {
           cwd: repoDir,
           worktreeSlug: "agent-worktree",
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps(),
@@ -578,16 +578,16 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
 
     // POSIX-only: Windows git worktree paths need separate canonicalization coverage.
     test("reuses an existing branch-off worktree for the same slug", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitRepo();
+      const { tempDir, repoDir, doyaHome } = createGitRepo();
       cleanupPaths.push(tempDir);
       const deps = createCoreDeps();
 
       const first = await createCoreWorktree(
-        { cwd: repoDir, worktreeSlug: "reused-worktree", paseoHome, runSetup: false },
+        { cwd: repoDir, worktreeSlug: "reused-worktree", doyaHome, runSetup: false },
         deps,
       );
       const second = await createCoreWorktree(
-        { cwd: repoDir, worktreeSlug: "reused-worktree", paseoHome, runSetup: false },
+        { cwd: repoDir, worktreeSlug: "reused-worktree", doyaHome, runSetup: false },
         deps,
       );
 
@@ -598,14 +598,14 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
 
     // POSIX-only: Windows git worktree paths need separate canonicalization coverage.
     test("reuses an existing GitHub PR worktree for the resolved slug", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitHubPrRemoteRepo();
+      const { tempDir, repoDir, doyaHome } = createGitHubPrRemoteRepo();
       cleanupPaths.push(tempDir);
       const deps = createCoreDeps();
       const input = {
         cwd: repoDir,
         githubPrNumber: 123,
         refName: "feature/review-pr",
-        paseoHome,
+        doyaHome,
         runSetup: false,
       };
 
@@ -618,7 +618,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
     });
 
     test("uses an injectable GitHubService dependency for missing PR head refs", async () => {
-      const { tempDir, repoDir, paseoHome } = createGitHubPrRemoteRepo();
+      const { tempDir, repoDir, doyaHome } = createGitHubPrRemoteRepo();
       cleanupPaths.push(tempDir);
       const headRefLookups: Array<{ cwd: string; number: number }> = [];
       const github: GitHubService = {
@@ -634,7 +634,7 @@ describe.skipIf(isPlatform("win32"))("worktree-core POSIX-only", () => {
           cwd: repoDir,
           worktreeSlug: "stubbed-github",
           githubPrNumber: 123,
-          paseoHome,
+          doyaHome,
           runSetup: false,
         },
         createCoreDeps({ github }),

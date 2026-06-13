@@ -6,17 +6,17 @@ Stable, professional, restrained. The default palette for consulting / finance /
 
 ## 1. Compatible renderings
 
-| Rendering | Notes |
-|---|---|
-| ✓✓ vector-illustration | Default pairing — flat shapes carry the restraint |
-| ✓✓ flat | Similar feel, slightly more decorative |
-| ✓✓ 3d-isometric | Works well — keep shadows soft and 8% opacity |
-| ✓✓ digital-dashboard | Natural fit for data products |
-| ✓✓ blueprint | Good for technical architecture |
-| ✓✓ corporate-photo | Photography with cool color grading |
-| ✓✓ editorial | Magazine restraint matches palette restraint |
+| Rendering                                      | Notes                                                                        |
+| ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| ✓✓ vector-illustration                         | Default pairing — flat shapes carry the restraint                            |
+| ✓✓ flat                                        | Similar feel, slightly more decorative                                       |
+| ✓✓ 3d-isometric                                | Works well — keep shadows soft and 8% opacity                                |
+| ✓✓ digital-dashboard                           | Natural fit for data products                                                |
+| ✓✓ blueprint                                   | Good for technical architecture                                              |
+| ✓✓ corporate-photo                             | Photography with cool color grading                                          |
+| ✓✓ editorial                                   | Magazine restraint matches palette restraint                                 |
 | ✗ sketch-notes / fantasy-animation / pixel-art | Temperament conflict — choose `warm-earth` or `macaron` for those renderings |
-| ✗ dark-cinematic combinations | Dark-cinematic is a different palette — don't try to merge |
+| ✗ dark-cinematic combinations                  | Dark-cinematic is a different palette — don't try to merge                   |
 
 ---
 

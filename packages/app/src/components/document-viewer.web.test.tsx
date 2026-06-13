@@ -413,10 +413,10 @@ describe("DocumentViewer web annotation interactions", () => {
         document: expect.objectContaining({
           fileType: "xlsx",
           title: "budget.xlsx",
-          url: expect.stringContaining("paseo-onlyoffice-host-proxy"),
+          url: expect.stringContaining("doya-onlyoffice-host-proxy"),
         }),
         editorConfig: expect.objectContaining({
-          callbackUrl: expect.stringContaining("paseo-onlyoffice-host-proxy"),
+          callbackUrl: expect.stringContaining("doya-onlyoffice-host-proxy"),
           customization: expect.objectContaining({
             compactHeader: true,
             logo: { visible: false },
@@ -425,7 +425,7 @@ describe("DocumentViewer web annotation interactions", () => {
           plugins: expect.objectContaining({
             autostart: ["asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}"],
             pluginsData: [
-              expect.stringContaining("/api/onlyoffice/paseo-selection-plugin/config.json"),
+              expect.stringContaining("/api/onlyoffice/doya-selection-plugin/config.json"),
             ],
           }),
         }),
@@ -521,9 +521,12 @@ describe("DocumentViewer web annotation interactions", () => {
         context: "value=96000",
       });
     });
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/onlyoffice/selection-capture"), {
-      cache: "no-store",
-    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/onlyoffice/selection-capture"),
+      {
+        cache: "no-store",
+      },
+    );
   });
 
   it("does not create PDF targets from preview clicks or drags", async () => {
@@ -637,7 +640,7 @@ describe("DocumentViewer web annotation interactions", () => {
     });
   });
 
-  it("uses EmbedPDF annotations even when Paseo annotation mode is off", async () => {
+  it("uses EmbedPDF annotations even when Doya annotation mode is off", async () => {
     const { registry, annotationCapability, emitAnnotationEvent } = createEmbedPdfRegistryMock({
       annotation: true,
     });
@@ -793,7 +796,7 @@ describe("DocumentViewer web annotation interactions", () => {
 
     expect(semanticTarget).toBeInstanceOf(HTMLElement);
     await waitFor(() => {
-      expect((semanticTarget as HTMLElement).dataset.paseoDocxAnnotationState).toBe("selected");
+      expect((semanticTarget as HTMLElement).dataset.doyaDocxAnnotationState).toBe("selected");
     });
   });
 

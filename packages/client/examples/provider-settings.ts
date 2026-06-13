@@ -1,7 +1,7 @@
-import { createPaseoClient, type PaseoClient } from "@getpaseo/client";
+import { createDoyaClient, type DoyaClient } from "@getdoya/client";
 
-export function createClient(url: string): PaseoClient {
-  return createPaseoClient({
+export function createClient(url: string): DoyaClient {
+  return createDoyaClient({
     url,
   });
 }

@@ -32,8 +32,8 @@ interface StartupSplashScreenProps {
   };
 }
 
-const GITHUB_ISSUE_URL = "https://github.com/getpaseo/paseo/issues/new";
-const DOCS_URL = "https://paseo.sh/docs";
+const GITHUB_ISSUE_URL = "https://github.com/getdoya/doya/issues/new";
+const DOCS_URL = "https://doya.sh/docs";
 
 const LOGO_SIZE = 96;
 const LOGO_GROWTH_DURATION_MS = 1800;

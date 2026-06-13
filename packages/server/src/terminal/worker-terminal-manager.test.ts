@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { createWorkerTerminalManager } from "./worker-terminal-manager.js";
 import type { TerminalManager } from "./terminal-manager.js";
 import type { TerminalSession } from "./terminal.js";
-import type { TerminalState } from "@getpaseo/protocol/messages";
+import type { TerminalState } from "@getdoya/protocol/messages";
 import type {
   TerminalWorkerRequest,
   TerminalWorkerToParentMessage,
@@ -293,7 +293,7 @@ it("keeps registered cwd env inheritance behind the worker manager interface", a
 
   manager.registerCwdEnv({
     cwd,
-    env: { PASEO_WORKER_TERMINAL_TEST: "worker-env" },
+    env: { DOYA_WORKER_TERMINAL_TEST: "worker-env" },
   });
   trackTerminal(
     await manager.createTerminal({
@@ -301,7 +301,7 @@ it("keeps registered cwd env inheritance behind the worker manager interface", a
       ...nodeTerminalCommand(`
       require("node:fs").writeFileSync(
         ${JSON.stringify(markerPath)},
-        process.env.PASEO_WORKER_TERMINAL_TEST ?? "",
+        process.env.DOYA_WORKER_TERMINAL_TEST ?? "",
       );
       setInterval(() => {}, 1000);
     `),

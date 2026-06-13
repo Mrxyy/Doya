@@ -1,16 +1,19 @@
 import type { Logger } from "pino";
 
-import { PARENT_AGENT_ID_LABEL } from "@getpaseo/protocol/agent-labels";
+import {
+  LEGACY_PARENT_AGENT_ID_LABEL,
+  PARENT_AGENT_ID_LABEL,
+} from "@getdoya/protocol/agent-labels";
 import type { TerminalManager } from "../../../terminal/terminal-manager.js";
-import type { CreatePaseoWorktreeInput } from "../../paseo-worktree-service.js";
+import type { CreateDoyaWorktreeInput } from "../../doya-worktree-service.js";
 import { expandUserPath, resolvePathFromBase } from "../../path-utils.js";
 import { toWorktreeRequestError } from "../../worktree-errors.js";
 import type { WorkspaceGitService } from "../../workspace-git-service.js";
 import type {
   AgentWorktreeSetupContinuation,
-  CreatePaseoWorktreeSetupContinuationInput,
-  CreatePaseoWorktreeWorkflowFn,
-  CreatePaseoWorktreeWorkflowResult,
+  CreateDoyaWorktreeSetupContinuationInput,
+  CreateDoyaWorktreeWorkflowFn,
+  CreateDoyaWorktreeWorkflowResult,
 } from "../../worktree-session.js";
 import type { AgentAttachment, FirstAgentContext, GitSetupOptions } from "../../messages.js";
 import type { AgentManager, ManagedAgent } from "../agent-manager.js";
@@ -45,7 +48,7 @@ interface CreateAgentCommandDependencies {
   agentManager: AgentManager;
   agentStorage: AgentStorage;
   logger: Logger;
-  paseoHome?: string;
+  doyaHome?: string;
   worktreesRoot?: string;
   workspaceGitService?: Pick<
     WorkspaceGitService,
@@ -54,7 +57,7 @@ interface CreateAgentCommandDependencies {
   terminalManager?: TerminalManager | null;
   providerSnapshotManager: ProviderSnapshotManager;
   daemonConfig?: StructuredGenerationDaemonConfig | null;
-  createPaseoWorktree?: CreatePaseoWorktreeWorkflowFn;
+  createDoyaWorktree?: CreateDoyaWorktreeWorkflowFn;
 }
 
 export interface CreateAgentFromSessionInput {
@@ -314,7 +317,7 @@ async function sendInitialPrompt(
     },
     initialPrompt: resolved.metadataInitialPrompt,
     explicitTitle: resolved.explicitTitle,
-    paseoHome: dependencies.paseoHome,
+    doyaHome: dependencies.doyaHome,
     logger: dependencies.logger,
   });
 
@@ -435,10 +438,10 @@ async function resolveMcpCwd(params: {
       githubPrNumber: worktree.githubPrNumber,
       ...(params.initialPrompt ? { firstAgentContext: { prompt: params.initialPrompt } } : {}),
       runSetup: false,
-      paseoHome: dependencies.paseoHome,
+      doyaHome: dependencies.doyaHome,
       worktreesRoot: dependencies.worktreesRoot,
     },
-    createPaseoWorktree: dependencies.createPaseoWorktree,
+    createDoyaWorktree: dependencies.createDoyaWorktree,
     resolveDefaultBranch: baseBranch ? async () => baseBranch : undefined,
     setupContinuation: {
       kind: "agent",
@@ -465,20 +468,20 @@ async function resolveMcpCwd(params: {
 }
 
 interface CreateMcpWorktreeOptions {
-  input: CreatePaseoWorktreeInput;
-  createPaseoWorktree: CreatePaseoWorktreeWorkflowFn | undefined;
+  input: CreateDoyaWorktreeInput;
+  createDoyaWorktree: CreateDoyaWorktreeWorkflowFn | undefined;
   resolveDefaultBranch?: (repoRoot: string) => Promise<string>;
-  setupContinuation?: CreatePaseoWorktreeSetupContinuationInput;
+  setupContinuation?: CreateDoyaWorktreeSetupContinuationInput;
 }
 
 async function createMcpWorktree(
   options: CreateMcpWorktreeOptions,
-): Promise<CreatePaseoWorktreeWorkflowResult> {
+): Promise<CreateDoyaWorktreeWorkflowResult> {
   try {
-    if (!options.createPaseoWorktree) {
-      throw new Error("Paseo worktree service is not configured");
+    if (!options.createDoyaWorktree) {
+      throw new Error("Doya worktree service is not configured");
     }
-    return await options.createPaseoWorktree(options.input, {
+    return await options.createDoyaWorktree(options.input, {
       ...(options.resolveDefaultBranch
         ? { resolveDefaultBranch: options.resolveDefaultBranch }
         : {}),
@@ -495,7 +498,7 @@ function mergeLabels(params: {
   childAgentDefaultLabels: Record<string, string> | undefined;
   labels: Record<string, string> | undefined;
 }): Record<string, string> | undefined {
-  const mergedLabels = {
+  const mergedLabels: Record<string, string> = {
     ...(!params.detached && params.callerAgentId
       ? { [PARENT_AGENT_ID_LABEL]: params.callerAgentId }
       : {}),
@@ -504,6 +507,7 @@ function mergeLabels(params: {
   };
   if (params.detached) {
     delete mergedLabels[PARENT_AGENT_ID_LABEL];
+    delete mergedLabels[LEGACY_PARENT_AGENT_ID_LABEL];
   }
   return Object.keys(mergedLabels).length > 0 ? mergedLabels : undefined;
 }

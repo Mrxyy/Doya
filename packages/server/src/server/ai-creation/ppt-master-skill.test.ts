@@ -7,7 +7,7 @@ import { preparePptCreationWorkspace } from "./ppt-master-skill.js";
 
 describe("ppt-master skill workspace preparation", () => {
   it("links the bundled skill and materializes file attachments", async () => {
-    const cwd = await mkdtemp(path.join(os.tmpdir(), "paseo-ppt-skill-"));
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "doya-ppt-skill-"));
 
     const attachments = await preparePptCreationWorkspace({
       cwd,
@@ -21,7 +21,7 @@ describe("ppt-master skill workspace preparation", () => {
       ],
     });
 
-    const skillStat = await lstat(path.join(cwd, ".paseo/skills/ppt-master"));
+    const skillStat = await lstat(path.join(cwd, ".doya/skills/ppt-master"));
     expect(skillStat.isSymbolicLink() || skillStat.isDirectory()).toBe(true);
     await expect(readFile(path.join(cwd, "attachments/source.md"), "utf8")).resolves.toBe(
       "# Source",

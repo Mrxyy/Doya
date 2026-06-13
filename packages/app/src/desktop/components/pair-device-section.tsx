@@ -173,7 +173,7 @@ function PairDeviceBody(props: PairDeviceBodyProps) {
 
   return (
     <View style={styles.content}>
-      <Text style={styles.hint}>{translateNow("ui.scan.this.qr.code.with.paseo.on.japl1n")}</Text>
+      <Text style={styles.hint}>{translateNow("ui.scan.this.qr.code.with.doya.on.japl1n")}</Text>
       <View style={styles.qrContainer}>
         <PairDeviceQrContent qrImageSource={qrImageSource} qrQuery={qrQuery} />
       </View>

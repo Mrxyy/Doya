@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import { getHostRuntimeStore, useHosts } from "@/runtime/host-runtime";
 import { normalizeWorkspaceDescriptor, type WorkspaceDescriptor } from "@/stores/session-store";
 import { buildProjects, type ProjectHost, type ProjectSummary } from "@/utils/projects";

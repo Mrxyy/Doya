@@ -1,4 +1,4 @@
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { AgentAttachment } from "@getdoya/protocol/messages";
 import { releaseAttachmentPreviewUrl, resolveAttachmentPreviewUrl } from "@/attachments/service";
 import type { AttachmentMetadata } from "@/attachments/types";
 import type { UserMessageImageAttachment } from "@/types/stream";

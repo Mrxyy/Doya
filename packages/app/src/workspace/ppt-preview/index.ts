@@ -1,4 +1,4 @@
-import { parseHostPort } from "@getpaseo/protocol/daemon-endpoints";
+import { parseHostPort } from "@getdoya/protocol/daemon-endpoints";
 
 export interface WorkspacePptPreviewTabTarget {
   kind: "pptPreview";

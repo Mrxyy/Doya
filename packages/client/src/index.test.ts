@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
-import { createPaseoClient } from "./index.js";
-import type { PaseoAgent, PaseoClient, PaseoProviderConfig, PaseoWorkspace } from "./index.js";
+import { createDoyaClient } from "./index.js";
+import type { DoyaAgent, DoyaClient, DoyaProviderConfig, DoyaWorkspace } from "./index.js";
 
 type FakeWebSocketHandler = (...args: unknown[]) => void;
 
@@ -80,9 +80,9 @@ function parseSentFrame(
   return JSON.parse(data);
 }
 
-async function connectClient(): Promise<{ client: PaseoClient; ws: FakeWebSocket }> {
+async function connectClient(): Promise<{ client: DoyaClient; ws: FakeWebSocket }> {
   vi.stubGlobal("WebSocket", FakeWebSocket);
-  const client = createPaseoClient({
+  const client = createDoyaClient({
     url: "ws://daemon.test",
     reconnect: { enabled: false },
   });
@@ -96,7 +96,7 @@ async function connectClient(): Promise<{ client: PaseoClient; ws: FakeWebSocket
     clientType: "cli",
     protocolVersion: 1,
   });
-  expect(hello.clientId).toEqual(expect.stringMatching(/^paseo-sdk-/));
+  expect(hello.clientId).toEqual(expect.stringMatching(/^doya-sdk-/));
   ws.message(
     sessionMessage({
       type: "status",
@@ -113,7 +113,7 @@ async function connectClient(): Promise<{ client: PaseoClient; ws: FakeWebSocket
   return { client, ws };
 }
 
-function createWorkspace(input: Partial<PaseoWorkspace> = {}): PaseoWorkspace {
+function createWorkspace(input: Partial<DoyaWorkspace> = {}): DoyaWorkspace {
   return {
     id: "workspace_sdk",
     projectId: "project_sdk",
@@ -133,7 +133,7 @@ function createWorkspace(input: Partial<PaseoWorkspace> = {}): PaseoWorkspace {
   };
 }
 
-function createAgent(input: Partial<PaseoAgent> = {}): PaseoAgent {
+function createAgent(input: Partial<DoyaAgent> = {}): DoyaAgent {
   return {
     id: "agent_sdk",
     provider: "codex",
@@ -165,7 +165,7 @@ function createAgent(input: Partial<PaseoAgent> = {}): PaseoAgent {
   };
 }
 
-test("createPaseoClient exposes workspace list through the daemon client", async () => {
+test("createDoyaClient exposes workspace list through the daemon client", async () => {
   const { client, ws } = await connectClient();
 
   const listPromise = client.workspaces.list({
@@ -749,7 +749,7 @@ test("provider config builders shape existing create-agent config fields", async
     modeId: "full-access",
     thinkingOptionId: "high",
     featureValues: { webSearch: true },
-  } satisfies PaseoProviderConfig;
+  } satisfies DoyaProviderConfig;
 
   expect(provider).toEqual(expectedProviderConfig);
 

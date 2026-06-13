@@ -16,24 +16,24 @@ primary_color: "#001529"
 
 ## I. Template Overview
 
-| Property       | Description                                                |
-| -------------- | ---------------------------------------------------------- |
-| **Template Name** | 中汽研_现代 (CATARC_Modern_Tech)                       |
-| **Use Cases**  | Forward-looking technology showcases, strategic releases, high-end business reporting |
-| **Design Tone** | **Futuristic, tech-forward, deep & refined**              |
-| **Theme Mode** | Immersive dark cover/transition pages + clean light-gray content pages |
+| Property          | Description                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------- |
+| **Template Name** | 中汽研\_现代 (CATARC_Modern_Tech)                                                     |
+| **Use Cases**     | Forward-looking technology showcases, strategic releases, high-end business reporting |
+| **Design Tone**   | **Futuristic, tech-forward, deep & refined**                                          |
+| **Theme Mode**    | Immersive dark cover/transition pages + clean light-gray content pages                |
 
 ---
 
 ## II. Canvas Specification
 
-| Property       | Value                         |
-| -------------- | ----------------------------- |
-| **Format**     | Standard 16:9                 |
-| **Dimensions** | 1280 × 720 px                |
-| **viewBox**    | `0 0 1280 720`               |
+| Property         | Value                                   |
+| ---------------- | --------------------------------------- |
+| **Format**       | Standard 16:9                           |
+| **Dimensions**   | 1280 × 720 px                           |
+| **viewBox**      | `0 0 1280 720`                          |
 | **Page Margins** | Left/Right 80px, Top 100px, Bottom 60px |
-| **Safe Area**  | x: 80-1200, y: 100-660       |
+| **Safe Area**    | x: 80-1200, y: 100-660                  |
 
 ---
 
@@ -41,23 +41,23 @@ primary_color: "#001529"
 
 ### Core Palette (Future Tech Palette)
 
-| Role           | Color Value | Gradient (SVG defs)            | Notes                            |
-| -------------- | ----------- | ------------------------------ | -------------------------------- |
-| **Deep Night Sky** | `#001529` | `#001529` -> `#002B52`        | Cover/transition page main background |
-| **Tech Blue**  | `#1890FF`  | `#1890FF` -> `#096DD9`         | Primary visual accent            |
-| **Neon Cyan**  | `#00E5FF`  | `#00E5FF` -> `#00B5D8`         | Ultra-bright accent for highlights/data |
-| **Polar Gray** | `#F7F9FC`  | N/A                            | Content page background (not pure white, easier on eyes) |
-| **Dark Night** | `#1F2937`  | N/A                            | Body text                        |
+| Role               | Color Value | Gradient (SVG defs)    | Notes                                                    |
+| ------------------ | ----------- | ---------------------- | -------------------------------------------------------- |
+| **Deep Night Sky** | `#001529`   | `#001529` -> `#002B52` | Cover/transition page main background                    |
+| **Tech Blue**      | `#1890FF`   | `#1890FF` -> `#096DD9` | Primary visual accent                                    |
+| **Neon Cyan**      | `#00E5FF`   | `#00E5FF` -> `#00B5D8` | Ultra-bright accent for highlights/data                  |
+| **Polar Gray**     | `#F7F9FC`   | N/A                    | Content page background (not pure white, easier on eyes) |
+| **Dark Night**     | `#1F2937`   | N/A                    | Body text                                                |
 
 ### Text Colors
 
-| Role           | Color Value | Usage                  |
-| -------------- | ----------- | ---------------------- |
-| **Heading (Dark BG)** | `#FFFFFF` | Main title on dark backgrounds |
-| **Heading (Light BG)** | `#001529` | Main title on light backgrounds |
-| **Body Text**  | `#374151`  | Content page body text  |
-| **Secondary Text** | `#6B7280` | Auxiliary descriptions  |
-| **Decorative Text** | `#E5E7EB` | Very light watermark text |
+| Role                   | Color Value | Usage                           |
+| ---------------------- | ----------- | ------------------------------- |
+| **Heading (Dark BG)**  | `#FFFFFF`   | Main title on dark backgrounds  |
+| **Heading (Light BG)** | `#001529`   | Main title on light backgrounds |
+| **Body Text**          | `#374151`   | Content page body text          |
+| **Secondary Text**     | `#6B7280`   | Auxiliary descriptions          |
+| **Decorative Text**    | `#E5E7EB`   | Very light watermark text       |
 
 ---
 
@@ -66,17 +66,17 @@ primary_color: "#001529"
 ### Font Stack
 
 **Primary Font Stack**: `Arial, "Microsoft YaHei", sans-serif`
-*Use Arial for English and numbers by default. Roboto or DIN may be used only when the font is explicitly installed or embedded for the target environment.*
+_Use Arial for English and numbers by default. Roboto or DIN may be used only when the font is explicitly installed or embedded for the target environment._
 
 ### Font Size Hierarchy
 
-| Level | Usage              | Size  | Weight  | Color      |
-| ----- | ------------------ | ----- | ------- | ---------- |
-| H1    | Cover main title   | 64px  | Bold    | #FFFFFF    |
-| H2    | Page heading       | 36px  | Bold    | #001529    |
-| H3    | Section title      | 24px  | Bold    | #1890FF    |
-| P     | Body content       | 18px  | Regular | #374151    |
-| Deco  | Decorative large numbers | 120px | Bold | Opacity 5% |
+| Level | Usage                    | Size  | Weight  | Color      |
+| ----- | ------------------------ | ----- | ------- | ---------- |
+| H1    | Cover main title         | 64px  | Bold    | #FFFFFF    |
+| H2    | Page heading             | 36px  | Bold    | #001529    |
+| H3    | Section title            | 24px  | Bold    | #1890FF    |
+| P     | Body content             | 18px  | Regular | #374151    |
+| Deco  | Decorative large numbers | 120px | Bold    | Opacity 5% |
 
 ---
 
@@ -93,27 +93,32 @@ primary_color: "#001529"
 ## VI. Page Types
 
 ### 1. Cover Page (01_cover.svg)
+
 - **Visual Focus**: **Deep spatial depth**. Background uses a deep blue radial gradient.
 - **Hero Element**: Right side features abstract **"Luminous Flow"** or **"Digital Matrix"** graphics.
 - **Title**: Bottom-left aligned, emphasizing bold typography with a neon-colored underline.
 
 ### 2. Table of Contents (02_toc.svg)
+
 - **Layout**: **Split Screen (left dark, right light)**.
 - **Left Side**: Dark area containing "CONTENTS" and Logo.
 - **Right Side**: Light area with TOC items. Replaces cards with **"Timeline"** or **"Floating List"** style.
 - **Numbers**: Highlighted in neon cyan (`#00E5FF`).
 
 ### 3. Chapter Page (02_chapter.svg)
+
 - **Background**: Dark background.
 - **Special Effect**: Large outlined numbers in the background (Stroke Text).
 - **Dynamism**: Added tilted decorative lines to simulate a sense of speed.
 
 ### 4. Content Page (03_content.svg)
+
 - **Background**: Very light gray `#F7F9FC`.
 - **Header**: Floating title bar for enhanced hierarchy.
 - **Watermark**: Tech-styled geometric watermark in the lower-right corner.
 
 ### 5. Ending Page (04_ending.svg)
+
 - **Background**: Echoes the cover.
 - **Center**: Minimalist "Thank You" with surrounding halo ring decoration.
 
@@ -121,35 +126,38 @@ primary_color: "#001529"
 
 ## VII. SVG Page Roster
 
-| File | Role | Description |
-|------|------|-------------|
-| `01_cover.svg` | cover | Title slide; brand/project name + presenter + date |
+| File             | Role    | Description                                         |
+| ---------------- | ------- | --------------------------------------------------- |
+| `01_cover.svg`   | cover   | Title slide; brand/project name + presenter + date  |
 | `02_chapter.svg` | chapter | Chapter divider page (large number + chapter title) |
-| `02_toc.svg` | toc | Table of contents listing major sections |
-| `03_content.svg` | content | Main content page; body of the deck |
-| `04_ending.svg` | ending | Closing/thank-you page |
+| `02_toc.svg`     | toc     | Table of contents listing major sections            |
+| `03_content.svg` | content | Main content page; body of the deck                 |
+| `04_ending.svg`  | ending  | Closing/thank-you page                              |
 
 ## VIII. Layout Patterns (Recommended)
 
 ### 1. Floating Timeline
+
 - Uses right-side space for time or process display.
 - Nodes feature a neon glowing effect.
 
 ### 2. HUD Display
+
 - Simulates a heads-up display style using thin wireframes and highlighted numbers for key KPIs.
 
 ### 3. Asymmetric Contrast
+
 - Leverages the page's asymmetric structure to create dynamic image-text layouts.
 
 ---
 
 ## IX. Spacing Guidelines
 
-| Property       | Value | Description              |
-| -------------- | ----- | ------------------------ |
-| **Base Unit**  | 8px   | Tech designs typically use an 8px grid |
-| **Module Gap** | 48px  | Extra spacious for a modern feel |
-| **Line Height** | 1.6  | Increased line height for readability |
+| Property        | Value | Description                            |
+| --------------- | ----- | -------------------------------------- |
+| **Base Unit**   | 8px   | Tech designs typically use an 8px grid |
+| **Module Gap**  | 48px  | Extra spacious for a modern feel       |
+| **Line Height** | 1.6   | Increased line height for readability  |
 
 ---
 
@@ -165,20 +173,20 @@ primary_color: "#001529"
 
 ## XI. Placeholder Specification
 
-| Placeholder        | Description           |
-| ------------------ | --------------------- |
-| `{{TITLE}}`        | Presentation main title |
-| `{{SUBTITLE}}`     | Subtitle              |
-| `{{AUTHOR}}`       | Presenting organization |
-| `{{PRESENTER}}`    | Presenter             |
-| `{{DATE}}`         | Date                  |
-| `{{CHAPTER_NUM}}`  | Chapter number (01, 02) |
-| `{{PAGE_TITLE}}`   | Content page title    |
-| `{{STAT_1}}`       | Statistical data 1    |
-| `{{TOC_ITEM_N_TITLE}}` | TOC item title    |
-| `{{TOC_ITEM_N_DESC}}`  | TOC item description |
-| `{{THANK_YOU}}`    | Thank-you message     |
-| `{{CONTACT_INFO}}` | Contact information   |
+| Placeholder            | Description             |
+| ---------------------- | ----------------------- |
+| `{{TITLE}}`            | Presentation main title |
+| `{{SUBTITLE}}`         | Subtitle                |
+| `{{AUTHOR}}`           | Presenting organization |
+| `{{PRESENTER}}`        | Presenter               |
+| `{{DATE}}`             | Date                    |
+| `{{CHAPTER_NUM}}`      | Chapter number (01, 02) |
+| `{{PAGE_TITLE}}`       | Content page title      |
+| `{{STAT_1}}`           | Statistical data 1      |
+| `{{TOC_ITEM_N_TITLE}}` | TOC item title          |
+| `{{TOC_ITEM_N_DESC}}`  | TOC item description    |
+| `{{THANK_YOU}}`        | Thank-you message       |
+| `{{CONTACT_INFO}}`     | Contact information     |
 
 ---
 

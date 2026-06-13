@@ -10,10 +10,10 @@ Shared baseline for both acquisition paths. Path-specific behavior lives in the 
 
 Active when at least one resource list row has `Acquire Via: ai` or `Acquire Via: web`. Rows with `user` / `formula` / `placeholder` are skipped.
 
-| Mode | Trigger |
-|---|---|
+| Mode        | Trigger                                     |
+| ----------- | ------------------------------------------- |
 | In-pipeline | `generate-ppt` workflow, image rows present |
-| Standalone | Direct request against an existing project |
+| Standalone  | Direct request against an existing project  |
 
 ---
 
@@ -21,11 +21,11 @@ Active when at least one resource list row has `Acquire Via: ai` or `Acquire Via
 
 Defined in `design_spec.md §VIII`. Status enum: see [`svg-image-embedding.md`](svg-image-embedding.md).
 
-| Filename | Dimensions | Purpose | Type | Acquire Via | Status | Reference |
-|---|---|---|---|---|---|---|
-| cover.png | 1280x720 | Cover background | Background | `ai` | Pending | Modern tech abstract, deep blue gradient #0A2540 |
-| team.jpg | 800x600 | Team photo | Photography | `web` | Pending | Diverse engineering team in modern office |
-| formula_001.png | 736x168 | Block equation on P03 | Latex Formula | `formula` | Rendered | `E = mc^2` |
+| Filename        | Dimensions | Purpose               | Type          | Acquire Via | Status   | Reference                                        |
+| --------------- | ---------- | --------------------- | ------------- | ----------- | -------- | ------------------------------------------------ |
+| cover.png       | 1280x720   | Cover background      | Background    | `ai`        | Pending  | Modern tech abstract, deep blue gradient #0A2540 |
+| team.jpg        | 800x600    | Team photo            | Photography   | `web`       | Pending  | Diverse engineering team in modern office        |
+| formula_001.png | 736x168    | Block equation on P03 | Latex Formula | `formula`   | Rendered | `E = mc^2`                                       |
 
 **Required per non-skipped row**: `Acquire Via`, `Status`, `Reference`.
 
@@ -35,13 +35,13 @@ Defined in `design_spec.md §VIII`. Status enum: see [`svg-image-embedding.md`](
 
 For each row with `Status: Pending`:
 
-| Acquire Via | Load reference | Run | Success status |
-|---|---|---|---|
-| `ai` | [`image-generator.md`](./image-generator.md) | `image_gen.py` | `Generated` |
-| `web` | [`image-searcher.md`](./image-searcher.md) | `image_search.py` | `Sourced` |
-| `user` | — | — | (already `Existing`) |
-| `formula` | — | — | (already `Rendered`) |
-| `placeholder` | — | — | (already `Placeholder`) |
+| Acquire Via   | Load reference                               | Run               | Success status          |
+| ------------- | -------------------------------------------- | ----------------- | ----------------------- |
+| `ai`          | [`image-generator.md`](./image-generator.md) | `image_gen.py`    | `Generated`             |
+| `web`         | [`image-searcher.md`](./image-searcher.md)   | `image_search.py` | `Sourced`               |
+| `user`        | —                                            | —                 | (already `Existing`)    |
+| `formula`     | —                                            | —                 | (already `Rendered`)    |
+| `placeholder` | —                                            | —                 | (already `Placeholder`) |
 
 > Lazy load: an all-`web` deck never reads `image-generator.md`, and vice versa.
 
@@ -104,10 +104,10 @@ Executor reads the manifest per slide and renders inline credits when needed —
 
 The `Reference` field is **intent**, not a query. Strategist writes free-form intent; the receiving role translates.
 
-| ✅ Intent | ❌ Pre-processed |
-|---|---|
-| `"Diverse engineering team in modern office, natural light"` | `"team office light"` |
-| `"Abstract digital waves, deep navy gradient #0A2540"` | `"use openverse, search 'waves'"` |
+| ✅ Intent                                                    | ❌ Pre-processed                  |
+| ------------------------------------------------------------ | --------------------------------- |
+| `"Diverse engineering team in modern office, natural light"` | `"team office light"`             |
+| `"Abstract digital waves, deep navy gradient #0A2540"`       | `"use openverse, search 'waves'"` |
 
 ---
 
@@ -115,10 +115,10 @@ The `Reference` field is **intent**, not a query. Strategist writes free-form in
 
 Executor consumes the resource list plus:
 
-| Artifact | Path | Purpose |
-|---|---|---|
-| Image files | `project/images/*.{jpg,png,webp}` | `<image>` references |
-| Manifest | `project/images/image_sources.json` | `license_tier` per Sourced image |
+| Artifact    | Path                                | Purpose                          |
+| ----------- | ----------------------------------- | -------------------------------- |
+| Image files | `project/images/*.{jpg,png,webp}`   | `<image>` references             |
+| Manifest    | `project/images/image_sources.json` | `license_tier` per Sourced image |
 
 Executor does NOT invoke `image_gen.py` / `image_search.py`.
 
@@ -128,6 +128,7 @@ Executor does NOT invoke `image_gen.py` / `image_search.py`.
 
 ```markdown
 ## ✅ Image Acquisition Phase Complete
+
 - [x] {N} rows processed (`ai`: {a} / `web`: {b})
 - [x] {a} `Generated`, {b} `Sourced`, {c} `Needs-Manual`
 - [x] image_prompts.json / image_sources.json written

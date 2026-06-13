@@ -52,7 +52,7 @@ function AgentsPage() {
           <a href="/docs/custom-providers" className="underline hover:text-white/80">
             Configure any ACP-compatible agent
           </a>{" "}
-          in <code className="font-mono text-white/60">~/.paseo/config.json</code>.
+          in <code className="font-mono text-white/60">~/.doya/config.json</code>.
         </p>
       </main>
 

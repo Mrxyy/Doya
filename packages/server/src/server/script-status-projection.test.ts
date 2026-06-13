@@ -8,16 +8,16 @@ import {
   buildWorkspaceScriptPayloads,
   createScriptStatusEmitter,
 } from "./script-status-projection.js";
-import { WorkspaceScriptPayloadSchema } from "@getpaseo/protocol/messages";
+import { WorkspaceScriptPayloadSchema } from "@getdoya/protocol/messages";
 import type { ScriptHealthState } from "./script-health-monitor.js";
 import { WorkspaceScriptRuntimeStore } from "./workspace-script-runtime-store.js";
-import { readPaseoConfig } from "../utils/worktree.js";
-import type { PaseoConfig } from "@getpaseo/protocol/paseo-config-schema";
+import { readDoyaConfig } from "../utils/worktree.js";
+import type { DoyaConfig } from "@getdoya/protocol/doya-config-schema";
 import { createTestLogger } from "../test-utils/test-logger.js";
 
 function createWorkspaceRepo(options?: {
   branchName?: string;
-  paseoConfig?: Record<string, unknown>;
+  doyaConfig?: Record<string, unknown>;
 }): { tempDir: string; repoDir: string; cleanup: () => void } {
   const tempDir = realpathSync(mkdtempSync(path.join(tmpdir(), "script-projection-")));
   const repoDir = path.join(tempDir, "repo");
@@ -32,8 +32,8 @@ function createWorkspaceRepo(options?: {
   });
   execFileSync("git", ["config", "user.name", "Test"], { cwd: repoDir, stdio: "pipe" });
   writeFileSync(path.join(repoDir, "README.md"), "hello\n");
-  if (options?.paseoConfig) {
-    writeFileSync(path.join(repoDir, "paseo.json"), JSON.stringify(options.paseoConfig, null, 2));
+  if (options?.doyaConfig) {
+    writeFileSync(path.join(repoDir, "doya.json"), JSON.stringify(options.doyaConfig, null, 2));
   }
   execFileSync("git", ["add", "."], { cwd: repoDir, stdio: "pipe" });
   execFileSync("git", ["-c", "commit.gpgsign=false", "commit", "-m", "initial"], {
@@ -53,20 +53,20 @@ function createWorkspaceRepo(options?: {
 function buildPayloads(input: {
   workspaceId: string;
   workspaceDirectory: string;
-  paseoConfig?: PaseoConfig | null;
+  doyaConfig?: DoyaConfig | null;
   routeStore: ScriptRouteStore;
   runtimeStore: WorkspaceScriptRuntimeStore;
   daemonPort: number | null;
   gitMetadata?: { projectSlug: string; currentBranch: string | null };
   resolveHealth?: (hostname: string) => ScriptHealthState | null;
 }) {
-  const paseoConfig =
-    input.paseoConfig !== undefined ? input.paseoConfig : loadConfig(input.workspaceDirectory);
-  return buildWorkspaceScriptPayloads({ ...input, paseoConfig });
+  const doyaConfig =
+    input.doyaConfig !== undefined ? input.doyaConfig : loadConfig(input.workspaceDirectory);
+  return buildWorkspaceScriptPayloads({ ...input, doyaConfig });
 }
 
-function loadConfig(repoRoot: string): PaseoConfig | null {
-  const result = readPaseoConfig(repoRoot);
+function loadConfig(repoRoot: string): DoyaConfig | null {
+  const result = readDoyaConfig(repoRoot);
   return result.ok ? result.config : null;
 }
 
@@ -89,7 +89,7 @@ describe("script-status-projection", () => {
   it("projects plain scripts and services differently", () => {
     const workspaceId = "workspace-plain-and-service";
     const workspace = createWorkspaceRepo({
-      paseoConfig: {
+      doyaConfig: {
         scripts: {
           typecheck: { command: "npm run typecheck" },
           web: { type: "service", command: "npm run web", port: 3000 },
@@ -149,7 +149,7 @@ describe("script-status-projection", () => {
     const workspaceId = "workspace-service-metadata";
     const workspace = createWorkspaceRepo({
       branchName: "local-branch-that-should-not-be-read",
-      paseoConfig: {
+      doyaConfig: {
         scripts: {
           web: { type: "service", command: "npm run web", port: 3000 },
         },
@@ -193,7 +193,7 @@ describe("script-status-projection", () => {
     const workspaceId = "workspace-running-service";
     const workspace = createWorkspaceRepo({
       branchName: "feature/card",
-      paseoConfig: {
+      doyaConfig: {
         scripts: {
           web: { type: "service", command: "npm run web" },
         },
@@ -248,7 +248,7 @@ describe("script-status-projection", () => {
   it("maps internal pending health to null on the wire", () => {
     const workspaceId = "workspace-pending-health";
     const workspace = createWorkspaceRepo({
-      paseoConfig: {
+      doyaConfig: {
         scripts: {
           web: { type: "service", command: "npm run web" },
         },
@@ -389,16 +389,16 @@ describe("script-status-projection", () => {
     }
   });
 
-  it("readPaseoConfig fails with configPath and error when paseo.json is malformed", () => {
+  it("readDoyaConfig fails with configPath and error when doya.json is malformed", () => {
     const workspace = createWorkspaceRepo();
-    const configPath = path.join(workspace.repoDir, "paseo.json");
+    const configPath = path.join(workspace.repoDir, "doya.json");
     writeFileSync(
       configPath,
       '{\n<<<<<<< HEAD\n  "scripts": {}\n=======\n  "scripts": {}\n>>>>>>> origin/main\n}\n',
     );
 
     try {
-      const result = readPaseoConfig(workspace.repoDir);
+      const result = readDoyaConfig(workspace.repoDir);
       expect(result.ok).toBe(false);
       if (result.ok) throw new Error("unreachable");
       expect(result.configPath).toBe(configPath);
@@ -408,7 +408,7 @@ describe("script-status-projection", () => {
     }
   });
 
-  it("buildWorkspaceScriptPayloads given paseoConfig=null still surfaces orphaned runtime scripts", () => {
+  it("buildWorkspaceScriptPayloads given doyaConfig=null still surfaces orphaned runtime scripts", () => {
     const workspaceId = "workspace-null-config";
     const workspace = createWorkspaceRepo();
     const routeStore = new ScriptRouteStore();
@@ -427,7 +427,7 @@ describe("script-status-projection", () => {
         buildPayloads({
           workspaceId,
           workspaceDirectory: workspace.repoDir,
-          paseoConfig: null,
+          doyaConfig: null,
           routeStore,
           runtimeStore,
           daemonPort: 6767,
@@ -453,7 +453,7 @@ describe("script-status-projection", () => {
   it("createScriptStatusEmitter overlays health onto the projected workspace script list", async () => {
     const workspaceId = "workspace-emitter";
     const workspace = createWorkspaceRepo({
-      paseoConfig: {
+      doyaConfig: {
         scripts: {
           api: { type: "service", command: "npm run api" },
           typecheck: { command: "npm run typecheck" },

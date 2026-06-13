@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
+import type { AgentCapabilityFlags } from "@getdoya/protocol/agent-types";
 import { translateNow } from "@/i18n/i18n";
 
 export type RewindMode = "conversation" | "files" | "both";

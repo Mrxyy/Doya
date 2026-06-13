@@ -17,7 +17,7 @@ import { openExternalUrl } from "@/utils/open-external-url";
 import { translateNow } from "@/i18n/i18n";
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
-const CHANGELOG_URL = "https://paseo.sh/changelog";
+const CHANGELOG_URL = "https://doya.sh/changelog";
 
 function renderBody(body: UpdateCalloutBody): ReactNode {
   if (body.kind === "installing") return "Installing and restarting...";

@@ -16,8 +16,8 @@ function getLogger(logger: LoggerLike | undefined): LoggerLike | undefined {
   return logger?.child({ module: "server-id" });
 }
 
-function getServerIdPath(paseoHome: string): string {
-  return path.join(paseoHome, SERVER_ID_FILENAME);
+function getServerIdPath(doyaHome: string): string {
+  return path.join(doyaHome, SERVER_ID_FILENAME);
 }
 
 function generateServerId(): string {
@@ -26,33 +26,35 @@ function generateServerId(): string {
   return `srv_${rand}`;
 }
 
+function resolveServerIdEnvOverride(env: NodeJS.ProcessEnv): string | null {
+  const doyaOverride = env.DOYA_SERVER_ID?.trim();
+  return doyaOverride || null;
+}
+
 /**
- * Stable daemon identifier scoped to a given $PASEO_HOME.
+ * Stable daemon identifier scoped to a given $DOYA_HOME.
  *
- * - Persisted to `$PASEO_HOME/server-id`
- * - Can be overridden via `PASEO_SERVER_ID` (useful for tests)
+ * - Persisted to `$DOYA_HOME/server-id`
+ * - Can be overridden via `DOYA_SERVER_ID` (useful for tests)
  */
 export function getOrCreateServerId(
-  paseoHome: string,
+  doyaHome: string,
   options?: { env?: NodeJS.ProcessEnv; logger?: LoggerLike },
 ): string {
   const env = options?.env ?? process.env;
   const log = getLogger(options?.logger);
-  const serverIdPath = getServerIdPath(paseoHome);
+  const serverIdPath = getServerIdPath(doyaHome);
 
-  const envOverride =
-    typeof env.PASEO_SERVER_ID === "string" && env.PASEO_SERVER_ID.trim().length > 0
-      ? env.PASEO_SERVER_ID.trim()
-      : null;
+  const envOverride = resolveServerIdEnvOverride(env);
 
   if (envOverride) {
     // Persist the override for consistent identity across restarts.
     if (!existsSync(serverIdPath)) {
       try {
         writePrivateFileSync(serverIdPath, `${envOverride}\n`);
-        log?.info({ serverId: envOverride }, "Persisted PASEO_SERVER_ID override");
+        log?.info({ serverId: envOverride }, "Persisted DOYA_SERVER_ID override");
       } catch (error) {
-        log?.warn({ error }, "Failed to persist PASEO_SERVER_ID override");
+        log?.warn({ error }, "Failed to persist DOYA_SERVER_ID override");
       }
     } else {
       ensurePrivateFile(serverIdPath);

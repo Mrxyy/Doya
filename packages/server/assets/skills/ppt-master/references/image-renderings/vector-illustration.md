@@ -10,13 +10,13 @@ The default safe rendering for general PPT decks. Clean flat vector art with bol
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
+| Aspect       | Treatment                                                                                |
+| ------------ | ---------------------------------------------------------------------------------------- |
 | Line quality | Clean vector outlines, uniform stroke weight, sharp corners or consistent rounded radius |
-| Texture | None — flat fills only. No noise, no paper grain, no painterly artifacts |
-| Depth | Optional 8% soft drop shadow under elevated elements; no perspective rendering |
-| Material | None — color is information, not material simulation |
-| Mood | Neutral-positive, professional, designed |
+| Texture      | None — flat fills only. No noise, no paper grain, no painterly artifacts                 |
+| Depth        | Optional 8% soft drop shadow under elevated elements; no perspective rendering           |
+| Material     | None — color is information, not material simulation                                     |
+| Mood         | Neutral-positive, professional, designed                                                 |
 
 ## 3. Using the deck's HEX values
 

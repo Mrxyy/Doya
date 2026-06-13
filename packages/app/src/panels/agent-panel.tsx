@@ -1,5 +1,5 @@
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { ConversationRecording } from "@getpaseo/protocol/messages";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
+import type { ConversationRecording } from "@getdoya/protocol/messages";
 import { SquarePen } from "lucide-react-native";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";

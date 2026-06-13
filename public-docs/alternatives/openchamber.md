@@ -53,14 +53,14 @@ Doya's app handles commit, push, opening PRs, watching checks and reviews, and m
 Doya has a CLI that mirrors the app:
 
 ```bash
-paseo run --provider codex "implement OAuth"
-paseo run --host devbox:6767 "run the test suite"
-paseo ls
-paseo send <agent-id> "add tests"
-paseo schedule create --cron "0 9 * * 1" "audit the codebase"
+doya run --provider codex "implement OAuth"
+doya run --host devbox:6767 "run the test suite"
+doya ls
+doya send <agent-id> "add tests"
+doya schedule create --cron "0 9 * * 1" "audit the codebase"
 ```
 
-`paseo run --host` connects to a remote daemon. `paseo schedule` runs an agent on a cron. `paseo loop` retries an agent until a verification command passes.
+`doya run --host` connects to a remote daemon. `doya schedule` runs an agent on a cron. `doya loop` retries an agent until a verification command passes.
 
 OpenChamber does not have a CLI.
 

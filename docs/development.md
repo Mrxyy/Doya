@@ -13,20 +13,28 @@ npm run dev
 
 `scripts/dev.sh` runs the daemon and Expo together via `concurrently`, fronted by [`portless`](https://www.npmjs.com/package/portless) so each service is reachable at a stable name like `https://daemon.localhost` / `https://app.localhost` instead of a fixed port. The underlying TCP ports are ephemeral — never hardcode them. (Windows uses `scripts/dev.ps1`, which still binds the daemon to `localhost:6767` directly.)
 
-### PASEO_HOME
+Local dev disables the hosted relay by default (`DOYA_RELAY_ENABLED=0`) so
+startup does not depend on external network access. Set this when you are
+specifically testing relay behavior:
 
-`PASEO_HOME` is the directory that holds runtime state (agents, sockets, daemon log). Resolution rules:
+```bash
+DOYA_RELAY_ENABLED=1 npm run dev
+```
 
-- The **server itself** (e.g. when launched by the desktop app or `npm run start`) defaults to `~/.paseo` (see `packages/server/src/server/paseo-home.ts`).
-- **`npm run dev` from a git worktree** derives a stable home like `~/.paseo-<worktree-name>` and, on first run, seeds it from `~/.paseo` by copying agent/project JSON metadata and `config.json`. Checkout/worktree directories are not copied.
-- **`npm run dev` from the main checkout** (not a worktree) uses a fresh `mktemp` directory under `$TMPDIR` and removes it on exit. Set `PASEO_HOME` explicitly to keep state across runs.
+### Runtime Home
+
+The runtime home directory holds local state: agents, sockets, daemon logs, account data, and config. Resolution rules:
+
+- The **server itself** (e.g. when launched by the desktop app or `npm run start`) defaults to `~/.doya`.
+- **`npm run dev` from a git worktree** derives a stable home like `~/.doya-<worktree-name>` and, on first run, seeds it from `~/.doya` by copying agent/project JSON metadata and `config.json`. Checkout/worktree directories are not copied.
+- **`npm run dev` from the main checkout** (not a worktree) uses a fresh `mktemp` directory under `$TMPDIR` and removes it on exit. Set the runtime home explicitly to keep state across runs.
 
 Override knobs:
 
 ```bash
-PASEO_HOME=~/.paseo-blue npm run dev          # explicit home
-PASEO_DEV_SEED_HOME=/path/to/home npm run dev # seed from a different source home
-PASEO_DEV_RESET_HOME=1 npm run dev            # clear and reseed the derived worktree home
+DOYA_HOME=~/.doya-blue npm run dev             # explicit home; legacy env name remains supported
+DOYA_DEV_SEED_HOME=/path/to/home npm run dev   # seed from a different source home
+DOYA_DEV_RESET_HOME=1 npm run dev              # clear and reseed the derived worktree home
 ```
 
 ### Daemon endpoints
@@ -41,7 +49,7 @@ In any worktree-style or portless setup, never assume default ports.
 
 `npm run dev:desktop` starts Electron with Chromium remote debugging enabled on
 `http://127.0.0.1:9223` so renderer CPU profiles can be captured through CDP.
-Override the port with `PASEO_ELECTRON_REMOTE_DEBUGGING_PORT` when `9223` is busy.
+Override the port with `DOYA_ELECTRON_REMOTE_DEBUGGING_PORT` when `9223` is busy.
 The script clears `ELECTRON_RUN_AS_NODE` for the Electron UI process so agent or
 packaging environments that set it do not make Electron run as plain Node.
 The desktop main process ignores `write EPIPE` from console logging so a closed
@@ -55,11 +63,11 @@ to measure with `RenderProfile`, then open the app with `?renderProfile=1`. When
 the query param is absent, `RenderProfile` returns children directly and records
 nothing.
 
-Captured samples are exposed on `globalThis.__PASEO_RENDER_PROFILE__`. Call
-`globalThis.__PASEO_RESET_RENDER_PROFILE__?.()` after warm-up and before the
+Captured samples are exposed on `globalThis.__DOYA_RENDER_PROFILE__`. Call
+`globalThis.__DOYA_RESET_RENDER_PROFILE__?.()` after warm-up and before the
 interaction you want to measure. If a memo comparator or subscription boundary
 needs explanation, call `recordRenderProfileReasons(id, reasons)` while profiling;
-reason counts are exposed on `globalThis.__PASEO_RENDER_PROFILE_REASONS__`.
+reason counts are exposed on `globalThis.__DOYA_RENDER_PROFILE_REASONS__`.
 
 Use this workflow for any render investigation:
 
@@ -92,10 +100,10 @@ Existing scenario script: workspace agent/terminal tab switching. Start Expo on
 web, keep a daemon available, then run:
 
 ```bash
-PASEO_PROFILE_SERVER_ID=<server-id> \
-PASEO_PROFILE_WORKSPACE_ID=<workspace-path> \
-PASEO_PROFILE_AGENT_ID=<agent-id> \
-  npm run profile:workspace-tabs --workspace=@getpaseo/app
+DOYA_PROFILE_SERVER_ID=<server-id> \
+DOYA_PROFILE_WORKSPACE_ID=<workspace-path> \
+DOYA_PROFILE_AGENT_ID=<agent-id> \
+  npm run profile:workspace-tabs --workspace=@getdoya/app
 ```
 
 This script opens the app with `?renderProfile=1`, creates a temporary terminal
@@ -104,11 +112,11 @@ Profiler timings, then removes the temporary terminal. It is an example of the
 workflow above, not the only way to use the profiler. Useful knobs:
 
 ```bash
-PASEO_PROFILE_APP_URL=http://localhost:19010 # Expo web URL
-PASEO_PROFILE_SWITCH_COUNT=1                # number of agent/terminal switch pairs
-PASEO_PROFILE_SWITCH_WAIT_MS=250            # delay after each click
-PASEO_PROFILE_IDLE_WAIT_MS=3000             # idle baseline before switching
-PASEO_PROFILE_DUMP_COMMITS=1                # include per-commit profiler samples
+DOYA_PROFILE_APP_URL=http://localhost:19010 # Expo web URL
+DOYA_PROFILE_SWITCH_COUNT=1                # number of agent/terminal switch pairs
+DOYA_PROFILE_SWITCH_WAIT_MS=250            # delay after each click
+DOYA_PROFILE_IDLE_WAIT_MS=3000             # idle baseline before switching
+DOYA_PROFILE_DUMP_COMMITS=1                # include per-commit profiler samples
 ```
 
 ### Desktop macOS compositor watchdog
@@ -135,16 +143,16 @@ guards already prevent throttling from causing a false stall.
 
 ### Daemon logs
 
-Check `$PASEO_HOME/daemon.log` for daemon logs. The default level is `info`; set
-`PASEO_LOG_LEVEL=trace` before launching the daemon when you need full provider,
+Check `$DOYA_HOME/daemon.log` for daemon logs. The default level is `info`; set
+`DOYA_LOG_LEVEL=trace` before launching the daemon when you need full provider,
 session, and agent-manager traces for stuck-state debugging.
 
 The supervisor rotates `daemon.log`. Persisted `log.file.rotate` settings in
-`$PASEO_HOME/config.json` win first. Without persisted config, the optional
-`PASEO_LOG_ROTATE_SIZE` and `PASEO_LOG_ROTATE_COUNT` env vars override the
+`$DOYA_HOME/config.json` win first. Without persisted config, the optional
+`DOYA_LOG_ROTATE_SIZE` and `DOYA_LOG_ROTATE_COUNT` env vars override the
 defaults. The default rotation is `10m` x `3` files everywhere.
 
-## paseo.json service scripts
+## doya.json service scripts
 
 `worktree.setup` and `worktree.teardown` accept either a multiline shell script or an array
 of commands. Both run sequentially.
@@ -152,7 +160,7 @@ of commands. Both run sequentially.
 ```json
 {
   "worktree": {
-    "setup": "npm ci\ncp \"$PASEO_SOURCE_CHECKOUT_PATH/.env\" .env\nnpm run db:migrate",
+    "setup": "npm ci\ncp \"$DOYA_SOURCE_CHECKOUT_PATH/.env\" .env\nnpm run db:migrate",
     "teardown": "npm run db:drop || true"
   }
 }
@@ -160,13 +168,13 @@ of commands. Both run sequentially.
 
 Every `scripts` entry with `"type": "service"` receives these environment variables:
 
-| Variable                    | Value                                                                                                                     |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `PASEO_SERVICE_<NAME>_URL`  | Proxied daemon URL for a declared peer service. Prefer this for peer discovery; it survives peer restarts.                |
-| `PASEO_SERVICE_<NAME>_PORT` | Raw ephemeral port for a declared peer service. Use only as a bypass escape hatch; it can go stale if that peer restarts. |
-| `PASEO_URL`                 | Self alias for `PASEO_SERVICE_<SELF>_URL`.                                                                                |
-| `PASEO_PORT`                | Self alias for `PASEO_SERVICE_<SELF>_PORT`.                                                                               |
-| `HOST`                      | Bind host for the service process.                                                                                        |
+| Variable                   | Value                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `DOYA_SERVICE_<NAME>_URL`  | Proxied daemon URL for a declared peer service. Prefer this for peer discovery; it survives peer restarts.                |
+| `DOYA_SERVICE_<NAME>_PORT` | Raw ephemeral port for a declared peer service. Use only as a bypass escape hatch; it can go stale if that peer restarts. |
+| `DOYA_URL`                 | Self alias for `DOYA_SERVICE_<SELF>_URL`.                                                                                 |
+| `DOYA_PORT`                | Self alias for `DOYA_SERVICE_<SELF>_PORT`.                                                                                |
+| `HOST`                     | Bind host for the service process.                                                                                        |
 
 `<NAME>` is normalized from the script name by uppercasing it, replacing each run of non-`A-Z0-9` characters with `_`, and trimming leading or trailing `_`. For example, `app-server` and `app.server` both normalize to `APP_SERVER`; that collision fails at spawn time with an actionable error.
 
@@ -177,7 +185,7 @@ Every `scripts` entry with `"type": "service"` receives these environment variab
   "scripts": {
     "web": {
       "type": "service",
-      "command": "PORT=$PASEO_PORT npm run dev:web"
+      "command": "PORT=$DOYA_PORT npm run dev:web"
     }
   }
 }
@@ -187,7 +195,7 @@ Every `scripts` entry with `"type": "service"` receives these environment variab
 
 Package imports resolve through package exports to compiled `dist/` output, not sibling `src/` files. This is true in local dev and in published packages: the app, daemon, CLI, and SDK consumers should all exercise the same runtime paths.
 
-`npm run dev`, `npm run dev:server`, and `npm run dev:app` build the workspace packages they need once, then keep `@getpaseo/protocol` and `@getpaseo/client` fresh with TypeScript watch builds while the daemon or Expo runs. If you change protocol schemas or client code outside those watch workflows, rebuild the producer before trusting runtime behavior.
+`npm run dev`, `npm run dev:server`, and `npm run dev:app` build the workspace packages they need once, then keep `@getdoya/protocol` and `@getdoya/client` fresh with TypeScript watch builds while the daemon or Expo runs. If you change protocol schemas or client code outside those watch workflows, rebuild the producer before trusting runtime behavior.
 
 Use the named root build targets instead of remembering workspace dependency chains:
 
@@ -208,7 +216,7 @@ For tighter loops, you can rebuild a single workspace:
 
 ## CLI reference
 
-Use `npm run cli` to run the in-repo CLI from source (`npx tsx packages/cli/src/index.ts`). The globally installed `paseo` binary on macOS is a symlink into the installed Doya desktop app, not this checkout — use it to drive the desktop's built-in daemon, but use `npm run cli` when you want to talk to the CLI you are editing.
+Use `npm run cli` to run the in-repo CLI from source (`npx tsx packages/cli/src/index.ts`). The globally installed `doya` binary on macOS is a symlink into the installed Doya desktop app, not this checkout — use it to drive the desktop's built-in daemon, but use `npm run cli` when you want to talk to the CLI you are editing.
 
 ```bash
 npm run cli -- ls -a -g              # List all agents globally
@@ -229,19 +237,19 @@ npm run cli -- --host localhost:7777 ls -a
 Agent data lives at:
 
 ```
-$PASEO_HOME/agents/{cwd-with-dashes}/{agent-id}.json
+$DOYA_HOME/agents/{cwd-with-dashes}/{agent-id}.json
 ```
 
 Find an agent by ID:
 
 ```bash
-find $PASEO_HOME/agents -name "{agent-id}.json"
+find $DOYA_HOME/agents -name "{agent-id}.json"
 ```
 
 Find by content:
 
 ```bash
-rg -l "some title text" $PASEO_HOME/agents/
+rg -l "some title text" $DOYA_HOME/agents/
 ```
 
 ## Provider session files
@@ -269,7 +277,7 @@ Do NOT use browser history (back/forward). Always navigate by clicking UI elemen
 ## App web deploys
 
 `packages/app` exports a single-page Expo web app and deploys the `dist/`
-directory to Cloudflare Pages with `npm run deploy:web --workspace=@getpaseo/app`.
+directory to Cloudflare Pages with `npm run deploy:web --workspace=@getdoya/app`.
 
 PWA install metadata lives in `packages/app/public/manifest.json` and is linked
 from `packages/app/public/index.html`. Keep the install icons in `public/` so

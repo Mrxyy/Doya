@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { AgentAttachment } from "@getdoya/protocol/messages";
 import type { AttachmentMetadata } from "@/attachments/types";
 import type { UserMessageImageAttachment } from "@/types/stream";
 import { filterUserMessageDisplayAttachments } from "./user-message-attachments";
@@ -101,7 +101,7 @@ describe("filterUserMessageDisplayAttachments", () => {
     const imagePromptAttachment = uploadedFileAttachment({
       title: "2170b175-screenshot.png",
       mimeType: "image/png",
-      path: "/Users/me/.paseo/accounts/workspaces/ws-1/projects/project-1/attachments/2170b175-screenshot.png",
+      path: "/Users/me/.doya/accounts/workspaces/ws-1/projects/project-1/attachments/2170b175-screenshot.png",
     });
 
     expect(

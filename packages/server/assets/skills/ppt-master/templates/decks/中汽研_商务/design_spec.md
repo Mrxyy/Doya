@@ -16,24 +16,24 @@ primary_color: "#003366"
 
 ## I. Template Overview
 
-| Property       | Description                                                |
-| -------------- | ---------------------------------------------------------- |
-| **Template Name** | 中汽研_商务 (formerly zhongqiyan_v2)                    |
-| **Use Cases**  | Product certification display, evaluation presentations, technology promotion, high-end business reporting |
-| **Design Tone** | **Modern tech, authoritative & professional, composed & grand** |
-| **Theme Mode** | Deep blue tech gradient + clean white content pages         |
+| Property          | Description                                                                                                |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Template Name** | 中汽研\_商务 (formerly zhongqiyan_v2)                                                                      |
+| **Use Cases**     | Product certification display, evaluation presentations, technology promotion, high-end business reporting |
+| **Design Tone**   | **Modern tech, authoritative & professional, composed & grand**                                            |
+| **Theme Mode**    | Deep blue tech gradient + clean white content pages                                                        |
 
 ---
 
 ## II. Canvas Specification
 
-| Property       | Value                         |
-| -------------- | ----------------------------- |
-| **Format**     | Standard 16:9                 |
-| **Dimensions** | 1280 × 720 px                |
-| **viewBox**    | `0 0 1280 720`               |
+| Property         | Value                                  |
+| ---------------- | -------------------------------------- |
+| **Format**       | Standard 16:9                          |
+| **Dimensions**   | 1280 × 720 px                          |
+| **viewBox**      | `0 0 1280 720`                         |
 | **Page Margins** | Left/Right 60px, Top 90px, Bottom 50px |
-| **Safe Area**  | x: 60-1220, y: 90-670        |
+| **Safe Area**    | x: 60-1220, y: 90-670                  |
 
 ---
 
@@ -41,22 +41,22 @@ primary_color: "#003366"
 
 ### Core Palette
 
-| Role           | Color Value | Gradient (SVG defs)            | Notes                            |
-| -------------- | ----------- | ------------------------------ | -------------------------------- |
-| **Primary Deep Blue** | `#003366` | `#003366` -> `#001F4D`      | Brand primary tone               |
-| **Tech Bright Blue**  | `#0050B3` | `#0050B3` -> `#007ACC`      | Highlight decoration, gradient bright end |
-| **Auxiliary Cool Gray** | `#F0F2F5` | N/A                        | Background blocks, card base     |
-| **Vibrant Red** | `#D32F2F` | N/A                            | Accent, emphasis, alerts         |
-| **Pure White**  | `#FFFFFF`  | N/A                            | Text, inverted icons             |
+| Role                    | Color Value | Gradient (SVG defs)    | Notes                                     |
+| ----------------------- | ----------- | ---------------------- | ----------------------------------------- |
+| **Primary Deep Blue**   | `#003366`   | `#003366` -> `#001F4D` | Brand primary tone                        |
+| **Tech Bright Blue**    | `#0050B3`   | `#0050B3` -> `#007ACC` | Highlight decoration, gradient bright end |
+| **Auxiliary Cool Gray** | `#F0F2F5`   | N/A                    | Background blocks, card base              |
+| **Vibrant Red**         | `#D32F2F`   | N/A                    | Accent, emphasis, alerts                  |
+| **Pure White**          | `#FFFFFF`   | N/A                    | Text, inverted icons                      |
 
 ### Text Colors
 
-| Role           | Color Value | Usage                  |
-| -------------- | ----------- | ---------------------- |
-| **Headings/Body** | `#1F2937` | Dark gray for body text on white backgrounds |
-| **Secondary Text** | `#6B7280` | Light gray for descriptions |
-| **Inverted Text** | `#FFFFFF` | Text on dark backgrounds |
-| **Watermark Text** | `#E5E7EB` | Very light gray for background text |
+| Role               | Color Value | Usage                                        |
+| ------------------ | ----------- | -------------------------------------------- |
+| **Headings/Body**  | `#1F2937`   | Dark gray for body text on white backgrounds |
+| **Secondary Text** | `#6B7280`   | Light gray for descriptions                  |
+| **Inverted Text**  | `#FFFFFF`   | Text on dark backgrounds                     |
+| **Watermark Text** | `#E5E7EB`   | Very light gray for background text          |
 
 ---
 
@@ -68,13 +68,13 @@ primary_color: "#003366"
 
 ### Font Size Hierarchy (Optimized Contrast)
 
-| Level | Usage              | Size | Weight  | Color      |
-| ----- | ------------------ | ---- | ------- | ---------- |
-| H1    | Cover main title   | 56px | Bold    | #FFFFFF    |
-| H2    | Page heading       | 32px | Bold    | #003366    |
-| H3    | Section title      | 24px | Bold    | #333333    |
-| P     | Body content       | 18px | Regular | #4B5563    |
-| Num   | Decorative numbers | 80px+| Bold    | Opacity 10%|
+| Level | Usage              | Size  | Weight  | Color       |
+| ----- | ------------------ | ----- | ------- | ----------- |
+| H1    | Cover main title   | 56px  | Bold    | #FFFFFF     |
+| H2    | Page heading       | 32px  | Bold    | #003366     |
+| H3    | Section title      | 24px  | Bold    | #333333     |
+| P     | Body content       | 18px  | Regular | #4B5563     |
+| Num   | Decorative numbers | 80px+ | Bold    | Opacity 10% |
 
 ---
 
@@ -92,23 +92,28 @@ primary_color: "#003366"
 ## VI. Page Types
 
 ### 1. Cover Page (01_cover.svg)
+
 - **Visual Focus**: Large whitespace or image on the left, dark tech-styled cutout on the right/bottom.
 - **Decoration**: Dynamic geometric lines (Tech Lines), simulating light beam effects.
 - **Content Layout**: Title left-aligned or centered floating card style for enhanced hierarchy.
 
 ### 2. Table of Contents (02_toc.svg)
+
 - **Layout**: Card-style list. Each chapter as a horizontal card with simulated subtle shadow.
 - **Numbers**: Extra-large semi-transparent numbers in the background (01, 02...) for added design appeal.
 
 ### 3. Chapter Page (02_chapter.svg)
+
 - **Background**: Full-screen deep blue radial gradient for an immersive feel.
 - **Elements**: Center-focused typography with radiating lines or ring decorations.
 
 ### 4. Content Page (03_content.svg)
+
 - **Layout**: Clean white background, maximizing content display area.
 - **Auxiliary**: Very faint Logo watermark in the lower-right corner.
 
 ### 5. Ending Page (04_ending.svg)
+
 - **Background**: Echoes the cover's dark tone.
 - **Elements**: Centered thank-you message with refined contact information layout.
 
@@ -116,35 +121,38 @@ primary_color: "#003366"
 
 ## VII. SVG Page Roster
 
-| File | Role | Description |
-|------|------|-------------|
-| `01_cover.svg` | cover | Title slide; brand/project name + presenter + date |
+| File             | Role    | Description                                         |
+| ---------------- | ------- | --------------------------------------------------- |
+| `01_cover.svg`   | cover   | Title slide; brand/project name + presenter + date  |
 | `02_chapter.svg` | chapter | Chapter divider page (large number + chapter title) |
-| `02_toc.svg` | toc | Table of contents listing major sections |
-| `03_content.svg` | content | Main content page; body of the deck |
-| `04_ending.svg` | ending | Closing/thank-you page |
+| `02_toc.svg`     | toc     | Table of contents listing major sections            |
+| `03_content.svg` | content | Main content page; body of the deck                 |
+| `04_ending.svg`  | ending  | Closing/thank-you page                              |
 
 ## VIII. Layout Patterns (Recommended)
 
 ### 1. Card List
+
 - Wide cards arranged vertically, suitable for table of contents or key points.
 - Use shadow simulation (e.g., semi-transparent black rectangles) for a floating effect.
 
 ### 2. Contrast Layout
+
 - Left-right split: left dark / right light, or left image / right text, emphasizing contrast.
 
 ### 3. Radial Layout
+
 - Core concept centered with surrounding explanations, suitable for chapter or summary pages.
 
 ---
 
 ## IX. Spacing Guidelines
 
-| Property       | Value | Description              |
-| -------------- | ----- | ------------------------ |
-| **Base Unit**  | 8px   | 8px grid system          |
-| **Module Gap** | 32px  | Comfortable reading gap  |
-| **Card Gap**   | 16px  | Compact with cohesion    |
+| Property       | Value | Description             |
+| -------------- | ----- | ----------------------- |
+| **Base Unit**  | 8px   | 8px grid system         |
+| **Module Gap** | 32px  | Comfortable reading gap |
+| **Card Gap**   | 16px  | Compact with cohesion   |
 
 ---
 
@@ -161,20 +169,20 @@ primary_color: "#003366"
 
 ## XI. Placeholder Specification
 
-| Placeholder        | Description           |
-| ------------------ | --------------------- |
-| `{{TITLE}}`        | Presentation main title |
-| `{{SUBTITLE}}`     | Subtitle              |
-| `{{AUTHOR}}`       | Presenter / Department |
-| `{{DATE}}`         | Date                  |
-| `{{PAGE_TITLE}}`   | Content page title    |
-| `{{CHAPTER_NUM}}`  | Chapter number (01, 02) |
-| `{{TOC_ITEM_N_TITLE}}` | TOC item title    |
-| `{{TOC_ITEM_N_DESC}}`  | TOC item description |
-| `{{THANK_YOU}}`    | Thank-you message     |
-| `{{CONTACT_INFO}}` | Contact information   |
-| `{{LOGO_LARGE}}`   | Cover/back page large Logo |
-| `{{LOGO_HEADER}}`  | Navigation bar small Logo |
+| Placeholder            | Description                |
+| ---------------------- | -------------------------- |
+| `{{TITLE}}`            | Presentation main title    |
+| `{{SUBTITLE}}`         | Subtitle                   |
+| `{{AUTHOR}}`           | Presenter / Department     |
+| `{{DATE}}`             | Date                       |
+| `{{PAGE_TITLE}}`       | Content page title         |
+| `{{CHAPTER_NUM}}`      | Chapter number (01, 02)    |
+| `{{TOC_ITEM_N_TITLE}}` | TOC item title             |
+| `{{TOC_ITEM_N_DESC}}`  | TOC item description       |
+| `{{THANK_YOU}}`        | Thank-you message          |
+| `{{CONTACT_INFO}}`     | Contact information        |
+| `{{LOGO_LARGE}}`       | Cover/back page large Logo |
+| `{{LOGO_HEADER}}`      | Navigation bar small Logo  |
 
 ---
 

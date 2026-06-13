@@ -10,13 +10,13 @@ Editorial photography style — real subjects, natural composition, professional
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
-| Line quality | N/A — photographic |
-| Texture | Natural — skin, fabric, environment textures preserved |
-| Depth | True depth-of-field — subject sharp, background subtly blurred |
-| Material | Real-world physical materials, professionally lit |
-| Mood | Authentic, premium, magazine-editorial |
+| Aspect       | Treatment                                                      |
+| ------------ | -------------------------------------------------------------- |
+| Line quality | N/A — photographic                                             |
+| Texture      | Natural — skin, fabric, environment textures preserved         |
+| Depth        | True depth-of-field — subject sharp, background subtly blurred |
+| Material     | Real-world physical materials, professionally lit              |
+| Mood         | Authentic, premium, magazine-editorial                         |
 
 ---
 

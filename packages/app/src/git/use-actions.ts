@@ -5,7 +5,7 @@ import { type CheckoutGitActionStatus, useCheckoutGitActionsStore } from "@/git/
 import { type CheckoutStatusPayload, useCheckoutStatusQuery } from "@/git/use-status-query";
 import { type CheckoutPrStatusPayload, useCheckoutPrStatusQuery } from "@/git/use-pr-status-query";
 import { buildGitActions, narrowPullRequestState, type GitActions } from "@/git/policy";
-import type { CheckoutPrMergeMethod } from "@getpaseo/protocol/messages";
+import type { CheckoutPrMergeMethod } from "@getdoya/protocol/messages";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { useToast } from "@/contexts/toast-context";
 import { useSessionStore } from "@/stores/session-store";
@@ -64,7 +64,7 @@ interface DerivedGitActionsState {
   behindOfOrigin: number;
   hasPullRequest: boolean;
   hasRemote: boolean;
-  isPaseoOwnedWorktree: boolean;
+  isDoyaOwnedWorktree: boolean;
   isOnBaseBranch: boolean;
   shouldPromoteArchive: boolean;
 }
@@ -86,13 +86,13 @@ function extractGitCommitCounts(gitStatus: CheckoutStatusPayload | null): GitCom
 }
 
 function computeShouldPromoteArchive(input: {
-  isPaseoOwnedWorktree: boolean;
+  isDoyaOwnedWorktree: boolean;
   hasUncommittedChanges: boolean;
   postShipArchiveSuggested: boolean;
   isMergedPullRequest: boolean;
 }): boolean {
   return (
-    input.isPaseoOwnedWorktree &&
+    input.isDoyaOwnedWorktree &&
     !input.hasUncommittedChanges &&
     (input.postShipArchiveSuggested || input.isMergedPullRequest)
   );
@@ -110,17 +110,17 @@ function deriveGitActionsState(args: DeriveGitActionsStateArgs): DerivedGitActio
     baseRefLabel,
   } = args;
   const actionsDisabled = !isGit || Boolean(status?.error) || isStatusLoading;
-  const isPaseoOwnedWorktree = gitStatus?.isPaseoOwnedWorktree ?? false;
+  const isDoyaOwnedWorktree = gitStatus?.isDoyaOwnedWorktree ?? false;
   const isMergedPullRequest = Boolean(prStatus?.isMerged);
   return {
     actionsDisabled,
     ...extractGitCommitCounts(gitStatus),
     hasPullRequest: Boolean(prStatus?.url),
     hasRemote: gitStatus?.hasRemote ?? false,
-    isPaseoOwnedWorktree,
+    isDoyaOwnedWorktree,
     isOnBaseBranch: gitStatus?.currentBranch === baseRefLabel,
     shouldPromoteArchive: computeShouldPromoteArchive({
-      isPaseoOwnedWorktree,
+      isDoyaOwnedWorktree,
       hasUncommittedChanges,
       postShipArchiveSuggested,
       isMergedPullRequest,
@@ -182,7 +182,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     if (!gitStatus?.repoRoot) {
       return null;
     }
-    return `@paseo:changes-ship-default:${gitStatus.repoRoot}`;
+    return `@doya:changes-ship-default:${gitStatus.repoRoot}`;
   }, [gitStatus?.repoRoot]);
 
   useEffect(() => {
@@ -512,7 +512,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     behindOfOrigin,
     hasPullRequest,
     hasRemote,
-    isPaseoOwnedWorktree,
+    isDoyaOwnedWorktree,
     isOnBaseBranch,
     shouldPromoteArchive,
   } = derived;
@@ -539,7 +539,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
       pullRequestMergeable: prStatus?.mergeable ?? "UNKNOWN",
       pullRequestGithub: prStatus?.github ?? null,
       hasRemote,
-      isPaseoOwnedWorktree,
+      isDoyaOwnedWorktree,
       isOnBaseBranch,
       hasUncommittedChanges,
       baseRefAvailable: Boolean(baseRef),
@@ -655,7 +655,7 @@ export function useGitActions({ serverId, cwd, icons }: UseGitActionsInput): Use
     prStatus?.github,
     aheadCount,
     behindBaseCount,
-    isPaseoOwnedWorktree,
+    isDoyaOwnedWorktree,
     isOnBaseBranch,
     githubFeaturesEnabled,
     githubAutoMergeActionsEnabled,

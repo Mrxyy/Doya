@@ -67,8 +67,8 @@ export class AccountControlPlane {
   private snapshot: AccountSnapshot = { ...EMPTY_SNAPSHOT };
   private persistQueue: Promise<void> = Promise.resolve();
 
-  constructor(options: { paseoHome: string; now?: () => Date }) {
-    const accountRoot = path.join(options.paseoHome, "accounts");
+  constructor(options: { doyaHome: string; now?: () => Date }) {
+    const accountRoot = path.join(options.doyaHome, "accounts");
     this.filePath = path.join(accountRoot, "accounts.json");
     this.workspacesRoot = path.join(accountRoot, "workspaces");
     this.now = options.now ?? (() => new Date());
@@ -147,7 +147,7 @@ export class AccountControlPlane {
     const timestamp = this.timestamp();
     const user: AccountUserRecord = {
       userId: `usr_${randomUUID()}`,
-      email: `${phone}@phone.paseo.local`,
+      email: `${phone}@phone.doya.local`,
       phone,
       accessToken: randomUUID(),
       createdAt: timestamp,

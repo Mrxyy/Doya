@@ -72,7 +72,7 @@ function createCheckoutFacts(
     remoteUrl: "https://github.com/acme/repo.git",
     absoluteGitDir: join(cwd, ".git"),
     gitCommonDir: join(cwd, ".git"),
-    paseoWorktree: { isPaseoOwnedWorktree: false },
+    doyaWorktree: { isDoyaOwnedWorktree: false },
     storedBaseRef: null,
     resolvedBaseRef: "main",
     mainRepoRoot: null,
@@ -101,7 +101,7 @@ function createCheckoutStatus(
     behindOfOrigin: 0,
     hasRemote: true,
     remoteUrl: "https://github.com/acme/repo.git",
-    isPaseoOwnedWorktree: false,
+    isDoyaOwnedWorktree: false,
     ...overrides,
   };
 }
@@ -151,7 +151,7 @@ function createSnapshot(
       mainRepoRoot: null,
       currentBranch: "main",
       remoteUrl: "https://github.com/acme/repo.git",
-      isPaseoOwnedWorktree: false,
+      isDoyaOwnedWorktree: false,
       isDirty: false,
       baseRef: "main",
       aheadBehind: { ahead: 0, behind: 0 },
@@ -235,7 +235,7 @@ interface CreateServiceOptions {
   resolveBranchCheckout?: ReturnType<typeof vi.fn>;
   resolveRepositoryDefaultBranch?: ReturnType<typeof vi.fn>;
   listBranchSuggestions?: ReturnType<typeof vi.fn>;
-  listPaseoWorktrees?: ReturnType<typeof vi.fn>;
+  listDoyaWorktrees?: ReturnType<typeof vi.fn>;
   github?: GitHubService;
   resolveAbsoluteGitDir?: ReturnType<typeof vi.fn>;
   hasOriginRemote?: ReturnType<typeof vi.fn>;
@@ -261,7 +261,7 @@ function buildDefaultServiceDeps() {
     resolveBranchCheckout: vi.fn(async () => ({ kind: "not-found" })),
     resolveRepositoryDefaultBranch: vi.fn(async () => "main"),
     listBranchSuggestions: vi.fn(async () => []),
-    listPaseoWorktrees: vi.fn(async () => []),
+    listDoyaWorktrees: vi.fn(async () => []),
     github: createGitHubServiceStub(),
     resolveAbsoluteGitDir: vi.fn(async () => join(REPO_CWD, ".git")),
     hasOriginRemote: vi.fn(async () => false),
@@ -284,7 +284,7 @@ function buildServiceDeps(options?: CreateServiceOptions) {
 function createService(options?: CreateServiceOptions) {
   return new WorkspaceGitServiceImpl({
     logger: createLogger() as never,
-    paseoHome: "/tmp/paseo-test",
+    doyaHome: "/tmp/doya-test",
     deps: buildServiceDeps(options),
   });
 }
@@ -1249,7 +1249,7 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
 
   test("listStashes cold-loads, warms, forces, and coalesces per cwd", async () => {
     let nowMs = 0;
-    const stashOutput = "stash@{0}\u0000paseo-auto-stash: feature\n";
+    const stashOutput = "stash@{0}\u0000doya-auto-stash: feature\n";
     const stashDeferred = createDeferred<{
       stdout: string;
       stderr: string;
@@ -1272,8 +1272,8 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
       now: () => new Date(nowMs),
     });
 
-    const first = service.listStashes(REPO_CWD, { paseoOnly: true });
-    const second = service.listStashes(join(REPO_CWD, "."), { paseoOnly: true });
+    const first = service.listStashes(REPO_CWD, { doyaOnly: true });
+    const second = service.listStashes(join(REPO_CWD, "."), { doyaOnly: true });
     await flushPromises();
 
     expect(runGitCommand).toHaveBeenCalledTimes(1);
@@ -1285,15 +1285,15 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
       signal: null,
     });
     await expect(Promise.all([first, second])).resolves.toEqual([
-      [{ index: 0, message: "paseo-auto-stash: feature", branch: "feature", isPaseo: true }],
-      [{ index: 0, message: "paseo-auto-stash: feature", branch: "feature", isPaseo: true }],
+      [{ index: 0, message: "doya-auto-stash: feature", branch: "feature", isDoya: true }],
+      [{ index: 0, message: "doya-auto-stash: feature", branch: "feature", isDoya: true }],
     ]);
 
     nowMs = 1_000;
-    await service.listStashes(REPO_CWD, { paseoOnly: true });
+    await service.listStashes(REPO_CWD, { doyaOnly: true });
     expect(runGitCommand).toHaveBeenCalledTimes(1);
 
-    await service.listStashes(REPO_CWD, { paseoOnly: true }, { force: true, reason: "test" });
+    await service.listStashes(REPO_CWD, { doyaOnly: true }, { force: true, reason: "test" });
     expect(runGitCommand).toHaveBeenCalledTimes(2);
 
     service.dispose();
@@ -1303,28 +1303,28 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
     let nowMs = 0;
     const worktrees = [
       {
-        path: "/tmp/paseo-home/worktrees/repo/feature",
+        path: "/tmp/doya-home/worktrees/repo/feature",
         createdAt: "2026-04-12T00:00:00.000Z",
         branchName: "feature",
       },
     ];
-    const listPaseoWorktrees = vi.fn().mockResolvedValue(worktrees);
+    const listDoyaWorktrees = vi.fn().mockResolvedValue(worktrees);
     const service = createService({
-      listPaseoWorktrees,
+      listDoyaWorktrees,
       now: () => new Date(nowMs),
     });
 
     const first = service.listWorktrees(REPO_CWD);
     const second = service.listWorktrees(join(REPO_CWD, "."));
     await expect(Promise.all([first, second])).resolves.toEqual([worktrees, worktrees]);
-    expect(listPaseoWorktrees).toHaveBeenCalledTimes(1);
+    expect(listDoyaWorktrees).toHaveBeenCalledTimes(1);
 
     nowMs = 1_000;
     await service.listWorktrees(REPO_CWD);
-    expect(listPaseoWorktrees).toHaveBeenCalledTimes(1);
+    expect(listDoyaWorktrees).toHaveBeenCalledTimes(1);
 
     await service.listWorktrees(REPO_CWD, { force: true, reason: "test" });
-    expect(listPaseoWorktrees).toHaveBeenCalledTimes(2);
+    expect(listDoyaWorktrees).toHaveBeenCalledTimes(2);
 
     service.dispose();
   });
@@ -1338,16 +1338,16 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
 
     const worktrees = [
       {
-        path: join(tempDir, "paseo-home", "worktrees", "repo", "feature"),
+        path: join(tempDir, "doya-home", "worktrees", "repo", "feature"),
         createdAt: "2026-04-12T00:00:00.000Z",
         branchName: "feature",
       },
     ];
-    const listPaseoWorktrees = vi.fn(async () => worktrees);
+    const listDoyaWorktrees = vi.fn(async () => worktrees);
     const service = createService({
       getCheckoutSnapshotFacts: getCheckoutSnapshotFactsUncached as never,
       getCheckoutStatus: getCheckoutStatusUncached as never,
-      listPaseoWorktrees,
+      listDoyaWorktrees,
     });
 
     try {
@@ -1356,10 +1356,11 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
       ).resolves.toEqual([worktrees, worktrees]);
       await expect(service.listWorktrees(nestedWorkspaceDir)).resolves.toEqual(worktrees);
 
-      expect(listPaseoWorktrees).toHaveBeenCalledTimes(1);
-      expect(listPaseoWorktrees).toHaveBeenCalledWith({
+      expect(listDoyaWorktrees).toHaveBeenCalledTimes(1);
+      expect(listDoyaWorktrees).toHaveBeenCalledWith({
         cwd: realpathSync.native(repoDir).replace(/\\/g, "/"),
-        paseoHome: "/tmp/paseo-test",
+        doyaHome: "/tmp/doya-test",
+        worktreesRoot: undefined,
       });
     } finally {
       service.dispose();
@@ -1431,7 +1432,7 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
     let nowMs = 0;
     const getCheckoutStatus = vi.fn(async (cwd: string) =>
       createCheckoutStatus(cwd, {
-        remoteUrl: "https://github.com/getpaseo/paseo.git",
+        remoteUrl: "https://github.com/getdoya/doya.git",
       }),
     );
     const service = createService({
@@ -1440,11 +1441,11 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
     });
 
     await expect(service.resolveRepoRemoteUrl(REPO_CWD)).resolves.toBe(
-      "https://github.com/getpaseo/paseo.git",
+      "https://github.com/getdoya/doya.git",
     );
     nowMs = 1_000;
     await expect(service.resolveRepoRemoteUrl(join(REPO_CWD, "."))).resolves.toBe(
-      "https://github.com/getpaseo/paseo.git",
+      "https://github.com/getdoya/doya.git",
     );
 
     expect(getCheckoutStatus).toHaveBeenCalledTimes(1);
@@ -1457,7 +1458,7 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
     const getCheckoutStatus = vi.fn(async (cwd: string) =>
       createCheckoutStatus(cwd, {
         currentBranch: "feature/service-metadata",
-        remoteUrl: "https://github.com/getpaseo/paseo.git",
+        remoteUrl: "https://github.com/getdoya/doya.git",
         repoRoot: REPO_CWD,
       }),
     );
@@ -1470,14 +1471,14 @@ describe("WorkspaceGitServiceImpl D2 read methods", () => {
       service.getWorkspaceGitMetadata(REPO_CWD, { directoryName: "Local Repo" }),
     ).resolves.toEqual({
       projectKind: "git",
-      projectDisplayName: "getpaseo/paseo",
+      projectDisplayName: "getdoya/doya",
       workspaceDisplayName: "feature/service-metadata",
-      gitRemote: "https://github.com/getpaseo/paseo.git",
+      gitRemote: "https://github.com/getdoya/doya.git",
       isWorktree: false,
-      projectSlug: "paseo",
+      projectSlug: "doya",
       repoRoot: REPO_CWD,
       currentBranch: "feature/service-metadata",
-      remoteUrl: "https://github.com/getpaseo/paseo.git",
+      remoteUrl: "https://github.com/getdoya/doya.git",
     });
 
     nowMs = 1_000;

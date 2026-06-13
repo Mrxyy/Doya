@@ -1,9 +1,9 @@
 import path from "node:path";
-import { resolvePaseoNodeEnv } from "./paseo-env.js";
+import { resolveDoyaNodeEnv } from "./doya-env.js";
 import { z } from "zod";
 import { expandTilde } from "../utils/path.js";
 
-import type { PaseoDaemonConfig } from "./bootstrap.js";
+import type { DoyaDaemonConfig } from "./bootstrap.js";
 import {
   loadPersistedConfig,
   LogFormatSchema,
@@ -16,15 +16,19 @@ import type {
   ProviderOverride,
 } from "./agent/provider-launch-config.js";
 import { ProviderOverrideSchema } from "./agent/provider-launch-config.js";
-import { AgentProviderSchema } from "@getpaseo/protocol/provider-manifest";
+import { AgentProviderSchema } from "@getdoya/protocol/provider-manifest";
 import { hashDaemonPassword } from "./auth.js";
 import { resolveSpeechConfig } from "./speech/speech-config-resolver.js";
 import { mergeHostnames, parseHostnamesEnv, type HostnamesConfig } from "./hostnames.js";
 import { resolveSmsVerificationConfig } from "./sms-verification-service.js";
 
 const DEFAULT_PORT = 6767;
-const DEFAULT_RELAY_ENDPOINT = "relay.paseo.sh:443";
-const DEFAULT_APP_BASE_URL = "https://app.paseo.sh";
+const DEFAULT_RELAY_ENDPOINT = "relay.doya.sh:443";
+const DEFAULT_APP_BASE_URL = "https://app.doya.sh";
+
+function envValue(env: NodeJS.ProcessEnv, doyaKey: string): string | undefined {
+  return env[doyaKey];
+}
 
 function parseBooleanEnv(value: string | undefined): boolean | undefined {
   if (value === undefined) {
@@ -63,8 +67,8 @@ function resolveLogConfigFromEnv(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): PersistedConfig["log"] {
-  const envLogLevel = LogLevelSchema.safeParse(normalizeLogEnv(env.PASEO_LOG_LEVEL));
-  const envLogFormat = LogFormatSchema.safeParse(normalizeLogEnv(env.PASEO_LOG_FORMAT));
+  const envLogLevel = LogLevelSchema.safeParse(normalizeLogEnv(envValue(env, "DOYA_LOG_LEVEL")));
+  const envLogFormat = LogFormatSchema.safeParse(normalizeLogEnv(envValue(env, "DOYA_LOG_FORMAT")));
 
   if (!envLogLevel.success && !envLogFormat.success) {
     return persisted.log;
@@ -167,26 +171,26 @@ function resolveTlsFromEnv(
 function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
   const enabled =
     input.cliRelayEnabled ??
-    parseBooleanEnv(input.env.PASEO_RELAY_ENABLED) ??
+    parseBooleanEnv(input.env.DOYA_RELAY_ENABLED) ??
     input.persisted.daemon?.relay?.enabled ??
     true;
   const endpoint =
-    input.env.PASEO_RELAY_ENDPOINT ??
+    input.env.DOYA_RELAY_ENDPOINT ??
     input.persisted.daemon?.relay?.endpoint ??
     DEFAULT_RELAY_ENDPOINT;
   const publicEndpoint =
-    input.env.PASEO_RELAY_PUBLIC_ENDPOINT ??
+    input.env.DOYA_RELAY_PUBLIC_ENDPOINT ??
     input.persisted.daemon?.relay?.publicEndpoint ??
     endpoint;
   const useTls =
     input.cliRelayUseTls ??
     resolveTlsFromEnv(
-      input.env.PASEO_RELAY_USE_TLS,
+      input.env.DOYA_RELAY_USE_TLS,
       input.persisted.daemon?.relay?.useTls,
       endpoint === DEFAULT_RELAY_ENDPOINT,
     );
   const publicUseTls = resolveTlsFromEnv(
-    input.env.PASEO_RELAY_PUBLIC_USE_TLS,
+    input.env.DOYA_RELAY_PUBLIC_USE_TLS,
     input.persisted.daemon?.relay?.publicUseTls,
     useTls,
   );
@@ -203,7 +207,9 @@ function resolveVoiceLlmConfig(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): ResolvedVoiceLlm {
-  const envVoiceLlmProvider = parseOptionalVoiceLlmProvider(env.PASEO_VOICE_LLM_PROVIDER);
+  const envVoiceLlmProvider = parseOptionalVoiceLlmProvider(
+    envValue(env, "DOYA_VOICE_LLM_PROVIDER"),
+  );
   const persistedVoiceLlmProvider = parseOptionalVoiceLlmProvider(
     persisted.features?.voiceMode?.llm?.provider,
   );
@@ -218,16 +224,15 @@ function resolveCorsAllowedOrigins(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): string[] {
-  const envCorsOrigins = env.PASEO_CORS_ORIGINS
-    ? env.PASEO_CORS_ORIGINS.split(",").map((s) => s.trim())
-    : [];
+  const rawCorsOrigins = envValue(env, "DOYA_CORS_ORIGINS");
+  const envCorsOrigins = rawCorsOrigins ? rawCorsOrigins.split(",").map((s) => s.trim()) : [];
   const persistedCorsOrigins = persisted.daemon?.cors?.allowedOrigins ?? [];
   return Array.from(
     new Set([...persistedCorsOrigins, ...envCorsOrigins].filter((s) => s.length > 0)),
   );
 }
 
-// PASEO_LISTEN can be:
+// DOYA_LISTEN can be:
 // - host:port (TCP)
 // - /path/to/socket (Unix socket)
 // - unix:///path/to/socket (Unix socket)
@@ -239,7 +244,7 @@ function resolveListenAddress(
 ): string {
   return (
     cli?.listen ??
-    env.PASEO_LISTEN ??
+    env.DOYA_LISTEN ??
     persisted.daemon?.listen ??
     `127.0.0.1:${env.PORT ?? DEFAULT_PORT}`
   );
@@ -248,8 +253,8 @@ function resolveListenAddress(
 function resolveAuthConfig(
   env: NodeJS.ProcessEnv,
   persisted: ReturnType<typeof loadPersistedConfig>,
-): PaseoDaemonConfig["auth"] {
-  const envPassword = env.PASEO_PASSWORD?.trim();
+): DoyaDaemonConfig["auth"] {
+  const envPassword = envValue(env, "DOYA_PASSWORD")?.trim();
   if (envPassword) {
     return { password: hashDaemonPassword(envPassword) };
   }
@@ -259,7 +264,7 @@ function resolveAuthConfig(
 }
 
 function resolveWorktreesRoot(
-  paseoHome: string,
+  doyaHome: string,
   persisted: ReturnType<typeof loadPersistedConfig>,
 ): string | undefined {
   const configuredRoot = persisted.worktrees?.root?.trim();
@@ -270,7 +275,7 @@ function resolveWorktreesRoot(
   const expandedRoot = expandTilde(configuredRoot);
   return path.isAbsolute(expandedRoot)
     ? path.resolve(expandedRoot)
-    : path.resolve(paseoHome, expandedRoot);
+    : path.resolve(doyaHome, expandedRoot);
 }
 
 function resolveAppendSystemPrompt(persisted: ReturnType<typeof loadPersistedConfig>): string {
@@ -290,22 +295,23 @@ function resolveStaticLoadConfigSettings(
     appendSystemPrompt: resolveAppendSystemPrompt(persisted),
     hostnames: mergeHostnames([
       persisted.daemon?.hostnames,
-      parseHostnamesEnv(env.PASEO_HOSTNAMES ?? env.PASEO_ALLOWED_HOSTS),
+      parseHostnamesEnv(env.DOYA_HOSTNAMES ?? env.DOYA_ALLOWED_HOSTS),
       cli?.hostnames,
     ]),
-    appBaseUrl: env.PASEO_APP_BASE_URL ?? persisted.app?.baseUrl ?? DEFAULT_APP_BASE_URL,
+    appBaseUrl:
+      envValue(env, "DOYA_APP_BASE_URL") ?? persisted.app?.baseUrl ?? DEFAULT_APP_BASE_URL,
   };
 }
 
 export function loadConfig(
-  paseoHome: string,
+  doyaHome: string,
   options?: {
     env?: NodeJS.ProcessEnv;
     cli?: CliConfigOverrides;
   },
-): PaseoDaemonConfig {
+): DoyaDaemonConfig {
   const env = options?.env ?? process.env;
-  const persisted = loadPersistedConfig(paseoHome);
+  const persisted = loadPersistedConfig(doyaHome);
 
   const listen = resolveListenAddress(env, options?.cli, persisted);
   const {
@@ -325,7 +331,7 @@ export function loadConfig(
   });
 
   const { openai, speech } = resolveSpeechConfig({
-    paseoHome,
+    doyaHome,
     env,
     persisted,
   });
@@ -337,8 +343,8 @@ export function loadConfig(
 
   return {
     listen,
-    paseoHome,
-    worktreesRoot: resolveWorktreesRoot(paseoHome, persisted),
+    doyaHome,
+    worktreesRoot: resolveWorktreesRoot(doyaHome, persisted),
     corsAllowedOrigins: resolveCorsAllowedOrigins(env, persisted),
     hostnames,
     mcpEnabled,
@@ -346,8 +352,8 @@ export function loadConfig(
     autoArchiveAfterMerge,
     appendSystemPrompt,
     mcpDebug: env.MCP_DEBUG === "1",
-    isDev: resolvePaseoNodeEnv(env) === "development",
-    agentStoragePath: path.join(paseoHome, "agents"),
+    isDev: resolveDoyaNodeEnv(env) === "development",
+    agentStoragePath: path.join(doyaHome, "agents"),
     staticDir: "public",
     agentClients: {},
     relayEnabled: relay.enabled,

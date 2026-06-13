@@ -1,4 +1,4 @@
-import type { AgentProvider } from "@getpaseo/protocol/agent-types";
+import type { AgentProvider } from "@getdoya/protocol/agent-types";
 import {
   buildDeterministicWorkspaceTabId,
   normalizeWorkspaceDraftTabSetup,

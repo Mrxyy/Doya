@@ -1,6 +1,6 @@
 import type { AgentTimelineItem } from "./agent-sdk-types.js";
-import { isLikelyExternalToolName } from "@getpaseo/protocol/tool-name-normalization";
-import { buildToolCallDisplayModel } from "@getpaseo/protocol/tool-call-display";
+import { isLikelyExternalToolName } from "@getdoya/protocol/tool-name-normalization";
+import { buildToolCallDisplayModel } from "@getdoya/protocol/tool-call-display";
 import { projectTimelineRows } from "./timeline-projection.js";
 
 const DEFAULT_MAX_ITEMS = 0;

@@ -11,14 +11,14 @@ Authoritative terminology. UI label wins. Don't invent synonyms; use what's here
 - **Project host entry** — One row in a project for a single (project, daemon) pair, aggregating that daemon's workspaces in the project. Internal. Code: `ProjectHostEntry` (`packages/app/src/utils/projects.ts:11`). Don't introduce "Checkout" as a synonym.
 - **Placement** — One workspace's relationship to its project (projectKey, projectName, git checkout snapshot). Internal. Code: `ProjectPlacementPayload` (`packages/protocol/src/messages.ts:2113`).
 - **Branch** — Plain git branch. UI: "Switch branch". Code: `currentBranch` in `WorkspaceGitRuntimePayloadSchema` (`packages/protocol/src/messages.ts:2136`); `BranchSwitcher` (`packages/app/src/components/branch-switcher.tsx`).
-- **Worktree** — Doya-managed git worktree (`~/.paseo/worktrees/{name}`); also a `workspaceKind` value. UI: CLI + `paseo.json` keys (`worktree.setup`, `worktree.teardown`) only. Code: `ProjectCheckoutLiteGitPaseoPayload` (`packages/protocol/src/messages.ts:2092`); CLI `paseo worktree` (`packages/cli/src/commands/worktree/index.ts:8`). Forbidden: "Checkout" as a synonym.
+- **Worktree** — Doya-managed git worktree (`~/.doya/worktrees/{name}`); also a `workspaceKind` value. UI: CLI + `doya.json` keys (`worktree.setup`, `worktree.teardown`) only. Code: `ProjectCheckoutLiteGitDoyaPayload` (`packages/protocol/src/messages.ts:2092`); CLI `doya worktree` (`packages/cli/src/commands/worktree/index.ts:8`). Forbidden: "Checkout" as a synonym.
 - **Repository / Remote** — Internal git inputs (`remoteUrl`, `mainRepoRoot`) used to derive `projectKey`. No UI label.
 - **Session** — Per-client connection to a daemon. Internal. Code: `Session` (`packages/server/src/server/session.ts`). Don't confuse with: provider-side agent session log.
 - **Profile** — Internal name for the persisted shape of a host. Code: `HostProfile` (`packages/app/src/types/host-connection.ts:37`). Never user-facing.
 - **Provider** — Agent backend (Claude Code, Codex, Copilot, OpenCode, Pi). UI: "Provider". Code: `ProviderSnapshotEntry` (`packages/protocol/src/messages.ts:198`).
 - **Model** — A specific LLM offered by a provider. UI: "Model" / "Select model". Code: `AgentModelDefinition` (`packages/protocol/src/messages.ts:187`).
 - **Terminal** — Workspace-scoped PTY shell streamed over the binary mux channel. UI: "Terminal". Code: `TerminalStreamFrame` (`packages/protocol/src/terminal-stream-protocol.ts`).
-- **Schedule** — Cron-style trigger that creates new agents. UI: CLI/MCP (`paseo schedule`, `create_schedule`). Don't confuse with: Heartbeat (cron prompt back into the same agent) or Loop (iterative re-execution of one agent).
+- **Schedule** — Cron-style trigger that creates new agents. UI: CLI/MCP (`doya schedule`, `create_schedule`). Don't confuse with: Heartbeat (cron prompt back into the same agent) or Loop (iterative re-execution of one agent).
 - **Heartbeat** — Cron-style prompt sent back into the same agent/conversation. MCP: `create_heartbeat`. Use for reminders and babysitting where the status should return inline.
 - **Mode** — Provider-specific operational mode (plan, default, full-access, …). UI: icon-only. Code: `modeId` in `AgentSessionConfig` (`packages/protocol/src/messages.ts:257`).
 - **Attachment** — GitHub PR or Issue bound to an agent prompt. UI: "Attach issue or PR". Code: `AgentAttachment` (`packages/protocol/src/messages.ts:782`).
@@ -29,7 +29,7 @@ Authoritative terminology. UI label wins. Don't invent synonyms; use what's here
 - **Composer footer** — Optional area rendered below the composer input but still inside the keyboard-shifted composer layout. Code: `Composer.footer` (`packages/app/src/composer/index.tsx`).
 - **Composer track** — A contextual lane above the composer input. Specific tracks use the `<thing> track` form: **Queue track**, **Subagents track**. Code: queue track inside `Composer` (`packages/app/src/composer/index.tsx`), `SubagentsTrack` (`packages/app/src/subagents/track.tsx`).
 - **Attachment tray** — The selected-attachments row inside the composer input, above the text input. Code: `renderAttachmentTray` (`packages/app/src/composer/index.tsx`). Forbidden: "Attachment bar".
-- **Conflict** — Two distinct senses; do NOT use the bare word in UI copy without qualifying which: (a) **stale-write conflict** on `paseo.json` ("Config changed on disk", code `stale_project_config`, `packages/app/src/screens/project-settings-screen.tsx:593`); (b) **git merge conflict** (no current UI string).
+- **Conflict** — Two distinct senses; do NOT use the bare word in UI copy without qualifying which: (a) **stale-write conflict** on `doya.json` ("Config changed on disk", code `stale_project_config`, `packages/app/src/screens/project-settings-screen.tsx:593`); (b) **git merge conflict** (no current UI string).
 
 ## Inconsistencies (documented, not papered over)
 

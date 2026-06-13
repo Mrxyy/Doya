@@ -2,11 +2,11 @@
 
 ## Controlled variables
 
-| Dimension | Value | Status |
-|---|---|---|
-| Rendering | **varies (20 styles)** | under comparison |
-| Palette | `cool-corporate` | fixed baseline |
-| Composition | single-subject hero — see [`image-generator.md`](../../image-generator.md) §4.1 Primitive A | fixed baseline |
+| Dimension   | Value                                                                                       | Status           |
+| ----------- | ------------------------------------------------------------------------------------------- | ---------------- |
+| Rendering   | **varies (20 styles)**                                                                      | under comparison |
+| Palette     | `cool-corporate`                                                                            | fixed baseline   |
+| Composition | single-subject hero — see [`image-generator.md`](../../image-generator.md) §4.1 Primitive A | fixed baseline   |
 
 ## Subject
 

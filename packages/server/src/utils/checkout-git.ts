@@ -19,8 +19,8 @@ import {
 } from "../services/github-service.js";
 import { parseGitRevParsePath, resolveGitRevParsePath } from "./git-rev-parse-path.js";
 import { runGitCommand } from "./run-git-command.js";
-import { isPaseoOwnedWorktreeCwd, resolvePaseoWorktreesBaseRoot } from "./worktree.js";
-import { readPaseoWorktreeMetadata } from "./worktree-metadata.js";
+import { isDoyaOwnedWorktreeCwd, resolveDoyaWorktreesBaseRoot } from "./worktree.js";
+import { readDoyaWorktreeMetadata } from "./worktree-metadata.js";
 const READ_ONLY_GIT_ENV = {
   GIT_OPTIONAL_LOCKS: "0",
 } as const;
@@ -29,6 +29,8 @@ const DEFAULT_PULL_REQUEST_STATUS_CACHE_TTL_MS = 30_000;
 const PULL_REQUEST_STATUS_CACHE_MAX = 1_000;
 const DEFAULT_SHORTSTAT_CACHE_TTL_MS = 15_000;
 const SHORTSTAT_CACHE_MAX = 1_000;
+const DOYA_PR_REMOTE_PREFIX = "doya-pr-";
+const LEGACY_DOYA_PR_REMOTE_PREFIX = "doya-pr-";
 
 let pullRequestStatusCacheTtlMs = DEFAULT_PULL_REQUEST_STATUS_CACHE_TTL_MS;
 let pullRequestStatusCache = createPullRequestStatusCache(pullRequestStatusCacheTtlMs);
@@ -720,7 +722,7 @@ export interface CheckoutStatus {
   isGit: false;
 }
 
-export interface CheckoutStatusGitNonPaseo {
+export interface CheckoutStatusGitNonDoya {
   isGit: true;
   repoRoot: string;
   mainRepoRoot: string | null;
@@ -732,10 +734,10 @@ export interface CheckoutStatusGitNonPaseo {
   behindOfOrigin: number | null;
   hasRemote: boolean;
   remoteUrl: string | null;
-  isPaseoOwnedWorktree: false;
+  isDoyaOwnedWorktree: false;
 }
 
-export interface CheckoutStatusGitPaseo {
+export interface CheckoutStatusGitDoya {
   isGit: true;
   repoRoot: string;
   mainRepoRoot: string;
@@ -747,10 +749,10 @@ export interface CheckoutStatusGitPaseo {
   behindOfOrigin: number | null;
   hasRemote: boolean;
   remoteUrl: string | null;
-  isPaseoOwnedWorktree: true;
+  isDoyaOwnedWorktree: true;
 }
 
-export type CheckoutStatusGit = CheckoutStatusGitNonPaseo | CheckoutStatusGitPaseo;
+export type CheckoutStatusGit = CheckoutStatusGitNonDoya | CheckoutStatusGitDoya;
 
 export type CheckoutStatusResult = CheckoutStatus | CheckoutStatusGit;
 
@@ -778,7 +780,7 @@ export interface MergeFromBaseOptions {
 }
 
 export interface CheckoutContext {
-  paseoHome?: string;
+  doyaHome?: string;
   worktreesRoot?: string;
   logger?: Pick<Logger, "trace">;
   facts?: CheckoutSnapshotFacts | null;
@@ -795,7 +797,7 @@ export type CheckoutSnapshotFacts =
       remoteUrl: string | null;
       absoluteGitDir: string | null;
       gitCommonDir: string | null;
-      paseoWorktree: PaseoWorktreeForCwd;
+      doyaWorktree: DoyaWorktreeForCwd;
       storedBaseRef: string | null;
       resolvedBaseRef: string | null;
       mainRepoRoot: string | null;
@@ -899,17 +901,17 @@ async function getMainRepoRootFromCommonDir(
     envOverlay: READ_ONLY_GIT_ENV,
   });
   const worktrees = parseWorktreeList(worktreeOut);
-  const nonBareNonPaseo = worktrees.filter(
+  const nonBareNonDoya = worktrees.filter(
     (wt) =>
       !wt.isBare &&
-      !isPaseoWorktreePath(wt.path, {
-        paseoHome: context?.paseoHome,
+      !isDoyaWorktreePath(wt.path, {
+        doyaHome: context?.doyaHome,
         worktreesRoot: context?.worktreesRoot,
       }),
   );
-  const childrenOfBareRepo = nonBareNonPaseo.filter((wt) => isDescendantPath(wt.path, normalized));
+  const childrenOfBareRepo = nonBareNonDoya.filter((wt) => isDescendantPath(wt.path, normalized));
   const mainChild = childrenOfBareRepo.find((wt) => basename(wt.path) === "main");
-  return mainChild?.path ?? childrenOfBareRepo[0]?.path ?? nonBareNonPaseo[0]?.path ?? normalized;
+  return mainChild?.path ?? childrenOfBareRepo[0]?.path ?? nonBareNonDoya[0]?.path ?? normalized;
 }
 
 export interface GitWorktreeEntry {
@@ -918,15 +920,15 @@ export interface GitWorktreeEntry {
   isBare?: boolean;
 }
 
-/** Check whether a path is under Paseo's worktree root. */
-export function isPaseoWorktreePath(
+/** Check whether a path is under Doya's worktree root. */
+export function isDoyaWorktreePath(
   p: string,
-  options?: { paseoHome?: string; worktreesRoot?: string },
+  options?: { doyaHome?: string; worktreesRoot?: string },
 ): boolean {
-  if (options?.worktreesRoot || options?.paseoHome) {
-    return isDescendantPath(p, resolvePaseoWorktreesBaseRoot(options));
+  if (options?.worktreesRoot || options?.doyaHome) {
+    return isDescendantPath(p, resolveDoyaWorktreesBaseRoot(options));
   }
-  return /[/\\]\.paseo[/\\]worktrees[/\\]/.test(p);
+  return /[/\\]\.(?:doya|doya)[/\\]worktrees[/\\]/.test(p);
 }
 
 /** True when `child` is strictly inside `parent` (handles both `/` and `\`). */
@@ -1009,36 +1011,36 @@ export async function renameCurrentBranch(
   return { previousBranch, currentBranch };
 }
 
-type PaseoWorktreeForCwd =
-  | { isPaseoOwnedWorktree: false }
-  | { isPaseoOwnedWorktree: true; worktreeRoot: string };
+type DoyaWorktreeForCwd =
+  | { isDoyaOwnedWorktree: false }
+  | { isDoyaOwnedWorktree: true; worktreeRoot: string };
 
-async function getPaseoWorktreeForCwd(
+async function getDoyaWorktreeForCwd(
   cwd: string,
   context?: CheckoutContext,
   knownWorktreeRoot?: string | null,
-): Promise<PaseoWorktreeForCwd> {
+): Promise<DoyaWorktreeForCwd> {
   // Fast-path reject: non-worktree paths do not need expensive ownership checks.
   if (!/[\\/]worktrees[\\/]/.test(cwd)) {
-    return { isPaseoOwnedWorktree: false };
+    return { isDoyaOwnedWorktree: false };
   }
 
-  const ownership = await isPaseoOwnedWorktreeCwd(cwd, {
-    paseoHome: context?.paseoHome,
+  const ownership = await isDoyaOwnedWorktreeCwd(cwd, {
+    doyaHome: context?.doyaHome,
     worktreesRoot: context?.worktreesRoot,
   });
   if (!ownership.allowed) {
-    return { isPaseoOwnedWorktree: false };
+    return { isDoyaOwnedWorktree: false };
   }
 
   return {
-    isPaseoOwnedWorktree: true,
+    isDoyaOwnedWorktree: true,
     worktreeRoot: knownWorktreeRoot ?? (await getWorktreeRoot(cwd)) ?? cwd,
   };
 }
 
-function readPaseoWorktreeBaseRef(worktreeRoot: string): string | null {
-  return readPaseoWorktreeMetadata(worktreeRoot)?.baseRefName ?? null;
+function readDoyaWorktreeBaseRef(worktreeRoot: string): string | null {
+  return readDoyaWorktreeMetadata(worktreeRoot)?.baseRefName ?? null;
 }
 
 async function getStoredBaseRefForCwd(
@@ -1048,12 +1050,12 @@ async function getStoredBaseRefForCwd(
   if (context?.facts?.isGit) {
     return context.facts.storedBaseRef;
   }
-  const paseoWorktree = await getPaseoWorktreeForCwd(cwd, context);
-  if (!paseoWorktree.isPaseoOwnedWorktree) {
+  const doyaWorktree = await getDoyaWorktreeForCwd(cwd, context);
+  if (!doyaWorktree.isDoyaOwnedWorktree) {
     return null;
   }
 
-  return readPaseoWorktreeBaseRef(paseoWorktree.worktreeRoot);
+  return readDoyaWorktreeBaseRef(doyaWorktree.worktreeRoot);
 }
 
 async function getResolvedBaseRefForCwd(
@@ -1143,6 +1145,13 @@ function parseBranchMergeHeadRef(mergeRef: string | null): string | null {
   return headRef.length > 0 ? headRef : null;
 }
 
+function isDoyaPullRequestRemoteName(remoteName: string | null | undefined): remoteName is string {
+  return (
+    remoteName?.startsWith(DOYA_PR_REMOTE_PREFIX) === true ||
+    remoteName?.startsWith(LEGACY_DOYA_PR_REMOTE_PREFIX) === true
+  );
+}
+
 async function resolvePullRequestStatusLookupTarget(
   cwd: string,
   currentBranch: string,
@@ -1152,7 +1161,7 @@ async function resolvePullRequestStatusLookupTarget(
     return context.facts.pullRequestLookupTarget;
   }
   const remoteName = await getGitConfigValue(cwd, `branch.${currentBranch}.remote`);
-  if (!remoteName?.startsWith("paseo-pr-")) {
+  if (!isDoyaPullRequestRemoteName(remoteName)) {
     return { headRef: currentBranch };
   }
 
@@ -1486,7 +1495,7 @@ interface CheckoutInspectionContext {
   remoteUrl: string | null;
   absoluteGitDir: string | null;
   gitCommonDir: string | null;
-  paseoWorktree: PaseoWorktreeForCwd;
+  doyaWorktree: DoyaWorktreeForCwd;
 }
 
 async function inspectCheckoutContext(
@@ -1499,13 +1508,13 @@ async function inspectCheckoutContext(
       return null;
     }
 
-    const [currentBranch, remoteUrl, absoluteGitDir, gitCommonDir, paseoWorktree] =
+    const [currentBranch, remoteUrl, absoluteGitDir, gitCommonDir, doyaWorktree] =
       await Promise.all([
         getCurrentBranch(cwd),
         getOriginRemoteUrl(cwd),
         resolveAbsoluteGitDir(cwd),
         resolveGitCommonDir(cwd),
-        getPaseoWorktreeForCwd(cwd, context, root),
+        getDoyaWorktreeForCwd(cwd, context, root),
       ]);
 
     return {
@@ -1514,7 +1523,7 @@ async function inspectCheckoutContext(
       remoteUrl,
       absoluteGitDir,
       gitCommonDir,
-      paseoWorktree,
+      doyaWorktree,
     };
   } catch (error) {
     if (isGitError(error)) {
@@ -1530,7 +1539,7 @@ function buildPullRequestLookupTargetFromBranchConfig(input: {
   branchMergeRef: string | null;
   branchRemoteUrl: string | null;
 }): PullRequestStatusLookupTarget {
-  if (!input.branchRemoteName?.startsWith("paseo-pr-")) {
+  if (!isDoyaPullRequestRemoteName(input.branchRemoteName)) {
     return { headRef: input.currentBranch };
   }
 
@@ -1562,8 +1571,8 @@ export async function getCheckoutSnapshotFacts(
     return { isGit: false };
   }
 
-  const storedBaseRef = inspected.paseoWorktree.isPaseoOwnedWorktree
-    ? readPaseoWorktreeBaseRef(inspected.paseoWorktree.worktreeRoot)
+  const storedBaseRef = inspected.doyaWorktree.isDoyaOwnedWorktree
+    ? readDoyaWorktreeBaseRef(inspected.doyaWorktree.worktreeRoot)
     : null;
   const resolvedBaseRef = storedBaseRef ?? (await resolveBaseRef(cwd));
   const mainRepoRoot = await getMainRepoRootFromCommonDir(
@@ -1597,7 +1606,7 @@ export async function getCheckoutSnapshotFacts(
         `branch.${inspected.currentBranch}.merge`,
         context,
       );
-      if (branchRemoteName.startsWith("paseo-pr-")) {
+      if (isDoyaPullRequestRemoteName(branchRemoteName)) {
         branchRemoteUrl = await getGitConfigValue(cwd, `remote.${branchRemoteName}.url`, context);
       }
     }
@@ -1620,7 +1629,7 @@ export async function getCheckoutSnapshotFacts(
     remoteUrl: inspected.remoteUrl,
     absoluteGitDir: inspected.absoluteGitDir,
     gitCommonDir: inspected.gitCommonDir,
-    paseoWorktree: inspected.paseoWorktree,
+    doyaWorktree: inspected.doyaWorktree,
     storedBaseRef,
     resolvedBaseRef,
     mainRepoRoot,
@@ -1754,7 +1763,7 @@ export async function getCheckoutStatus(
   const worktreeRoot = facts.worktreeRoot;
   const currentBranch = facts.currentBranch;
   const remoteUrl = facts.remoteUrl;
-  const paseoWorktree = facts.paseoWorktree;
+  const doyaWorktree = facts.doyaWorktree;
   const isDirty = await isWorkingTreeDirty(cwd, context);
   const hasRemote = remoteUrl !== null;
   const baseRef = facts.resolvedBaseRef;
@@ -1772,7 +1781,7 @@ export async function getCheckoutStatus(
       : Promise.resolve(null),
   ]);
 
-  if (paseoWorktree.isPaseoOwnedWorktree && baseRef) {
+  if (doyaWorktree.isDoyaOwnedWorktree && baseRef) {
     return {
       isGit: true,
       repoRoot: worktreeRoot,
@@ -1785,7 +1794,7 @@ export async function getCheckoutStatus(
       behindOfOrigin,
       hasRemote,
       remoteUrl,
-      isPaseoOwnedWorktree: true,
+      isDoyaOwnedWorktree: true,
     };
   }
 
@@ -1802,7 +1811,7 @@ export async function getCheckoutStatus(
     behindOfOrigin,
     hasRemote,
     remoteUrl,
-    isPaseoOwnedWorktree: false,
+    isDoyaOwnedWorktree: false,
   };
 }
 

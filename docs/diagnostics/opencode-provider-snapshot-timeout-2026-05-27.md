@@ -6,10 +6,10 @@ The startup timeout is real OpenCode provider snapshot work, not an agent resume
 
 In the dev-style copied-home reproduction, the OpenCode snapshot misses the 30s budget because several expensive things stack:
 
-1. Doya starts from a copied `PASEO_HOME` containing 4,851 agent records.
+1. Doya starts from a copied `DOYA_HOME` containing 4,851 agent records.
 2. Clients ask for provider snapshots for three cwd scopes at almost the same time:
    - `/Users/moboudra`
-   - `/Users/moboudra/dev/paseo`
+   - `/Users/moboudra/dev/doya`
    - `/Users/moboudra/dev/blankpage/editor`
 3. Each OpenCode snapshot runs two OpenCode SDK calls:
    - `GET /provider?directory=...` through `client.provider.list()`
@@ -84,9 +84,9 @@ It does not copy `chat`, `loops`, `schedules`, sockets, pid files, logs, or work
 I ran a separate daemon, not the main daemon:
 
 ```text
-PASEO_HOME=/var/folders/xl/kkk9drfd3ms_t8x7rmy4z6900000gn/T/paseo-devseed.Wms6pi
-PASEO_LISTEN=127.0.0.1:51116
-PASEO_LOG_LEVEL=trace
+DOYA_HOME=/var/folders/xl/kkk9drfd3ms_t8x7rmy4z6900000gn/T/doya-devseed.Wms6pi
+DOYA_LISTEN=127.0.0.1:51116
+DOYA_LOG_LEVEL=trace
 ```
 
 Startup facts:
@@ -102,7 +102,7 @@ The probe then connected four client sessions and requested:
 
 - workspaces
 - active agents
-- provider snapshots for home, paseo, and blankpage/editor
+- provider snapshots for home, doya, and blankpage/editor
 
 Client-visible result:
 
@@ -110,7 +110,7 @@ Client-visible result:
 18:14:30.263 /Users/moboudra/dev/blankpage/editor opencode error:
   OpenCode app.agents timed out after 10s
 
-18:14:41.687 /Users/moboudra/dev/paseo opencode error:
+18:14:41.687 /Users/moboudra/dev/doya opencode error:
   Timed out refreshing OpenCode after 30000ms
 
 18:14:41.688 /Users/moboudra opencode error:
@@ -125,10 +125,10 @@ Availability checks:
 
 ```text
 18:14:10.780 opencode availability start for /Users/moboudra
-18:14:10.787 opencode availability start for /Users/moboudra/dev/paseo
+18:14:10.787 opencode availability start for /Users/moboudra/dev/doya
 18:14:10.800 opencode availability start for /Users/moboudra/dev/blankpage/editor
 
-18:14:11.363 paseo availability complete: 576ms
+18:14:11.363 doya availability complete: 576ms
 18:14:11.376 home availability complete: 597ms
 18:14:11.391 blankpage availability complete: 591ms
 ```
@@ -143,8 +143,8 @@ OpenCode server acquisition:
 Six SDK calls were then issued:
 
 ```text
-18:14:19.931 GET /provider directory=/Users/moboudra/dev/paseo
-18:14:19.931 GET /agent    directory=/Users/moboudra/dev/paseo
+18:14:19.931 GET /provider directory=/Users/moboudra/dev/doya
+18:14:19.931 GET /agent    directory=/Users/moboudra/dev/doya
 18:14:19.931 GET /provider directory=/Users/moboudra
 18:14:19.931 GET /agent    directory=/Users/moboudra
 18:14:19.931 GET /provider directory=/Users/moboudra/dev/blankpage/editor
@@ -156,7 +156,7 @@ Why six:
 | Cwd                                    | Why that scope exists                                     | Model call                              | Mode call                         |
 | -------------------------------------- | --------------------------------------------------------- | --------------------------------------- | --------------------------------- |
 | `/Users/moboudra`                      | home/settings provider snapshot                           | `client.provider.list()` -> `/provider` | `client.app.agents()` -> `/agent` |
-| `/Users/moboudra/dev/paseo`            | workspace-scoped provider snapshot for the Doya workspace | `client.provider.list()` -> `/provider` | `client.app.agents()` -> `/agent` |
+| `/Users/moboudra/dev/doya`             | workspace-scoped provider snapshot for the Doya workspace | `client.provider.list()` -> `/provider` | `client.app.agents()` -> `/agent` |
 | `/Users/moboudra/dev/blankpage/editor` | workspace/agent cwd snapshot for blankpage/editor         | `client.provider.list()` -> `/provider` | `client.app.agents()` -> `/agent` |
 
 Multiple clients can request the same snapshot scope during startup, but non-forced provider loads are deduped by `(cwd, provider)`. Different cwd scopes are separate loads. Three cwd scopes times two OpenCode SDK calls each is the six OpenCode calls in this repro.
@@ -167,8 +167,8 @@ Headers arrived before the 30s timeout:
 | ----------- | ------------------------------- | --------------------- |
 | `/provider` | `/Users/moboudra`               | 6.462s                |
 | `/agent`    | `/Users/moboudra`               | 6.681s                |
-| `/agent`    | `/Users/moboudra/dev/paseo`     | 6.681s                |
-| `/provider` | `/Users/moboudra/dev/paseo`     | 8.192s                |
+| `/agent`    | `/Users/moboudra/dev/doya`      | 6.681s                |
+| `/provider` | `/Users/moboudra/dev/doya`      | 8.192s                |
 | `/provider` | `/Users/moboudra/dev/blankpage` | 8.654s                |
 | `/agent`    | `/Users/moboudra/dev/blankpage` | 8.649s                |
 
@@ -176,19 +176,19 @@ But body consumption and completion lagged:
 
 ```text
 18:14:29.380 /agent home complete, total app.agents duration 9450ms
-18:14:29.813 /agent paseo complete, total app.agents duration 9883ms
+18:14:29.813 /agent doya complete, total app.agents duration 9883ms
 18:14:30.263 /agent blankpage timed out at 10s
 18:14:31.332 /agent blankpage body finally finished, after the 10s app.agents timeout
 
-18:14:41.687 paseo snapshot outer 30s timeout fires
+18:14:41.687 doya snapshot outer 30s timeout fires
 18:14:41.688 home snapshot outer 30s timeout fires
 
 18:14:43.593 /provider home completes, provider.list duration 23664ms, total listModels 32218ms
 18:14:43.798 /provider blankpage completes, provider.list duration 23868ms, total listModels 32411ms
-18:14:43.839 /provider paseo completes, provider.list duration 23911ms, total listModels 32476ms
+18:14:43.839 /provider doya completes, provider.list duration 23911ms, total listModels 32476ms
 ```
 
-The useful `/provider` results arrived about 1.9s-2.2s after the snapshot manager had already marked home and paseo as failed.
+The useful `/provider` results arrived about 1.9s-2.2s after the snapshot manager had already marked home and doya as failed.
 
 ## Why Settings Refresh Works
 
@@ -203,7 +203,7 @@ home refresh:
   models: 409
   modes: 5
 
-/Users/moboudra/dev/paseo refresh:
+/Users/moboudra/dev/doya refresh:
   total: 1675ms
   status: ready
   models: 409
@@ -235,8 +235,8 @@ I started a fresh `opencode serve`, waited for stdout `listening on`, then issue
 ```text
 GET /provider?directory=/Users/moboudra
 GET /agent?directory=/Users/moboudra
-GET /provider?directory=/Users/moboudra/dev/paseo
-GET /agent?directory=/Users/moboudra/dev/paseo
+GET /provider?directory=/Users/moboudra/dev/doya
+GET /agent?directory=/Users/moboudra/dev/doya
 GET /provider?directory=/Users/moboudra/dev/blankpage/editor
 GET /agent?directory=/Users/moboudra/dev/blankpage/editor
 ```
@@ -252,7 +252,7 @@ Three runs:
 Slowest individual call in those runs:
 
 ```text
-/provider /Users/moboudra/dev/paseo: 1270ms total
+/provider /Users/moboudra/dev/doya: 1270ms total
 /agent /Users/moboudra/dev/blankpage/editor: 1251ms total
 ```
 
@@ -276,8 +276,8 @@ Individual calls under the external git storm:
 | ----------- | -------------------------------------- | ------: |
 | `/provider` | `/Users/moboudra`                      | 10684ms |
 | `/agent`    | `/Users/moboudra`                      | 10767ms |
-| `/provider` | `/Users/moboudra/dev/paseo`            | 13220ms |
-| `/agent`    | `/Users/moboudra/dev/paseo`            | 13147ms |
+| `/provider` | `/Users/moboudra/dev/doya`             | 13220ms |
+| `/agent`    | `/Users/moboudra/dev/doya`             | 13147ms |
 | `/provider` | `/Users/moboudra/dev/blankpage/editor` | 14675ms |
 | `/agent`    | `/Users/moboudra/dev/blankpage/editor` | 15038ms |
 
@@ -324,24 +324,24 @@ Total git commands in the dev-style copied-home daemon log:
 
 Top cwd counts:
 
-| Count | Cwd                                                                                   |
-| ----: | ------------------------------------------------------------------------------------- |
-|    44 | `/Users/moboudra/.paseo/worktrees/1luy0po7/merry-ladybug`                             |
-|    44 | `/Users/moboudra/.paseo/worktrees/1luy0po7/hopeful-eel`                               |
-|    44 | `/Users/moboudra/.paseo/worktrees/1luy0po7/fix-compaction-cancel-loading`             |
-|    44 | `/Users/moboudra/.paseo/worktrees/1luy0po7/fix-archive-worktree-session-history`      |
-|    44 | `/Users/moboudra/.paseo/worktrees/0vpo9h4b/breezy-toad`                               |
-|    36 | `/Users/moboudra/.paseo/worktrees/steering-policy-refactor-detached`                  |
-|    36 | `/Users/moboudra/.paseo/worktrees/1luy0po7/integration-session-mcp-command-stack`     |
-|    36 | `/Users/moboudra/.paseo/worktrees/1luy0po7/fix-provider-diagnostic-binary-resolution` |
-|    36 | `/Users/moboudra/.paseo/worktrees/1luy0po7/feat-voice-runtime-on-demand`              |
-|    36 | `/Users/moboudra/.paseo/worktrees/1luy0po7/feat-find-in-pane`                         |
-|    36 | `/Users/moboudra/.paseo/worktrees/1luy0po7/epic-paseo-client-sdk`                     |
-|    24 | `/Users/moboudra/dev/paseo`                                                           |
-|    24 | `/Users/moboudra/dev/blankpage/editor`                                                |
-|    24 | `/Users/moboudra/dev/faro/main`                                                       |
-|    24 | `/Users/moboudra/dev/konbert/web`                                                     |
-|    24 | `/Users/moboudra/dev/paseo-cloud`                                                     |
+| Count | Cwd                                                                                  |
+| ----: | ------------------------------------------------------------------------------------ |
+|    44 | `/Users/moboudra/.doya/worktrees/1luy0po7/merry-ladybug`                             |
+|    44 | `/Users/moboudra/.doya/worktrees/1luy0po7/hopeful-eel`                               |
+|    44 | `/Users/moboudra/.doya/worktrees/1luy0po7/fix-compaction-cancel-loading`             |
+|    44 | `/Users/moboudra/.doya/worktrees/1luy0po7/fix-archive-worktree-session-history`      |
+|    44 | `/Users/moboudra/.doya/worktrees/0vpo9h4b/breezy-toad`                               |
+|    36 | `/Users/moboudra/.doya/worktrees/steering-policy-refactor-detached`                  |
+|    36 | `/Users/moboudra/.doya/worktrees/1luy0po7/integration-session-mcp-command-stack`     |
+|    36 | `/Users/moboudra/.doya/worktrees/1luy0po7/fix-provider-diagnostic-binary-resolution` |
+|    36 | `/Users/moboudra/.doya/worktrees/1luy0po7/feat-voice-runtime-on-demand`              |
+|    36 | `/Users/moboudra/.doya/worktrees/1luy0po7/feat-find-in-pane`                         |
+|    36 | `/Users/moboudra/.doya/worktrees/1luy0po7/epic-doya-client-sdk`                      |
+|    24 | `/Users/moboudra/dev/doya`                                                           |
+|    24 | `/Users/moboudra/dev/blankpage/editor`                                               |
+|    24 | `/Users/moboudra/dev/faro/main`                                                      |
+|    24 | `/Users/moboudra/dev/konbert/web`                                                    |
+|    24 | `/Users/moboudra/dev/doya-cloud`                                                     |
 
 In the exact OpenCode pressure window, `18:14:19` through `18:14:43`, there were:
 
@@ -365,10 +365,10 @@ The main repeated command shapes were:
 
 ## Original `log.txt` Alignment
 
-The original startup showed the same home and paseo outer timeout shape:
+The original startup showed the same home and doya outer timeout shape:
 
 ```text
-16:04:22.466 /Users/moboudra/dev/paseo:
+16:04:22.466 /Users/moboudra/dev/doya:
   Timed out refreshing OpenCode after 30000ms
 
 16:04:22.482 /Users/moboudra:

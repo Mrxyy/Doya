@@ -6,17 +6,17 @@ Near-white field with pale cool accents — icy blue, pale silver-gray, hint of 
 
 ## 1. Compatible renderings
 
-| Rendering | Notes |
-|---|---|
-| ✓✓ digital-dashboard | Clean clinical UI — natural pairing |
-| ✓✓ vector-illustration | Light vector with cool restraint |
-| ✓✓ flat | Pale flat geometric |
-| ✓✓ minimalist-swiss | Field-and-grid pairing |
-| ✓✓ glassmorphism | Soft polished cool aesthetic |
-| ✓ corporate-photo | Photography with cool clinical grading (medical, beauty, spa) |
-| ✓ blueprint | Pale schematic |
-| ✗ sketch-notes / chalkboard / fantasy-animation / pixel-art | Wrong temperament — those are warm |
-| ✗ dark-cinematic combinations | Dark mood is opposite of frost identity |
+| Rendering                                                   | Notes                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------- |
+| ✓✓ digital-dashboard                                        | Clean clinical UI — natural pairing                           |
+| ✓✓ vector-illustration                                      | Light vector with cool restraint                              |
+| ✓✓ flat                                                     | Pale flat geometric                                           |
+| ✓✓ minimalist-swiss                                         | Field-and-grid pairing                                        |
+| ✓✓ glassmorphism                                            | Soft polished cool aesthetic                                  |
+| ✓ corporate-photo                                           | Photography with cool clinical grading (medical, beauty, spa) |
+| ✓ blueprint                                                 | Pale schematic                                                |
+| ✗ sketch-notes / chalkboard / fantasy-animation / pixel-art | Wrong temperament — those are warm                            |
+| ✗ dark-cinematic combinations                               | Dark mood is opposite of frost identity                       |
 
 ---
 

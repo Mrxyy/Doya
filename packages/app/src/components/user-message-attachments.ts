@@ -1,4 +1,4 @@
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { AgentAttachment } from "@getdoya/protocol/messages";
 import type { UserMessageImageAttachment } from "@/types/stream";
 
 export function filterUserMessageDisplayAttachments(input: {

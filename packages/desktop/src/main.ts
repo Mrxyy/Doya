@@ -66,11 +66,11 @@ import {
 import { registerOpenerHandlers } from "./features/opener.js";
 import { setupApplicationMenu } from "./features/menu.js";
 import {
-  getPaseoBrowserIdForWebContents,
-  getPaseoBrowserWebContents,
-  listRegisteredPaseoBrowserIds,
-  registerPaseoBrowserWebContents,
-  setWorkspaceActivePaseoBrowserId,
+  getDoyaBrowserIdForWebContents,
+  getDoyaBrowserWebContents,
+  listRegisteredDoyaBrowserIds,
+  registerDoyaBrowserWebContents,
+  setWorkspaceActiveDoyaBrowserId,
 } from "./features/browser-webviews.js";
 import { parseOpenProjectPathFromArgv } from "./open-project-routing.js";
 import { getDesktopSettingsStore } from "./settings/desktop-settings-electron.js";
@@ -85,10 +85,10 @@ import {
 import { runDesktopStartup } from "./desktop-startup.js";
 
 const DEV_SERVER_URL = process.env.EXPO_DEV_URL ?? "http://localhost:8081";
-const APP_SCHEME = "paseo";
-const PASEO_DEBUG = process.env.PASEO_DEBUG === "1";
-const DISABLE_SINGLE_INSTANCE_LOCK = process.env.PASEO_DISABLE_SINGLE_INSTANCE_LOCK === "1";
-const APP_NAME = process.env.PASEO_TEST_APP_NAME?.trim() || "Paseo";
+const APP_SCHEME = "doya";
+const DOYA_DEBUG = process.env.DOYA_DEBUG === "1";
+const DISABLE_SINGLE_INSTANCE_LOCK = process.env.DOYA_DISABLE_SINGLE_INSTANCE_LOCK === "1";
+const APP_NAME = process.env.DOYA_TEST_APP_NAME?.trim() || "Doya";
 
 function isAllowedBrowserWebviewUrl(value: string | undefined): boolean {
   if (!value) {
@@ -112,11 +112,11 @@ function preventUnsafeBrowserWebviewNavigation(
     event.preventDefault();
   }
 }
-const OPEN_PROJECT_EVENT = "paseo:event:open-project";
-const BROWSER_SHORTCUT_EVENT = "paseo:event:browser-shortcut";
-const BROWSER_FORWARDED_KEY_EVENT = "paseo:event:browser-forwarded-key";
+const OPEN_PROJECT_EVENT = "doya:event:open-project";
+const BROWSER_SHORTCUT_EVENT = "doya:event:browser-shortcut";
+const BROWSER_FORWARDED_KEY_EVENT = "doya:event:browser-forwarded-key";
 
-const FORWARDED_PASEO_SHORTCUT_KEYS = new Set([
+const FORWARDED_DOYA_SHORTCUT_KEYS = new Set([
   "b",
   "e",
   "w",
@@ -141,12 +141,12 @@ const FORWARDED_PASEO_SHORTCUT_KEYS = new Set([
   "arrowup",
   "arrowdown",
 ]);
-const DESKTOP_SMOKE_ENV = "PASEO_DESKTOP_SMOKE";
-const DESKTOP_SMOKE_STOP_REQUEST = "paseo-smoke-stop";
+const DESKTOP_SMOKE_ENV = "DOYA_DESKTOP_SMOKE";
+const DESKTOP_SMOKE_STOP_REQUEST = "doya-smoke-stop";
 app.setName(APP_NAME);
 
 function getBrowserIdFromWebviewPartition(partition: string | undefined): string | null {
-  const prefix = "persist:paseo-browser-";
+  const prefix = "persist:doya-browser-";
   if (!partition?.startsWith(prefix)) {
     return null;
   }
@@ -170,14 +170,14 @@ function isBrowserLocationInput(input: Electron.Input): boolean {
   return (input.meta || input.control) && input.key.toLowerCase() === "l";
 }
 
-function isForwardablePaseoShortcutInput(input: Electron.Input): boolean {
+function isForwardableDoyaShortcutInput(input: Electron.Input): boolean {
   if (input.type !== "keyDown") {
     return false;
   }
   if (!input.meta && !input.control) {
     return false;
   }
-  return FORWARDED_PASEO_SHORTCUT_KEYS.has(input.key.toLowerCase());
+  return FORWARDED_DOYA_SHORTCUT_KEYS.has(input.key.toLowerCase());
 }
 
 function showBrowserWebviewContextMenu(
@@ -196,7 +196,7 @@ function showBrowserWebviewContextMenu(
             click: () => {
               log.info("[browser-devtools] inspect-element.request", {
                 webContentsId: contents.id,
-                browserId: getPaseoBrowserIdForWebContents(contents),
+                browserId: getDoyaBrowserIdForWebContents(contents),
                 x: params.x,
                 y: params.y,
                 isDevToolsOpened: contents.isDevToolsOpened(),
@@ -217,7 +217,7 @@ function showBrowserWebviewContextMenu(
 // In dev mode, detect git worktrees and isolate each instance so multiple
 // Electron windows can run side-by-side (separate userData = separate lock).
 let devWorktreeName: string | null = null;
-const forcedUserDataDir = process.env.PASEO_ELECTRON_USER_DATA_DIR?.trim();
+const forcedUserDataDir = process.env.DOYA_ELECTRON_USER_DATA_DIR?.trim();
 if (forcedUserDataDir) {
   app.setPath("userData", forcedUserDataDir);
   log.info("[dev-user-data] forced userData dir:", forcedUserDataDir);
@@ -229,7 +229,7 @@ if (forcedUserDataDir) {
       windowsHide: true,
     }).trim();
     devWorktreeName = path.basename(topLevel);
-    // Main checkout (e.g. "paseo") gets default userData — only worktrees diverge.
+    // Main checkout (e.g. "doya") gets default userData — only worktrees diverge.
     const commonDir = path.resolve(
       topLevel,
       execFileSync("git", ["rev-parse", "--git-common-dir"], {
@@ -241,7 +241,7 @@ if (forcedUserDataDir) {
     );
     const isWorktree = path.resolve(topLevel, ".git") !== commonDir;
     if (isWorktree) {
-      app.setPath("userData", path.join(app.getPath("appData"), `Paseo-${devWorktreeName}`));
+      app.setPath("userData", path.join(app.getPath("appData"), `Doya-${devWorktreeName}`));
       log.info("[worktree] isolated userData for worktree:", devWorktreeName);
     } else {
       devWorktreeName = null;
@@ -258,10 +258,10 @@ if (process.platform === "linux" && process.env.APPIMAGE) {
   app.commandLine.appendSwitch("no-sandbox");
 }
 
-// Allow users to pass Chromium flags via PASEO_ELECTRON_FLAGS for debugging
+// Allow users to pass Chromium flags via DOYA_ELECTRON_FLAGS for debugging
 // rendering issues (e.g. "--disable-gpu --ozone-platform=x11").
 // Must run before app.whenReady().
-const electronFlags = process.env.PASEO_ELECTRON_FLAGS?.trim();
+const electronFlags = process.env.DOYA_ELECTRON_FLAGS?.trim();
 if (electronFlags) {
   for (const token of electronFlags.split(/\s+/)) {
     const [key, ...rest] = token.replace(/^--/, "").split("=");
@@ -275,7 +275,7 @@ let pendingOpenProjectPath = parseOpenProjectPathFromArgv({
   isDefaultApp: process.defaultApp,
 });
 
-if (PASEO_DEBUG) {
+if (DOYA_DEBUG) {
   log.info("[open-project] argv:", process.argv);
   log.info("[open-project] isDefaultApp:", process.defaultApp);
   log.info("[open-project] pendingOpenProjectPath:", pendingOpenProjectPath);
@@ -283,35 +283,35 @@ if (PASEO_DEBUG) {
 
 // The renderer pulls the pending path on mount via IPC — this avoids
 // a race where the push event arrives before React registers its listener.
-ipcMain.handle("paseo:get-pending-open-project", () => {
+ipcMain.handle("doya:get-pending-open-project", () => {
   log.info("[open-project] renderer requested pending path:", pendingOpenProjectPath);
   const result = pendingOpenProjectPath;
   pendingOpenProjectPath = null;
   return result;
 });
 
-ipcMain.handle("paseo:browser:set-workspace-active-browser", (_event, browserId: unknown) => {
-  setWorkspaceActivePaseoBrowserId(typeof browserId === "string" ? browserId : null);
+ipcMain.handle("doya:browser:set-workspace-active-browser", (_event, browserId: unknown) => {
+  setWorkspaceActiveDoyaBrowserId(typeof browserId === "string" ? browserId : null);
 });
 
-ipcMain.handle("paseo:browser:open-devtools", (_event, browserId: unknown) => {
+ipcMain.handle("doya:browser:open-devtools", (_event, browserId: unknown) => {
   if (typeof browserId !== "string" || browserId.trim().length === 0) {
     const result = {
       ok: false,
       reason: "invalid-browser-id",
       browserId,
-      registeredBrowserIds: listRegisteredPaseoBrowserIds(),
+      registeredBrowserIds: listRegisteredDoyaBrowserIds(),
     };
     log.warn("[browser-devtools] open-devtools.invalid", result);
     return result;
   }
-  const contents = getPaseoBrowserWebContents(browserId);
+  const contents = getDoyaBrowserWebContents(browserId);
   if (!contents) {
     const result = {
       ok: false,
       reason: "browser-webcontents-not-found",
       browserId,
-      registeredBrowserIds: listRegisteredPaseoBrowserIds(),
+      registeredBrowserIds: listRegisteredDoyaBrowserIds(),
     };
     log.warn("[browser-devtools] open-devtools.not-found", result);
     return result;
@@ -321,7 +321,7 @@ ipcMain.handle("paseo:browser:open-devtools", (_event, browserId: unknown) => {
     webContentsId: contents.id,
     isDestroyed: contents.isDestroyed(),
     isDevToolsOpened: contents.isDevToolsOpened(),
-    registeredBrowserIds: listRegisteredPaseoBrowserIds(),
+    registeredBrowserIds: listRegisteredDoyaBrowserIds(),
   });
   contents.openDevTools({ mode: "detach" });
   const result = {
@@ -335,11 +335,11 @@ ipcMain.handle("paseo:browser:open-devtools", (_event, browserId: unknown) => {
   return result;
 });
 
-ipcMain.handle("paseo:browser:clear-partition", async (_event, browserId: unknown) => {
+ipcMain.handle("doya:browser:clear-partition", async (_event, browserId: unknown) => {
   if (typeof browserId !== "string" || browserId.trim().length === 0) {
     return;
   }
-  const partition = `persist:paseo-browser-${browserId}`;
+  const partition = `persist:doya-browser-${browserId}`;
   await session.fromPartition(partition).clearStorageData();
 });
 
@@ -464,11 +464,11 @@ async function createMainWindow(): Promise<void> {
   mainWindow.webContents.on("did-attach-webview", (_event, contents) => {
     const browserId = pendingBrowserWebviewIds.shift() ?? null;
     if (browserId) {
-      registerPaseoBrowserWebContents(contents, browserId);
+      registerDoyaBrowserWebContents(contents, browserId);
       log.info("[browser-webview] registered", {
         browserId,
         webContentsId: contents.id,
-        registeredBrowserIds: listRegisteredPaseoBrowserIds(),
+        registeredBrowserIds: listRegisteredDoyaBrowserIds(),
       });
     }
     contents.on("before-input-event", (event, input) => {
@@ -483,14 +483,14 @@ async function createMainWindow(): Promise<void> {
       }
       if (isBrowserLocationInput(input)) {
         event.preventDefault();
-        const focusedBrowserId = getPaseoBrowserIdForWebContents(contents);
+        const focusedBrowserId = getDoyaBrowserIdForWebContents(contents);
         mainWindow.webContents.send(BROWSER_SHORTCUT_EVENT, {
           action: "focus-url",
           ...(focusedBrowserId ? { browserId: focusedBrowserId } : {}),
         });
         return;
       }
-      if (isForwardablePaseoShortcutInput(input)) {
+      if (isForwardableDoyaShortcutInput(input)) {
         event.preventDefault();
         mainWindow.webContents.send(BROWSER_FORWARDED_KEY_EVENT, {
           key: input.key,
@@ -558,7 +558,7 @@ function sendOpenProjectEvent(win: BrowserWindow, projectPath: string): void {
 
 function setupSingleInstanceLock(): boolean {
   if (DISABLE_SINGLE_INSTANCE_LOCK) {
-    log.info("[single-instance] disabled by PASEO_DISABLE_SINGLE_INSTANCE_LOCK");
+    log.info("[single-instance] disabled by DOYA_DISABLE_SINGLE_INSTANCE_LOCK");
     return true;
   }
 
@@ -615,7 +615,7 @@ async function runDesktopSmokeIfRequested(): Promise<boolean> {
   const handlers = createDaemonCommandHandlers();
   const startStatus = await handlers.start_desktop_daemon();
   process.stdout.write(
-    `[paseo-smoke] ${JSON.stringify({
+    `[doya-smoke] ${JSON.stringify({
       type: "desktop-daemon-smoke-started",
       status: startStatus,
     })}\n`,
@@ -625,7 +625,7 @@ async function runDesktopSmokeIfRequested(): Promise<boolean> {
 
   const stopStatus = await handlers.stop_desktop_daemon();
   process.stdout.write(
-    `[paseo-smoke] ${JSON.stringify({
+    `[doya-smoke] ${JSON.stringify({
       type: "desktop-daemon-smoke-stopped",
       stopStatus,
     })}\n`,
@@ -722,7 +722,7 @@ void runDesktopStartup({
 
 function showDaemonShutdownDialog(): void {
   for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send("paseo:event:quitting", {});
+    win.webContents.send("doya:event:quitting", {});
   }
 }
 

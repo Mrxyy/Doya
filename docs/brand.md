@@ -24,6 +24,8 @@ Runtime app copy must go through i18n:
 - Use `{brand}` inside translation strings when the brand appears inside a sentence.
 - Do not hardcode `Doya` or `豆芽` in React components.
 
+Persisted storage keys may keep old brand identifiers as legacy migration inputs. New writes should use Doya keys, but legacy keys must remain distinct from current keys so cleanup code cannot delete freshly saved state.
+
 ---
 
 ## Logo

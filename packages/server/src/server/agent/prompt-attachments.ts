@@ -1,4 +1,4 @@
-import type { AgentAttachment } from "@getpaseo/protocol/messages";
+import type { AgentAttachment } from "@getdoya/protocol/messages";
 
 const REVIEW_LINE_MARKERS = { add: "+", remove: "-", context: " " } as const;
 
@@ -32,11 +32,11 @@ export function renderPromptAttachmentAsText(attachment: AgentAttachment): strin
       return [
         `File attachment: ${title}`,
         `MIME type: ${attachment.mimeType}`,
-        "Content is available to compatible Paseo workflows as a workspace file.",
+        "Content is available to compatible Doya workflows as a workspace file.",
       ].join("\n");
     }
     case "review": {
-      const lines = [`Paseo review attachment (${attachment.mode})`, `CWD: ${attachment.cwd}`];
+      const lines = [`Doya review attachment (${attachment.mode})`, `CWD: ${attachment.cwd}`];
       if (attachment.baseRef) {
         lines.push(`Base: ${attachment.baseRef}`);
       }

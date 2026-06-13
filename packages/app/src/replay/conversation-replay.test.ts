@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type {
-  ConversationRecording,
-  ConversationRecordingEvent,
-} from "@getpaseo/protocol/messages";
+import type { ConversationRecording, ConversationRecordingEvent } from "@getdoya/protocol/messages";
 import type { StreamItem } from "@/types/stream";
 import {
   REPLAY_TEXT_BURST_MIN_INTERVAL_MS,

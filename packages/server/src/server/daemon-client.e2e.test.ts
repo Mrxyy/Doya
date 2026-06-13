@@ -12,7 +12,7 @@ import {
   type DaemonTestContext,
   DaemonClient,
 } from "./test-utils/index.js";
-import { createTestPaseoDaemon } from "./test-utils/paseo-daemon.js";
+import { createTestDoyaDaemon } from "./test-utils/doya-daemon.js";
 import { getFullAccessConfig, getAskModeConfig } from "./daemon-e2e/agent-configs.js";
 import { parsePcm16MonoWav, wordSimilarity } from "./test-utils/dictation-e2e.js";
 import type {
@@ -27,7 +27,7 @@ import type {
 const openaiApiKey = process.env.OPENAI_API_KEY ?? null;
 
 const localModelsDir =
-  process.env.PASEO_LOCAL_MODELS_DIR ?? path.join(homedir(), ".paseo", "models", "local-speech");
+  process.env.DOYA_LOCAL_MODELS_DIR ?? path.join(homedir(), ".doya", "models", "local-speech");
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const appE2eFixturesDir = path.resolve(testFileDir, "../../../app/e2e/fixtures");
 
@@ -66,7 +66,7 @@ function tmpCwd(): string {
 }
 
 test("DaemonClient connects to a password-protected daemon", async () => {
-  const daemon = await createTestPaseoDaemon({
+  const daemon = await createTestDoyaDaemon({
     auth: { password: "$2b$12$GMhF7pN4QnMlHOQXOqjd1OitKWPSmAO3FwB0PHzKtcZR/sAMryz76" },
   });
   const client = new DaemonClient({
@@ -85,7 +85,7 @@ test("DaemonClient connects to a password-protected daemon", async () => {
 });
 
 test("DaemonClient surfaces password auth failures from WebSocket close reasons", async () => {
-  const daemon = await createTestPaseoDaemon({
+  const daemon = await createTestDoyaDaemon({
     auth: { password: "$2b$12$GMhF7pN4QnMlHOQXOqjd1OitKWPSmAO3FwB0PHzKtcZR/sAMryz76" },
   });
   const missingPasswordClient = new DaemonClient({
@@ -112,7 +112,7 @@ test("DaemonClient surfaces password auth failures from WebSocket close reasons"
 });
 
 test("createAgent without an initial prompt returns an idle snapshot", async () => {
-  const daemon = await createTestPaseoDaemon();
+  const daemon = await createTestDoyaDaemon();
   const client = new DaemonClient({
     url: `ws://127.0.0.1:${daemon.port}/ws`,
     appVersion: "0.1.82",
@@ -138,7 +138,7 @@ test("createAgent without an initial prompt returns an idle snapshot", async () 
 });
 
 test("createAgent with background initialPrompt returns a running snapshot before turn completion", async () => {
-  const daemon = await createTestPaseoDaemon();
+  const daemon = await createTestDoyaDaemon();
   const client = new DaemonClient({
     url: `ws://127.0.0.1:${daemon.port}/ws`,
     appVersion: "0.1.82",
@@ -269,7 +269,7 @@ test("createAgent fails when the initial turn cannot start", async () => {
     }
   }
 
-  const daemon = await createTestPaseoDaemon({
+  const daemon = await createTestDoyaDaemon({
     agentClients: { codex: new StartTurnFailureClient() },
   });
   const client = new DaemonClient({
@@ -790,8 +790,8 @@ test("update_agent persists unloaded title and labels across auto-unarchive", as
 }, 180000);
 
 test("returns home-scoped directory suggestions", async () => {
-  const insideHomeDir = mkdtempSync(path.join(homedir(), "paseo-dir-suggestion-"));
-  const outsideHomeDir = mkdtempSync(path.join(tmpdir(), "paseo-dir-suggestion-outside-"));
+  const insideHomeDir = mkdtempSync(path.join(homedir(), "doya-dir-suggestion-"));
+  const outsideHomeDir = mkdtempSync(path.join(tmpdir(), "doya-dir-suggestion-outside-"));
 
   try {
     const insideQuery = path.basename(insideHomeDir);

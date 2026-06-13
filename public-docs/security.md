@@ -28,7 +28,7 @@ The relay is the simplest way to connect from your phone. It requires no VPN set
 
 ### How it works
 
-1. The daemon generates a persistent ECDH keypair and stores it in `$PASEO_HOME/daemon-keypair.json`
+1. The daemon generates a persistent ECDH keypair and stores it in `$DOYA_HOME/daemon-keypair.json`
 2. When you scan the QR code or click the pairing link, your phone receives the daemon's public key
 3. Your phone sends a handshake message with its own public key. The daemon will not accept any commands until this handshake completes.
 4. Both sides perform a Curve25519 ECDH key exchange to derive a shared key. All subsequent

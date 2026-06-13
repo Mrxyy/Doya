@@ -7,10 +7,10 @@ describe("cli-install-path", () => {
       resolveCliInstallSourcePath({
         platform: "darwin",
         isPackaged: true,
-        executablePath: "/Applications/Paseo.app/Contents/MacOS/Paseo",
-        shimPath: "/Applications/Paseo.app/Contents/Resources/bin/paseo",
+        executablePath: "/Applications/Doya.app/Contents/MacOS/Doya",
+        shimPath: "/Applications/Doya.app/Contents/Resources/bin/doya",
       }),
-    ).toBe("/Applications/Paseo.app/Contents/Resources/bin/paseo");
+    ).toBe("/Applications/Doya.app/Contents/Resources/bin/doya");
   });
 
   it("prefers the original AppImage path on linux", () => {
@@ -18,11 +18,11 @@ describe("cli-install-path", () => {
       resolveCliInstallSourcePath({
         platform: "linux",
         isPackaged: true,
-        executablePath: "/tmp/.mount_paseo123/paseo",
-        shimPath: "/tmp/.mount_paseo123/resources/bin/paseo",
-        appImagePath: "/home/user/Applications/Paseo.AppImage",
+        executablePath: "/tmp/.mount_doya123/doya",
+        shimPath: "/tmp/.mount_doya123/resources/bin/doya",
+        appImagePath: "/home/user/Applications/Doya.AppImage",
       }),
-    ).toBe("/home/user/Applications/Paseo.AppImage");
+    ).toBe("/home/user/Applications/Doya.AppImage");
   });
 
   it("falls back to the shim on windows and in development", () => {
@@ -30,18 +30,18 @@ describe("cli-install-path", () => {
       resolveCliInstallSourcePath({
         platform: "win32",
         isPackaged: true,
-        executablePath: "C:\\Users\\user\\AppData\\Local\\Programs\\Paseo\\Paseo.exe",
-        shimPath: "C:\\Users\\user\\AppData\\Local\\Programs\\Paseo\\resources\\bin\\paseo.cmd",
+        executablePath: "C:\\Users\\user\\AppData\\Local\\Programs\\Doya\\Doya.exe",
+        shimPath: "C:\\Users\\user\\AppData\\Local\\Programs\\Doya\\resources\\bin\\doya.cmd",
       }),
-    ).toBe("C:\\Users\\user\\AppData\\Local\\Programs\\Paseo\\resources\\bin\\paseo.cmd");
+    ).toBe("C:\\Users\\user\\AppData\\Local\\Programs\\Doya\\resources\\bin\\doya.cmd");
 
     expect(
       resolveCliInstallSourcePath({
         platform: "linux",
         isPackaged: false,
-        executablePath: "/opt/Paseo/paseo",
-        shimPath: "/opt/Paseo/resources/bin/paseo",
+        executablePath: "/opt/Doya/doya",
+        shimPath: "/opt/Doya/resources/bin/doya",
       }),
-    ).toBe("/opt/Paseo/resources/bin/paseo");
+    ).toBe("/opt/Doya/resources/bin/doya");
   });
 });

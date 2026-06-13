@@ -15,24 +15,24 @@ page_types: [cover, toc, chapter, content, ending]
 
 ## I. Template Overview
 
-| Property       | Description                                                  |
-| -------------- | ------------------------------------------------------------ |
-| **Template Name** | government_red (Government Red Template)                  |
-| **Use Cases**  | Government briefings, policy interpretation, work summaries, project introductions, investment promotion |
-| **Design Tone** | Authoritative, dignified, professional, modern government style |
-| **Theme Mode** | Light theme (white background + government red/blue accents) |
+| Property          | Description                                                                                              |
+| ----------------- | -------------------------------------------------------------------------------------------------------- |
+| **Template Name** | government_red (Government Red Template)                                                                 |
+| **Use Cases**     | Government briefings, policy interpretation, work summaries, project introductions, investment promotion |
+| **Design Tone**   | Authoritative, dignified, professional, modern government style                                          |
+| **Theme Mode**    | Light theme (white background + government red/blue accents)                                             |
 
 ---
 
 ## II. Canvas Specification
 
-| Property       | Value                         |
-| -------------- | ----------------------------- |
-| **Format**     | Standard 16:9                 |
-| **Dimensions** | 1280 × 720 px                |
-| **viewBox**    | `0 0 1280 720`                |
+| Property         | Value                                  |
+| ---------------- | -------------------------------------- |
+| **Format**       | Standard 16:9                          |
+| **Dimensions**   | 1280 × 720 px                          |
+| **viewBox**      | `0 0 1280 720`                         |
 | **Page Margins** | Left/Right 60px, Top 80px, Bottom 40px |
-| **Safe Area**  | x: 60-1220, y: 80-680         |
+| **Safe Area**    | x: 60-1220, y: 80-680                  |
 
 ---
 
@@ -40,12 +40,12 @@ page_types: [cover, toc, chapter, content, ending]
 
 ### General Layout
 
-| Area       | Position/Height | Description                            |
-| ---------- | --------------- | -------------------------------------- |
-| **Top**    | y=0, h=6px      | Dual-color gradient bar (red + blue), full width |
-| **Title Bar** | y=30, h=50px | Section number block + title text + top-right logo |
-| **Content Area** | y=100, h=560px | Main content area                 |
-| **Footer** | y=680, h=40px   | Page number, organization name, bottom decoration line |
+| Area             | Position/Height | Description                                            |
+| ---------------- | --------------- | ------------------------------------------------------ |
+| **Top**          | y=0, h=6px      | Dual-color gradient bar (red + blue), full width       |
+| **Title Bar**    | y=30, h=50px    | Section number block + title text + top-right logo     |
+| **Content Area** | y=100, h=560px  | Main content area                                      |
+| **Footer**       | y=680, h=40px   | Page number, organization name, bottom decoration line |
 
 ### Navigation Bar Design
 
@@ -100,37 +100,37 @@ page_types: [cover, toc, chapter, content, ending]
 
 ## V. SVG Page Roster
 
-| File | Role | Description |
-|------|------|-------------|
-| `01_cover.svg` | cover | Title slide; project name, presenter, date |
+| File             | Role    | Description                                         |
+| ---------------- | ------- | --------------------------------------------------- |
+| `01_cover.svg`   | cover   | Title slide; project name, presenter, date          |
 | `02_chapter.svg` | chapter | Chapter divider page (large number + chapter title) |
-| `02_toc.svg` | toc | Table of contents listing major sections |
-| `03_content.svg` | content | Main content page; body of the deck |
-| `04_ending.svg` | ending | Closing/thank-you page |
+| `02_toc.svg`     | toc     | Table of contents listing major sections            |
+| `03_content.svg` | content | Main content page; body of the deck                 |
+| `04_ending.svg`  | ending  | Closing/thank-you page                              |
 
 ## VI. Layout Modes
 
-| Mode               | Use Cases                      |
-| ------------------ | ------------------------------ |
-| **Single Column Centered** | Cover, closing, key points |
-| **Two Columns (5:5)** | Comparative display         |
-| **Two Columns (4:6)** | Image-text mixed layout     |
-| **Top-Bottom Split** | Process descriptions, policy lists |
-| **Three-Column Cards** | Project lists, data display |
-| **Matrix Grid**    | Category display               |
-| **Table**          | Data comparison, specification lists |
+| Mode                       | Use Cases                            |
+| -------------------------- | ------------------------------------ |
+| **Single Column Centered** | Cover, closing, key points           |
+| **Two Columns (5:5)**      | Comparative display                  |
+| **Two Columns (4:6)**      | Image-text mixed layout              |
+| **Top-Bottom Split**       | Process descriptions, policy lists   |
+| **Three-Column Cards**     | Project lists, data display          |
+| **Matrix Grid**            | Category display                     |
+| **Table**                  | Data comparison, specification lists |
 
 ---
 
 ## VII. Spacing Guidelines
 
-| Element          | Value  |
-| ---------------- | ------ |
-| Card spacing     | 24px   |
-| Content block spacing | 32px |
-| Card padding     | 24px   |
-| Card border radius | 8px  |
-| Icon-to-text gap | 12px   |
+| Element               | Value |
+| --------------------- | ----- |
+| Card spacing          | 24px  |
+| Content block spacing | 32px  |
+| Card padding          | 24px  |
+| Card border radius    | 8px   |
+| Icon-to-text gap      | 12px  |
 
 ---
 
@@ -158,22 +158,22 @@ page_types: [cover, toc, chapter, content, ending]
 
 Templates use `{{PLACEHOLDER}}` format placeholders. Common placeholders:
 
-| Placeholder        | Description        |
-| ------------------ | ------------------ |
-| `{{TITLE}}`        | Main title         |
-| `{{SUBTITLE}}`     | Subtitle           |
-| `{{AUTHOR}}`       | Organization name (Chinese) |
-| `{{AUTHOR_EN}}`    | Organization name (English) |
-| `{{PAGE_TITLE}}`   | Page title         |
-| `{{CHAPTER_NUM}}`  | Chapter number     |
-| `{{PAGE_NUM}}`     | Page number        |
-| `{{DATE}}`         | Date               |
-| `{{TOC_ITEM_N_TITLE}}` | TOC item title |
-| `{{TOC_ITEM_N_DESC}}`  | TOC item description |
-| `{{THANK_YOU}}`    | Thank-you message  |
-| `{{CONTACT_INFO}}` | Contact information |
-| `{{LOGO_HEADER}}`  | Header logo filename |
-| `{{COVER_BG_IMAGE}}`| Cover background image filename |
+| Placeholder            | Description                     |
+| ---------------------- | ------------------------------- |
+| `{{TITLE}}`            | Main title                      |
+| `{{SUBTITLE}}`         | Subtitle                        |
+| `{{AUTHOR}}`           | Organization name (Chinese)     |
+| `{{AUTHOR_EN}}`        | Organization name (English)     |
+| `{{PAGE_TITLE}}`       | Page title                      |
+| `{{CHAPTER_NUM}}`      | Chapter number                  |
+| `{{PAGE_NUM}}`         | Page number                     |
+| `{{DATE}}`             | Date                            |
+| `{{TOC_ITEM_N_TITLE}}` | TOC item title                  |
+| `{{TOC_ITEM_N_DESC}}`  | TOC item description            |
+| `{{THANK_YOU}}`        | Thank-you message               |
+| `{{CONTACT_INFO}}`     | Contact information             |
+| `{{LOGO_HEADER}}`      | Header logo filename            |
+| `{{COVER_BG_IMAGE}}`   | Cover background image filename |
 
 ---
 

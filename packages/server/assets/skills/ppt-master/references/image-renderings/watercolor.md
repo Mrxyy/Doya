@@ -10,13 +10,13 @@ Painterly soft edges, color bleeding, organic flow. The most "artistic" renderin
 
 ## 2. Line, texture, depth
 
-| Aspect | Treatment |
-|---|---|
-| Line quality | Minimal — forms defined by color washes, not outlines |
-| Texture | Paper grain at 12-18% visible, characteristic wash bleeding at edges |
-| Depth | Achieved through color saturation gradient — saturated foreground, paler background |
-| Material | Watercolor + cold-press paper |
-| Mood | Calm, contemplative, artistic |
+| Aspect       | Treatment                                                                           |
+| ------------ | ----------------------------------------------------------------------------------- |
+| Line quality | Minimal — forms defined by color washes, not outlines                               |
+| Texture      | Paper grain at 12-18% visible, characteristic wash bleeding at edges                |
+| Depth        | Achieved through color saturation gradient — saturated foreground, paler background |
+| Material     | Watercolor + cold-press paper                                                       |
+| Mood         | Calm, contemplative, artistic                                                       |
 
 ## 3. Using the deck's HEX values
 

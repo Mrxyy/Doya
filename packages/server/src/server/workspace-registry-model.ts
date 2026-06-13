@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import type {
   ProjectCheckoutLitePayload,
   ProjectPlacementPayload,
-} from "@getpaseo/protocol/messages";
+} from "@getdoya/protocol/messages";
 import { parseGitRevParsePath } from "../utils/git-rev-parse-path.js";
 import type { PersistedWorkspaceRecord } from "./workspace-registry.js";
 
@@ -167,7 +167,7 @@ export function checkoutLiteFromGitSnapshot(
     currentBranch: string | null;
     remoteUrl: string | null;
     repoRoot: string | null;
-    isPaseoOwnedWorktree: boolean;
+    isDoyaOwnedWorktree: boolean;
     mainRepoRoot: string | null;
   },
 ): ProjectCheckoutLitePayload {
@@ -178,18 +178,18 @@ export function checkoutLiteFromGitSnapshot(
       currentBranch: null,
       remoteUrl: null,
       worktreeRoot: null,
-      isPaseoOwnedWorktree: false,
+      isDoyaOwnedWorktree: false,
       mainRepoRoot: null,
     };
   }
-  if (git.isPaseoOwnedWorktree && git.mainRepoRoot) {
+  if (git.isDoyaOwnedWorktree && git.mainRepoRoot) {
     return {
       cwd,
       isGit: true,
       currentBranch: git.currentBranch,
       remoteUrl: git.remoteUrl,
       worktreeRoot: git.repoRoot ?? cwd,
-      isPaseoOwnedWorktree: true,
+      isDoyaOwnedWorktree: true,
       mainRepoRoot: git.mainRepoRoot,
     };
   }
@@ -199,7 +199,7 @@ export function checkoutLiteFromGitSnapshot(
     currentBranch: git.currentBranch,
     remoteUrl: git.remoteUrl,
     worktreeRoot: git.repoRoot ?? cwd,
-    isPaseoOwnedWorktree: false,
+    isDoyaOwnedWorktree: false,
     mainRepoRoot: git.mainRepoRoot,
   };
 }

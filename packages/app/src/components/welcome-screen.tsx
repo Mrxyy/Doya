@@ -179,8 +179,8 @@ export function WelcomeScreen({ onHostAdded }: WelcomeScreenProps) {
     [router],
   );
 
-  const handleOpenPaseoSite = useCallback(() => {
-    void openExternalUrl("https://paseo.sh");
+  const handleOpenDoyaSite = useCallback(() => {
+    void openExternalUrl("https://doya.sh");
   }, []);
 
   const handleOpenSettings = useCallback(() => {
@@ -265,13 +265,13 @@ export function WelcomeScreen({ onHostAdded }: WelcomeScreenProps) {
         <View style={styles.content}>
           <DoyaLogo size={96} />
           <View style={styles.copyBlock}>
-            <Text style={styles.title}>{translateNow("ui.welcome.to.paseo.10q1ihx")}</Text>
+            <Text style={styles.title}>{translateNow("ui.welcome.to.doya.10q1ihx")}</Text>
             <Text style={styles.subtitle}>
               {translateNow("ui.connect.your.computer.to.get.started.13q8wrk")}
             </Text>
             {isNative ? (
-              <Pressable style={styles.setupLink} onPress={handleOpenPaseoSite}>
-                <Text style={styles.setupLinkText}>{translateNow("ui.paseo.sh.jwonuf")}</Text>
+              <Pressable style={styles.setupLink} onPress={handleOpenDoyaSite}>
+                <Text style={styles.setupLinkText}>{translateNow("ui.doya.sh.jwonuf")}</Text>
                 <ExternalLink size={14} color={theme.colors.accent} />
               </Pressable>
             ) : null}
