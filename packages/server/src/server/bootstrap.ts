@@ -161,6 +161,17 @@ const DOWNLOAD_OPEN_FLAGS =
   process.platform === "win32" ? constants.O_RDONLY : constants.O_RDONLY | constants.O_NOFOLLOW;
 const ONLYOFFICE_PREVIEW_XLSX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const ONLYOFFICE_SELECTION_PLUGIN_GUID = "asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}";
+
+interface OnlyOfficeSelectionCapture {
+  documentKey: string;
+  sheetName: string;
+  address: string;
+  text?: string;
+  value?: string;
+  formula?: string;
+  updatedAt: number;
+}
 
 function formatHostForHttpUrl(host: string): string {
   return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
@@ -500,6 +511,7 @@ export async function createPaseoDaemon(
 
   // Middleware
   app.use(express.json());
+  const onlyOfficeSelectionCaptures = new Map<string, OnlyOfficeSelectionCapture>();
 
   const accountControlPlane = new AccountControlPlane({ paseoHome: config.paseoHome });
   const smsVerificationService = new SmsVerificationService(config.smsVerification ?? null);
@@ -814,6 +826,222 @@ export async function createPaseoDaemon(
 
   app.get("/api/workspace-files/onlyoffice-preview", (req, res) => {
     void handleWorkspaceFileOnlyOfficePreview(req, res);
+  });
+
+  app.get("/api/onlyoffice/paseo-selection-plugin/config.json", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const documentKey =
+      typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
+    const accessToken =
+      typeof req.query.access_token === "string" ? req.query.access_token.trim() : "";
+    const version = typeof req.query.v === "string" ? req.query.v.trim() : "";
+    const baseUrl = `${req.protocol}://${req.get("host") ?? "localhost"}`;
+    const pluginBaseUrl = `${baseUrl}/api/onlyoffice/paseo-selection-plugin/`;
+    const url = new URL("index.html", pluginBaseUrl);
+    url.searchParams.set("document_key", documentKey);
+    if (version) {
+      url.searchParams.set("v", version);
+    }
+    if (accessToken) {
+      url.searchParams.set("access_token", accessToken);
+    }
+    const variationUrl = `index.html${url.search}`;
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      baseUrl: pluginBaseUrl,
+      guid: ONLYOFFICE_SELECTION_PLUGIN_GUID,
+      name: "Paseo Selection Bridge",
+      variations: [
+        {
+          EditorsSupport: ["cell"],
+          description: "Shares the current spreadsheet selection with Paseo.",
+          events: ["onDocumentContentReady"],
+          initDataType: "none",
+          initOnSelectionChanged: true,
+          isDisplayedInViewer: true,
+          isSystem: true,
+          isViewer: true,
+          isVisual: false,
+          type: "background",
+          url: variationUrl,
+        },
+      ],
+    });
+  });
+
+  app.get("/api/onlyoffice/paseo-selection-plugin/index.html", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const documentKey =
+      typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
+    const accessToken =
+      typeof req.query.access_token === "string" ? req.query.access_token.trim() : "";
+    const version = typeof req.query.v === "string" ? req.query.v.trim() : "";
+    const baseUrl = `${req.protocol}://${req.get("host") ?? "localhost"}`;
+    const scriptUrl = new URL("/api/onlyoffice/paseo-selection-plugin/plugin.js", baseUrl);
+    scriptUrl.searchParams.set("document_key", documentKey);
+    if (version) {
+      scriptUrl.searchParams.set("v", version);
+    }
+    if (accessToken) {
+      scriptUrl.searchParams.set("access_token", accessToken);
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Paseo Selection Bridge</title>
+    <script type="text/javascript" src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"></script>
+    <script type="text/javascript" src="${escapeHtmlAttribute(scriptUrl.toString())}"></script>
+  </head>
+  <body></body>
+</html>`);
+  });
+
+  app.get("/api/onlyoffice/paseo-selection-plugin/plugin.js", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const documentKey =
+      typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
+    const accessToken =
+      typeof req.query.access_token === "string" ? req.query.access_token.trim() : "";
+    const baseUrl = `${req.protocol}://${req.get("host") ?? "localhost"}`;
+    const captureUrl = new URL("/api/onlyoffice/selection-capture", baseUrl);
+    captureUrl.searchParams.set("document_key", documentKey);
+    if (accessToken) {
+      captureUrl.searchParams.set("access_token", accessToken);
+    }
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+    res.send(`(function () {
+  "use strict";
+  var documentKey = ${JSON.stringify(documentKey)};
+  var captureUrl = ${JSON.stringify(captureUrl.toString())};
+  var lastPayload = "";
+  var timer = null;
+  var started = false;
+
+  function safeString(value) {
+    if (value === null || value === undefined) return "";
+    var text = "";
+    if (typeof value === "string") {
+      text = value;
+    } else if (typeof value === "number" || typeof value === "boolean") {
+      text = String(value);
+    } else {
+      try {
+        text = JSON.stringify(value);
+      } catch (error) {
+        text = "";
+      }
+    }
+    return text.length > 2000 ? text.slice(0, 2000) + "..." : text;
+  }
+
+  function reportSelection() {
+    if (!window.Asc || !window.Asc.plugin || !window.Asc.plugin.callCommand) return;
+    window.Asc.plugin.onCommandCallback = handleSelectionResult;
+    window.Asc.plugin.callCommand(function () {
+      function readValue(read) {
+        try {
+          return read();
+        } catch (error) {
+          return "";
+        }
+      }
+      function readSingleCellValue(address, read) {
+        if (!address || address.indexOf(":") !== -1) return "";
+        return readValue(read);
+      }
+      try {
+        var sheet = Api.GetActiveSheet && Api.GetActiveSheet();
+        var selection = sheet && sheet.GetSelection && sheet.GetSelection();
+        var address =
+          readValue(function () { return selection && selection.GetAddress && selection.GetAddress(false, false, "xlA1", false); }) ||
+          readValue(function () { return selection && selection.GetAddress && selection.GetAddress(); });
+        return JSON.stringify({
+          sheetName: readValue(function () { return sheet && sheet.GetName && sheet.GetName(); }) || "Sheet1",
+          address: address || "",
+          formula: readSingleCellValue(address, function () { return selection && selection.GetFormula && selection.GetFormula(); }),
+          text: readSingleCellValue(address, function () { return selection && selection.GetText && selection.GetText(); }),
+          value: readSingleCellValue(address, function () { return selection && selection.GetValue && selection.GetValue(); })
+        });
+      } catch (error) {
+        return null;
+      }
+    }, false, true, handleSelectionResult);
+  }
+
+  function parseSelectionResult(result) {
+    if (!result) return null;
+    if (typeof result === "string") {
+      try {
+        return JSON.parse(result);
+      } catch (error) {
+        return null;
+      }
+    }
+    return result;
+  }
+
+  function handleSelectionResult(result) {
+      result = parseSelectionResult(result);
+      if (!result || !result.address) return;
+      var payload = {
+        documentKey: documentKey,
+        sheetName: safeString(result.sheetName) || "Sheet1",
+        address: safeString(result.address),
+        formula: safeString(result.formula),
+        text: safeString(result.text),
+        value: safeString(result.value)
+      };
+      var serialized = JSON.stringify(payload);
+      if (serialized === lastPayload) return;
+      lastPayload = serialized;
+      fetch(captureUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: serialized
+      }).catch(function () {});
+  }
+
+  function startReporting() {
+    if (started) return;
+    started = true;
+    reportSelection();
+    timer = window.setInterval(reportSelection, 800);
+  }
+
+  window.Asc.plugin.init = function () {
+    window.Asc.plugin.event_onDocumentContentReady = startReporting;
+    window.setTimeout(startReporting, 1500);
+  };
+  window.Asc.plugin.button = function () {};
+  window.addEventListener("unload", function () {
+    if (timer) window.clearInterval(timer);
+  });
+})();`);
+  });
+
+  app.post("/api/onlyoffice/selection-capture", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const capture = normalizeOnlyOfficeSelectionCapture(req.body);
+    const documentKey =
+      typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
+    if (!capture || capture.documentKey !== documentKey) {
+      res.status(400).json({ error: "Invalid selection capture" });
+      return;
+    }
+    onlyOfficeSelectionCaptures.set(capture.documentKey, capture);
+    res.json({ ok: true });
+  });
+
+  app.get("/api/onlyoffice/selection-capture", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const documentKey =
+      typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ selection: documentKey ? (onlyOfficeSelectionCaptures.get(documentKey) ?? null) : null });
   });
 
   app.post("/api/onlyoffice/callback", (_req, res) => {
@@ -1489,6 +1717,61 @@ async function closeAllAgents(logger: Logger, agentManager: AgentManager): Promi
       }
     }),
   );
+}
+
+function normalizeOnlyOfficeSelectionCapture(input: unknown): OnlyOfficeSelectionCapture | null {
+  if (!isPlainRecord(input)) {
+    return null;
+  }
+  const documentKey = toTrimmedString(input.documentKey);
+  const address = toTrimmedString(input.address);
+  if (!documentKey || !address) {
+    return null;
+  }
+  return {
+    documentKey,
+    sheetName: toTrimmedString(input.sheetName) || "Sheet1",
+    address,
+    text: toTrimmedString(input.text),
+    value: toTrimmedString(input.value),
+    formula: toTrimmedString(input.formula),
+    updatedAt: Date.now(),
+  };
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function toTrimmedString(value: unknown): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    const serialized = JSON.stringify(value);
+    if (!serialized) {
+      return undefined;
+    }
+    const trimmed = serialized.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 function buildWorkspaceAttachmentFileName(fileName: string): string {

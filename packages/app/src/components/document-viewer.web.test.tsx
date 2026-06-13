@@ -61,7 +61,9 @@ const xSpreadsheetMockState = vi.hoisted(() => ({
 }));
 
 const onlyOfficeMockState = vi.hoisted(() => ({
+  connectorAvailable: true,
   configs: [] as unknown[],
+  connectorResult: null as unknown,
 }));
 
 vi.mock("x-data-spreadsheet/dist/xspreadsheet.css", () => ({}));
@@ -225,7 +227,9 @@ const PENDING_CSV_TARGETS = [
 
 describe("DocumentViewer web annotation interactions", () => {
   beforeEach(() => {
+    onlyOfficeMockState.connectorAvailable = true;
     onlyOfficeMockState.configs = [];
+    onlyOfficeMockState.connectorResult = null;
     xSpreadsheetMockState.instances = [];
     window.DocsAPI = {
       DocEditor: class DocEditor {
@@ -234,6 +238,17 @@ describe("DocumentViewer web annotation interactions", () => {
         }
 
         destroyEditor() {}
+
+        createConnector() {
+          if (!onlyOfficeMockState.connectorAvailable) {
+            return undefined;
+          }
+          return {
+            callCommand: (_command: () => unknown, callback: (result: unknown) => void) => {
+              callback(onlyOfficeMockState.connectorResult);
+            },
+          };
+        }
       },
     };
   });
@@ -407,10 +422,108 @@ describe("DocumentViewer web annotation interactions", () => {
             logo: { visible: false },
           }),
           mode: "view",
+          plugins: expect.objectContaining({
+            autostart: ["asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}"],
+            pluginsData: [
+              expect.stringContaining("/api/onlyoffice/paseo-selection-plugin/config.json"),
+            ],
+          }),
         }),
       }),
     ]);
     expect(xSpreadsheetMockState.instances).toHaveLength(0);
+  });
+
+  it("reads the current ONLYOFFICE spreadsheet selection for XLSX annotations", async () => {
+    const { DocumentViewer } = await import("./document-viewer.web");
+    const onAnnotationTargetSelect = vi.fn();
+    onlyOfficeMockState.connectorResult = {
+      sheetName: "Budget",
+      address: "B2:C4",
+      text: "Revenue 120000",
+      value: "120000",
+      formula: "=SUM(C3:C4)",
+    };
+
+    render(
+      <DocumentViewer
+        kind="xlsx"
+        bytes={createWorkbookBytes()}
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        fileName="budget.xlsx"
+        sourceUrl="http://localhost:6767/api/workspace-files/raw?cwd=/repo&path=budget.xlsx&access_token=secret"
+        annotationMode
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("document-xlsx-onlyoffice-read-selection-button"));
+
+    expect(onAnnotationTargetSelect).toHaveBeenCalledWith({
+      kind: "xlsx",
+      label: "Budget!B2:C4",
+      locator: {
+        type: "range",
+        source: "onlyoffice_selection",
+        fileName: "budget.xlsx",
+        sheet: "Budget",
+        range: "B2:C4",
+        text: "Revenue 120000",
+        value: "120000",
+        formula: "=SUM(C3:C4)",
+      },
+      context: "text=Revenue 120000; value=120000; formula==SUM(C3:C4)",
+    });
+  });
+
+  it("falls back to the ONLYOFFICE plugin selection cache when connector is unavailable", async () => {
+    const { DocumentViewer } = await import("./document-viewer.web");
+    const onAnnotationTargetSelect = vi.fn();
+    onlyOfficeMockState.connectorAvailable = false;
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          selection: {
+            sheetName: "Overview",
+            address: "G5:H7",
+            value: "96000",
+          },
+        }),
+    } as Response);
+
+    render(
+      <DocumentViewer
+        kind="xlsx"
+        bytes={createWorkbookBytes()}
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        fileName="budget.xlsx"
+        sourceUrl="http://localhost:6767/api/workspace-files/raw?cwd=/repo&path=budget.xlsx&access_token=secret"
+        annotationMode
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("document-xlsx-onlyoffice-read-selection-button"));
+
+    await waitFor(() => {
+      expect(onAnnotationTargetSelect).toHaveBeenCalledWith({
+        kind: "xlsx",
+        label: "Overview!G5:H7",
+        locator: {
+          type: "range",
+          source: "onlyoffice_selection",
+          fileName: "budget.xlsx",
+          sheet: "Overview",
+          range: "G5:H7",
+          value: "96000",
+        },
+        context: "value=96000",
+      });
+    });
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/onlyoffice/selection-capture"), {
+      cache: "no-store",
+    });
   });
 
   it("does not create PDF targets from preview clicks or drags", async () => {

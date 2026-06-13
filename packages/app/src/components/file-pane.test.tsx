@@ -6,11 +6,7 @@ import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Pressable, Text } from "react-native";
-import type {
-  DocumentAnnotationSelectionPayload,
-  DocumentAnnotationTarget,
-  DocumentViewerKind,
-} from "@/components/document-viewer";
+import type { DocumentAnnotationTarget, DocumentViewerKind } from "@/components/document-viewer";
 import { FilePane } from "@/components/file-pane";
 import { useSessionStore, type Agent } from "@/stores/session-store";
 
@@ -162,10 +158,7 @@ vi.mock("@/components/document-viewer", () => ({
     annotationMode?: boolean;
     bytes?: Uint8Array;
     kind: DocumentViewerKind;
-    onAnnotationTargetSelect?: (
-      target: DocumentAnnotationTarget,
-      payload?: DocumentAnnotationSelectionPayload,
-    ) => void;
+    onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
   }) => {
     React.useEffect(() => {
       documentViewerMounts.push(`${kind}:${bytes?.[0] ?? "missing"}`);

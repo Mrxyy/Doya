@@ -15,11 +15,7 @@ import * as XSpreadsheetBundle from "x-data-spreadsheet/dist/xspreadsheet.js";
 import "x-data-spreadsheet/dist/xspreadsheet.css";
 import * as XLSX from "xlsx";
 import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
-import type {
-  DocumentAnnotationImage,
-  DocumentAnnotationSelectionPayload,
-  DocumentAnnotationTarget,
-} from "@/components/document-viewer";
+import type { DocumentAnnotationTarget } from "@/components/document-viewer";
 import {
   buildDocxAnnotationTargetFromClick,
   buildSpreadsheetAnnotationTargetFromClick,
@@ -27,7 +23,6 @@ import {
 import {
   buildPdfBuiltinAnnotationTarget,
   columnNameFromIndex,
-  roundAnnotationRatio,
 } from "@/utils/document-annotation-target";
 import {
   parseSpreadsheetPreview,
@@ -56,10 +51,7 @@ export interface DocumentViewerProps {
   annotationMode?: boolean;
   selectedAnnotationTarget?: DocumentAnnotationTarget | null;
   pendingAnnotationTargets?: DocumentAnnotationTarget[];
-  onAnnotationTargetSelect?: (
-    target: DocumentAnnotationTarget,
-    payload?: DocumentAnnotationSelectionPayload,
-  ) => void;
+  onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
 }
 
 type RenderState = { status: "idle" | "loading" | "ready" } | { status: "error"; message: string };
@@ -130,7 +122,33 @@ interface XSpreadsheetSheetData {
   merges?: string[];
 }
 interface OnlyOfficeDocEditor {
+  createConnector?: () => OnlyOfficeConnector;
   destroyEditor?: () => void;
+}
+
+interface OnlyOfficeConnector {
+  callCommand?: <T>(command: () => T, callback: (result: T | null) => void) => void;
+}
+
+interface OnlyOfficeSpreadsheetApi {
+  GetActiveSheet?: () => OnlyOfficeWorksheet | null;
+}
+
+interface OnlyOfficeWorksheet {
+  GetName?: () => string;
+  GetSelection?: () => OnlyOfficeRange | null;
+}
+
+interface OnlyOfficeRange {
+  GetAddress?: (
+    rowAbs?: boolean,
+    colAbs?: boolean,
+    referenceStyle?: string,
+    external?: boolean,
+  ) => string;
+  GetFormula?: () => unknown;
+  GetText?: () => unknown;
+  GetValue?: () => unknown;
 }
 
 interface OnlyOfficeDocsApi {
@@ -154,6 +172,10 @@ interface OnlyOfficeEditorConfig {
     callbackUrl: string;
     lang: string;
     mode: "view";
+    plugins?: {
+      autostart: string[];
+      pluginsData: string[];
+    };
     customization: {
       compactHeader: boolean;
       compactToolbar: boolean;
@@ -173,10 +195,13 @@ declare global {
     DocsAPI?: OnlyOfficeDocsApi;
     x_spreadsheet?: XSpreadsheetFactory;
   }
+  var Api: OnlyOfficeSpreadsheetApi;
 }
 
 const LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL = "http://localhost:8082";
 const LOCAL_ONLYOFFICE_FILE_PROXY_HOST = "paseo-onlyoffice-host-proxy";
+const ONLYOFFICE_SELECTION_PLUGIN_GUID = "asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}";
+const ONLYOFFICE_SELECTION_PLUGIN_VERSION = "20260613-3";
 
 const PDF_SHAPES_ONLY_DISABLED_CATEGORIES = [
   "mode-view",
@@ -705,19 +730,33 @@ function OnlyOfficeSpreadsheetDocumentViewer({
     () => (sourceUrl ? toOnlyOfficeContainerReachableUrl(sourceUrl) : null),
     [sourceUrl],
   );
+  const documentKey = useMemo(
+    () => (documentUrl ? createOnlyOfficeDocumentKey({ sourceUrl: documentUrl, bytes }) : null),
+    [bytes, documentUrl],
+  );
   const callbackUrl = useMemo(
     () => (sourceUrl ? toOnlyOfficeCallbackUrl(sourceUrl) : null),
     [sourceUrl],
   );
+  const pluginConfigUrl = useMemo(
+    () => (sourceUrl && documentKey ? toOnlyOfficeSelectionPluginConfigUrl(sourceUrl, documentKey) : null),
+    [documentKey, sourceUrl],
+  );
+  const selectionCaptureUrl = useMemo(
+    () => (sourceUrl && documentKey ? toOnlyOfficeSelectionCaptureUrl(sourceUrl, documentKey) : null),
+    [documentKey, sourceUrl],
+  );
 
   useEffect(() => {
-    if (!documentUrl || !callbackUrl) {
+    if (!documentUrl || !callbackUrl || !documentKey || !pluginConfigUrl) {
       setShouldFallback(true);
       return;
     }
 
     const resolvedDocumentUrl = documentUrl;
     const resolvedCallbackUrl = callbackUrl;
+    const resolvedDocumentKey = documentKey;
+    const resolvedPluginConfigUrl = pluginConfigUrl;
     let canceled = false;
     setIsLoading(true);
     setShouldFallback(false);
@@ -737,7 +776,7 @@ function OnlyOfficeSpreadsheetDocumentViewer({
           documentType: "cell",
           document: {
             fileType: "xlsx",
-            key: createOnlyOfficeDocumentKey({ sourceUrl: resolvedDocumentUrl, bytes }),
+            key: resolvedDocumentKey,
             permissions: {
               download: true,
               edit: false,
@@ -758,6 +797,10 @@ function OnlyOfficeSpreadsheetDocumentViewer({
             },
             lang: "zh-CN",
             mode: "view",
+            plugins: {
+              autostart: [ONLYOFFICE_SELECTION_PLUGIN_GUID],
+              pluginsData: [resolvedPluginConfigUrl],
+            },
           },
           height: "100%",
           type: "desktop",
@@ -778,7 +821,7 @@ function OnlyOfficeSpreadsheetDocumentViewer({
       editorRef.current?.destroyEditor?.();
       editorRef.current = null;
     };
-  }, [bytes, callbackUrl, documentUrl, fileName, hostId]);
+  }, [callbackUrl, documentKey, documentUrl, fileName, hostId, pluginConfigUrl]);
 
   if (shouldFallback) {
     return (
@@ -795,316 +838,277 @@ function OnlyOfficeSpreadsheetDocumentViewer({
       <div id={hostId} style={webStyles.onlyOfficeHost} />
       {isLoading ? <DocumentLoadingOverlay label={translateNow("ui.loading.xlsx")} /> : null}
       {annotationMode && onAnnotationTargetSelect ? (
-        <OnlyOfficeScreenshotAnnotationOverlay
+        <OnlyOfficeSelectionAnnotationBar
+          editorRef={editorRef}
           fileName={fileName}
           onAnnotationTargetSelect={onAnnotationTargetSelect}
+          selectionCaptureUrl={selectionCaptureUrl}
         />
       ) : null}
     </div>
   );
 }
 
-interface ScreenshotSelectionRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
+interface OnlyOfficeSpreadsheetSelection {
+  sheetName: string;
+  address: string;
+  text?: string;
+  value?: string;
+  formula?: string;
 }
 
-function OnlyOfficeScreenshotAnnotationOverlay({
+type OnlyOfficeSelectionReadState = "idle" | "reading" | "error" | "unsupported";
+
+function OnlyOfficeSelectionAnnotationBar({
+  editorRef,
   fileName,
   onAnnotationTargetSelect,
+  selectionCaptureUrl,
 }: {
+  editorRef: React.RefObject<OnlyOfficeDocEditor | null>;
   fileName: string;
   onAnnotationTargetSelect: NonNullable<DocumentViewerProps["onAnnotationTargetSelect"]>;
+  selectionCaptureUrl: string | null;
 }) {
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
-  const captureStreamRef = useRef<MediaStream | null>(null);
-  const [selectionRect, setSelectionRect] = useState<ScreenshotSelectionRect | null>(null);
-  const [status, setStatus] = useState<"idle" | "capturing" | "error">("idle");
+  const [state, setState] = useState<OnlyOfficeSelectionReadState>("idle");
 
-  useEffect(() => {
-    return () => {
-      stopCaptureStream(captureStreamRef.current);
-      captureStreamRef.current = null;
-    };
-  }, []);
-
-  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) {
-      return;
-    }
-    const overlay = overlayRef.current;
-    if (!overlay) {
-      return;
-    }
-    const bounds = overlay.getBoundingClientRect();
-    const x = clamp(event.clientX - bounds.left, 0, bounds.width);
-    const y = clamp(event.clientY - bounds.top, 0, bounds.height);
-    dragStartRef.current = { x, y };
-    setStatus("idle");
-    setSelectionRect({ left: x, top: y, width: 0, height: 0 });
-    overlay.setPointerCapture(event.pointerId);
-  }, []);
-
-  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const start = dragStartRef.current;
-    const overlay = overlayRef.current;
-    if (!start || !overlay) {
-      return;
-    }
-    const bounds = overlay.getBoundingClientRect();
-    const x = clamp(event.clientX - bounds.left, 0, bounds.width);
-    const y = clamp(event.clientY - bounds.top, 0, bounds.height);
-    setSelectionRect(rectFromPoints(start.x, start.y, x, y));
-  }, []);
-
-  const handlePointerUp = useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
-      const start = dragStartRef.current;
-      const overlay = overlayRef.current;
-      dragStartRef.current = null;
-      if (!start || !overlay) {
-        return;
-      }
-      overlay.releasePointerCapture(event.pointerId);
-      const bounds = overlay.getBoundingClientRect();
-      const endX = clamp(event.clientX - bounds.left, 0, bounds.width);
-      const endY = clamp(event.clientY - bounds.top, 0, bounds.height);
-      const nextRect = rectFromPoints(start.x, start.y, endX, endY);
-      if (nextRect.width < 8 || nextRect.height < 8) {
-        setSelectionRect(null);
-        return;
-      }
-      setSelectionRect(nextRect);
-      setStatus("capturing");
-      setSelectionRect(null);
-      void waitForOverlayToHide()
-        .then(async () => {
-          const stream = await getOrCreateViewportCaptureStream(captureStreamRef);
-          return captureViewportRegionAsPng({
-            rect: new DOMRect(
-              bounds.left + nextRect.left,
-              bounds.top + nextRect.top,
-              nextRect.width,
-              nextRect.height,
-            ),
-            fileName,
-            stream,
-          });
-        })
-        .then((image) => {
-          const target = buildOnlyOfficeScreenshotAnnotationTarget({
-            fileName,
-            image,
-            overlayBounds: bounds,
-            selectionRect: nextRect,
-          });
-          onAnnotationTargetSelect(target, { images: [image] });
-          setStatus("idle");
-        })
-        .catch(() => {
-          setStatus("error");
-        });
-    },
-    [fileName, onAnnotationTargetSelect],
-  );
-
-  const selectionStyle = useMemo<CSSProperties | undefined>(() => {
-    if (!selectionRect) {
-      return undefined;
-    }
-    return {
-      ...webStyles.onlyOfficeScreenshotSelection,
-      left: selectionRect.left,
-      top: selectionRect.top,
-      width: selectionRect.width,
-      height: selectionRect.height,
-    };
-  }, [selectionRect]);
+  const handleReadSelection = useCallback(() => {
+    setState("reading");
+    void readOnlyOfficeSpreadsheetSelection({
+      editor: editorRef.current,
+      selectionCaptureUrl,
+    })
+      .then((selection) => {
+        if (!selection) {
+          setState("unsupported");
+          return;
+        }
+        onAnnotationTargetSelect(buildOnlyOfficeSelectionAnnotationTarget({ fileName, selection }));
+        setState("idle");
+      })
+      .catch(() => {
+        setState("error");
+      });
+  }, [editorRef, fileName, onAnnotationTargetSelect, selectionCaptureUrl]);
 
   return (
-    <div
-      ref={overlayRef}
-      data-testid="document-xlsx-screenshot-annotation-overlay"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      style={
-        status === "capturing"
-          ? webStyles.onlyOfficeScreenshotOverlayCapturing
-          : webStyles.onlyOfficeScreenshotOverlay
-      }
-    >
-      {status === "capturing" ? null : (
-        <div style={webStyles.onlyOfficeScreenshotBar}>
-          {getOnlyOfficeScreenshotOverlayLabel(status)}
-        </div>
-      )}
-      {selectionStyle ? <div style={selectionStyle} /> : null}
+    <div style={webStyles.onlyOfficeSelectionBar}>
+      <button
+        data-testid="document-xlsx-onlyoffice-read-selection-button"
+        disabled={state === "reading"}
+        onClick={handleReadSelection}
+        style={webStyles.onlyOfficeSelectionButton}
+        type="button"
+      >
+        {state === "reading"
+          ? translateNow("document.annotation.xlsx.selection.reading")
+          : translateNow("document.annotation.xlsx.selection.readButton")}
+      </button>
+      <span style={webStyles.onlyOfficeSelectionHint}>
+        {getOnlyOfficeSelectionHint(state)}
+      </span>
     </div>
   );
 }
 
-function buildOnlyOfficeScreenshotAnnotationTarget(input: {
+function getOnlyOfficeSelectionHint(state: OnlyOfficeSelectionReadState): string {
+  if (state === "error") {
+    return translateNow("document.annotation.xlsx.selection.error");
+  }
+  if (state === "unsupported") {
+    return translateNow("document.annotation.xlsx.selection.unsupported");
+  }
+  return translateNow("document.annotation.xlsx.selection.barHint");
+}
+
+function buildOnlyOfficeSelectionAnnotationTarget(input: {
   fileName: string;
-  image: DocumentAnnotationImage;
-  overlayBounds: DOMRect;
-  selectionRect: ScreenshotSelectionRect;
+  selection: OnlyOfficeSpreadsheetSelection;
 }): DocumentAnnotationTarget {
+  const locator: DocumentAnnotationTarget["locator"] = {
+    type: "range",
+    source: "onlyoffice_selection",
+    fileName: input.fileName,
+    sheet: input.selection.sheetName,
+    range: input.selection.address,
+  };
+  setLocatorString(locator, "text", input.selection.text);
+  setLocatorString(locator, "value", input.selection.value);
+  setLocatorString(locator, "formula", input.selection.formula);
+
   return {
     kind: "xlsx",
-    label: translateNow("document.annotation.xlsx.screenshot.label"),
-    locator: {
-      type: "screenshot_region",
-      source: "onlyoffice_preview",
-      fileName: input.fileName,
-      imageFileName: input.image.fileName ?? "selection.png",
-      coordinateSpace: "preview_overlay_normalized",
-      x: roundAnnotationRatio(input.selectionRect.left / input.overlayBounds.width),
-      y: roundAnnotationRatio(input.selectionRect.top / input.overlayBounds.height),
-      width: roundAnnotationRatio(input.selectionRect.width / input.overlayBounds.width),
-      height: roundAnnotationRatio(input.selectionRect.height / input.overlayBounds.height),
-    },
-    context: translateNow("document.annotation.xlsx.screenshot.context"),
+    label: `${input.selection.sheetName}!${input.selection.address}`,
+    locator,
+    context: buildOnlyOfficeSelectionContext(input.selection),
   };
 }
 
-async function captureViewportRegionAsPng(input: {
-  rect: DOMRect;
-  fileName: string;
-  stream: MediaStream;
-}): Promise<DocumentAnnotationImage> {
-  const video = document.createElement("video");
-  video.muted = true;
-  video.srcObject = input.stream;
-  await video.play();
-  await waitForVideoFrame();
-  const sourceScaleX = video.videoWidth / window.innerWidth;
-  const sourceScaleY = video.videoHeight / window.innerHeight;
-  const sourceX = Math.max(0, Math.round(input.rect.left * sourceScaleX));
-  const sourceY = Math.max(0, Math.round(input.rect.top * sourceScaleY));
-  const sourceWidth = Math.max(1, Math.round(input.rect.width * sourceScaleX));
-  const sourceHeight = Math.max(1, Math.round(input.rect.height * sourceScaleY));
-  const outputScale = Math.min(1, 1600 / sourceWidth, 1200 / sourceHeight);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(sourceWidth * outputScale));
-  canvas.height = Math.max(1, Math.round(sourceHeight * outputScale));
-  const context = canvas.getContext("2d");
-  if (!context) {
-    throw new Error("Canvas is unavailable");
-  }
-  context.drawImage(
-    video,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
-  const dataUrl = canvas.toDataURL("image/png");
-  const data = dataUrl.split(",")[1];
-  if (!data) {
-    throw new Error("Screenshot capture failed");
-  }
-  return {
-    data,
-    mimeType: "image/png",
-    fileName: `${sanitizeFileStem(input.fileName)}-selection-${Date.now()}.png`,
-  };
+function buildOnlyOfficeSelectionContext(selection: OnlyOfficeSpreadsheetSelection): string {
+  return [
+    selection.text ? `text=${selection.text}` : null,
+    selection.value ? `value=${selection.value}` : null,
+    selection.formula ? `formula=${selection.formula}` : null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join("; ");
 }
 
-async function getOrCreateViewportCaptureStream(
-  streamRef: React.MutableRefObject<MediaStream | null>,
-): Promise<MediaStream> {
-  if (streamRef.current && isLiveCaptureStream(streamRef.current)) {
-    return streamRef.current;
+function setLocatorString(
+  locator: DocumentAnnotationTarget["locator"],
+  key: string,
+  value: string | undefined,
+): void {
+  if (value) {
+    locator[key] = value;
   }
-  stopCaptureStream(streamRef.current);
-  const stream = await requestViewportCaptureStream();
-  streamRef.current = stream;
-  for (const track of stream.getVideoTracks()) {
-    track.addEventListener(
-      "ended",
-      () => {
-        if (streamRef.current === stream) {
-          streamRef.current = null;
+}
+
+async function readOnlyOfficeSpreadsheetSelection(input: {
+  editor: OnlyOfficeDocEditor | null;
+  selectionCaptureUrl: string | null;
+}): Promise<OnlyOfficeSpreadsheetSelection | null> {
+  const connectorSelection = await readOnlyOfficeSpreadsheetSelectionFromConnector(input.editor);
+  if (connectorSelection) {
+    return connectorSelection;
+  }
+  return readOnlyOfficeSpreadsheetSelectionFromPlugin(input.selectionCaptureUrl);
+}
+
+async function readOnlyOfficeSpreadsheetSelectionFromConnector(
+  editor: OnlyOfficeDocEditor | null,
+): Promise<OnlyOfficeSpreadsheetSelection | null> {
+  const connector = editor?.createConnector?.();
+  if (!connector?.callCommand) {
+    return null;
+  }
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      settled = true;
+      reject(new Error("ONLYOFFICE selection timeout"));
+    }, 3000);
+    try {
+      connector.callCommand(readActiveOnlyOfficeSpreadsheetSelection, (result) => {
+        if (settled) {
+          return;
         }
-      },
-      { once: true },
-    );
-  }
-  return stream;
-}
-
-async function requestViewportCaptureStream(): Promise<MediaStream> {
-  const mediaDevices = navigator.mediaDevices as
-    | (MediaDevices & {
-        getDisplayMedia?: (constraints?: MediaStreamConstraints) => Promise<MediaStream>;
-      })
-    | undefined;
-  if (!mediaDevices?.getDisplayMedia) {
-    throw new Error("Screen capture is unavailable");
-  }
-  return mediaDevices.getDisplayMedia({ video: true, audio: false });
-}
-
-function isLiveCaptureStream(stream: MediaStream): boolean {
-  return stream.getVideoTracks().some((track) => track.readyState === "live");
-}
-
-function stopCaptureStream(stream: MediaStream | null): void {
-  for (const track of stream?.getTracks() ?? []) {
-    track.stop();
-  }
-}
-
-function waitForVideoFrame(): Promise<void> {
-  return new Promise((resolve) => {
-    requestAnimationFrame(() => resolve());
+        settled = true;
+        window.clearTimeout(timeout);
+        resolve(normalizeOnlyOfficeSpreadsheetSelection(result));
+      });
+    } catch (error) {
+      settled = true;
+      window.clearTimeout(timeout);
+      reject(error);
+    }
   });
 }
 
-async function waitForOverlayToHide(): Promise<void> {
-  await waitForVideoFrame();
-  await waitForVideoFrame();
-}
-
-function getOnlyOfficeScreenshotOverlayLabel(status: "idle" | "capturing" | "error"): string {
-  if (status === "capturing") {
-    return translateNow("document.annotation.xlsx.screenshot.capturing");
+async function readOnlyOfficeSpreadsheetSelectionFromPlugin(
+  selectionCaptureUrl: string | null,
+): Promise<OnlyOfficeSpreadsheetSelection | null> {
+  if (!selectionCaptureUrl) {
+    return null;
   }
-  if (status === "error") {
-    return translateNow("document.annotation.xlsx.screenshot.error");
+  const response = await fetch(selectionCaptureUrl, { cache: "no-store" });
+  if (!response.ok) {
+    return null;
   }
-  return translateNow("document.annotation.xlsx.screenshot.dragHint");
+  const payload = (await response.json()) as unknown;
+  if (!isRecord(payload)) {
+    return null;
+  }
+  return normalizeOnlyOfficeSpreadsheetSelection(payload.selection);
 }
 
-function sanitizeFileStem(fileName: string): string {
-  const stem = fileName.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "-");
-  return stem.length > 0 ? stem.slice(0, 48) : "xlsx-preview";
+function readActiveOnlyOfficeSpreadsheetSelection(): unknown {
+  function readValue(read: () => unknown): unknown {
+    try {
+      return read();
+    } catch {
+      return undefined;
+    }
+  }
+  function readSingleCellValue(address: unknown, read: () => unknown): unknown {
+    if (typeof address !== "string" || address.includes(":")) {
+      return undefined;
+    }
+    return readValue(read);
+  }
+
+  try {
+    const sheet = Api.GetActiveSheet?.();
+    const selection = sheet?.GetSelection?.();
+    const sheetName = readValue(() => sheet?.GetName?.()) ?? "Sheet1";
+    const address =
+      readValue(() =>
+        selection?.GetAddress?.(false, false, "xlA1", false),
+      ) ??
+      readValue(() => selection?.GetAddress?.()) ??
+      "";
+    return JSON.stringify({
+      sheetName,
+      address,
+      formula: readSingleCellValue(address, () => selection?.GetFormula?.()),
+      text: readSingleCellValue(address, () => selection?.GetText?.()),
+      value: readSingleCellValue(address, () => selection?.GetValue?.()),
+    });
+  } catch {
+    return null;
+  }
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-function rectFromPoints(
-  startX: number,
-  startY: number,
-  endX: number,
-  endY: number,
-): ScreenshotSelectionRect {
+function normalizeOnlyOfficeSpreadsheetSelection(
+  value: unknown,
+): OnlyOfficeSpreadsheetSelection | null {
+  if (typeof value === "string") {
+    try {
+      return normalizeOnlyOfficeSpreadsheetSelection(JSON.parse(value));
+    } catch {
+      return null;
+    }
+  }
+  if (!isRecord(value)) {
+    return null;
+  }
+  const address = toAnnotationLocatorString(value.address);
+  if (!address) {
+    return null;
+  }
   return {
-    left: Math.min(startX, endX),
-    top: Math.min(startY, endY),
-    width: Math.abs(endX - startX),
-    height: Math.abs(endY - startY),
+    sheetName: toAnnotationLocatorString(value.sheetName) || "Sheet1",
+    address,
+    formula: toAnnotationLocatorString(value.formula),
+    text: toAnnotationLocatorString(value.text),
+    value: toAnnotationLocatorString(value.value),
   };
+}
+
+function toAnnotationLocatorString(value: unknown): string | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof value === "string") {
+    return trimAnnotationLocatorString(value);
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  const serialized = JSON.stringify(value);
+  return typeof serialized === "string" ? trimAnnotationLocatorString(serialized) : undefined;
+}
+
+function trimAnnotationLocatorString(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  return trimmed.length > 2000 ? `${trimmed.slice(0, 2000)}...` : trimmed;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function loadOnlyOfficeApiScript(): Promise<void> {
@@ -1187,6 +1191,29 @@ function toOnlyOfficeCallbackUrl(sourceUrl: string): string {
     callbackUrl.port = "";
   }
   return callbackUrl.toString();
+}
+
+function toOnlyOfficeSelectionPluginConfigUrl(sourceUrl: string, documentKey: string): string {
+  const url = new URL(sourceUrl);
+  const pluginUrl = new URL("/api/onlyoffice/paseo-selection-plugin/config.json", url.origin);
+  pluginUrl.searchParams.set("document_key", documentKey);
+  pluginUrl.searchParams.set("v", ONLYOFFICE_SELECTION_PLUGIN_VERSION);
+  const accessToken = url.searchParams.get("access_token");
+  if (accessToken) {
+    pluginUrl.searchParams.set("access_token", accessToken);
+  }
+  return pluginUrl.toString();
+}
+
+function toOnlyOfficeSelectionCaptureUrl(sourceUrl: string, documentKey: string): string {
+  const url = new URL(sourceUrl);
+  const captureUrl = new URL("/api/onlyoffice/selection-capture", url.origin);
+  captureUrl.searchParams.set("document_key", documentKey);
+  const accessToken = url.searchParams.get("access_token");
+  if (accessToken) {
+    captureUrl.searchParams.set("access_token", accessToken);
+  }
+  return captureUrl.toString();
 }
 
 function XSpreadsheetDocumentViewer({
@@ -1816,45 +1843,39 @@ const webStyles = {
     height: "100%",
     minHeight: 0,
   },
-  onlyOfficeScreenshotOverlay: {
-    position: "absolute",
-    inset: 0,
-    zIndex: 12,
-    cursor: "crosshair",
-    background: "rgba(255, 255, 255, 0.04)",
-    userSelect: "none",
-  },
-  onlyOfficeScreenshotOverlayCapturing: {
-    position: "absolute",
-    inset: 0,
-    zIndex: 12,
-    cursor: "wait",
-    background: "transparent",
-    userSelect: "none",
-  },
-  onlyOfficeScreenshotBar: {
+  onlyOfficeSelectionBar: {
     position: "absolute",
     top: 12,
-    left: "50%",
-    transform: "translateX(-50%)",
-    maxWidth: "min(560px, calc(100% - 32px))",
-    padding: "8px 12px",
+    right: 12,
+    zIndex: 12,
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    maxWidth: "min(620px, calc(100% - 24px))",
+    padding: "8px 10px",
     borderRadius: 8,
-    border: "1px solid rgba(32, 116, 74, 0.28)",
+    border: "1px solid rgba(32, 116, 74, 0.22)",
     background: "rgba(255, 255, 255, 0.94)",
     color: "#1f2937",
-    fontSize: 13,
-    lineHeight: 1.4,
     boxShadow: "0 8px 20px rgba(15, 23, 42, 0.12)",
-    pointerEvents: "none",
-    textAlign: "center",
   },
-  onlyOfficeScreenshotSelection: {
-    position: "absolute",
-    border: "2px solid #20744A",
-    background: "rgba(32, 116, 74, 0.12)",
-    boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.14)",
-    pointerEvents: "none",
+  onlyOfficeSelectionButton: {
+    flex: "0 0 auto",
+    border: "1px solid rgba(32, 116, 74, 0.42)",
+    borderRadius: 6,
+    background: "#20744A",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: 13,
+    fontWeight: 600,
+    lineHeight: 1.4,
+    padding: "5px 9px",
+  },
+  onlyOfficeSelectionHint: {
+    minWidth: 0,
+    color: "#4b5563",
+    fontSize: 12,
+    lineHeight: 1.35,
   },
   spreadsheetRoot: {
     width: "100%",

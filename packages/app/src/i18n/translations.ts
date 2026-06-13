@@ -646,17 +646,17 @@ export const en = {
   "ui.loading.docx": "Loading DOCX...",
   "ui.loading.pptx": "Loading PPTX...",
   "ui.loading.xlsx": "Loading XLSX...",
-  "document.annotation.screenshot.count": "{count} screenshot(s) attached",
-  "document.annotation.xlsx.screenshot.capturing": "Capturing selected area...",
-  "document.annotation.xlsx.screenshot.context": "Selected area screenshot attached",
-  "document.annotation.xlsx.screenshot.dragHint": "Drag to select the spreadsheet area to send to AI",
-  "document.annotation.xlsx.screenshot.error":
-    "Screenshot failed. Select the area again and choose the current tab or window if the browser asks.",
-  "document.annotation.xlsx.screenshot.label": "Spreadsheet screenshot area",
-  "document.annotation.xlsx.screenshot.modeHint":
-    "Drag in the spreadsheet preview to select an area. Choose the current tab or window once; later selections reuse it.",
-  "document.annotation.xlsx.screenshot.offHint":
-    "Turn on annotation mode, select a spreadsheet area, then describe the change.",
+  "document.annotation.xlsx.selection.barHint":
+    "Select cells in ONLYOFFICE, then read the current selection.",
+  "document.annotation.xlsx.selection.error": "Unable to read the current ONLYOFFICE selection.",
+  "document.annotation.xlsx.selection.modeHint":
+    "Select cells in the spreadsheet, then click Read current selection in the preview.",
+  "document.annotation.xlsx.selection.offHint":
+    "Turn on annotation mode, select spreadsheet cells, then describe the change.",
+  "document.annotation.xlsx.selection.readButton": "Read current selection",
+  "document.annotation.xlsx.selection.reading": "Reading...",
+  "document.annotation.xlsx.selection.unsupported":
+    "This ONLYOFFICE server does not expose the selection API.",
   "ui.loading.model.selector.ubgv70": "Loading model selector…",
   "ui.loading.models.1vkf2t4": "Loading models…",
   "ui.loading.pairing.offer.zlzj8m": "Loading pairing offer…",
@@ -1864,16 +1864,14 @@ export const zh: Record<keyof typeof en, string> = {
   "ui.loading.docx": "正在加载 DOCX...",
   "ui.loading.pptx": "正在加载 PPTX...",
   "ui.loading.xlsx": "正在加载 XLSX...",
-  "document.annotation.screenshot.count": "已附截图 {count} 张",
-  "document.annotation.xlsx.screenshot.capturing": "正在截取框选区域...",
-  "document.annotation.xlsx.screenshot.context": "已附框选区域截图",
-  "document.annotation.xlsx.screenshot.dragHint": "拖拽框选要发送给 AI 的表格区域",
-  "document.annotation.xlsx.screenshot.error":
-    "截图失败，请重新框选；如果浏览器再次提示，请选择当前标签页或窗口。",
-  "document.annotation.xlsx.screenshot.label": "表格截图区域",
-  "document.annotation.xlsx.screenshot.modeHint":
-    "在表格预览中拖拽框选区域；首次选择当前标签页或窗口后，后续框选会复用。",
-  "document.annotation.xlsx.screenshot.offHint": "开启后框选表格区域并填写修改说明。",
+  "document.annotation.xlsx.selection.barHint": "先在 ONLYOFFICE 中选择单元格，再读取当前选区。",
+  "document.annotation.xlsx.selection.error": "无法读取当前 ONLYOFFICE 选区。",
+  "document.annotation.xlsx.selection.modeHint":
+    "在表格中选择单元格后，点击预览里的读取当前选区。",
+  "document.annotation.xlsx.selection.offHint": "开启后选择表格单元格并填写修改说明。",
+  "document.annotation.xlsx.selection.readButton": "读取当前选区",
+  "document.annotation.xlsx.selection.reading": "读取中...",
+  "document.annotation.xlsx.selection.unsupported": "当前 ONLYOFFICE 服务没有暴露选区 API。",
   "ui.loading.model.selector.ubgv70": "正在加载模型选择器…",
   "ui.loading.models.1vkf2t4": "正在加载模型…",
   "ui.loading.pairing.offer.zlzj8m": "正在加载配对信息…",

@@ -30,7 +30,6 @@ import { persistAttachmentFromBytes } from "@/attachments/service";
 import { createPreviewAttachmentId, getFileNameFromPath } from "@/attachments/utils";
 import {
   DocumentViewer,
-  type DocumentAnnotationSelectionPayload,
   type DocumentAnnotationTarget,
   type DocumentViewerKind,
 } from "@/components/document-viewer";
@@ -75,10 +74,7 @@ interface FilePreviewBodyProps {
   isMobile: boolean;
   location: WorkspaceFileLocation;
   imagePreviewUri: string | null;
-  onDocumentAnnotationTargetSelect: (
-    target: DocumentAnnotationTarget,
-    payload?: DocumentAnnotationSelectionPayload,
-  ) => void;
+  onDocumentAnnotationTargetSelect: (target: DocumentAnnotationTarget) => void;
 }
 
 function trimNonEmpty(value: string | null | undefined): string | null {
@@ -107,10 +103,7 @@ interface DocumentAnnotationController {
   modeButtonVariant: "default" | "outline";
   setAnnotationInstruction: (value: string) => void;
   toggleAnnotationMode: () => void;
-  selectTarget: (
-    target: DocumentAnnotationTarget,
-    payload?: DocumentAnnotationSelectionPayload,
-  ) => void;
+  selectTarget: (target: DocumentAnnotationTarget) => void;
   addAnnotation: () => void;
   removeAnnotation: (id: string) => void;
   applyAnnotations: () => void;
@@ -665,12 +658,9 @@ function useDocumentAnnotationController(input: {
     dispatch({ type: "toggle_mode" });
   }, []);
 
-  const selectTarget = useCallback(
-    (target: DocumentAnnotationTarget, payload?: DocumentAnnotationSelectionPayload) => {
-      dispatch({ type: "select_target", target, payload });
-    },
-    [],
-  );
+  const selectTarget = useCallback((target: DocumentAnnotationTarget) => {
+    dispatch({ type: "select_target", target });
+  }, []);
 
   const addAnnotation = useCallback(() => {
     dispatch({ type: "add_annotation", id: `${Date.now()}-${state.pendingAnnotations.length}` });
@@ -835,8 +825,8 @@ function getDocumentAnnotationHint(input: {
   }
   if (input.documentKind === "xlsx" || input.documentKind === "csv") {
     return input.annotationMode
-      ? translateNow("document.annotation.xlsx.screenshot.modeHint")
-      : translateNow("document.annotation.xlsx.screenshot.offHint");
+      ? translateNow("document.annotation.xlsx.selection.modeHint")
+      : translateNow("document.annotation.xlsx.selection.offHint");
   }
   return input.annotationMode ? "在预览中点击单元格、文字或页面位置。" : "开启后选择要修改的位置。";
 }
@@ -894,13 +884,6 @@ function DocumentAnnotationListItem({
       <Text style={styles.annotationItemText} numberOfLines={2}>
         {annotation.instruction}
       </Text>
-      {annotation.images && annotation.images.length > 0 ? (
-        <Text style={styles.annotationItemMeta} numberOfLines={1}>
-          {translateNow("document.annotation.screenshot.count", {
-            count: annotation.images.length,
-          })}
-        </Text>
-      ) : null}
       <Button
         onPress={handleRemove}
         size="xs"
@@ -1263,10 +1246,6 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 18,
-  },
-  annotationItemMeta: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.xs,
   },
   annotationRemoveButton: {
     alignSelf: "flex-start",

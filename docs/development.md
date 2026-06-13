@@ -288,6 +288,16 @@ npx expo-doctor
 
 Diagnoses version mismatches and native module issues.
 
+## ONLYOFFICE XLSX Preview
+
+The web app embeds ONLYOFFICE Docs with `DocsAPI.DocEditor`, which renders the
+editor inside an iframe. Community Document Server does not expose the external
+Automation API connector (`docEditor.createConnector()`), so XLSX annotation
+selection cannot rely on the outer app reading the editor directly. The preview
+uses a small autostart ONLYOFFICE plugin bridge instead: the plugin runs inside
+the editor, reads `Api.GetActiveSheet().GetSelection()`, and reports the latest
+selection to the daemon for the app to consume.
+
 ## Typecheck
 
 Run typecheck manually when requested, during release/commit verification that
