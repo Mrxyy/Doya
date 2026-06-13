@@ -198,10 +198,10 @@ declare global {
   var Api: OnlyOfficeSpreadsheetApi;
 }
 
-const LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL = "http://localhost:8082";
-const LOCAL_ONLYOFFICE_FILE_PROXY_HOST = "doya-onlyoffice-host-proxy";
+const LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL = "http://127.0.0.1:8082";
+const LOCAL_ONLYOFFICE_HOST_GATEWAY = "host.docker.internal";
 const ONLYOFFICE_SELECTION_PLUGIN_GUID = "asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}";
-const ONLYOFFICE_SELECTION_PLUGIN_VERSION = "20260613-3";
+const ONLYOFFICE_SELECTION_PLUGIN_VERSION = "20260614-1";
 
 const PDF_SHAPES_ONLY_DISABLED_CATEGORIES = [
   "mode-view",
@@ -1172,8 +1172,7 @@ function toOnlyOfficeContainerReachableUrl(sourceUrl: string): string {
   const url = new URL(sourceUrl);
   if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
     url.protocol = "http:";
-    url.hostname = LOCAL_ONLYOFFICE_FILE_PROXY_HOST;
-    url.port = "";
+    url.hostname = LOCAL_ONLYOFFICE_HOST_GATEWAY;
   }
   return url.toString();
 }
@@ -1187,8 +1186,7 @@ function toOnlyOfficeCallbackUrl(sourceUrl: string): string {
   }
   if (callbackUrl.hostname === "localhost" || callbackUrl.hostname === "127.0.0.1") {
     callbackUrl.protocol = "http:";
-    callbackUrl.hostname = LOCAL_ONLYOFFICE_FILE_PROXY_HOST;
-    callbackUrl.port = "";
+    callbackUrl.hostname = LOCAL_ONLYOFFICE_HOST_GATEWAY;
   }
   return callbackUrl.toString();
 }

@@ -413,10 +413,10 @@ describe("DocumentViewer web annotation interactions", () => {
         document: expect.objectContaining({
           fileType: "xlsx",
           title: "budget.xlsx",
-          url: expect.stringContaining("doya-onlyoffice-host-proxy"),
+          url: expect.stringContaining("host.docker.internal:6767"),
         }),
         editorConfig: expect.objectContaining({
-          callbackUrl: expect.stringContaining("doya-onlyoffice-host-proxy"),
+          callbackUrl: expect.stringContaining("host.docker.internal:6767"),
           customization: expect.objectContaining({
             compactHeader: true,
             logo: { visible: false },

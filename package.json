@@ -36,6 +36,9 @@
   "scripts": {
     "dev": "./scripts/dev.sh",
     "dev-xyy": "DOYA_CORS_ORIGINS=http://localhost:8081,http://127.0.0.1:8081 DOYA_LISTEN=127.0.0.1:6767 DOYA_RELAY_ENABLED=0 npm run dev:server",
+    "onlyoffice:up": "docker compose -f docker-compose.onlyoffice.yml up -d",
+    "onlyoffice:down": "docker compose -f docker-compose.onlyoffice.yml down",
+    "onlyoffice:logs": "docker compose -f docker-compose.onlyoffice.yml logs -f",
     "dev:win": "powershell ./scripts/dev.ps1",
     "dev:server": "npm run build:server-deps && concurrently --kill-others --names protocol,client,server --prefix-colors yellow,blue,cyan \"npm run watch:protocol\" \"npm run watch:client\" \"npm run dev:server:raw\"",
     "dev:server:raw": "npm run dev --workspace=@getdoya/server",

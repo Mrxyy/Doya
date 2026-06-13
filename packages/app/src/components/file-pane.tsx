@@ -200,7 +200,7 @@ function createFilePaneUnavailablePreview(error: string): FilePanePreviewData {
   };
 }
 
-const ONLYOFFICE_XLSX_PREVIEW_VERSION = "2";
+const ONLYOFFICE_XLSX_PREVIEW_VERSION = "4";
 
 function withOnlyOfficeXlsxPreviewVersion(sourceUrl: string): string {
   const url = new URL(sourceUrl);
@@ -415,7 +415,7 @@ function FilePreviewBody({
   if (documentBytes && documentKind) {
     return (
       <DocumentViewer
-        key={documentPreviewRevision ?? `${documentKind}:${filePath}`}
+        key={`${documentPreviewRevision ?? `${documentKind}:${filePath}`}:${documentSourceUrl ?? ""}`}
         kind={documentKind}
         bytes={documentBytes}
         mimeType={preview.mimeType ?? "application/octet-stream"}

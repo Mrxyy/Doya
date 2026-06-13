@@ -298,6 +298,18 @@ Diagnoses version mismatches and native module issues.
 
 ## ONLYOFFICE XLSX Preview
 
+Start the local ONLYOFFICE stack with:
+
+```bash
+npm run onlyoffice:up
+```
+
+This runs `onlyoffice/documentserver` on `http://127.0.0.1:8082`. When the
+document server downloads a file, it cannot use the host machine's
+`localhost:6767`, so the app rewrites local file URLs to
+`host.docker.internal:6767`. The compose file maps `host.docker.internal` to the
+Docker host gateway for Linux-compatible runtimes.
+
 The web app embeds ONLYOFFICE Docs with `DocsAPI.DocEditor`, which renders the
 editor inside an iframe. Community Document Server does not expose the external
 Automation API connector (`docEditor.createConnector()`), so XLSX annotation

@@ -2489,7 +2489,7 @@ export class DaemonClient {
     const url = this.buildHttpUrl("/api/workspace-files/onlyoffice-preview");
     url.searchParams.set("cwd", input.cwd);
     url.searchParams.set("path", input.path);
-    url.searchParams.set("preview_version", "2");
+    url.searchParams.set("preview_version", "4");
     const token = this.resolveHttpUrlAccessToken();
     if (token) {
       url.searchParams.set("access_token", token);
