@@ -11,8 +11,15 @@ import {
 } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import * as XSpreadsheetBundle from "x-data-spreadsheet/dist/xspreadsheet.js";
+import "x-data-spreadsheet/dist/xspreadsheet.css";
+import * as XLSX from "xlsx";
 import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
-import type { DocumentAnnotationTarget } from "@/components/document-viewer";
+import type {
+  DocumentAnnotationImage,
+  DocumentAnnotationSelectionPayload,
+  DocumentAnnotationTarget,
+} from "@/components/document-viewer";
 import {
   buildDocxAnnotationTargetFromClick,
   buildSpreadsheetAnnotationTargetFromClick,
@@ -20,6 +27,7 @@ import {
 import {
   buildPdfBuiltinAnnotationTarget,
   columnNameFromIndex,
+  roundAnnotationRatio,
 } from "@/utils/document-annotation-target";
 import {
   parseSpreadsheetPreview,
@@ -44,10 +52,14 @@ export interface DocumentViewerProps {
   bytes: Uint8Array;
   mimeType: string;
   fileName: string;
+  sourceUrl?: string | null;
   annotationMode?: boolean;
   selectedAnnotationTarget?: DocumentAnnotationTarget | null;
   pendingAnnotationTargets?: DocumentAnnotationTarget[];
-  onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
+  onAnnotationTargetSelect?: (
+    target: DocumentAnnotationTarget,
+    payload?: DocumentAnnotationSelectionPayload,
+  ) => void;
 }
 
 type RenderState = { status: "idle" | "loading" | "ready" } | { status: "error"; message: string };
@@ -65,9 +77,106 @@ type PdfViewerComponent = ComponentType<{
   onReady?: (registry: PluginRegistry) => void;
   style?: CSSProperties;
 }>;
-type PptxViewerInstance = InstanceType<
-  typeof import("@aiden0z/pptx-renderer").PptxViewer
->;
+type PptxViewerInstance = InstanceType<typeof import("@aiden0z/pptx-renderer").PptxViewer>;
+type XSpreadsheetFactory = (
+  container: HTMLElement,
+  options?: XSpreadsheetOptions,
+) => XSpreadsheetInstance;
+interface XSpreadsheetInstance {
+  loadData(data: XSpreadsheetSheetData[]): XSpreadsheetInstance;
+  on(
+    eventName: "cell-selected",
+    callback: (
+      cell: XSpreadsheetCellData | undefined,
+      rowIndex: number,
+      columnIndex: number,
+    ) => void,
+  ): XSpreadsheetInstance;
+}
+type XSpreadsheetRenderState =
+  | { status: "loading" }
+  | { status: "ready" }
+  | { status: "error"; message: string };
+interface XSpreadsheetOptions {
+  mode: "edit" | "read";
+  showBottomBar: boolean;
+  showToolbar: boolean;
+  showContextmenu: boolean;
+  showGrid: boolean;
+  view: {
+    height: () => number;
+    width: () => number;
+  };
+}
+interface XSpreadsheetCellData {
+  text: string;
+  merge?: [number, number];
+}
+interface XSpreadsheetSheetData {
+  name: string;
+  rows: {
+    len: number;
+    [rowIndex: number]:
+      | {
+          cells: Record<number, XSpreadsheetCellData>;
+          height?: number;
+        }
+      | number;
+  };
+  cols?: {
+    len: number;
+    [columnIndex: number]: { width?: number } | number;
+  };
+  merges?: string[];
+}
+interface OnlyOfficeDocEditor {
+  destroyEditor?: () => void;
+}
+
+interface OnlyOfficeDocsApi {
+  DocEditor: new (elementId: string, config: OnlyOfficeEditorConfig) => OnlyOfficeDocEditor;
+}
+
+interface OnlyOfficeEditorConfig {
+  documentType: "cell";
+  document: {
+    fileType: "xlsx";
+    key: string;
+    title: string;
+    url: string;
+    permissions: {
+      download: boolean;
+      edit: boolean;
+      print: boolean;
+    };
+  };
+  editorConfig: {
+    callbackUrl: string;
+    lang: string;
+    mode: "view";
+    customization: {
+      compactHeader: boolean;
+      compactToolbar: boolean;
+      hideRightMenu: boolean;
+      logo: {
+        visible: boolean;
+      };
+    };
+  };
+  height: string;
+  type: "desktop";
+  width: string;
+}
+
+declare global {
+  interface Window {
+    DocsAPI?: OnlyOfficeDocsApi;
+    x_spreadsheet?: XSpreadsheetFactory;
+  }
+}
+
+const LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL = "http://localhost:8082";
+const LOCAL_ONLYOFFICE_FILE_PROXY_HOST = "paseo-onlyoffice-host-proxy";
 
 const PDF_SHAPES_ONLY_DISABLED_CATEGORIES = [
   "mode-view",
@@ -116,7 +225,10 @@ function PdfDocumentViewer({
   bytes,
   mimeType,
   onAnnotationTargetSelect,
-}: Pick<DocumentViewerProps, "annotationMode" | "bytes" | "mimeType" | "onAnnotationTargetSelect">) {
+}: Pick<
+  DocumentViewerProps,
+  "annotationMode" | "bytes" | "mimeType" | "onAnnotationTargetSelect"
+>) {
   const { locale } = useI18n();
   const embedPdfLocale = getEmbedPdfLocale(locale);
   const url = useDocumentBlobUrl({ bytes, mimeType });
@@ -575,6 +687,728 @@ function PptxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
   );
 }
 
+function OnlyOfficeSpreadsheetDocumentViewer({
+  annotationMode,
+  bytes,
+  fileName,
+  onAnnotationTargetSelect,
+  sourceUrl,
+}: Pick<
+  DocumentViewerProps,
+  "annotationMode" | "bytes" | "fileName" | "onAnnotationTargetSelect" | "sourceUrl"
+>) {
+  const hostId = useMemo(() => `onlyoffice-${crypto.randomUUID()}`, []);
+  const editorRef = useRef<OnlyOfficeDocEditor | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [shouldFallback, setShouldFallback] = useState(false);
+  const documentUrl = useMemo(
+    () => (sourceUrl ? toOnlyOfficeContainerReachableUrl(sourceUrl) : null),
+    [sourceUrl],
+  );
+  const callbackUrl = useMemo(
+    () => (sourceUrl ? toOnlyOfficeCallbackUrl(sourceUrl) : null),
+    [sourceUrl],
+  );
+
+  useEffect(() => {
+    if (!documentUrl || !callbackUrl) {
+      setShouldFallback(true);
+      return;
+    }
+
+    const resolvedDocumentUrl = documentUrl;
+    const resolvedCallbackUrl = callbackUrl;
+    let canceled = false;
+    setIsLoading(true);
+    setShouldFallback(false);
+
+    async function openEditor() {
+      try {
+        await loadOnlyOfficeApiScript();
+        if (canceled) {
+          return;
+        }
+        const docsApi = window.DocsAPI;
+        if (!docsApi) {
+          throw new Error("ONLYOFFICE Docs API is unavailable");
+        }
+        editorRef.current?.destroyEditor?.();
+        editorRef.current = new docsApi.DocEditor(hostId, {
+          documentType: "cell",
+          document: {
+            fileType: "xlsx",
+            key: createOnlyOfficeDocumentKey({ sourceUrl: resolvedDocumentUrl, bytes }),
+            permissions: {
+              download: true,
+              edit: false,
+              print: true,
+            },
+            title: fileName,
+            url: resolvedDocumentUrl,
+          },
+          editorConfig: {
+            callbackUrl: resolvedCallbackUrl,
+            customization: {
+              compactHeader: true,
+              compactToolbar: true,
+              hideRightMenu: true,
+              logo: {
+                visible: false,
+              },
+            },
+            lang: "zh-CN",
+            mode: "view",
+          },
+          height: "100%",
+          type: "desktop",
+          width: "100%",
+        });
+        setIsLoading(false);
+      } catch {
+        if (!canceled) {
+          setShouldFallback(true);
+        }
+      }
+    }
+
+    void openEditor();
+
+    return () => {
+      canceled = true;
+      editorRef.current?.destroyEditor?.();
+      editorRef.current = null;
+    };
+  }, [bytes, callbackUrl, documentUrl, fileName, hostId]);
+
+  if (shouldFallback) {
+    return (
+      <XSpreadsheetDocumentViewer
+        annotationMode={annotationMode}
+        bytes={bytes}
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />
+    );
+  }
+
+  return (
+    <div data-testid="document-xlsx-onlyoffice-preview" style={webStyles.onlyOfficeRoot}>
+      <div id={hostId} style={webStyles.onlyOfficeHost} />
+      {isLoading ? <DocumentLoadingOverlay label={translateNow("ui.loading.xlsx")} /> : null}
+      {annotationMode && onAnnotationTargetSelect ? (
+        <OnlyOfficeScreenshotAnnotationOverlay
+          fileName={fileName}
+          onAnnotationTargetSelect={onAnnotationTargetSelect}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+interface ScreenshotSelectionRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+function OnlyOfficeScreenshotAnnotationOverlay({
+  fileName,
+  onAnnotationTargetSelect,
+}: {
+  fileName: string;
+  onAnnotationTargetSelect: NonNullable<DocumentViewerProps["onAnnotationTargetSelect"]>;
+}) {
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const captureStreamRef = useRef<MediaStream | null>(null);
+  const [selectionRect, setSelectionRect] = useState<ScreenshotSelectionRect | null>(null);
+  const [status, setStatus] = useState<"idle" | "capturing" | "error">("idle");
+
+  useEffect(() => {
+    return () => {
+      stopCaptureStream(captureStreamRef.current);
+      captureStreamRef.current = null;
+    };
+  }, []);
+
+  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+    const overlay = overlayRef.current;
+    if (!overlay) {
+      return;
+    }
+    const bounds = overlay.getBoundingClientRect();
+    const x = clamp(event.clientX - bounds.left, 0, bounds.width);
+    const y = clamp(event.clientY - bounds.top, 0, bounds.height);
+    dragStartRef.current = { x, y };
+    setStatus("idle");
+    setSelectionRect({ left: x, top: y, width: 0, height: 0 });
+    overlay.setPointerCapture(event.pointerId);
+  }, []);
+
+  const handlePointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const start = dragStartRef.current;
+    const overlay = overlayRef.current;
+    if (!start || !overlay) {
+      return;
+    }
+    const bounds = overlay.getBoundingClientRect();
+    const x = clamp(event.clientX - bounds.left, 0, bounds.width);
+    const y = clamp(event.clientY - bounds.top, 0, bounds.height);
+    setSelectionRect(rectFromPoints(start.x, start.y, x, y));
+  }, []);
+
+  const handlePointerUp = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const start = dragStartRef.current;
+      const overlay = overlayRef.current;
+      dragStartRef.current = null;
+      if (!start || !overlay) {
+        return;
+      }
+      overlay.releasePointerCapture(event.pointerId);
+      const bounds = overlay.getBoundingClientRect();
+      const endX = clamp(event.clientX - bounds.left, 0, bounds.width);
+      const endY = clamp(event.clientY - bounds.top, 0, bounds.height);
+      const nextRect = rectFromPoints(start.x, start.y, endX, endY);
+      if (nextRect.width < 8 || nextRect.height < 8) {
+        setSelectionRect(null);
+        return;
+      }
+      setSelectionRect(nextRect);
+      setStatus("capturing");
+      setSelectionRect(null);
+      void waitForOverlayToHide()
+        .then(async () => {
+          const stream = await getOrCreateViewportCaptureStream(captureStreamRef);
+          return captureViewportRegionAsPng({
+            rect: new DOMRect(
+              bounds.left + nextRect.left,
+              bounds.top + nextRect.top,
+              nextRect.width,
+              nextRect.height,
+            ),
+            fileName,
+            stream,
+          });
+        })
+        .then((image) => {
+          const target = buildOnlyOfficeScreenshotAnnotationTarget({
+            fileName,
+            image,
+            overlayBounds: bounds,
+            selectionRect: nextRect,
+          });
+          onAnnotationTargetSelect(target, { images: [image] });
+          setStatus("idle");
+        })
+        .catch(() => {
+          setStatus("error");
+        });
+    },
+    [fileName, onAnnotationTargetSelect],
+  );
+
+  const selectionStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!selectionRect) {
+      return undefined;
+    }
+    return {
+      ...webStyles.onlyOfficeScreenshotSelection,
+      left: selectionRect.left,
+      top: selectionRect.top,
+      width: selectionRect.width,
+      height: selectionRect.height,
+    };
+  }, [selectionRect]);
+
+  return (
+    <div
+      ref={overlayRef}
+      data-testid="document-xlsx-screenshot-annotation-overlay"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      style={
+        status === "capturing"
+          ? webStyles.onlyOfficeScreenshotOverlayCapturing
+          : webStyles.onlyOfficeScreenshotOverlay
+      }
+    >
+      {status === "capturing" ? null : (
+        <div style={webStyles.onlyOfficeScreenshotBar}>
+          {getOnlyOfficeScreenshotOverlayLabel(status)}
+        </div>
+      )}
+      {selectionStyle ? <div style={selectionStyle} /> : null}
+    </div>
+  );
+}
+
+function buildOnlyOfficeScreenshotAnnotationTarget(input: {
+  fileName: string;
+  image: DocumentAnnotationImage;
+  overlayBounds: DOMRect;
+  selectionRect: ScreenshotSelectionRect;
+}): DocumentAnnotationTarget {
+  return {
+    kind: "xlsx",
+    label: translateNow("document.annotation.xlsx.screenshot.label"),
+    locator: {
+      type: "screenshot_region",
+      source: "onlyoffice_preview",
+      fileName: input.fileName,
+      imageFileName: input.image.fileName ?? "selection.png",
+      coordinateSpace: "preview_overlay_normalized",
+      x: roundAnnotationRatio(input.selectionRect.left / input.overlayBounds.width),
+      y: roundAnnotationRatio(input.selectionRect.top / input.overlayBounds.height),
+      width: roundAnnotationRatio(input.selectionRect.width / input.overlayBounds.width),
+      height: roundAnnotationRatio(input.selectionRect.height / input.overlayBounds.height),
+    },
+    context: translateNow("document.annotation.xlsx.screenshot.context"),
+  };
+}
+
+async function captureViewportRegionAsPng(input: {
+  rect: DOMRect;
+  fileName: string;
+  stream: MediaStream;
+}): Promise<DocumentAnnotationImage> {
+  const video = document.createElement("video");
+  video.muted = true;
+  video.srcObject = input.stream;
+  await video.play();
+  await waitForVideoFrame();
+  const sourceScaleX = video.videoWidth / window.innerWidth;
+  const sourceScaleY = video.videoHeight / window.innerHeight;
+  const sourceX = Math.max(0, Math.round(input.rect.left * sourceScaleX));
+  const sourceY = Math.max(0, Math.round(input.rect.top * sourceScaleY));
+  const sourceWidth = Math.max(1, Math.round(input.rect.width * sourceScaleX));
+  const sourceHeight = Math.max(1, Math.round(input.rect.height * sourceScaleY));
+  const outputScale = Math.min(1, 1600 / sourceWidth, 1200 / sourceHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(sourceWidth * outputScale));
+  canvas.height = Math.max(1, Math.round(sourceHeight * outputScale));
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Canvas is unavailable");
+  }
+  context.drawImage(
+    video,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    canvas.width,
+    canvas.height,
+  );
+  const dataUrl = canvas.toDataURL("image/png");
+  const data = dataUrl.split(",")[1];
+  if (!data) {
+    throw new Error("Screenshot capture failed");
+  }
+  return {
+    data,
+    mimeType: "image/png",
+    fileName: `${sanitizeFileStem(input.fileName)}-selection-${Date.now()}.png`,
+  };
+}
+
+async function getOrCreateViewportCaptureStream(
+  streamRef: React.MutableRefObject<MediaStream | null>,
+): Promise<MediaStream> {
+  if (streamRef.current && isLiveCaptureStream(streamRef.current)) {
+    return streamRef.current;
+  }
+  stopCaptureStream(streamRef.current);
+  const stream = await requestViewportCaptureStream();
+  streamRef.current = stream;
+  for (const track of stream.getVideoTracks()) {
+    track.addEventListener(
+      "ended",
+      () => {
+        if (streamRef.current === stream) {
+          streamRef.current = null;
+        }
+      },
+      { once: true },
+    );
+  }
+  return stream;
+}
+
+async function requestViewportCaptureStream(): Promise<MediaStream> {
+  const mediaDevices = navigator.mediaDevices as
+    | (MediaDevices & {
+        getDisplayMedia?: (constraints?: MediaStreamConstraints) => Promise<MediaStream>;
+      })
+    | undefined;
+  if (!mediaDevices?.getDisplayMedia) {
+    throw new Error("Screen capture is unavailable");
+  }
+  return mediaDevices.getDisplayMedia({ video: true, audio: false });
+}
+
+function isLiveCaptureStream(stream: MediaStream): boolean {
+  return stream.getVideoTracks().some((track) => track.readyState === "live");
+}
+
+function stopCaptureStream(stream: MediaStream | null): void {
+  for (const track of stream?.getTracks() ?? []) {
+    track.stop();
+  }
+}
+
+function waitForVideoFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve());
+  });
+}
+
+async function waitForOverlayToHide(): Promise<void> {
+  await waitForVideoFrame();
+  await waitForVideoFrame();
+}
+
+function getOnlyOfficeScreenshotOverlayLabel(status: "idle" | "capturing" | "error"): string {
+  if (status === "capturing") {
+    return translateNow("document.annotation.xlsx.screenshot.capturing");
+  }
+  if (status === "error") {
+    return translateNow("document.annotation.xlsx.screenshot.error");
+  }
+  return translateNow("document.annotation.xlsx.screenshot.dragHint");
+}
+
+function sanitizeFileStem(fileName: string): string {
+  const stem = fileName.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]+/g, "-");
+  return stem.length > 0 ? stem.slice(0, 48) : "xlsx-preview";
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function rectFromPoints(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+): ScreenshotSelectionRect {
+  return {
+    left: Math.min(startX, endX),
+    top: Math.min(startY, endY),
+    width: Math.abs(endX - startX),
+    height: Math.abs(endY - startY),
+  };
+}
+
+function loadOnlyOfficeApiScript(): Promise<void> {
+  if (window.DocsAPI) {
+    return Promise.resolve();
+  }
+  const scriptUrl = `${LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL}/web-apps/apps/api/documents/api.js`;
+  const existing = document.querySelector<HTMLScriptElement>(
+    `script[data-paseo-onlyoffice-api="${scriptUrl}"]`,
+  );
+  if (existing) {
+    if (existing.dataset.paseoOnlyofficeLoaded === "true") {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Failed to load ONLYOFFICE")), {
+        once: true,
+      });
+    });
+  }
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.async = true;
+    script.dataset.paseoOnlyofficeApi = scriptUrl;
+    script.src = scriptUrl;
+    script.addEventListener(
+      "load",
+      () => {
+        script.dataset.paseoOnlyofficeLoaded = "true";
+        resolve();
+      },
+      { once: true },
+    );
+    script.addEventListener("error", () => reject(new Error("Failed to load ONLYOFFICE")), {
+      once: true,
+    });
+    document.head.appendChild(script);
+  });
+}
+
+function createOnlyOfficeDocumentKey(input: { bytes: Uint8Array; sourceUrl: string }): string {
+  return `paseo-${hashString(input.sourceUrl)}-${hashBytes(input.bytes)}`.slice(0, 64);
+}
+
+function hashBytes(bytes: Uint8Array): string {
+  return `${bytes.byteLength.toString(36)}-${hashString(bytes)}`;
+}
+
+function hashString(value: string | Uint8Array): string {
+  let hash = 0x811c9dc5;
+  const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
+  for (const byte of bytes) {
+    hash ^= byte;
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function toOnlyOfficeContainerReachableUrl(sourceUrl: string): string {
+  const url = new URL(sourceUrl);
+  if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+    url.protocol = "http:";
+    url.hostname = LOCAL_ONLYOFFICE_FILE_PROXY_HOST;
+    url.port = "";
+  }
+  return url.toString();
+}
+
+function toOnlyOfficeCallbackUrl(sourceUrl: string): string {
+  const url = new URL(sourceUrl);
+  const callbackUrl = new URL("/api/onlyoffice/callback", url.origin);
+  const accessToken = url.searchParams.get("access_token");
+  if (accessToken) {
+    callbackUrl.searchParams.set("access_token", accessToken);
+  }
+  if (callbackUrl.hostname === "localhost" || callbackUrl.hostname === "127.0.0.1") {
+    callbackUrl.protocol = "http:";
+    callbackUrl.hostname = LOCAL_ONLYOFFICE_FILE_PROXY_HOST;
+    callbackUrl.port = "";
+  }
+  return callbackUrl.toString();
+}
+
+function XSpreadsheetDocumentViewer({
+  bytes,
+  annotationMode,
+  onAnnotationTargetSelect,
+}: Pick<DocumentViewerProps, "annotationMode" | "bytes" | "onAnnotationTargetSelect">) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const onAnnotationTargetSelectRef = useRef(onAnnotationTargetSelect);
+  const [state, setState] = useState<XSpreadsheetRenderState>({ status: "loading" });
+
+  useEffect(() => {
+    onAnnotationTargetSelectRef.current = onAnnotationTargetSelect;
+  }, [onAnnotationTargetSelect]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
+    const renderHost = host;
+    let canceled = false;
+    setState({ status: "loading" });
+    renderHost.replaceChildren();
+
+    async function renderXlsx() {
+      try {
+        const spreadsheetData = await createXSpreadsheetData(bytes);
+        void XSpreadsheetBundle;
+        const spreadsheetFactory = window.x_spreadsheet;
+        if (!spreadsheetFactory) {
+          throw new Error("x-spreadsheet is unavailable");
+        }
+        if (!canceled) {
+          const spreadsheet = spreadsheetFactory(renderHost, {
+            mode: "read",
+            showBottomBar: true,
+            showToolbar: false,
+            showContextmenu: false,
+            showGrid: true,
+            view: {
+              height: () => renderHost.clientHeight,
+              width: () => renderHost.clientWidth,
+            },
+          }).loadData(spreadsheetData);
+          spreadsheet.on("cell-selected", (_cell, rowIndex, columnIndex) => {
+            if (!annotationMode) {
+              return;
+            }
+            const sheetName = spreadsheetData[0]?.name ?? "Sheet1";
+            onAnnotationTargetSelectRef.current?.({
+              kind: "xlsx",
+              label: `${sheetName}!${columnNameFromIndex(columnIndex)}${rowIndex + 1}`,
+              locator: {
+                type: "cell",
+                sheet: sheetName,
+                cell: `${columnNameFromIndex(columnIndex)}${rowIndex + 1}`,
+                row: rowIndex + 1,
+                column: columnIndex + 1,
+              },
+            });
+          });
+          setState({ status: "ready" });
+        }
+      } catch (error) {
+        if (!canceled) {
+          setState({
+            status: "error",
+            message:
+              error instanceof Error ? error.message : translateNow("ui.failed.to.render.xlsx"),
+          });
+        }
+      }
+    }
+
+    void renderXlsx();
+
+    return () => {
+      canceled = true;
+      renderHost.replaceChildren();
+    };
+  }, [annotationMode, bytes]);
+
+  return (
+    <div data-testid="document-xlsx-xspreadsheet-preview" style={webStyles.xlsxSpreadsheetRoot}>
+      <div ref={hostRef} style={webStyles.xlsxSpreadsheetHost} />
+      {state.status === "loading" ? (
+        <DocumentLoadingOverlay label={translateNow("ui.loading.xlsx")} />
+      ) : null}
+      {state.status === "error" ? <DocumentErrorOverlay message={state.message} /> : null}
+    </div>
+  );
+}
+
+export function createXSpreadsheetData(bytes: Uint8Array): XSpreadsheetSheetData[] {
+  const workbook = XLSX.read(bytes, {
+    cellDates: true,
+    type: "array",
+  });
+  return workbook.SheetNames.map((sheetName) =>
+    createXSpreadsheetSheetData(sheetName, workbook.Sheets[sheetName]),
+  );
+}
+
+function createXSpreadsheetSheetData(
+  sheetName: string,
+  sheet: XLSX.WorkSheet | undefined,
+): XSpreadsheetSheetData {
+  const range = XLSX.utils.decode_range(sheet?.["!ref"] ?? "A1");
+  const rows: XSpreadsheetSheetData["rows"] = {
+    len: Math.max(range.e.r + 1, 100),
+  };
+  const cols: NonNullable<XSpreadsheetSheetData["cols"]> = {
+    len: Math.max(range.e.c + 1, 26),
+  };
+  const mergeRanges = sheet?.["!merges"] ?? [];
+  const merges = mergeRanges.map((mergeRange) => XLSX.utils.encode_range(mergeRange));
+
+  applyXSpreadsheetColumns({ cols, sheet });
+
+  for (let rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex += 1) {
+    const row = createXSpreadsheetRow({ rowIndex, sheet });
+    for (let columnIndex = range.s.c; columnIndex <= range.e.c; columnIndex += 1) {
+      const cell = createXSpreadsheetCell({
+        columnIndex,
+        mergeRanges,
+        rowIndex,
+        sheet,
+      });
+      if (!cell) {
+        continue;
+      }
+      row.cells[columnIndex] = cell;
+    }
+    if (shouldIncludeXSpreadsheetRow(row)) {
+      rows[rowIndex] = row;
+    }
+  }
+
+  return {
+    cols,
+    merges,
+    name: sheetName,
+    rows,
+  };
+}
+
+function applyXSpreadsheetColumns(input: {
+  cols: NonNullable<XSpreadsheetSheetData["cols"]>;
+  sheet: XLSX.WorkSheet | undefined;
+}): void {
+  const sourceColumns = input.sheet?.["!cols"] ?? [];
+  sourceColumns.forEach((column, columnIndex) => {
+    const width = typeof column.wpx === "number" ? column.wpx : undefined;
+    if (width) {
+      input.cols[columnIndex] = { width };
+    }
+  });
+}
+
+function createXSpreadsheetRow(input: { rowIndex: number; sheet: XLSX.WorkSheet | undefined }): {
+  cells: Record<number, XSpreadsheetCellData>;
+  height?: number;
+} {
+  const sourceRow = input.sheet?.["!rows"]?.[input.rowIndex];
+  const rowHeight = typeof sourceRow?.hpx === "number" ? sourceRow.hpx : undefined;
+  return {
+    cells: {},
+    ...(rowHeight ? { height: rowHeight } : {}),
+  };
+}
+
+function createXSpreadsheetCell(input: {
+  columnIndex: number;
+  rowIndex: number;
+  sheet: XLSX.WorkSheet | undefined;
+  mergeRanges: XLSX.Range[];
+}): XSpreadsheetCellData | null {
+  const address = XLSX.utils.encode_cell({ c: input.columnIndex, r: input.rowIndex });
+  const cell = input.sheet?.[address];
+  const merge = findMergeForCell(input.mergeRanges, input.rowIndex, input.columnIndex);
+  if (!cell && !merge) {
+    return null;
+  }
+  const nextCell: XSpreadsheetCellData = {
+    text: getSpreadsheetCellText(cell),
+  };
+  if (merge) {
+    nextCell.merge = [merge.e.r - merge.s.r, merge.e.c - merge.s.c];
+  }
+  return nextCell;
+}
+
+function shouldIncludeXSpreadsheetRow(input: {
+  cells: Record<number, XSpreadsheetCellData>;
+  height?: number;
+}): boolean {
+  return Object.keys(input.cells).length > 0 || input.height !== undefined;
+}
+
+function findMergeForCell(
+  merges: XLSX.Range[],
+  rowIndex: number,
+  columnIndex: number,
+): XLSX.Range | null {
+  return merges.find((merge) => merge.s.r === rowIndex && merge.s.c === columnIndex) ?? null;
+}
+
+function getSpreadsheetCellText(cell: XLSX.CellObject | undefined): string {
+  if (!cell) {
+    return "";
+  }
+  const formula = typeof cell.f === "string" && cell.f.trim() ? `=${cell.f.trim()}` : "";
+  if (cell.w != null) {
+    return String(cell.w);
+  }
+  if (cell.v != null) {
+    return String(cell.v);
+  }
+  return formula;
+}
+
 function SpreadsheetDocumentViewer({
   kind,
   bytes,
@@ -587,7 +1421,7 @@ function SpreadsheetDocumentViewer({
   annotationMode?: boolean;
   selectedAnnotationTarget?: DocumentAnnotationTarget | null;
   pendingAnnotationTargets?: DocumentAnnotationTarget[];
-  onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
+  onAnnotationTargetSelect?: DocumentViewerProps["onAnnotationTargetSelect"];
 }) {
   const [activeSheetName, setActiveSheetName] = useState<string | undefined>(undefined);
   const preview = useMemo(
@@ -847,6 +1681,8 @@ export function DocumentViewer({
   kind,
   bytes,
   mimeType,
+  fileName,
+  sourceUrl,
   annotationMode,
   pendingAnnotationTargets,
   selectedAnnotationTarget,
@@ -876,6 +1712,26 @@ export function DocumentViewer({
   }
   if (kind === "pptx") {
     return <PptxDocumentViewer bytes={stableBytes} />;
+  }
+  if (kind === "xlsx") {
+    if (sourceUrl) {
+      return (
+        <OnlyOfficeSpreadsheetDocumentViewer
+          annotationMode={annotationMode}
+          bytes={stableBytes}
+          fileName={fileName}
+          onAnnotationTargetSelect={onAnnotationTargetSelect}
+          sourceUrl={sourceUrl}
+        />
+      );
+    }
+    return (
+      <XSpreadsheetDocumentViewer
+        annotationMode={annotationMode}
+        bytes={stableBytes}
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />
+    );
   }
   return (
     <SpreadsheetDocumentViewer
@@ -935,6 +1791,70 @@ const webStyles = {
     height: "100%",
     minHeight: 0,
     overflow: "auto",
+  },
+  xlsxSpreadsheetRoot: {
+    position: "relative",
+    width: "100%",
+    height: "100%",
+    minHeight: 0,
+    background: "var(--paseo-surface0, #fff)",
+  },
+  xlsxSpreadsheetHost: {
+    width: "100%",
+    height: "100%",
+    minHeight: 0,
+  },
+  onlyOfficeRoot: {
+    position: "relative",
+    width: "100%",
+    height: "100%",
+    minHeight: 0,
+    background: "var(--paseo-surface0, #fff)",
+  },
+  onlyOfficeHost: {
+    width: "100%",
+    height: "100%",
+    minHeight: 0,
+  },
+  onlyOfficeScreenshotOverlay: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 12,
+    cursor: "crosshair",
+    background: "rgba(255, 255, 255, 0.04)",
+    userSelect: "none",
+  },
+  onlyOfficeScreenshotOverlayCapturing: {
+    position: "absolute",
+    inset: 0,
+    zIndex: 12,
+    cursor: "wait",
+    background: "transparent",
+    userSelect: "none",
+  },
+  onlyOfficeScreenshotBar: {
+    position: "absolute",
+    top: 12,
+    left: "50%",
+    transform: "translateX(-50%)",
+    maxWidth: "min(560px, calc(100% - 32px))",
+    padding: "8px 12px",
+    borderRadius: 8,
+    border: "1px solid rgba(32, 116, 74, 0.28)",
+    background: "rgba(255, 255, 255, 0.94)",
+    color: "#1f2937",
+    fontSize: 13,
+    lineHeight: 1.4,
+    boxShadow: "0 8px 20px rgba(15, 23, 42, 0.12)",
+    pointerEvents: "none",
+    textAlign: "center",
+  },
+  onlyOfficeScreenshotSelection: {
+    position: "absolute",
+    border: "2px solid #20744A",
+    background: "rgba(32, 116, 74, 0.12)",
+    boxShadow: "0 0 0 9999px rgba(15, 23, 42, 0.14)",
+    pointerEvents: "none",
   },
   spreadsheetRoot: {
     width: "100%",

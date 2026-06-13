@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, ScrollView, Text, View } from "react-native";
 import ReanimatedAnimated from "react-native-reanimated";
 import { StyleSheet } from "react-native-unistyles";
@@ -20,7 +20,7 @@ import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-dr
 import { buildDraftStoreKey } from "@/stores/draft-keys";
 import { usePanelStore } from "@/stores/panel-store";
 import { useCreateFlowStore } from "@/stores/create-flow-store";
-import type { Agent } from "@/stores/session-store";
+import { type Agent, useSessionStore } from "@/stores/session-store";
 import { useWorkspaceExecutionAuthority } from "@/stores/session-store-hooks";
 import { useWorkspaceDraftSubmissionStore } from "@/stores/workspace-draft-submission-store";
 import type { AttachmentMetadata } from "@/attachments/types";
@@ -31,7 +31,10 @@ import { shouldAutoFocusWorkspaceDraftComposer } from "@/screens/workspace/works
 import { validateDraftSubmission } from "@/composer/draft/workspace-tab-core";
 import type { AgentCapabilityFlags } from "@getpaseo/protocol/agent-types";
 import type { AgentSnapshotPayload } from "@getpaseo/protocol/messages";
-import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type {
+  CreateAgentRequestOptions,
+  DaemonClient,
+} from "@getpaseo/client/internal/daemon-client";
 import type { WorkspaceComposerAttachment } from "@/attachments/types";
 import {
   materializeWorkspaceFileAttachments,
@@ -45,6 +48,7 @@ import { MAX_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import type { WorkspaceDraftTabSetup } from "@/stores/workspace-tabs-store";
 import { translateNow } from "@/i18n/i18n";
+import { ConversationReplayDraftControls } from "@/replay/conversation-replay-composer-controls";
 
 const EMPTY_PENDING_PERMISSIONS = new Map();
 const EMPTY_ONLINE_SERVER_IDS: string[] = [];
@@ -115,6 +119,28 @@ function resolveDraftModeId(input: {
   return null;
 }
 
+function buildDraftCreateAgentOptions(input: {
+  attempt: { clientMessageId: string };
+  text: string;
+  workspaceId: string;
+  config: CreateAgentRequestOptions["config"];
+  recordConversation?: boolean;
+  imagesData: Awaited<ReturnType<typeof encodeImages>>;
+  attachments: unknown;
+}): CreateAgentRequestOptions {
+  const { attempt, text, workspaceId, config, recordConversation, imagesData, attachments } = input;
+  const attachmentsArray = Array.isArray(attachments) ? attachments : undefined;
+  return {
+    config,
+    workspaceId,
+    ...(text ? { initialPrompt: text } : {}),
+    clientMessageId: attempt.clientMessageId,
+    ...(recordConversation !== undefined ? { recordConversation } : {}),
+    ...(imagesData && imagesData.length > 0 ? { images: imagesData } : {}),
+    ...(attachmentsArray && attachmentsArray.length > 0 ? { attachments: attachmentsArray } : {}),
+  };
+}
+
 async function submitDraftCreateRequest(input: {
   attempt: { clientMessageId: string };
   text: string;
@@ -124,6 +150,7 @@ async function submitDraftCreateRequest(input: {
   workspaceDirectory: string | null;
   workspaceExecutionAuthority: { workspaceId: string } | null;
   autoSubmitConfig: AutoSubmitConfig | null;
+  recordConversation?: boolean;
   composerState: {
     selectedProvider: string | null;
     selectedMode: string;
@@ -142,6 +169,7 @@ async function submitDraftCreateRequest(input: {
     workspaceDirectory,
     workspaceExecutionAuthority,
     autoSubmitConfig,
+    recordConversation,
     composerState,
   } = input;
 
@@ -171,15 +199,17 @@ async function submitDraftCreateRequest(input: {
   });
 
   const imagesData = await encodeImages(images?.filter(isAttachmentMetadata));
-  const attachmentsArray = Array.isArray(attachments) ? attachments : undefined;
-  const result = await client.createAgent({
-    config,
-    workspaceId: workspaceExecutionAuthority.workspaceId,
-    ...(text ? { initialPrompt: text } : {}),
-    clientMessageId: attempt.clientMessageId,
-    ...(imagesData && imagesData.length > 0 ? { images: imagesData } : {}),
-    ...(attachmentsArray && attachmentsArray.length > 0 ? { attachments: attachmentsArray } : {}),
-  });
+  const result = await client.createAgent(
+    buildDraftCreateAgentOptions({
+      attempt,
+      config,
+      workspaceId: workspaceExecutionAuthority.workspaceId,
+      text,
+      recordConversation,
+      imagesData,
+      attachments,
+    }),
+  );
 
   return {
     agentId: result.id,
@@ -356,6 +386,10 @@ export function WorkspaceDraftAgentTab({
   if (!composerState) {
     throw new Error("Workspace draft composer state is required");
   }
+  const supportsConversationReplay = useSessionStore(
+    (state) => state.sessions[serverId]?.serverInfo?.features?.conversationReplay === true,
+  );
+  const [recordConversation, setRecordConversation] = useState(false);
   const clearDraftInput = draftInput.clear;
   const setDraftText = draftInput.setText;
   const setDraftAttachments = draftInput.setAttachments;
@@ -492,6 +526,7 @@ export function WorkspaceDraftAgentTab({
         workspaceDirectory: draftWorkingDirectory,
         workspaceExecutionAuthority,
         autoSubmitConfig,
+        recordConversation,
         composerState,
       }),
     onCreateSuccess: ({ result }) => {
@@ -664,6 +699,16 @@ export function WorkspaceDraftAgentTab({
       ) : undefined,
     [isCompact, composerAgentControls],
   );
+  const conversationReplayDraftControls = useMemo(
+    () =>
+      supportsConversationReplay ? (
+        <ConversationReplayDraftControls
+          recordConversation={recordConversation}
+          onChangeRecordConversation={setRecordConversation}
+        />
+      ) : null,
+    [recordConversation, supportsConversationReplay],
+  );
 
   return (
     <FileDropZone onFilesDropped={handleFilesDropped}>
@@ -726,6 +771,7 @@ export function WorkspaceDraftAgentTab({
             commandDraftConfig={composerState.commandDraftConfig}
             agentControls={composerAgentControls}
             footer={composerFooter}
+            extraRightContent={conversationReplayDraftControls}
           />
         </ReanimatedAnimated.View>
       </View>

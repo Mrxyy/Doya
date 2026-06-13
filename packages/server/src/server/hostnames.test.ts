@@ -7,6 +7,10 @@ describe("hostnames (vite-style)", () => {
     expect(isHostnameAllowed("localhost:6767", undefined)).toBe(true);
   });
 
+  it("allows Docker host bridge by default", () => {
+    expect(isHostnameAllowed("host.docker.internal:6767", undefined)).toBe(true);
+  });
+
   it("allows subdomains of .localhost by default", () => {
     expect(isHostnameAllowed("foo.localhost:6767", undefined)).toBe(true);
   });

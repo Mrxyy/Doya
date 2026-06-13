@@ -39,8 +39,9 @@ function matchesHostnamePattern(hostname: string, pattern: string): boolean {
 }
 
 function isDefaultAllowedHostname(hostname: string): boolean {
-  // Vite-style defaults: localhost, *.localhost, and all IP addresses.
+  // Vite-style defaults plus Docker's local host bridge name for self-hosted viewers.
   if (hostname === "localhost") return true;
+  if (hostname === "host.docker.internal") return true;
   if (hostname.endsWith(".localhost")) return true;
   if (net.isIP(hostname) !== 0) return true;
   return false;
@@ -51,7 +52,8 @@ function isDefaultAllowedHostname(hostname: string): boolean {
  *
  * Semantics:
  * - `hostnames === true` => allow any host.
- * - `hostnames === []` or `undefined` => allow localhost, *.localhost, and all IPs.
+ * - `hostnames === []` or `undefined` => allow localhost, host.docker.internal,
+ *   *.localhost, and all IPs.
  * - `hostnames === ['.example.com', 'myhost']` => allow those *in addition* to defaults.
  */
 export function isHostnameAllowed(

@@ -23,6 +23,9 @@ $PASEO_HOME/
 ├── agents/
 │   └── {sanitized-cwd}/
 │       └── {agentId}.json               # One file per agent
+├── recordings/
+│   └── {agentId}/
+│       └── {recordingId}.json           # Manual conversation replay recordings
 ├── schedules/
 │   └── {scheduleId}.json                # One file per schedule
 ├── chat/
@@ -133,9 +136,30 @@ Each agent is stored as a separate JSON file, grouped by project directory.
 | `value`       | `string \| null`      |
 | `options`     | `AgentSelectOption[]` |
 
+## 2. Conversation Recording
+
+**Path:** `$PASEO_HOME/recordings/{agentId}/{recordingId}.json`
+
+Manual conversation recordings are stored separately from the agent timeline.
+The timeline remains the authoritative reading history; a recording is a replay
+fact log with raw timing. In the app, replay temporarily projects the normal
+chat surface: unrecorded timeline areas appear immediately, while recorded
+events are emitted according to their offsets. Each recording stores metadata
+(`recordingId`, `agentId`,
+`provider`, `cwd`, `startedAt`, `stoppedAt`, `status`, `title`), append-only
+`events`, and editable replay `edits`.
+
+Recording events are ordered by `seq` and carry daemon-owned `recordedAt` and
+relative `offsetMs`. User submissions are stored as `user_input` with the submit
+source, request id, cwd, message id, text, image payload metadata, and
+attachments. Provider stream events are stored as `agent_stream_raw` after
+provider normalization but before the normal stream coalescer/projection path.
+Edits are keyed by event sequence and only affect playback (`offsetMs`,
+`hidden`); they do not rewrite the original event log.
+
 ---
 
-## 2. Daemon Configuration
+## 3. Daemon Configuration
 
 **Path:** `$PASEO_HOME/config.json`
 
@@ -192,7 +216,7 @@ Local speech model ids are intentionally narrow: STT uses `parakeet-tdt-0.6b-v2-
 
 ---
 
-## 3. Schedule
+## 4. Schedule
 
 **Path:** `$PASEO_HOME/schedules/{id}.json`
 
@@ -240,7 +264,7 @@ One file per schedule. ID is 8 hex characters. Writes are direct (not atomic).
 
 ---
 
-## 4. Chat
+## 5. Chat
 
 **Path:** `$PASEO_HOME/chat/rooms.json`
 
@@ -277,7 +301,7 @@ Single file containing all rooms and messages.
 
 ---
 
-## 5. Loop
+## 6. Loop
 
 **Path:** `$PASEO_HOME/loops/loops.json`
 
@@ -366,7 +390,7 @@ Single file containing an array of all loop records. Writes are direct (not atom
 
 ---
 
-## 6. Project Registry
+## 7. Project Registry
 
 **Path:** `$PASEO_HOME/projects/projects.json`
 
@@ -389,7 +413,7 @@ emptied duplicate.
 
 ---
 
-## 7. Workspace Registry
+## 8. Workspace Registry
 
 **Path:** `$PASEO_HOME/projects/workspaces.json`
 
@@ -408,7 +432,7 @@ Array of workspace records. A workspace is a specific working directory within a
 
 ---
 
-## 8. Push Token Store
+## 9. Push Token Store
 
 **Path:** `$PASEO_HOME/push-tokens.json`
 
@@ -422,7 +446,7 @@ Simple set of Expo push notification tokens. Loaded with permissive parsing (fil
 
 ---
 
-## 9. Daemon meta files
+## 10. Daemon meta files
 
 These small files are not validated as full Zod schemas but are persisted under `$PASEO_HOME` for daemon identity and runtime coordination.
 

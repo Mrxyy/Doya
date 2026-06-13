@@ -6,7 +6,11 @@ import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Pressable, Text } from "react-native";
-import type { DocumentAnnotationTarget, DocumentViewerKind } from "@/components/document-viewer";
+import type {
+  DocumentAnnotationSelectionPayload,
+  DocumentAnnotationTarget,
+  DocumentViewerKind,
+} from "@/components/document-viewer";
 import { FilePane } from "@/components/file-pane";
 import { useSessionStore, type Agent } from "@/stores/session-store";
 
@@ -70,6 +74,7 @@ const mockDocumentTargets: Record<DocumentViewerKind, DocumentAnnotationTarget> 
   },
 };
 const waitingPollLocation = { path: "reports/budget.xlsx" };
+const sourceAgentFileLocation = { path: "output/spreadsheets/report.xlsx" };
 const documentViewerMounts: string[] = [];
 
 const theme = vi.hoisted(() => ({
@@ -157,7 +162,10 @@ vi.mock("@/components/document-viewer", () => ({
     annotationMode?: boolean;
     bytes?: Uint8Array;
     kind: DocumentViewerKind;
-    onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
+    onAnnotationTargetSelect?: (
+      target: DocumentAnnotationTarget,
+      payload?: DocumentAnnotationSelectionPayload,
+    ) => void;
   }) => {
     React.useEffect(() => {
       documentViewerMounts.push(`${kind}:${bytes?.[0] ?? "missing"}`);
@@ -199,6 +207,7 @@ vi.mock("@/hooks/use-web-scrollbar-style", () => ({
 
 vi.mock("@/i18n/i18n", () => ({
   translateNow: (key: string) => key,
+  useI18n: () => ({ locale: "zh-CN" }),
 }));
 
 vi.mock("@/attachments/use-attachment-preview-url", () => ({
@@ -225,6 +234,40 @@ describe("FilePane document annotation flow", () => {
     queryClient.clear();
     useSessionStore.getState().clearSession(serverId);
     vi.restoreAllMocks();
+  });
+
+  it("reads source-agent file tabs from the source agent cwd", async () => {
+    const file = createFileReadResult({
+      firstByte: 4,
+      mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      path: "output/spreadsheets/report.xlsx",
+    });
+    const readFile = vi.fn().mockResolvedValue(file);
+    const client = {
+      buildWorkspaceFileOnlyOfficePreviewUrl: vi.fn(() => "http://localhost/preview.xlsx"),
+      readFile,
+    } as unknown as DaemonClient;
+    useSessionStore.getState().initializeSession(serverId, client);
+    useSessionStore
+      .getState()
+      .setAgents(
+        serverId,
+        new Map([[sourceAgentId, createAgent({ cwd: "/agent-cwd", status: "idle" })]]),
+      );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FilePane
+          serverId={serverId}
+          sourceAgentId={sourceAgentId}
+          workspaceRoot="/workspace-cwd"
+          location={sourceAgentFileLocation}
+        />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText("xlsx-preview-version-4");
+    expect(readFile).toHaveBeenCalledWith("/agent-cwd", "output/spreadsheets/report.xlsx");
   });
 
   it.each([
@@ -302,7 +345,11 @@ describe("FilePane document annotation flow", () => {
     }) => {
       const readFile = vi.fn().mockResolvedValueOnce(file).mockResolvedValue(updatedFile);
       const sendAgentMessage = vi.fn().mockResolvedValue(undefined);
-      const client = { readFile, sendAgentMessage } as unknown as DaemonClient;
+      const client = {
+        buildWorkspaceFileOnlyOfficePreviewUrl: vi.fn(() => "http://localhost/preview.xlsx"),
+        readFile,
+        sendAgentMessage,
+      } as unknown as DaemonClient;
       useSessionStore.getState().initializeSession(serverId, client);
       setSourceAgentStatus("idle");
 
@@ -375,7 +422,11 @@ describe("FilePane document annotation flow", () => {
     });
     const readFile = vi.fn().mockResolvedValueOnce(file).mockResolvedValue(updatedFile);
     const sendAgentMessage = vi.fn().mockResolvedValue(undefined);
-    const client = { readFile, sendAgentMessage } as unknown as DaemonClient;
+    const client = {
+      buildWorkspaceFileOnlyOfficePreviewUrl: vi.fn(() => "http://localhost/preview.xlsx"),
+      readFile,
+      sendAgentMessage,
+    } as unknown as DaemonClient;
     useSessionStore.getState().initializeSession(serverId, client);
     setSourceAgentStatus("idle");
 
@@ -424,7 +475,11 @@ describe("FilePane document annotation flow", () => {
     });
     const readFile = vi.fn().mockResolvedValueOnce(file).mockResolvedValue(updatedFile);
     const sendAgentMessage = vi.fn().mockResolvedValue(undefined);
-    const client = { readFile, sendAgentMessage } as unknown as DaemonClient;
+    const client = {
+      buildWorkspaceFileOnlyOfficePreviewUrl: vi.fn(() => "http://localhost/preview.xlsx"),
+      readFile,
+      sendAgentMessage,
+    } as unknown as DaemonClient;
     useSessionStore.getState().initializeSession(serverId, client);
     setSourceAgentStatus("idle");
 
@@ -481,7 +536,7 @@ function createFileReadResult(input: {
   };
 }
 
-function createAgent(input: { status: Agent["status"] }): Agent {
+function createAgent(input: { cwd?: string; status: Agent["status"] }): Agent {
   return {
     archivedAt: null,
     attentionReason: null,
@@ -500,7 +555,7 @@ function createAgent(input: { status: Agent["status"] }): Agent {
     },
     createdAt: new Date("2026-06-12T00:00:00.000Z"),
     currentModeId: null,
-    cwd: "/workspace",
+    cwd: input.cwd ?? "/workspace",
     features: [],
     id: "agent-file-pane",
     labels: {},

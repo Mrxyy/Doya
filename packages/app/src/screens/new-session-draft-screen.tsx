@@ -57,6 +57,7 @@ import { buildHostAgentDetailRoute, buildHostLoginRoute } from "@/utils/host-rou
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
+import { ConversationReplayDraftControls } from "@/replay/conversation-replay-composer-controls";
 
 const MAX_SESSION_TITLE_LENGTH = 60;
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
@@ -213,8 +214,12 @@ export function NewSessionDraftScreen({
   const appendOptimisticUserMessageToAgentStream = useSessionStore(
     (state) => state.appendOptimisticUserMessageToAgentStream,
   );
+  const supportsConversationReplay = useSessionStore(
+    (state) => state.sessions[serverId]?.serverInfo?.features?.conversationReplay === true,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
+  const [recordConversation, setRecordConversation] = useState(false);
   const accountWorkspaceCwd = accountSession?.workspace.runtime?.cwd ?? "";
   const draft = useAgentInputDraft({
     draftKey: `new-session:${serverId}`,
@@ -338,6 +343,7 @@ export function NewSessionDraftScreen({
           workspaceId: workspace.id,
           ...(submitText.agentText ? { initialPrompt: submitText.agentText } : {}),
           clientMessageId,
+          recordConversation,
           ...buildHomeAiCreationLabels(effectiveAiCreationContext),
           ...(images && images.length > 0 ? { images } : {}),
           ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
@@ -383,7 +389,9 @@ export function NewSessionDraftScreen({
       composerState,
       draft,
       isConnected,
+      locale,
       mergeWorkspaces,
+      recordConversation,
       serverId,
       setHasHydratedWorkspaces,
       t,
@@ -422,6 +430,16 @@ export function NewSessionDraftScreen({
     },
     [accountWorkspaceCwd, handleSubmit],
   );
+  const conversationReplayDraftControls = useMemo(
+    () =>
+      supportsConversationReplay ? (
+        <ConversationReplayDraftControls
+          recordConversation={recordConversation}
+          onChangeRecordConversation={setRecordConversation}
+        />
+      ) : null,
+    [recordConversation, supportsConversationReplay],
+  );
 
   return (
     <FileDropZone onFilesDropped={handleFilesDropped}>
@@ -452,6 +470,7 @@ export function NewSessionDraftScreen({
                 autoFocus
                 commandDraftConfig={composerState?.commandDraftConfig}
                 agentControls={agentControlsWithDisabled}
+                extraRightContent={conversationReplayDraftControls}
               />
             </View>
           </View>

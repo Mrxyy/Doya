@@ -1,4 +1,8 @@
-import type { DocumentAnnotationTarget, DocumentViewerKind } from "@/components/document-viewer";
+import type {
+  DocumentAnnotationImage,
+  DocumentAnnotationTarget,
+  DocumentViewerKind,
+} from "@/components/document-viewer";
 import type { Locale } from "@/i18n/i18n";
 import {
   buildPaseoMessageMeta,
@@ -10,6 +14,7 @@ import {
 export interface DocumentAnnotationPromptAnnotation {
   target: DocumentAnnotationTarget;
   instruction: string;
+  images?: DocumentAnnotationImage[];
 }
 
 export function buildApplyDocumentAnnotationsPrompt(input: {
@@ -33,6 +38,10 @@ export function buildApplyDocumentAnnotationsPrompt(input: {
       index: index + 1,
       target: annotation.target,
       instruction: annotation.instruction,
+      images: annotation.images?.map((image) => ({
+        fileName: image.fileName,
+        mimeType: image.mimeType,
+      })),
     })),
     null,
     2,
@@ -75,6 +84,7 @@ File kind: ${escapePaseoMarkupContent(input.kind)}
 
 The annotations below describe what the user marked in the preview and how they want it changed.
 Use locator data to find the corresponding content. Treat locator coordinates as preview hints; prefer stable semantic anchors such as sheet/cell, selected text, page number, DOM path, and context text when available.
+Some annotations may include attached screenshot images. When images are listed in the JSON, inspect the matching image attachments as the visual source of truth.
 
 Annotations JSON:
 ${escapePaseoMarkupContent(annotationsJson)}
@@ -140,6 +150,8 @@ function getDocumentKindInstructions(kind: DocumentViewerKind): string {
   if (kind === "xlsx" || kind === "csv") {
     return [
       "- Treat spreadsheet locators as authoritative: sheet + cell address identify the target.",
+      '- Treat locator.type="range" as an authoritative worksheet range selected inside the spreadsheet editor.',
+      '- Treat locator.type="screenshot_region" as a visual locator from the spreadsheet preview; inspect the attached screenshot image and use visible labels, nearby cells, chart titles, and layout to identify the target.',
       "- Preserve formulas unless the annotation explicitly asks to replace them; when changing a formula-driven cell, prefer updating the formula inputs or formula itself so dependent summaries and charts stay linked.",
       "- Preserve existing worksheets, tables, charts, number formats, merged cells, and column widths unless the annotation asks otherwise.",
       "- For CSV, preserve the tabular data shape and delimiter semantics; if formulas/charts are requested, create an XLSX only when necessary and state that in the result.",

@@ -11,15 +11,29 @@ export interface DocumentAnnotationTarget {
   context?: string;
 }
 
+export interface DocumentAnnotationImage {
+  data: string;
+  mimeType: string;
+  fileName?: string;
+}
+
+export interface DocumentAnnotationSelectionPayload {
+  images?: DocumentAnnotationImage[];
+}
+
 export interface DocumentViewerProps {
   kind: DocumentViewerKind;
   bytes: Uint8Array;
   mimeType: string;
   fileName: string;
+  sourceUrl?: string | null;
   annotationMode?: boolean;
   selectedAnnotationTarget?: DocumentAnnotationTarget | null;
   pendingAnnotationTargets?: DocumentAnnotationTarget[];
-  onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
+  onAnnotationTargetSelect?: (
+    target: DocumentAnnotationTarget,
+    payload?: DocumentAnnotationSelectionPayload,
+  ) => void;
 }
 
 export function DocumentViewer({ fileName }: DocumentViewerProps) {

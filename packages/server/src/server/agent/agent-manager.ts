@@ -156,6 +156,10 @@ export type AgentAttentionCallback = (params: {
 }) => void;
 
 export type AgentArchivedCallback = (agentId: string) => Promise<void> | void;
+export type AgentRawStreamEventCallback = (params: {
+  agentId: string;
+  event: AgentStreamEvent;
+}) => Promise<void> | void;
 
 export interface ProviderAvailability {
   provider: AgentProvider;
@@ -181,6 +185,7 @@ export interface AgentManagerOptions {
   idFactory?: () => string;
   registry?: AgentStorage;
   onAgentAttention?: AgentAttentionCallback;
+  onRawStreamEvent?: AgentRawStreamEventCallback;
   durableTimelineStore?: AgentTimelineStore;
   terminalManager?: TerminalManager | null;
   mcpBaseUrl?: string;
@@ -429,6 +434,7 @@ export class AgentManager {
   private mcpBaseUrl: string | null;
   private appendSystemPrompt: string;
   private onAgentAttention?: AgentAttentionCallback;
+  private onRawStreamEvent?: AgentRawStreamEventCallback;
   private onAgentArchived?: AgentArchivedCallback;
   private logger: Logger;
   private readonly rescueTimeouts: Required<AgentManagerRescueTimeouts>;
@@ -438,6 +444,7 @@ export class AgentManager {
     this.registry = options?.registry;
     this.durableTimelineStore = options?.durableTimelineStore;
     this.onAgentAttention = options?.onAgentAttention;
+    this.onRawStreamEvent = options?.onRawStreamEvent;
     this.mcpBaseUrl = options?.mcpBaseUrl ?? null;
     this.appendSystemPrompt = options.appendSystemPrompt ?? "";
     this.logger = options.logger.child({ module: "agent", component: "agent-manager" });
@@ -2755,6 +2762,7 @@ export class AgentManager {
 
     // Only update timestamp for live events, not history replay
     if (!options?.fromHistory) {
+      this.recordRawStreamEvent(agent.id, event);
       this.touchUpdatedAt(agent);
       if (this.agentStreamCoalescer.handle(agent.id, event)) {
         this.traceCoalescerBuffered(agent, event, eventTurnId);
@@ -2788,6 +2796,29 @@ export class AgentManager {
     this.traceHandleStreamEventEnd(agent, event, eventTurnId, flags);
 
     return flags.shouldNotifyWaiters;
+  }
+
+  private recordRawStreamEvent(agentId: string, event: AgentStreamEvent): void {
+    if (!this.onRawStreamEvent) {
+      return;
+    }
+    try {
+      const result = this.onRawStreamEvent({ agentId, event });
+      if (result && typeof result.then === "function") {
+        const task = result.catch((err) => {
+          this.logger.warn(
+            { err, agentId, eventType: event.type },
+            "Failed to record raw stream event",
+          );
+        });
+        this.trackBackgroundTask(task);
+      }
+    } catch (err) {
+      this.logger.warn(
+        { err, agentId, eventType: event.type },
+        "Failed to record raw stream event",
+      );
+    }
   }
 
   private traceHandleStreamEventStart(

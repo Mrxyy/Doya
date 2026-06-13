@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as XLSX from "xlsx";
 
 vi.hoisted(() => {
@@ -33,6 +33,68 @@ const pdfViewerMockState = vi.hoisted(() => ({
   registry: null as null | EmbedPdfRegistryMock,
   renderPageElement: true,
 }));
+
+interface XSpreadsheetMockInstance {
+  data: unknown;
+  loadData(data: unknown): XSpreadsheetMockInstance;
+  loadDataMock(data: unknown): XSpreadsheetMockInstance;
+  on(
+    eventName: "cell-selected",
+    callback: (
+      cell: { merge?: [number, number]; style?: number; text: string } | undefined,
+      rowIndex: number,
+      columnIndex: number,
+    ) => void,
+  ): XSpreadsheetMockInstance;
+  onMock(
+    eventName: "cell-selected",
+    callback: (
+      cell: { merge?: [number, number]; style?: number; text: string } | undefined,
+      rowIndex: number,
+      columnIndex: number,
+    ) => void,
+  ): XSpreadsheetMockInstance;
+}
+
+const xSpreadsheetMockState = vi.hoisted(() => ({
+  instances: [] as XSpreadsheetMockInstance[],
+}));
+
+const onlyOfficeMockState = vi.hoisted(() => ({
+  configs: [] as unknown[],
+}));
+
+vi.mock("x-data-spreadsheet/dist/xspreadsheet.css", () => ({}));
+
+vi.mock("x-data-spreadsheet/dist/xspreadsheet.js", () => {
+  window.x_spreadsheet = (host: HTMLElement) => {
+    const instance: XSpreadsheetMockInstance = {
+      data: null,
+      loadData(data: unknown) {
+        return instance.loadDataMock(data);
+      },
+      loadDataMock: vi.fn((data: unknown) => {
+        instance.data = data;
+        return instance;
+      }),
+      on(
+        eventName: "cell-selected",
+        callback: (
+          cell: { merge?: [number, number]; style?: number; text: string } | undefined,
+          rowIndex: number,
+          columnIndex: number,
+        ) => void,
+      ) {
+        return instance.onMock(eventName, callback);
+      },
+      onMock: vi.fn(() => instance),
+    };
+    host.textContent = "x-spreadsheet mounted";
+    xSpreadsheetMockState.instances.push(instance);
+    return instance;
+  };
+  return {};
+});
 
 vi.mock("@aiden0z/pptx-renderer", () => ({
   PptxViewer: class PptxViewer {
@@ -125,20 +187,6 @@ vi.mock("react-native-unistyles", () => ({
   },
 }));
 
-const SELECTED_SPREADSHEET_TARGET = {
-  kind: "xlsx" as const,
-  label: "Budget!C2",
-  locator: { type: "cell", sheet: "Budget", cell: "C2", row: 2, column: 3 },
-};
-
-const PENDING_SPREADSHEET_TARGETS = [
-  {
-    kind: "xlsx" as const,
-    label: "Budget!A1",
-    locator: { type: "cell", sheet: "Budget", cell: "A1", row: 1, column: 1 },
-  },
-];
-
 const SELECTED_DOCX_TARGET = {
   kind: "docx" as const,
   label: "p: Revenue target",
@@ -161,46 +209,74 @@ const PENDING_DOCX_TARGETS = [
   },
 ];
 
+const SELECTED_CSV_TARGET = {
+  kind: "csv" as const,
+  label: "Sheet1!B2",
+  locator: { type: "cell", sheet: "Sheet1", cell: "B2", row: 2, column: 2 },
+};
+
+const PENDING_CSV_TARGETS = [
+  {
+    kind: "csv" as const,
+    label: "Sheet1!A1",
+    locator: { type: "cell", sheet: "Sheet1", cell: "A1", row: 1, column: 1 },
+  },
+];
+
 describe("DocumentViewer web annotation interactions", () => {
+  beforeEach(() => {
+    onlyOfficeMockState.configs = [];
+    xSpreadsheetMockState.instances = [];
+    window.DocsAPI = {
+      DocEditor: class DocEditor {
+        constructor(_elementId: string, config: unknown) {
+          onlyOfficeMockState.configs.push(config);
+        }
+
+        destroyEditor() {}
+      },
+    };
+  });
+
   afterEach(() => {
     cleanup();
+    delete window.DocsAPI;
     pdfViewerMockState.registry = null;
     pdfViewerMockState.renderPageElement = true;
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  it("selects an XLSX cell target from a rendered spreadsheet preview", async () => {
+  it("selects a CSV cell target from a rendered spreadsheet preview", async () => {
     const { DocumentViewer } = await import("./document-viewer.web");
     const onAnnotationTargetSelect = vi.fn();
-    const bytes = createWorkbookBytes();
+    const bytes = createCsvBytes();
 
     render(
       <DocumentViewer
-        kind="xlsx"
+        kind="csv"
         bytes={bytes}
-        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        fileName="budget.xlsx"
+        mimeType="text/csv"
+        fileName="budget.csv"
         annotationMode
         onAnnotationTargetSelect={onAnnotationTargetSelect}
       />,
     );
 
-    fireEvent.click(screen.getByTestId("document-spreadsheet-cell-Budget-C2"));
+    fireEvent.click(screen.getByTestId("document-spreadsheet-cell-Sheet1-B2"));
 
     expect(onAnnotationTargetSelect).toHaveBeenCalledWith({
-      kind: "xlsx",
-      label: "Budget!C2",
+      kind: "csv",
+      label: "Sheet1!B2",
       locator: {
         type: "cell",
-        sheet: "Budget",
-        cell: "C2",
+        sheet: "Sheet1",
+        cell: "B2",
         row: 2,
-        column: 3,
+        column: 2,
         rawValue: "150000",
-        formula: "=SUM(C3:C4)",
       },
-      context: "display=150000; formula =SUM(C3:C4)",
+      context: "display=150000",
     });
   });
 
@@ -210,21 +286,76 @@ describe("DocumentViewer web annotation interactions", () => {
 
     render(
       <DocumentViewer
-        kind="xlsx"
-        bytes={createWorkbookBytes()}
-        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        fileName="budget.xlsx"
+        kind="csv"
+        bytes={createCsvBytes()}
+        mimeType="text/csv"
+        fileName="budget.csv"
         annotationMode={false}
         onAnnotationTargetSelect={onAnnotationTargetSelect}
       />,
     );
 
-    fireEvent.click(screen.getByTestId("document-spreadsheet-cell-Budget-C2"));
+    fireEvent.click(screen.getByTestId("document-spreadsheet-cell-Sheet1-B2"));
 
     expect(onAnnotationTargetSelect).not.toHaveBeenCalled();
   });
 
-  it("marks selected and pending spreadsheet cells in the preview", async () => {
+  it("marks selected and pending CSV cells in the preview", async () => {
+    const { DocumentViewer } = await import("./document-viewer.web");
+
+    render(
+      <DocumentViewer
+        kind="csv"
+        bytes={createCsvBytes()}
+        mimeType="text/csv"
+        fileName="budget.csv"
+        annotationMode
+        selectedAnnotationTarget={SELECTED_CSV_TARGET}
+        pendingAnnotationTargets={PENDING_CSV_TARGETS}
+      />,
+    );
+
+    expect(
+      screen
+        .getByTestId("document-spreadsheet-cell-Sheet1-B2")
+        .getAttribute("data-annotation-state"),
+    ).toBe("selected");
+    expect(
+      screen
+        .getByTestId("document-spreadsheet-cell-Sheet1-A1")
+        .getAttribute("data-annotation-state"),
+    ).toBe("pending");
+  });
+
+  it("converts XLSX workbooks to x-spreadsheet data", async () => {
+    const { createXSpreadsheetData } = await import("./document-viewer.web");
+    const data = createXSpreadsheetData(createWorkbookBytes());
+
+    expect(data).toEqual([
+      expect.objectContaining({
+        merges: expect.arrayContaining(["A1:C1"]),
+        name: "Budget",
+        rows: expect.objectContaining({
+          0: expect.objectContaining({
+            cells: expect.objectContaining({
+              0: expect.objectContaining({
+                merge: [0, 2],
+                text: "Budget",
+              }),
+            }),
+          }),
+          1: expect.objectContaining({
+            cells: expect.objectContaining({
+              2: expect.objectContaining({ text: "150000" }),
+            }),
+          }),
+        }),
+      }),
+    ]);
+  });
+
+  it("renders XLSX workbooks with x-spreadsheet instead of the local grid", async () => {
+    delete window.DocsAPI;
     const { DocumentViewer } = await import("./document-viewer.web");
 
     render(
@@ -233,22 +364,53 @@ describe("DocumentViewer web annotation interactions", () => {
         bytes={createWorkbookBytes()}
         mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         fileName="budget.xlsx"
-        annotationMode
-        selectedAnnotationTarget={SELECTED_SPREADSHEET_TARGET}
-        pendingAnnotationTargets={PENDING_SPREADSHEET_TARGETS}
       />,
     );
 
-    expect(
-      screen
-        .getByTestId("document-spreadsheet-cell-Budget-C2")
-        .getAttribute("data-annotation-state"),
-    ).toBe("selected");
-    expect(
-      screen
-        .getByTestId("document-spreadsheet-cell-Budget-A1")
-        .getAttribute("data-annotation-state"),
-    ).toBe("pending");
+    expect(await screen.findByText("x-spreadsheet mounted")).toBeTruthy();
+    expect(screen.getByTestId("document-xlsx-xspreadsheet-preview")).toBeTruthy();
+    expect(screen.queryByTestId("document-spreadsheet-preview")).toBeNull();
+    expect(xSpreadsheetMockState.instances).toHaveLength(1);
+
+    const [spreadsheet] = xSpreadsheetMockState.instances;
+    expect(spreadsheet.loadDataMock).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ name: "Budget" })]),
+    );
+  });
+
+  it("renders XLSX workbooks with ONLYOFFICE when a source URL is available", async () => {
+    const { DocumentViewer } = await import("./document-viewer.web");
+
+    render(
+      <DocumentViewer
+        kind="xlsx"
+        bytes={createWorkbookBytes()}
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        fileName="budget.xlsx"
+        sourceUrl="http://localhost:6767/api/workspace-files/raw?cwd=/repo&path=budget.xlsx&access_token=secret"
+      />,
+    );
+
+    expect(await screen.findByTestId("document-xlsx-onlyoffice-preview")).toBeTruthy();
+    expect(onlyOfficeMockState.configs).toEqual([
+      expect.objectContaining({
+        documentType: "cell",
+        document: expect.objectContaining({
+          fileType: "xlsx",
+          title: "budget.xlsx",
+          url: expect.stringContaining("paseo-onlyoffice-host-proxy"),
+        }),
+        editorConfig: expect.objectContaining({
+          callbackUrl: expect.stringContaining("paseo-onlyoffice-host-proxy"),
+          customization: expect.objectContaining({
+            compactHeader: true,
+            logo: { visible: false },
+          }),
+          mode: "view",
+        }),
+      }),
+    ]);
+    expect(xSpreadsheetMockState.instances).toHaveLength(0);
   });
 
   it("does not create PDF targets from preview clicks or drags", async () => {
@@ -683,12 +845,18 @@ function createEmbedPdfRegistryMock(input?: { annotation?: boolean }) {
 function createWorkbookBytes(): Uint8Array {
   const workbook = XLSX.utils.book_new();
   const sheet = XLSX.utils.aoa_to_sheet([
-    ["Metric", "Q1", "Q2"],
-    ["Revenue", 120000, { f: "SUM(C3:C4)", v: 150000, t: "n", w: "$150,000" }],
-    ["Retail", 0, 70000],
-    ["Delivery", 0, 80000],
+    ["Budget", "", ""],
+    ["Revenue", 120_000, { f: "SUM(C3:C4)", t: "n", v: 150_000, w: "$150,000" }],
+    ["Retail", 0, 70_000],
+    ["Delivery", 0, 80_000],
   ]);
+  sheet["!merges"] = [{ e: { c: 2, r: 0 }, s: { c: 0, r: 0 } }];
+  sheet["!cols"] = [{ wpx: 180 }, { wpx: 120 }, { wpx: 140 }];
   XLSX.utils.book_append_sheet(workbook, sheet, "Budget");
-  const output = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+  const output = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
   return new Uint8Array(output);
+}
+
+function createCsvBytes(): Uint8Array {
+  return new TextEncoder().encode("Metric,Budget\nRevenue,150000\n");
 }

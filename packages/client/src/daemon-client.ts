@@ -67,6 +67,9 @@ import type {
   DaemonGetStatusResponse,
   DaemonGetPairingOfferResponse,
   AgentRewindResponseMessage,
+  ConversationRecordingEdits,
+  ConversationRecording,
+  ConversationRecordingSummary,
   ListTerminalsResponse,
   CreateTerminalResponse,
   SubscribeTerminalResponse,
@@ -247,6 +250,11 @@ export interface SendMessageOptions {
   attachments?: SendAgentMessageRequest["attachments"];
 }
 
+export interface StartConversationRecordingOptions {
+  requestId?: string;
+  title?: string;
+}
+
 export interface WorkspaceAttachmentMaterializeInput {
   cwd?: string;
   agentId?: string;
@@ -287,6 +295,7 @@ export interface CreateAgentRequestOptions extends AgentConfigOverrides {
   initialPrompt?: string;
   clientMessageId?: string;
   outputSchema?: Record<string, unknown>;
+  recordConversation?: boolean;
   images?: CreateAgentRequestMessage["images"];
   attachments?: CreateAgentRequestMessage["attachments"];
   git?: GitSetupOptions;
@@ -1942,6 +1951,9 @@ export class DaemonClient {
       ...(options.initialPrompt ? { initialPrompt: options.initialPrompt } : {}),
       ...(options.clientMessageId ? { clientMessageId: options.clientMessageId } : {}),
       ...(options.outputSchema ? { outputSchema: options.outputSchema } : {}),
+      ...(options.recordConversation !== undefined
+        ? { recordConversation: options.recordConversation }
+        : {}),
       ...(options.images && options.images.length > 0 ? { images: options.images } : {}),
       ...(options.attachments && options.attachments.length > 0
         ? { attachments: options.attachments }
@@ -2227,6 +2239,109 @@ export class DaemonClient {
   // Agent Interaction
   // ============================================================================
 
+  async startConversationRecording(
+    agentId: string,
+    options?: StartConversationRecordingOptions,
+  ): Promise<ConversationRecordingSummary> {
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId: options?.requestId,
+      message: {
+        type: "recording.agent.start.request",
+        agentId,
+        ...(options?.title ? { title: options.title } : {}),
+      },
+      responseType: "recording.agent.start.response",
+      timeout: 10000,
+    });
+    if (payload.error || !payload.recording) {
+      throw new Error(payload.error ?? "Failed to start recording");
+    }
+    return payload.recording;
+  }
+
+  async stopConversationRecording(
+    agentId: string,
+    options?: { requestId?: string; recordingId?: string },
+  ): Promise<ConversationRecordingSummary> {
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId: options?.requestId,
+      message: {
+        type: "recording.agent.stop.request",
+        agentId,
+        ...(options?.recordingId ? { recordingId: options.recordingId } : {}),
+      },
+      responseType: "recording.agent.stop.response",
+      timeout: 10000,
+    });
+    if (payload.error || !payload.recording) {
+      throw new Error(payload.error ?? "Failed to stop recording");
+    }
+    return payload.recording;
+  }
+
+  async listConversationRecordings(
+    agentId: string,
+    options?: { requestId?: string },
+  ): Promise<ConversationRecordingSummary[]> {
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId: options?.requestId,
+      message: {
+        type: "recording.agent.list.request",
+        agentId,
+      },
+      responseType: "recording.agent.list.response",
+      timeout: 10000,
+    });
+    if (payload.error) {
+      throw new Error(payload.error);
+    }
+    return payload.recordings;
+  }
+
+  async getConversationRecording(
+    agentId: string,
+    recordingId: string,
+    options?: { requestId?: string },
+  ): Promise<ConversationRecording> {
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId: options?.requestId,
+      message: {
+        type: "recording.agent.get.request",
+        agentId,
+        recordingId,
+      },
+      responseType: "recording.agent.get.response",
+      timeout: 10000,
+    });
+    if (payload.error || !payload.recording) {
+      throw new Error(payload.error ?? "Failed to load recording");
+    }
+    return payload.recording;
+  }
+
+  async updateConversationRecordingEdits(
+    agentId: string,
+    recordingId: string,
+    edits: ConversationRecordingEdits,
+    options?: { requestId?: string },
+  ): Promise<ConversationRecording> {
+    const payload = await this.sendCorrelatedSessionRequest({
+      requestId: options?.requestId,
+      message: {
+        type: "recording.agent.update_edits.request",
+        agentId,
+        recordingId,
+        edits,
+      },
+      responseType: "recording.agent.update_edits.response",
+      timeout: 10000,
+    });
+    if (payload.error || !payload.recording) {
+      throw new Error(payload.error ?? "Failed to update recording edits");
+    }
+    return payload.recording;
+  }
+
   async sendAgentMessage(
     agentId: string,
     text: string,
@@ -2363,6 +2478,18 @@ export class DaemonClient {
     const url = this.buildHttpUrl("/api/workspace-files/raw");
     url.searchParams.set("cwd", input.cwd);
     url.searchParams.set("path", input.path);
+    const token = this.resolveHttpUrlAccessToken();
+    if (token) {
+      url.searchParams.set("access_token", token);
+    }
+    return url.toString();
+  }
+
+  buildWorkspaceFileOnlyOfficePreviewUrl(input: { cwd: string; path: string }): string {
+    const url = this.buildHttpUrl("/api/workspace-files/onlyoffice-preview");
+    url.searchParams.set("cwd", input.cwd);
+    url.searchParams.set("path", input.path);
+    url.searchParams.set("preview_version", "2");
     const token = this.resolveHttpUrlAccessToken();
     if (token) {
       url.searchParams.set("access_token", token);

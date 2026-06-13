@@ -126,6 +126,7 @@ import { useImageAttachmentPicker } from "@/hooks/use-image-attachment-picker";
 import { useFileAttachmentPicker } from "@/hooks/use-file-attachment-picker";
 import type { PickedImageAttachmentInput } from "@/hooks/image-attachment-picker";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
+import { ConversationReplayDraftControls } from "@/replay/conversation-replay-composer-controls";
 import {
   buildOptimisticUserMessage,
   generateMessageId,
@@ -1362,6 +1363,9 @@ export function AiCreationScreen({
   const appendOptimisticUserMessageToAgentStream = useSessionStore(
     (state) => state.appendOptimisticUserMessageToAgentStream,
   );
+  const supportsConversationReplay = useSessionStore(
+    (state) => state.sessions[serverId]?.serverInfo?.features?.conversationReplay === true,
+  );
   const { pickImages } = useImageAttachmentPicker();
   const { pickFiles } = useFileAttachmentPicker();
   const lastWorkspaceSelection = useLastWorkspaceSelection();
@@ -1421,6 +1425,7 @@ export function AiCreationScreen({
     WorkspaceMaterializeAttachment[]
   >([]);
   const [selectionMode, setSelectionMode] = useState(false);
+  const [recordConversation, setRecordConversation] = useState(false);
   const [selectionStrokes, setSelectionStrokes] = useState<SelectionStroke[]>([]);
   const [redoSelectionStrokes, setRedoSelectionStrokes] = useState<SelectionStroke[]>([]);
   const [selectionBrushSize, setSelectionBrushSize] = useState(SELECTION_BRUSH_SIZE_DEFAULT);
@@ -2031,6 +2036,7 @@ export function AiCreationScreen({
         workspaceId: workspace.workspaceId,
         initialPrompt,
         clientMessageId,
+        recordConversation,
         labels: {
           surface: "ai_creation",
           intent: getAiCreationIntentForMode(mode),
@@ -2124,6 +2130,7 @@ export function AiCreationScreen({
     mergeWorkspaces,
     prompt,
     ratio,
+    recordConversation,
     referenceAttachments,
     references,
     router,
@@ -2157,6 +2164,12 @@ export function AiCreationScreen({
           </Text>
         </View>
       )}
+    />
+  ) : null;
+  const conversationReplayDraftControls = supportsConversationReplay ? (
+    <ConversationReplayDraftControls
+      recordConversation={recordConversation}
+      onChangeRecordConversation={setRecordConversation}
     />
   ) : null;
 
@@ -2277,6 +2290,7 @@ export function AiCreationScreen({
               </Pressable>
               <View style={styles.toolbarSpacer} />
               {modelSelector}
+              {conversationReplayDraftControls}
               <Pressable
                 style={styles.micButton}
                 accessibilityRole="button"
@@ -2436,6 +2450,7 @@ export function AiCreationScreen({
                   </View>
                   <View style={styles.toolbarRight}>
                     {modelSelector}
+                    {conversationReplayDraftControls}
                     <Pressable
                       style={styles.micButton}
                       accessibilityRole="button"

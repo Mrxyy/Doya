@@ -731,6 +731,8 @@ interface ComposerProps {
   inputWrapperStyle?: import("react-native").ViewStyle;
   /** Rendered below the input, inside the keyboard-shifted container. */
   footer?: ReactNode;
+  /** Additional controls rendered inside the input button row before built-in send controls. */
+  extraRightContent?: ReactNode;
   /** When true, a parent wrapper owns the keyboard shift, so the composer skips its own. */
   externalKeyboardShift?: boolean;
 }
@@ -830,6 +832,7 @@ interface ComposerRightControlsSlotProps extends ComposerVoiceModeButtonProps {
   isProcessing: boolean;
   isCompact: boolean;
   cancelButton: ReactElement;
+  extraContent?: ReactNode;
 }
 
 function ComposerRightControlsSlot({
@@ -840,15 +843,17 @@ function ComposerRightControlsSlot({
   isProcessing,
   isCompact,
   cancelButton,
+  extraContent,
   ...voiceProps
 }: ComposerRightControlsSlotProps) {
   const hideVoiceForCompactInput = isCompact && hasSendableContent;
   const showVoiceModeButton =
     !isVoiceModeForAgent && hasAgent && !isAgentRunning && !hideVoiceForCompactInput;
   const shouldShowCancelButton = isAgentRunning && !hasSendableContent && !isProcessing;
-  if (!showVoiceModeButton && !shouldShowCancelButton) return null;
+  if (!extraContent && !showVoiceModeButton && !shouldShowCancelButton) return null;
   return (
     <View style={styles.rightControls}>
+      {extraContent}
       {showVoiceModeButton ? <ComposerVoiceModeButton {...voiceProps} /> : null}
       {cancelButton}
     </View>
@@ -927,6 +932,7 @@ export function Composer({
   agentControls,
   inputWrapperStyle,
   footer,
+  extraRightContent,
   externalKeyboardShift,
 }: ComposerProps) {
   const buttonIconSize = resolveComposerButtonIconSize();
@@ -1524,6 +1530,7 @@ export function Composer({
         realtimeVoiceButtonStyle={realtimeVoiceButtonStyle}
         voiceToggleKeys={voiceToggleKeys}
         cancelButton={cancelButton}
+        extraContent={extraRightContent}
       />
     ),
     [
@@ -1540,6 +1547,7 @@ export function Composer({
       isVoiceSwitching,
       realtimeVoiceButtonStyle,
       voiceToggleKeys,
+      extraRightContent,
     ],
   );
 

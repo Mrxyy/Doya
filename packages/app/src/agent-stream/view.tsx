@@ -300,6 +300,7 @@ export interface AgentStreamViewProps {
   serverId?: string;
   agent: AgentScreenAgent;
   streamItems: StreamItem[];
+  streamHeadOverride?: StreamItem[];
   pendingPermissions: Map<string, PendingPermission>;
   routeBottomAnchorRequest?: BottomAnchorRouteRequest | null;
   isAuthoritativeHistoryReady?: boolean;
@@ -348,6 +349,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       serverId,
       agent,
       streamItems,
+      streamHeadOverride,
       pendingPermissions,
       routeBottomAnchorRequest = null,
       isAuthoritativeHistoryReady = true,
@@ -381,6 +383,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const streamHead = useSessionStore((state) =>
       state.sessions[resolvedServerId]?.agentStreamHead?.get(agentId),
     );
+    const effectiveStreamHead = streamHeadOverride ?? streamHead ?? EMPTY_STREAM_HEAD;
 
     const workspaceRoot = agent.cwd?.trim() || "";
     const workspaceId = resolveWorkspaceIdByExecutionDirectory({
@@ -523,18 +526,15 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       const normalized = normalizeAiCreationStream({
         agentStatus: agent.status,
         tail: streamItems,
-        head: streamHead ?? EMPTY_STREAM_HEAD,
+        head: effectiveStreamHead,
       });
-      if (
-        normalized.tail === streamItems &&
-        normalized.head === (streamHead ?? EMPTY_STREAM_HEAD)
-      ) {
+      if (normalized.tail === streamItems && normalized.head === effectiveStreamHead) {
         return null;
       }
       return normalized;
-    }, [agent.status, streamHead, streamItems]);
+    }, [agent.status, effectiveStreamHead, streamItems]);
     const visibleStreamItems = visibleAiCreationStream?.tail ?? streamItems;
-    const visibleStreamHead = visibleAiCreationStream?.head ?? streamHead ?? EMPTY_STREAM_HEAD;
+    const visibleStreamHead = visibleAiCreationStream?.head ?? effectiveStreamHead;
 
     const baseRenderModel = useMemo(() => {
       return buildAgentStreamRenderModel({
@@ -1057,6 +1057,7 @@ function agentStreamViewPropsEqual(
   if (left.serverId !== right.serverId) reasons.push("serverId");
   reasons.push(...collectAgentScreenAgentDiffs(left.agent, right.agent));
   if (left.streamItems !== right.streamItems) reasons.push("streamItems");
+  if (left.streamHeadOverride !== right.streamHeadOverride) reasons.push("streamHeadOverride");
   if (left.pendingPermissions !== right.pendingPermissions) reasons.push("pendingPermissions");
   if (
     !bottomAnchorRouteRequestsEqual(left.routeBottomAnchorRequest, right.routeBottomAnchorRequest)

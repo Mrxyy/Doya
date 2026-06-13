@@ -1,15 +1,21 @@
-import type { DocumentAnnotationTarget } from "@/components/document-viewer";
+import type {
+  DocumentAnnotationImage,
+  DocumentAnnotationSelectionPayload,
+  DocumentAnnotationTarget,
+} from "@/components/document-viewer";
 import type { DocumentAnnotationApplyPhase } from "@/utils/document-annotation-apply-phase";
 
 export interface PendingDocumentAnnotation {
   id: string;
   target: DocumentAnnotationTarget;
   instruction: string;
+  images?: DocumentAnnotationImage[];
 }
 
 export interface DocumentAnnotationControllerState {
   annotationMode: boolean;
   selectedAnnotationTarget: DocumentAnnotationTarget | null;
+  selectedAnnotationImages: DocumentAnnotationImage[];
   annotationInstruction: string;
   pendingAnnotations: PendingDocumentAnnotation[];
   applyPhase: DocumentAnnotationApplyPhase;
@@ -26,7 +32,11 @@ export interface DocumentAnnotationControllerView {
 export type DocumentAnnotationControllerAction =
   | { type: "reset" }
   | { type: "toggle_mode" }
-  | { type: "select_target"; target: DocumentAnnotationTarget }
+  | {
+      type: "select_target";
+      target: DocumentAnnotationTarget;
+      payload?: DocumentAnnotationSelectionPayload;
+    }
   | { type: "set_instruction"; instruction: string }
   | { type: "add_annotation"; id: string }
   | { type: "remove_annotation"; id: string }
@@ -36,6 +46,7 @@ export type DocumentAnnotationControllerAction =
 export const initialDocumentAnnotationControllerState: DocumentAnnotationControllerState = {
   annotationMode: false,
   selectedAnnotationTarget: null,
+  selectedAnnotationImages: [],
   annotationInstruction: "",
   pendingAnnotations: [],
   applyPhase: "idle",
@@ -51,7 +62,11 @@ export function reduceDocumentAnnotationControllerState(
     case "toggle_mode":
       return { ...state, annotationMode: !state.annotationMode };
     case "select_target":
-      return { ...state, selectedAnnotationTarget: action.target };
+      return {
+        ...state,
+        selectedAnnotationTarget: action.target,
+        selectedAnnotationImages: action.payload?.images ?? [],
+      };
     case "set_instruction":
       return { ...state, annotationInstruction: action.instruction };
     case "add_annotation": {
@@ -68,6 +83,10 @@ export function reduceDocumentAnnotationControllerState(
             id: action.id,
             target: state.selectedAnnotationTarget,
             instruction,
+            images:
+              state.selectedAnnotationImages.length > 0
+                ? state.selectedAnnotationImages
+                : undefined,
           },
         ],
       };
@@ -85,6 +104,7 @@ export function reduceDocumentAnnotationControllerState(
       return {
         ...state,
         selectedAnnotationTarget: null,
+        selectedAnnotationImages: [],
         annotationInstruction: "",
         pendingAnnotations: [],
         applyPhase: "idle",

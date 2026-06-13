@@ -1,7 +1,7 @@
 import express from "express";
 import { createServer as createHTTPServer, type IncomingMessage, type ServerResponse } from "http";
 import { constants, createWriteStream, existsSync, unlinkSync } from "fs";
-import { mkdir, open, stat } from "fs/promises";
+import { mkdir, open, readFile, stat } from "fs/promises";
 import { randomUUID } from "node:crypto";
 import { hostname as getHostname } from "node:os";
 import path from "node:path";
@@ -11,6 +11,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { Logger } from "pino";
 import { createBranchChangeRouteHandler } from "./script-route-branch-handler.js";
+import { ConversationRecordingStore } from "./recordings/conversation-recording-store.js";
 
 export type ListenTarget =
   | { type: "tcp"; host: string; port: number }
@@ -150,6 +151,7 @@ import {
 } from "./sms-verification-service.js";
 import { createPptPreviewRouter } from "./ai-creation/ppt-preview-service.js";
 import { getDownloadableFileInfo } from "./file-explorer/service.js";
+import { createOnlyOfficeXlsxPreviewBuffer } from "./onlyoffice-xlsx-preview.js";
 
 type AgentMcpTransportMap = Map<string, StreamableHTTPServerTransport>;
 
@@ -157,6 +159,8 @@ const MAX_MCP_DEBUG_BATCH_ITEMS = 10;
 const REDACTED_LOG_VALUE = "[redacted]";
 const DOWNLOAD_OPEN_FLAGS =
   process.platform === "win32" ? constants.O_RDONLY : constants.O_RDONLY | constants.O_NOFOLLOW;
+const ONLYOFFICE_PREVIEW_XLSX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 function formatHostForHttpUrl(host: string): string {
   return host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
@@ -181,6 +185,43 @@ function createAgentMcpBaseUrl(listenTarget: ListenTarget | null): string | null
     "/mcp/agents",
     `http://${formatHostForHttpUrl(host)}:${listenTarget.port}`,
   ).toString();
+}
+
+async function streamLocalFile(input: {
+  absolutePath: string;
+  cacheControl?: string;
+  contentType: string;
+  logger: Logger;
+  res: express.Response;
+}): Promise<void> {
+  let fileHandle: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    fileHandle = await open(input.absolutePath, DOWNLOAD_OPEN_FLAGS);
+    const fileStats = await fileHandle.stat();
+    if (!fileStats.isFile()) {
+      input.res.status(404).json({ error: "File not found" });
+      return;
+    }
+
+    input.res.setHeader("Content-Type", input.contentType);
+    input.res.setHeader("Content-Length", fileStats.size.toString());
+    if (input.cacheControl) {
+      input.res.setHeader("Cache-Control", input.cacheControl);
+    }
+
+    const stream = fileHandle.createReadStream();
+    fileHandle = null;
+    await pipeline(stream, input.res);
+  } catch (err) {
+    input.logger.error({ err, path: input.absolutePath }, "Failed to stream local file");
+    if (!input.res.headersSent) {
+      input.res.status(404).json({ error: "File not found" });
+    } else if (!input.res.writableEnded) {
+      input.res.end();
+    }
+  } finally {
+    await fileHandle?.close().catch(() => undefined);
+  }
 }
 
 function formatAccountAuthResult(result: AccountAuthResult): object {
@@ -692,46 +733,91 @@ export async function createPaseoDaemon(
       return;
     }
 
-    let fileHandle: Awaited<ReturnType<typeof open>> | null = null;
     try {
       const info = await getDownloadableFileInfo({
         root: cwd,
         relativePath: requestedPath,
       });
-      fileHandle = await open(info.absolutePath, DOWNLOAD_OPEN_FLAGS);
-      const fileStats = await fileHandle.stat();
-      if (!fileStats.isFile()) {
-        res.status(404).json({ error: "File not found" });
-        return;
-      }
-
-      res.setHeader("Content-Type", info.mimeType);
-      res.setHeader("Content-Length", fileStats.size.toString());
-      res.setHeader("Cache-Control", "private, max-age=3600");
-
-      const stream = fileHandle.createReadStream();
-      fileHandle = null;
-      stream.on("error", (err) => {
-        logger.error({ err }, "Failed to stream workspace file");
-        if (!res.headersSent) {
-          res.status(500).json({ error: "Failed to read file" });
-        } else {
-          res.end();
-        }
+      await streamLocalFile({
+        absolutePath: info.absolutePath,
+        cacheControl: "private, max-age=3600",
+        contentType: info.mimeType,
+        logger,
+        res,
       });
-      stream.pipe(res);
     } catch (err) {
       logger.error({ err, cwd, path: requestedPath }, "Failed to stream workspace file");
       if (!res.headersSent) {
         res.status(404).json({ error: "File not found" });
       }
-    } finally {
-      await fileHandle?.close().catch(() => undefined);
+    }
+  };
+
+  const handleWorkspaceFileOnlyOfficePreview = async (
+    req: express.Request,
+    res: express.Response,
+  ): Promise<void> => {
+    const cwd = typeof req.query.cwd === "string" ? req.query.cwd.trim() : "";
+    const requestedPath = typeof req.query.path === "string" ? req.query.path.trim() : "";
+    if (!cwd || !requestedPath) {
+      res.status(400).json({ error: "cwd and path are required" });
+      return;
+    }
+
+    try {
+      const info = await getDownloadableFileInfo({
+        root: cwd,
+        relativePath: requestedPath,
+      });
+      if (path.extname(info.absolutePath).toLowerCase() !== ".xlsx") {
+        await streamLocalFile({
+          absolutePath: info.absolutePath,
+          cacheControl: "no-store",
+          contentType: info.mimeType,
+          logger,
+          res,
+        });
+        return;
+      }
+
+      try {
+        const sourceBuffer = await readFile(info.absolutePath);
+        const previewBuffer = await createOnlyOfficeXlsxPreviewBuffer(sourceBuffer);
+        res.setHeader("Content-Type", ONLYOFFICE_PREVIEW_XLSX_MIME_TYPE);
+        res.setHeader("Content-Length", previewBuffer.byteLength.toString());
+        res.setHeader("Cache-Control", "no-store");
+        res.send(previewBuffer);
+      } catch (err) {
+        logger.warn(
+          { err, cwd, path: requestedPath },
+          "Failed to prepare XLSX for ONLYOFFICE preview",
+        );
+        await streamLocalFile({
+          absolutePath: info.absolutePath,
+          cacheControl: "no-store",
+          contentType: info.mimeType,
+          logger,
+          res,
+        });
+      }
+    } catch (err) {
+      logger.error({ err, cwd, path: requestedPath }, "Failed to stream ONLYOFFICE preview file");
+      if (!res.headersSent) {
+        res.status(404).json({ error: "File not found" });
+      }
     }
   };
 
   app.get("/api/workspace-files/raw", (req, res) => {
     void handleWorkspaceFileRaw(req, res);
+  });
+
+  app.get("/api/workspace-files/onlyoffice-preview", (req, res) => {
+    void handleWorkspaceFileOnlyOfficePreview(req, res);
+  });
+
+  app.post("/api/onlyoffice/callback", (_req, res) => {
+    res.json({ error: 0 });
   });
 
   const httpServer = createHTTPServer(app);
@@ -779,11 +865,17 @@ export async function createPaseoDaemon(
     extraClients: config.agentClients,
   });
   const initialAgentManagerState = providerSnapshotManager.getAgentManagerProviderState();
+  const conversationRecordingStore = new ConversationRecordingStore(
+    path.join(config.paseoHome, "recordings"),
+  );
   const agentManager = new AgentManager({
     clients: initialAgentManagerState.clients,
     providerDefinitions: initialAgentManagerState.providerDefinitions,
     registry: agentStorage,
     appendSystemPrompt: config.appendSystemPrompt,
+    onRawStreamEvent: ({ agentId, event }) => {
+      conversationRecordingStore.recordAgentStreamEvent(agentId, event);
+    },
     logger,
   });
   const handleWorkspaceAttachmentUpload = async (
@@ -828,7 +920,7 @@ export async function createPaseoDaemon(
       await mkdir(attachmentDir, { recursive: true });
       const filePath = path.join(attachmentDir, buildWorkspaceAttachmentFileName(rawFileName));
       await pipeline(
-        Readable.fromWeb(uploadedFile.stream()),
+        Readable.fromWeb(uploadedFile.stream() as Parameters<typeof Readable.fromWeb>[0]),
         createWriteStream(filePath, { flags: "wx" }),
       );
 
@@ -1278,6 +1370,7 @@ export async function createPaseoDaemon(
             github,
             config.pushNotificationSender,
             providerSnapshotManager,
+            conversationRecordingStore,
             {
               listen: formatListenTarget(boundListenTarget ?? listenTarget),
               worktreesRoot: config.worktreesRoot,

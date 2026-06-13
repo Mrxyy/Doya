@@ -1,4 +1,5 @@
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
+import type { ConversationRecording } from "@getpaseo/protocol/messages";
 import { SquarePen } from "lucide-react-native";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
@@ -72,6 +73,16 @@ import { deriveSidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { buildDraftAgentSetup, type ClientSlashCommand } from "@/client-slash-commands";
 import { translateNow } from "@/i18n/i18n";
 import { extractAiCreationDisplayText } from "@/utils/ai-creation-display";
+import { ConversationReplayPanel } from "@/replay/conversation-replay-panel";
+import { ConversationReplayComposerControls } from "@/replay/conversation-replay-composer-controls";
+import {
+  projectConversationReplay,
+  projectConversationTimelineReplay,
+} from "@/replay/conversation-replay";
+import {
+  advanceReplayClock,
+  type ConversationReplaySpeed,
+} from "@/replay/conversation-replay-controls";
 
 interface ChatAgentStateShape {
   serverId: string | null;
@@ -86,6 +97,13 @@ interface ChatAgentSelectedState extends ChatAgentStateShape {
   archivedAt: Date | null;
   requiresAttention: boolean;
   attentionReason: Agent["attentionReason"] | null;
+}
+
+interface ActiveConversationReplay {
+  recording: ConversationRecording;
+  positionMs: number;
+  isPlaying: boolean;
+  speed: ConversationReplaySpeed;
 }
 
 function resolveChatAgentFromSession(
@@ -1098,6 +1116,119 @@ function ChatAgentReadyContent({
       agentId,
     }),
   });
+  const [isReplayPanelOpen, setIsReplayPanelOpen] = useState(false);
+  const [activeReplay, setActiveReplay] = useState<ActiveConversationReplay | null>(null);
+  const replayLastFrameRef = useRef<number | null>(null);
+  const supportsConversationReplay = useSessionStore(
+    (state) => state.sessions[serverId]?.serverInfo?.features?.conversationReplay === true,
+  );
+  const activeReplayDurationMs = useMemo(
+    () =>
+      activeReplay
+        ? projectConversationReplay({
+            events: activeReplay.recording.events,
+            edits: activeReplay.recording.edits,
+            positionMs: Number.POSITIVE_INFINITY,
+          }).durationMs
+        : 0,
+    [activeReplay],
+  );
+  useEffect(() => {
+    if (!activeReplay?.isPlaying) {
+      replayLastFrameRef.current = null;
+      return;
+    }
+    let frame: ReturnType<typeof requestAnimationFrame> | null = null;
+    const tick = (now: number) => {
+      setActiveReplay((current) => {
+        if (!current?.isPlaying) {
+          return current;
+        }
+        const next = advanceReplayClock({
+          positionMs: current.positionMs,
+          lastFrameMs: replayLastFrameRef.current,
+          frameMs: now,
+          speed: current.speed,
+          durationMs: activeReplayDurationMs,
+        });
+        replayLastFrameRef.current = next.lastFrameMs;
+        return {
+          ...current,
+          positionMs: next.positionMs,
+          isPlaying: next.isPlaying,
+        };
+      });
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => {
+      if (frame) {
+        cancelAnimationFrame(frame);
+      }
+    };
+  }, [activeReplay?.isPlaying, activeReplayDurationMs]);
+  const handleStartConversationReplay = useCallback((recording: ConversationRecording) => {
+    replayLastFrameRef.current = null;
+    setActiveReplay({
+      recording,
+      positionMs: 0,
+      isPlaying: true,
+      speed: 1,
+    });
+    setIsReplayPanelOpen(false);
+  }, []);
+  const handleSetReplayPlaying = useCallback((isPlaying: boolean) => {
+    replayLastFrameRef.current = null;
+    setActiveReplay((current) => (current ? { ...current, isPlaying } : current));
+  }, []);
+  const handleRestartReplay = useCallback(() => {
+    replayLastFrameRef.current = null;
+    setActiveReplay((current) =>
+      current ? { ...current, positionMs: 0, isPlaying: false } : current,
+    );
+  }, []);
+  const handleSetReplaySpeed = useCallback((speed: ConversationReplaySpeed) => {
+    replayLastFrameRef.current = null;
+    setActiveReplay((current) => (current ? { ...current, speed } : current));
+  }, []);
+  const handleExitReplay = useCallback(() => {
+    replayLastFrameRef.current = null;
+    setActiveReplay(null);
+  }, []);
+  const handleOpenReplayPanel = useCallback(() => {
+    setIsReplayPanelOpen(true);
+  }, []);
+  const handleCloseReplayPanel = useCallback(() => {
+    setIsReplayPanelOpen(false);
+  }, []);
+  const conversationReplayControls = useMemo(
+    () =>
+      supportsConversationReplay ? (
+        <ConversationReplayComposerControls
+          serverId={serverId}
+          agentId={agentId}
+          activeReplay={activeReplay}
+          replayDurationMs={activeReplayDurationMs}
+          onOpenReplayPanel={handleOpenReplayPanel}
+          onSetReplayPlaying={handleSetReplayPlaying}
+          onRestartReplay={handleRestartReplay}
+          onSetReplaySpeed={handleSetReplaySpeed}
+          onExitReplay={handleExitReplay}
+        />
+      ) : null,
+    [
+      activeReplay,
+      activeReplayDurationMs,
+      agentId,
+      handleExitReplay,
+      handleOpenReplayPanel,
+      handleRestartReplay,
+      handleSetReplayPlaying,
+      handleSetReplaySpeed,
+      serverId,
+      supportsConversationReplay,
+    ],
+  );
   const streamSection = (
     <RenderProfile id={`AgentStreamSection:${agentId}`}>
       <AgentStreamSection
@@ -1109,6 +1240,8 @@ function ChatAgentReadyContent({
         hasAppliedAuthoritativeHistory={hasAppliedAuthoritativeHistory}
         toast={panelToast.api}
         onOpenWorkspaceFile={onOpenWorkspaceFile}
+        replayRecording={activeReplay?.recording ?? null}
+        replayPositionMs={activeReplay?.positionMs ?? 0}
       />
     </RenderProfile>
   );
@@ -1128,6 +1261,7 @@ function ChatAgentReadyContent({
         onAddImages={handleAddImagesCallback}
         onComposerHeightChange={handleComposerHeightChange}
         onMessageSent={handleMessageSent}
+        conversationReplayControls={conversationReplayControls}
       />
     </RenderProfile>
   );
@@ -1168,6 +1302,16 @@ function ChatAgentReadyContent({
             </Text>
           </View>
         ) : null}
+
+        {supportsConversationReplay ? (
+          <ConversationReplayPanel
+            visible={isReplayPanelOpen}
+            serverId={serverId}
+            agent={effectiveAgent}
+            onStartReplay={handleStartConversationReplay}
+            onClose={handleCloseReplayPanel}
+          />
+        ) : null}
       </View>
     </RewindComposerRestoreProvider>
   );
@@ -1182,6 +1326,8 @@ const AgentStreamSection = memo(function AgentStreamSection({
   hasAppliedAuthoritativeHistory,
   toast,
   onOpenWorkspaceFile,
+  replayRecording,
+  replayPositionMs,
 }: {
   streamViewRef: React.RefObject<AgentStreamViewHandle | null>;
   serverId: string;
@@ -1191,11 +1337,25 @@ const AgentStreamSection = memo(function AgentStreamSection({
   hasAppliedAuthoritativeHistory: boolean;
   toast: ReturnType<typeof useToastHost>["api"];
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
+  replayRecording?: ConversationRecording | null;
+  replayPositionMs?: number;
 }) {
   const streamItemsRaw = useSessionStore((state) =>
     agentId ? state.sessions[serverId]?.agentStreamTail?.get(agentId) : undefined,
   );
   const streamItems = streamItemsRaw ?? EMPTY_STREAM_ITEMS;
+  const replayProjection = useMemo(
+    () =>
+      replayRecording
+        ? projectConversationTimelineReplay({
+            baselineItems: streamItems,
+            recording: replayRecording,
+            positionMs: replayPositionMs ?? 0,
+          })
+        : null,
+    [replayPositionMs, replayRecording, streamItems],
+  );
+  const displayStreamItems = replayProjection?.items ?? streamItems;
   const pendingPermissionList = useStoreWithEqualityFn(
     useSessionStore,
     (state) => {
@@ -1229,8 +1389,9 @@ const AgentStreamSection = memo(function AgentStreamSection({
       agentId={agent.id}
       serverId={serverId}
       agent={agent}
-      streamItems={streamItems}
-      pendingPermissions={pendingPermissions}
+      streamItems={displayStreamItems}
+      streamHeadOverride={replayProjection ? EMPTY_STREAM_ITEMS : undefined}
+      pendingPermissions={replayProjection ? EMPTY_PENDING_PERMISSIONS : pendingPermissions}
       routeBottomAnchorRequest={routeBottomAnchorRequest}
       isAuthoritativeHistoryReady={hasAppliedAuthoritativeHistory}
       toast={toast}
@@ -1253,6 +1414,7 @@ function AgentComposerSection({
   onAddImages,
   onComposerHeightChange,
   onMessageSent,
+  conversationReplayControls,
 }: {
   agentId?: string;
   serverId: string;
@@ -1267,6 +1429,7 @@ function AgentComposerSection({
   onAddImages: (addImages: (images: ImageAttachment[]) => void) => void;
   onComposerHeightChange: (height: number) => void;
   onMessageSent: () => void;
+  conversationReplayControls?: React.ReactNode;
 }) {
   if (!agentId) {
     return null;
@@ -1291,6 +1454,7 @@ function AgentComposerSection({
       onAddImages={onAddImages}
       onComposerHeightChange={onComposerHeightChange}
       onMessageSent={onMessageSent}
+      conversationReplayControls={conversationReplayControls}
     />
   );
 }
@@ -1307,6 +1471,7 @@ function ActiveAgentComposer({
   onAddImages,
   onComposerHeightChange,
   onMessageSent,
+  conversationReplayControls,
 }: {
   agentId: string;
   serverId: string;
@@ -1319,6 +1484,7 @@ function ActiveAgentComposer({
   onAddImages: (addImages: (images: ImageAttachment[]) => void) => void;
   onComposerHeightChange: (height: number) => void;
   onMessageSent: () => void;
+  conversationReplayControls?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
   const isCompact = useIsCompactFormFactor();
@@ -1453,6 +1619,7 @@ function ActiveAgentComposer({
         onMessageSent={onMessageSent}
         onClientSlashCommand={handleClientSlashCommand}
         footer={composerFooter}
+        extraRightContent={conversationReplayControls}
       />
     </ReanimatedAnimated.View>
   );

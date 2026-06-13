@@ -55,6 +55,7 @@ import {
   WebSocketRuntimeMetricsWindow,
   type WebSocketRuntimeCounters,
 } from "./websocket/runtime-metrics.js";
+import { ConversationRecordingStore } from "./recordings/conversation-recording-store.js";
 
 const WS_CLOSE_DAEMON_AUTH_FAILED = 4401;
 
@@ -374,6 +375,7 @@ export class VoiceAssistantWebSocketServer {
     | ((workspaceId: string, oldBranch: string | null, newBranch: string | null) => void)
     | null;
   private serverCapabilities: ServerCapabilities | undefined;
+  private readonly conversationRecordingStore: ConversationRecordingStore;
   private readonly runtimeMetrics = new WebSocketRuntimeMetricsWindow();
   private runtimeMetricsInterval: ReturnType<typeof setInterval> | null = null;
   private unsubscribeSpeechReadiness: (() => void) | null = null;
@@ -418,6 +420,7 @@ export class VoiceAssistantWebSocketServer {
     github?: GitHubService,
     pushNotificationSender?: PushNotificationSender,
     providerSnapshotManager?: ProviderSnapshotManager,
+    conversationRecordingStore?: ConversationRecordingStore,
     daemonRuntimeConfig?: {
       listen: string | null;
       worktreesRoot?: string;
@@ -474,6 +477,8 @@ export class VoiceAssistantWebSocketServer {
       throw new Error("providerSnapshotManager is required");
     }
     this.providerSnapshotManager = providerSnapshotManager;
+    this.conversationRecordingStore =
+      conversationRecordingStore ?? new ConversationRecordingStore(join(paseoHome, "recordings"));
     this.serverCapabilities = buildServerCapabilities({
       readiness: this.speech?.getReadiness() ?? null,
     });
@@ -879,6 +884,7 @@ export class VoiceAssistantWebSocketServer {
       tts: () => this.speech?.resolveTts() ?? null,
       terminalManager: this.terminalManager,
       providerSnapshotManager: this.providerSnapshotManager,
+      conversationRecordingStore: this.conversationRecordingStore,
       scriptRouteStore: this.scriptRouteStore ?? undefined,
       scriptRuntimeStore: this.scriptRuntimeStore ?? undefined,
       workspaceSetupSnapshots: this.workspaceSetupSnapshots,
@@ -1055,6 +1061,8 @@ export class VoiceAssistantWebSocketServer {
         rewind: true,
         // COMPAT(checkoutRefresh): added in v0.1.86, remove gate after 2026-11-29.
         checkoutRefresh: true,
+        // COMPAT(conversationReplay): added in v0.1.X, drop the gate when floor >= v0.1.X.
+        conversationReplay: true,
       },
     };
   }

@@ -73,6 +73,7 @@ export interface CreateAgentFromSessionInput {
   provisionalTitle: string | null;
   explicitTitle: string | null;
   firstAgentContext: FirstAgentContext;
+  onAgentCreatedBeforeInitialPrompt?: (snapshot: ManagedAgent) => Promise<void> | void;
   buildSessionConfig: (
     config: AgentSessionConfig,
     gitOptions?: GitSetupOptions,
@@ -158,6 +159,9 @@ export async function createAgentCommand(
   resolved.setupContinuation?.startAfterAgentCreate({
     agentId: snapshot.id,
   });
+  if (input.kind === "session") {
+    await input.onAgentCreatedBeforeInitialPrompt?.(snapshot);
+  }
 
   let liveSnapshot = snapshot;
   let initialPromptStarted = false;

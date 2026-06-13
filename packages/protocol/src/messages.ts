@@ -1112,6 +1112,7 @@ export const CreateAgentRequestMessageSchema = z.object({
   initialPrompt: z.string().optional(),
   clientMessageId: z.string().optional(),
   outputSchema: z.record(z.unknown()).optional(),
+  recordConversation: z.boolean().optional(),
   images: z.array(ImageAttachmentSchema).optional(),
   attachments: AgentAttachmentsSchema,
   git: GitSetupOptionsSchema.optional(),
@@ -1874,6 +1875,155 @@ export const CaptureTerminalRequestSchema = z.object({
   requestId: z.string(),
 });
 
+export const ConversationRecordingEditSchema = z
+  .object({
+    offsetMs: z.number().int().nonnegative().optional(),
+    hidden: z.boolean().optional(),
+  })
+  .passthrough();
+
+export const ConversationRecordingEditsSchema = z.record(
+  z.string(),
+  ConversationRecordingEditSchema,
+);
+
+export const ConversationRecordingUserInputEventSchema = z.object({
+  seq: z.number().int().nonnegative(),
+  recordedAt: z.string(),
+  offsetMs: z.number().int().nonnegative(),
+  offsetMsPrecise: z.number().nonnegative().optional(),
+  kind: z.literal("user_input"),
+  payload: z
+    .object({
+      source: z
+        .enum(["send_agent_message_request", "create_agent_request.initialPrompt"])
+        .optional(),
+      requestId: z.string().optional(),
+      cwd: z.string().optional(),
+      messageId: z.string().optional(),
+      text: z.string(),
+      images: z.array(z.unknown()).optional(),
+      attachments: z.array(AgentAttachmentSchema).optional(),
+    })
+    .passthrough(),
+});
+
+export const ConversationRecordingAgentStreamEventSchema = z.object({
+  seq: z.number().int().nonnegative(),
+  recordedAt: z.string(),
+  offsetMs: z.number().int().nonnegative(),
+  offsetMsPrecise: z.number().nonnegative().optional(),
+  kind: z.literal("agent_stream_raw"),
+  payload: z.object({
+    event: AgentStreamEventPayloadSchema,
+  }),
+});
+
+export const ConversationRecordingEventSchema = z.discriminatedUnion("kind", [
+  ConversationRecordingUserInputEventSchema,
+  ConversationRecordingAgentStreamEventSchema,
+]);
+
+export const ConversationRecordingSchema = z.object({
+  recordingId: z.string(),
+  agentId: z.string(),
+  provider: AgentProviderSchema,
+  cwd: z.string(),
+  startedAt: z.string(),
+  stoppedAt: z.string().nullable(),
+  status: z.enum(["recording", "stopped"]),
+  title: z.string().nullable(),
+  events: z.array(ConversationRecordingEventSchema),
+  edits: ConversationRecordingEditsSchema.default({}),
+});
+
+export const ConversationRecordingSummarySchema = ConversationRecordingSchema.omit({
+  events: true,
+});
+
+export const RecordingAgentStartRequestMessageSchema = z.object({
+  type: z.literal("recording.agent.start.request"),
+  requestId: z.string(),
+  agentId: z.string(),
+  title: z.string().optional(),
+});
+
+export const RecordingAgentStopRequestMessageSchema = z.object({
+  type: z.literal("recording.agent.stop.request"),
+  requestId: z.string(),
+  agentId: z.string(),
+  recordingId: z.string().optional(),
+});
+
+export const RecordingAgentListRequestMessageSchema = z.object({
+  type: z.literal("recording.agent.list.request"),
+  requestId: z.string(),
+  agentId: z.string(),
+});
+
+export const RecordingAgentGetRequestMessageSchema = z.object({
+  type: z.literal("recording.agent.get.request"),
+  requestId: z.string(),
+  agentId: z.string(),
+  recordingId: z.string(),
+});
+
+export const RecordingAgentUpdateEditsRequestMessageSchema = z.object({
+  type: z.literal("recording.agent.update_edits.request"),
+  requestId: z.string(),
+  agentId: z.string(),
+  recordingId: z.string(),
+  edits: ConversationRecordingEditsSchema,
+});
+
+export const RecordingAgentStartResponseMessageSchema = z.object({
+  type: z.literal("recording.agent.start.response"),
+  payload: z.object({
+    requestId: z.string(),
+    recording: ConversationRecordingSummarySchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const RecordingAgentStopResponseMessageSchema = z.object({
+  type: z.literal("recording.agent.stop.response"),
+  payload: z.object({
+    requestId: z.string(),
+    recording: ConversationRecordingSummarySchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const RecordingAgentListResponseMessageSchema = z.object({
+  type: z.literal("recording.agent.list.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    recordings: z.array(ConversationRecordingSummarySchema),
+    error: z.string().nullable(),
+  }),
+});
+
+export const RecordingAgentGetResponseMessageSchema = z.object({
+  type: z.literal("recording.agent.get.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    recording: ConversationRecordingSchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
+export const RecordingAgentUpdateEditsResponseMessageSchema = z.object({
+  type: z.literal("recording.agent.update_edits.response"),
+  payload: z.object({
+    requestId: z.string(),
+    agentId: z.string(),
+    recording: ConversationRecordingSchema.nullable(),
+    error: z.string().nullable(),
+  }),
+});
+
 export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   VoiceAudioChunkMessageSchema,
   AbortRequestMessageSchema,
@@ -1921,6 +2071,11 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   SetAgentThinkingRequestMessageSchema,
   SetAgentFeatureRequestMessageSchema,
   AgentRewindRequestMessageSchema,
+  RecordingAgentStartRequestMessageSchema,
+  RecordingAgentStopRequestMessageSchema,
+  RecordingAgentListRequestMessageSchema,
+  RecordingAgentGetRequestMessageSchema,
+  RecordingAgentUpdateEditsRequestMessageSchema,
   AgentPermissionResponseMessageSchema,
   CheckoutStatusRequestSchema,
   SubscribeCheckoutDiffRequestSchema,
@@ -2168,6 +2323,8 @@ export const ServerInfoStatusPayloadSchema = z
         rewind: z.boolean().optional(),
         // COMPAT(checkoutRefresh): added in v0.1.86, remove gate after 2026-11-29.
         checkoutRefresh: z.boolean().optional(),
+        // COMPAT(conversationReplay): added in v0.1.X, drop the gate when floor >= v0.1.X.
+        conversationReplay: z.boolean().optional(),
       })
       .optional(),
   })
@@ -3744,6 +3901,11 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   SetAgentThinkingResponseMessageSchema,
   SetAgentFeatureResponseMessageSchema,
   AgentRewindResponseMessageSchema,
+  RecordingAgentStartResponseMessageSchema,
+  RecordingAgentStopResponseMessageSchema,
+  RecordingAgentListResponseMessageSchema,
+  RecordingAgentGetResponseMessageSchema,
+  RecordingAgentUpdateEditsResponseMessageSchema,
   UpdateAgentResponseMessageSchema,
   ProjectRenameResponseSchema,
   WaitForFinishResponseMessageSchema,
@@ -3886,6 +4048,26 @@ export type SetAgentModelResponseMessage = z.infer<typeof SetAgentModelResponseM
 export type SetAgentThinkingResponseMessage = z.infer<typeof SetAgentThinkingResponseMessageSchema>;
 export type SetAgentFeatureResponseMessage = z.infer<typeof SetAgentFeatureResponseMessageSchema>;
 export type AgentRewindResponseMessage = z.infer<typeof AgentRewindResponseMessageSchema>;
+export type ConversationRecordingEdit = z.infer<typeof ConversationRecordingEditSchema>;
+export type ConversationRecordingEdits = z.infer<typeof ConversationRecordingEditsSchema>;
+export type ConversationRecordingEvent = z.infer<typeof ConversationRecordingEventSchema>;
+export type ConversationRecording = z.infer<typeof ConversationRecordingSchema>;
+export type ConversationRecordingSummary = z.infer<typeof ConversationRecordingSummarySchema>;
+export type RecordingAgentStartResponseMessage = z.infer<
+  typeof RecordingAgentStartResponseMessageSchema
+>;
+export type RecordingAgentStopResponseMessage = z.infer<
+  typeof RecordingAgentStopResponseMessageSchema
+>;
+export type RecordingAgentListResponseMessage = z.infer<
+  typeof RecordingAgentListResponseMessageSchema
+>;
+export type RecordingAgentGetResponseMessage = z.infer<
+  typeof RecordingAgentGetResponseMessageSchema
+>;
+export type RecordingAgentUpdateEditsResponseMessage = z.infer<
+  typeof RecordingAgentUpdateEditsResponseMessageSchema
+>;
 export type UpdateAgentResponseMessage = z.infer<typeof UpdateAgentResponseMessageSchema>;
 export type ProjectRenameResponse = z.infer<typeof ProjectRenameResponseSchema>;
 export type ProjectRenameResponsePayload = z.infer<typeof ProjectRenameResponsePayloadSchema>;
@@ -4163,31 +4345,42 @@ export const WSRecordingStateMessageSchema = z.object({
 });
 
 // Wrapped session message
-export const WSSessionInboundSchema = z.object({
+export const WSSessionInboundSchema: z.ZodType<
+  { type: "session"; message: SessionInboundMessage },
+  z.ZodTypeDef,
+  unknown
+> = z.object({
   type: z.literal("session"),
   message: SessionInboundMessageSchema,
 });
 
-export const WSSessionOutboundSchema = z.object({
+export const WSSessionOutboundSchema: z.ZodType<
+  { type: "session"; message: SessionOutboundMessage },
+  z.ZodTypeDef,
+  unknown
+> = z.object({
   type: z.literal("session"),
   message: SessionOutboundMessageSchema,
 });
 
 // Complete WebSocket message schemas
-export const WSInboundMessageSchema = z.discriminatedUnion("type", [
+export const WSInboundMessageSchema = z.union([
   WSPingMessageSchema,
   WSHelloMessageSchema,
   WSRecordingStateMessageSchema,
   WSSessionInboundSchema,
 ]);
 
-export const WSOutboundMessageSchema = z.discriminatedUnion("type", [
-  WSPongMessageSchema,
-  WSSessionOutboundSchema,
-]);
+export const WSOutboundMessageSchema: z.ZodType<
+  z.infer<typeof WSPongMessageSchema> | { type: "session"; message: SessionOutboundMessage },
+  z.ZodTypeDef,
+  unknown
+> = z.union([WSPongMessageSchema, WSSessionOutboundSchema]);
 
 export type WSInboundMessage = z.infer<typeof WSInboundMessageSchema>;
-export type WSOutboundMessage = z.infer<typeof WSOutboundMessageSchema>;
+export type WSOutboundMessage =
+  | z.infer<typeof WSPongMessageSchema>
+  | { type: "session"; message: SessionOutboundMessage };
 export type WSHelloMessage = z.infer<typeof WSHelloMessageSchema>;
 
 // ============================================================================

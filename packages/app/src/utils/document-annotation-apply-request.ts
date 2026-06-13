@@ -28,7 +28,10 @@ interface DocumentAnnotationAgentSender {
   sendAgentMessage: (
     agentId: string,
     message: string,
-    options: { messageId: string },
+    options: {
+      messageId: string;
+      images?: Array<{ data: string; mimeType: string; fileName?: string }>;
+    },
   ) => Promise<unknown>;
 }
 
@@ -76,12 +79,20 @@ export function beginDocumentAnnotationApplyRequest(
     },
     { placement: "active-head", skipIfUserMessageExists: true },
   );
+  const images = input.annotations.flatMap((annotation) => annotation.images ?? []);
+  const sendOptions =
+    images.length > 0
+      ? {
+          messageId,
+          images,
+        }
+      : { messageId };
 
   return {
     messageId,
     prompt,
     phase: input.sourceAgentStatus === "running" ? "running" : "waiting",
-    sendPromise: input.client.sendAgentMessage(input.sourceAgentId, prompt, { messageId }),
+    sendPromise: input.client.sendAgentMessage(input.sourceAgentId, prompt, sendOptions),
   };
 }
 

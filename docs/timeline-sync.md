@@ -42,3 +42,22 @@ When a client resumes without a cursor, it fetches the latest tail page.
 - App sync planning: `packages/app/src/timeline/timeline-sync-plan.ts`
 - App stream/timeline reducer: `packages/app/src/timeline/session-stream-reducers.ts`
 - Session wiring: `packages/app/src/contexts/session-context.tsx`
+
+## Replay recordings are not timeline sync
+
+Manual conversation replay recordings live under
+`$PASEO_HOME/recordings/{agentId}/{recordingId}.json`. They record user input
+and provider-normalized raw stream events with relative offsets for 1:1 playback.
+They are intentionally separate from `fetch_agent_timeline_request` as stored
+data, but the app plays them back by temporarily projecting the normal chat
+surface:
+
+- Timeline rows are the authoritative reading history and may be projected,
+  merged, or paged.
+- Recording events are append-only playback facts captured before normal stream
+  coalescing/projection.
+- During replay, the visible agent stream starts from zero: unrecorded timeline
+  areas are shown immediately, and recorded areas are emitted according to the
+  recording offsets.
+- Replay edits (`offsetMs`, `hidden`) affect playback only and never rewrite the
+  source event log or agent timeline.

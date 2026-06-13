@@ -125,6 +125,7 @@ import {
   appendTimelineItemIfAgentKnown,
   emitLiveTimelineItemIfAgentKnown,
 } from "./agent/timeline-append.js";
+import type { ConversationRecordingStore } from "./recordings/conversation-recording-store.js";
 import {
   projectTimelineRows,
   selectProjectedTimelinePage,
@@ -593,6 +594,7 @@ export interface SessionOptions {
   tts: Resolvable<TextToSpeechProvider | null>;
   terminalManager: TerminalManager | null;
   providerSnapshotManager: ProviderSnapshotManager;
+  conversationRecordingStore?: ConversationRecordingStore;
   scriptRouteStore?: ScriptRouteStore;
   scriptRuntimeStore?: WorkspaceScriptRuntimeStore;
   workspaceSetupSnapshots?: Map<string, WorkspaceSetupSnapshot>;
@@ -788,6 +790,7 @@ export class Session {
   private readonly scheduleService: ScheduleService;
   private readonly loopService: LoopService;
   private readonly checkoutDiffManager: CheckoutDiffManager;
+  private readonly conversationRecordingStore: ConversationRecordingStore;
   private readonly github: GitHubService;
   private readonly workspaceGitService: WorkspaceGitService;
   private readonly daemonConfigStore: DaemonConfigStore;
@@ -884,6 +887,7 @@ export class Session {
       tts,
       terminalManager,
       providerSnapshotManager,
+      conversationRecordingStore,
       scriptRouteStore,
       scriptRuntimeStore,
       workspaceSetupSnapshots,
@@ -922,6 +926,8 @@ export class Session {
     this.scheduleService = scheduleService;
     this.loopService = loopService;
     this.checkoutDiffManager = checkoutDiffManager;
+    this.conversationRecordingStore =
+      conversationRecordingStore ?? new ConversationRecordingStore(join(paseoHome, "recordings"));
     this.github = github ?? createGitHubService();
     this.workspaceGitService = workspaceGitService;
     this.daemonConfigStore = daemonConfigStore;
@@ -1771,6 +1777,7 @@ export class Session {
     const promise =
       this.dispatchVoiceAndControlMessage(msg) ??
       this.dispatchAgentRewindMessage(msg) ??
+      this.dispatchRecordingMessage(msg) ??
       this.dispatchAgentLifecycleMessage(msg) ??
       this.dispatchAgentConfigMessage(msg) ??
       this.dispatchCheckoutMessage(msg) ??
@@ -1836,6 +1843,23 @@ export class Session {
     switch (msg.type) {
       case "agent.rewind.request":
         return this.handleAgentRewindRequest(msg);
+      default:
+        return undefined;
+    }
+  }
+
+  private dispatchRecordingMessage(msg: SessionInboundMessage): Promise<void> | undefined {
+    switch (msg.type) {
+      case "recording.agent.start.request":
+        return this.handleRecordingAgentStart(msg);
+      case "recording.agent.stop.request":
+        return this.handleRecordingAgentStop(msg);
+      case "recording.agent.list.request":
+        return this.handleRecordingAgentList(msg);
+      case "recording.agent.get.request":
+        return this.handleRecordingAgentGet(msg);
+      case "recording.agent.update_edits.request":
+        return this.handleRecordingAgentUpdateEdits(msg);
       default:
         return undefined;
     }
@@ -3086,6 +3110,7 @@ export class Session {
       initialPrompt,
       clientMessageId,
       outputSchema,
+      recordConversation,
       git,
       worktree,
       autoArchive,
@@ -3159,6 +3184,29 @@ export class Session {
           provisionalTitle,
           explicitTitle,
           firstAgentContext,
+          onAgentCreatedBeforeInitialPrompt: recordConversation
+            ? async (createdSnapshot) => {
+                await this.conversationRecordingStore.start({
+                  agentId: createdSnapshot.id,
+                  provider: createdSnapshot.provider,
+                  cwd: createdSnapshot.cwd,
+                  title: explicitTitle ?? provisionalTitle,
+                });
+                if (initialPrompt?.trim()) {
+                  this.conversationRecordingStore.recordUserInput(createdSnapshot.id, {
+                    source: "create_agent_request.initialPrompt",
+                    requestId,
+                    cwd: createdSnapshot.cwd,
+                    text: initialPrompt,
+                    ...(clientMessageId ? { messageId: clientMessageId } : {}),
+                    ...(images && images.length > 0 ? { images } : {}),
+                    ...(createAttachments && createAttachments.length > 0
+                      ? { attachments: createAttachments }
+                      : {}),
+                  });
+                }
+              }
+            : undefined,
           buildSessionConfig: (sessionConfig, gitOptions, legacyWorktreeName, ctx) =>
             this.buildAgentSessionConfig(sessionConfig, gitOptions, legacyWorktreeName, ctx),
           resolveWorkspace: ({ cwd, workspaceId }) =>
@@ -3166,6 +3214,19 @@ export class Session {
         },
       );
       createdAgentId = snapshot.id;
+      if (!recordConversation && initialPrompt?.trim()) {
+        this.conversationRecordingStore.recordUserInput(snapshot.id, {
+          source: "create_agent_request.initialPrompt",
+          requestId,
+          cwd: snapshot.cwd,
+          text: initialPrompt,
+          ...(clientMessageId ? { messageId: clientMessageId } : {}),
+          ...(images && images.length > 0 ? { images } : {}),
+          ...(createAttachments && createAttachments.length > 0
+            ? { attachments: createAttachments }
+            : {}),
+        });
+      }
       await this.forwardAgentUpdate(snapshot);
       this.createAgentLifecycleDispatch.registerAutoArchiveIfRequested({
         autoArchive,
@@ -3502,6 +3563,188 @@ export class Session {
           agentId: msg.agentId,
           ok: false,
           error: error instanceof Error ? error.message : "Failed to rewind agent",
+        },
+      });
+    }
+  }
+
+  private async resolveRecordingAgent(
+    agentIdOrIdentifier: string,
+  ): Promise<
+    | { ok: true; agentId: string; provider: AgentProvider; cwd: string; title: string | null }
+    | { ok: false; error: string }
+  > {
+    const resolved = await this.resolveAgentIdentifier(agentIdOrIdentifier);
+    if (!resolved.ok) {
+      return resolved;
+    }
+    const live = this.agentManager.getAgent(resolved.agentId);
+    if (live) {
+      const payload = await this.buildAgentPayload(live);
+      return {
+        ok: true,
+        agentId: resolved.agentId,
+        provider: live.provider,
+        cwd: live.cwd,
+        title: payload.title ?? null,
+      };
+    }
+    const stored = await this.agentStorage.get(resolved.agentId);
+    if (!stored) {
+      return { ok: false, error: `Agent not found: ${resolved.agentId}` };
+    }
+    return {
+      ok: true,
+      agentId: resolved.agentId,
+      provider: stored.provider,
+      cwd: stored.cwd,
+      title: stored.title ?? null,
+    };
+  }
+
+  private async handleRecordingAgentStart(
+    msg: Extract<SessionInboundMessage, { type: "recording.agent.start.request" }>,
+  ): Promise<void> {
+    const resolved = await this.resolveRecordingAgent(msg.agentId);
+    if (!resolved.ok) {
+      this.emit({
+        type: "recording.agent.start.response",
+        payload: { requestId: msg.requestId, recording: null, error: resolved.error },
+      });
+      return;
+    }
+    try {
+      const recording = await this.conversationRecordingStore.start({
+        agentId: resolved.agentId,
+        provider: resolved.provider,
+        cwd: resolved.cwd,
+        title: msg.title ?? resolved.title,
+      });
+      this.emit({
+        type: "recording.agent.start.response",
+        payload: { requestId: msg.requestId, recording, error: null },
+      });
+    } catch (error) {
+      this.emit({
+        type: "recording.agent.start.response",
+        payload: {
+          requestId: msg.requestId,
+          recording: null,
+          error: error instanceof Error ? error.message : "Failed to start recording",
+        },
+      });
+    }
+  }
+
+  private async handleRecordingAgentStop(
+    msg: Extract<SessionInboundMessage, { type: "recording.agent.stop.request" }>,
+  ): Promise<void> {
+    const resolved = await this.resolveAgentIdentifier(msg.agentId);
+    const agentId = resolved.ok ? resolved.agentId : msg.agentId;
+    try {
+      const recording = await this.conversationRecordingStore.stop(agentId, msg.recordingId);
+      let error: string | null = null;
+      if (!recording) {
+        error = resolved.ok ? "No active recording" : resolved.error;
+      }
+      this.emit({
+        type: "recording.agent.stop.response",
+        payload: {
+          requestId: msg.requestId,
+          recording,
+          error,
+        },
+      });
+    } catch (error) {
+      this.emit({
+        type: "recording.agent.stop.response",
+        payload: {
+          requestId: msg.requestId,
+          recording: null,
+          error: error instanceof Error ? error.message : "Failed to stop recording",
+        },
+      });
+    }
+  }
+
+  private async handleRecordingAgentList(
+    msg: Extract<SessionInboundMessage, { type: "recording.agent.list.request" }>,
+  ): Promise<void> {
+    const resolved = await this.resolveAgentIdentifier(msg.agentId);
+    if (!resolved.ok) {
+      this.emit({
+        type: "recording.agent.list.response",
+        payload: {
+          requestId: msg.requestId,
+          agentId: msg.agentId,
+          recordings: [],
+          error: resolved.error,
+        },
+      });
+      return;
+    }
+    try {
+      const recordings = await this.conversationRecordingStore.list(resolved.agentId);
+      this.emit({
+        type: "recording.agent.list.response",
+        payload: { requestId: msg.requestId, agentId: resolved.agentId, recordings, error: null },
+      });
+    } catch (error) {
+      this.emit({
+        type: "recording.agent.list.response",
+        payload: {
+          requestId: msg.requestId,
+          agentId: resolved.agentId,
+          recordings: [],
+          error: error instanceof Error ? error.message : "Failed to list recordings",
+        },
+      });
+    }
+  }
+
+  private async handleRecordingAgentGet(
+    msg: Extract<SessionInboundMessage, { type: "recording.agent.get.request" }>,
+  ): Promise<void> {
+    try {
+      const recording = await this.conversationRecordingStore.get(msg.agentId, msg.recordingId);
+      this.emit({
+        type: "recording.agent.get.response",
+        payload: { requestId: msg.requestId, agentId: msg.agentId, recording, error: null },
+      });
+    } catch (error) {
+      this.emit({
+        type: "recording.agent.get.response",
+        payload: {
+          requestId: msg.requestId,
+          agentId: msg.agentId,
+          recording: null,
+          error: error instanceof Error ? error.message : "Failed to load recording",
+        },
+      });
+    }
+  }
+
+  private async handleRecordingAgentUpdateEdits(
+    msg: Extract<SessionInboundMessage, { type: "recording.agent.update_edits.request" }>,
+  ): Promise<void> {
+    try {
+      const recording = await this.conversationRecordingStore.updateEdits(
+        msg.agentId,
+        msg.recordingId,
+        msg.edits,
+      );
+      this.emit({
+        type: "recording.agent.update_edits.response",
+        payload: { requestId: msg.requestId, agentId: msg.agentId, recording, error: null },
+      });
+    } catch (error) {
+      this.emit({
+        type: "recording.agent.update_edits.response",
+        payload: {
+          requestId: msg.requestId,
+          agentId: msg.agentId,
+          recording: null,
+          error: error instanceof Error ? error.message : "Failed to update recording edits",
         },
       });
     }
@@ -7729,6 +7972,18 @@ export class Session {
 
     try {
       const agentId = resolved.agentId;
+      const liveAgent = this.agentManager.getAgent(agentId);
+      const storedAgent = liveAgent ? null : await this.agentStorage.get(agentId);
+      const recordingCwd = liveAgent?.cwd ?? storedAgent?.cwd;
+      this.conversationRecordingStore.recordUserInput(agentId, {
+        source: "send_agent_message_request",
+        requestId: msg.requestId,
+        ...(recordingCwd ? { cwd: recordingCwd } : {}),
+        text: msg.text,
+        ...(msg.messageId ? { messageId: msg.messageId } : {}),
+        ...(msg.images && msg.images.length > 0 ? { images: msg.images } : {}),
+        ...(msg.attachments && msg.attachments.length > 0 ? { attachments: msg.attachments } : {}),
+      });
 
       const prompt = this.buildAgentPrompt(msg.text, msg.images, msg.attachments);
       this.sessionLogger.trace(

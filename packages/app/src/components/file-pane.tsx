@@ -30,6 +30,7 @@ import { persistAttachmentFromBytes } from "@/attachments/service";
 import { createPreviewAttachmentId, getFileNameFromPath } from "@/attachments/utils";
 import {
   DocumentViewer,
+  type DocumentAnnotationSelectionPayload,
   type DocumentAnnotationTarget,
   type DocumentViewerKind,
 } from "@/components/document-viewer";
@@ -64,6 +65,7 @@ interface FilePreviewBodyProps {
   preview: ExplorerFile | null;
   documentBytes: Uint8Array | null;
   documentKind: DocumentViewerKind | null;
+  documentSourceUrl: string | null;
   documentPreviewRevision: string | null;
   documentAnnotationMode: boolean;
   pendingDocumentAnnotationTargets: DocumentAnnotationTarget[];
@@ -73,7 +75,10 @@ interface FilePreviewBodyProps {
   isMobile: boolean;
   location: WorkspaceFileLocation;
   imagePreviewUri: string | null;
-  onDocumentAnnotationTargetSelect: (target: DocumentAnnotationTarget) => void;
+  onDocumentAnnotationTargetSelect: (
+    target: DocumentAnnotationTarget,
+    payload?: DocumentAnnotationSelectionPayload,
+  ) => void;
 }
 
 function trimNonEmpty(value: string | null | undefined): string | null {
@@ -102,7 +107,10 @@ interface DocumentAnnotationController {
   modeButtonVariant: "default" | "outline";
   setAnnotationInstruction: (value: string) => void;
   toggleAnnotationMode: () => void;
-  selectTarget: (target: DocumentAnnotationTarget) => void;
+  selectTarget: (
+    target: DocumentAnnotationTarget,
+    payload?: DocumentAnnotationSelectionPayload,
+  ) => void;
   addAnnotation: () => void;
   removeAnnotation: (id: string) => void;
   applyAnnotations: () => void;
@@ -123,9 +131,16 @@ async function createFilePanePreview(file: FileReadResult | null): Promise<{
   imageAttachment: AttachmentMetadata | null;
   documentBytes: Uint8Array | null;
   documentKind: DocumentViewerKind | null;
+  documentSourceUrl: string | null;
 }> {
   if (!file) {
-    return { file: null, imageAttachment: null, documentBytes: null, documentKind: null };
+    return {
+      file: null,
+      imageAttachment: null,
+      documentBytes: null,
+      documentKind: null,
+      documentSourceUrl: null,
+    };
   }
 
   const explorerFile = explorerFileFromReadResult(file);
@@ -139,6 +154,7 @@ async function createFilePanePreview(file: FileReadResult | null): Promise<{
       imageAttachment: null,
       documentBytes: file.bytes,
       documentKind,
+      documentSourceUrl: null,
     };
   }
 
@@ -148,6 +164,7 @@ async function createFilePanePreview(file: FileReadResult | null): Promise<{
       imageAttachment: null,
       documentBytes: null,
       documentKind: null,
+      documentSourceUrl: null,
     };
   }
 
@@ -169,6 +186,7 @@ async function createFilePanePreview(file: FileReadResult | null): Promise<{
     imageAttachment,
     documentBytes: null,
     documentKind: null,
+    documentSourceUrl: null,
   };
 }
 
@@ -184,8 +202,17 @@ function createFilePaneUnavailablePreview(error: string): FilePanePreviewData {
     imageAttachment: null,
     documentBytes: null,
     documentKind: null,
+    documentSourceUrl: null,
     error,
   };
+}
+
+const ONLYOFFICE_XLSX_PREVIEW_VERSION = "2";
+
+function withOnlyOfficeXlsxPreviewVersion(sourceUrl: string): string {
+  const url = new URL(sourceUrl);
+  url.searchParams.set("preview_version", ONLYOFFICE_XLSX_PREVIEW_VERSION);
+  return url.toString();
 }
 
 async function readFilePanePreview(input: {
@@ -199,7 +226,19 @@ async function readFilePanePreview(input: {
   try {
     const file = await client.readFile(readTarget.cwd, readTarget.path);
     const preview = await createFilePanePreview(file);
-    return { ...preview, error: null };
+    return {
+      ...preview,
+      documentSourceUrl:
+        preview.documentKind === "xlsx"
+          ? withOnlyOfficeXlsxPreviewVersion(
+              client.buildWorkspaceFileOnlyOfficePreviewUrl({
+                cwd: readTarget.cwd,
+                path: readTarget.path,
+              }),
+            )
+          : null,
+      error: null,
+    };
   } catch (error) {
     return createFilePaneUnavailablePreview(
       error instanceof Error ? error.message : "Failed to load file",
@@ -296,6 +335,7 @@ function FilePreviewBody({
   preview,
   documentBytes,
   documentKind,
+  documentSourceUrl,
   documentPreviewRevision,
   documentAnnotationMode,
   pendingDocumentAnnotationTargets,
@@ -320,11 +360,12 @@ function FilePreviewBody({
   });
 
   const highlightedLines = useMemo(() => {
-    if (!shouldHighlightTextPreview({ isMarkdownFile, preview })) {
+    const textPreview = !isMarkdownFile && preview?.kind === "text" ? preview : null;
+    if (!textPreview) {
       return null;
     }
 
-    return highlightCode(preview.content ?? "", filePath);
+    return highlightCode(textPreview.content ?? "", filePath);
   }, [isMarkdownFile, preview, filePath]);
 
   const gutterWidth = useMemo(() => {
@@ -386,6 +427,7 @@ function FilePreviewBody({
         bytes={documentBytes}
         mimeType={preview.mimeType ?? "application/octet-stream"}
         fileName={filePath.split("/").findLast(Boolean) ?? filePath}
+        sourceUrl={documentSourceUrl}
         annotationMode={documentAnnotationMode}
         pendingAnnotationTargets={pendingDocumentAnnotationTargets}
         selectedAnnotationTarget={selectedDocumentAnnotationTarget}
@@ -520,13 +562,6 @@ function isRenderedMarkdownPreview(input: {
   );
 }
 
-function shouldHighlightTextPreview(input: {
-  isMarkdownFile: boolean;
-  preview: ExplorerFile | null;
-}): input is { isMarkdownFile: false; preview: ExplorerFile & { kind: "text" } } {
-  return Boolean(input.preview && input.preview.kind === "text" && !input.isMarkdownFile);
-}
-
 function isLineNumberSelected(
   lineSelection: { lineStart: number; lineEnd: number } | null,
   lineNumber: number,
@@ -630,9 +665,12 @@ function useDocumentAnnotationController(input: {
     dispatch({ type: "toggle_mode" });
   }, []);
 
-  const selectTarget = useCallback((target: DocumentAnnotationTarget) => {
-    dispatch({ type: "select_target", target });
-  }, []);
+  const selectTarget = useCallback(
+    (target: DocumentAnnotationTarget, payload?: DocumentAnnotationSelectionPayload) => {
+      dispatch({ type: "select_target", target, payload });
+    },
+    [],
+  );
 
   const addAnnotation = useCallback(() => {
     dispatch({ type: "add_annotation", id: `${Date.now()}-${state.pendingAnnotations.length}` });
@@ -795,6 +833,11 @@ function getDocumentAnnotationHint(input: {
       ? "使用顶部 Annotate 工具创建或选择标注。"
       : "开启后用 PDF 顶部 Annotate 工具标出要修改的位置。";
   }
+  if (input.documentKind === "xlsx" || input.documentKind === "csv") {
+    return input.annotationMode
+      ? translateNow("document.annotation.xlsx.screenshot.modeHint")
+      : translateNow("document.annotation.xlsx.screenshot.offHint");
+  }
   return input.annotationMode ? "在预览中点击单元格、文字或页面位置。" : "开启后选择要修改的位置。";
 }
 
@@ -851,6 +894,13 @@ function DocumentAnnotationListItem({
       <Text style={styles.annotationItemText} numberOfLines={2}>
         {annotation.instruction}
       </Text>
+      {annotation.images && annotation.images.length > 0 ? (
+        <Text style={styles.annotationItemMeta} numberOfLines={1}>
+          {translateNow("document.annotation.screenshot.count", {
+            count: annotation.images.length,
+          })}
+        </Text>
+      ) : null}
       <Button
         onPress={handleRemove}
         size="xs"
@@ -900,6 +950,10 @@ function getFilePanePreviewRevision(data: FilePanePreviewData | undefined): stri
   });
 }
 
+function getFilePaneDocumentSourceUrl(data: FilePanePreviewData | undefined): string | null {
+  return data?.documentSourceUrl ?? null;
+}
+
 export function FilePane({
   serverId,
   sourceAgentId,
@@ -931,16 +985,31 @@ export function FilePane({
     );
   });
   const normalizedWorkspaceRoot = useMemo(() => workspaceRoot.trim(), [workspaceRoot]);
+  const sourceAgentCwd = useSessionStore((state) => {
+    if (!sourceAgentId) {
+      return null;
+    }
+    const session = state.sessions[serverId];
+    return (
+      session?.agents.get(sourceAgentId)?.cwd ??
+      session?.agentDetails.get(sourceAgentId)?.cwd ??
+      null
+    );
+  });
+  const previewWorkspaceRoot = useMemo(
+    () => sourceAgentCwd?.trim() || normalizedWorkspaceRoot,
+    [normalizedWorkspaceRoot, sourceAgentCwd],
+  );
   const normalizedFilePath = useMemo(() => trimNonEmpty(location.path), [location.path]);
   const readTarget = useMemo(
     () =>
       normalizedFilePath
         ? resolveFilePreviewReadTarget({
             path: normalizedFilePath,
-            workspaceRoot: normalizedWorkspaceRoot,
+            workspaceRoot: previewWorkspaceRoot,
           })
         : null,
-    [normalizedFilePath, normalizedWorkspaceRoot],
+    [normalizedFilePath, previewWorkspaceRoot],
   );
 
   const query = useFilePanePreviewQuery({ client, readTarget, serverId });
@@ -957,6 +1026,7 @@ export function FilePane({
     return getFilePanePreviewRevision(result.data);
   }, [query]);
   const previewRevision = useMemo(() => getFilePanePreviewRevision(query.data), [query.data]);
+  const documentSourceUrl = useMemo(() => getFilePaneDocumentSourceUrl(query.data), [query.data]);
   const previewAndAnnotationStyle = useMemo(
     () => [
       styles.previewAndAnnotationContainer,
@@ -1000,6 +1070,7 @@ export function FilePane({
             preview={query.data?.file ?? null}
             documentBytes={query.data?.documentBytes ?? null}
             documentKind={query.data?.documentKind ?? null}
+            documentSourceUrl={documentSourceUrl}
             documentPreviewRevision={previewRevision}
             documentAnnotationMode={documentAnnotationMode}
             pendingDocumentAnnotationTargets={pendingDocumentAnnotationTargets}
@@ -1192,6 +1263,10 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 18,
+  },
+  annotationItemMeta: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
   },
   annotationRemoveButton: {
     alignSelf: "flex-start",

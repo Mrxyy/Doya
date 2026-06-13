@@ -87,4 +87,47 @@ describe("document annotation apply request", () => {
 
     expect(result.phase).toBe("running");
   });
+
+  it("passes annotation screenshots as image attachments", () => {
+    const sendAgentMessage = vi.fn().mockResolvedValue(undefined);
+    const image = {
+      data: "base64-image-data",
+      mimeType: "image/png",
+      fileName: "budget-selection.png",
+    };
+
+    const result = beginDocumentAnnotationApplyRequest({
+      appendOptimisticUserMessageToAgentStream: vi.fn(),
+      client: { sendAgentMessage },
+      documentKind: "xlsx",
+      filePath: "output/budget.xlsx",
+      annotations: [
+        {
+          target: {
+            kind: "xlsx",
+            label: "表格截图区域",
+            locator: {
+              type: "screenshot_region",
+              source: "onlyoffice_preview",
+              imageFileName: "budget-selection.png",
+            },
+          },
+          instruction: "根据截图把图表修好",
+          images: [image],
+        },
+      ],
+      serverId: "server-1",
+      sourceAgentId: "agent-1",
+      sourceAgentStatus: "idle",
+      defaultLocale: "zh",
+      messageId: "msg_screenshot",
+    });
+
+    expect(result.prompt).toContain('"imageFileName": "budget-selection.png"');
+    expect(result.prompt).toContain('"mimeType": "image/png"');
+    expect(sendAgentMessage).toHaveBeenCalledWith("agent-1", result.prompt, {
+      messageId: "msg_screenshot",
+      images: [image],
+    });
+  });
 });
