@@ -1181,6 +1181,45 @@ describe("turn lifecycle events", () => {
     ]);
   });
 
+  it("renders materialized uploaded-file blocks that were joined to the prompt line", () => {
+    const state = reduceStreamUpdate(
+      [],
+      {
+        type: "timeline",
+        provider: "codex",
+        item: {
+          type: "user_message",
+          text: [
+            "最后项目，名称改成福鑫oa系统Uploaded file: 徐清樾-web前端开发-本科5年.pdf",
+            "MIME type: application/pdf",
+            "Workspace path: attachments/abc-徐清樾-web前端开发-本科5年.pdf",
+            "Use the workspace path above when the user asks about this file.",
+          ].join("\n"),
+          messageId: "canonical-joined-uploaded-file-user",
+        },
+      },
+      new Date("2025-01-01T15:03:26Z"),
+      { source: "canonical" },
+    );
+
+    const userMessage = state.find((item) => item.kind === "user_message");
+    invariant(userMessage?.kind === "user_message");
+    assert.strictEqual(userMessage.text, "最后项目，名称改成福鑫oa系统");
+    assert.deepStrictEqual(userMessage.attachments, [
+      {
+        type: "text",
+        mimeType: "text/plain",
+        title: "徐清樾-web前端开发-本科5年.pdf",
+        text: [
+          "Uploaded file: 徐清樾-web前端开发-本科5年.pdf",
+          "MIME type: application/pdf",
+          "Workspace path: attachments/abc-徐清樾-web前端开发-本科5年.pdf",
+          "Use the workspace path above when the user asks about this file.",
+        ].join("\n"),
+      },
+    ]);
+  });
+
   it("strips attached-image marker lines from user message text", () => {
     const state = reduceStreamUpdate(
       [],

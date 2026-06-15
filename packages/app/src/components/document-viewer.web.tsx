@@ -135,8 +135,20 @@ interface OnlyOfficeSpreadsheetApi {
 }
 
 interface OnlyOfficeWorksheet {
+  GetAllDrawings?: () => OnlyOfficeDrawing[];
   GetName?: () => string;
+  GetSelectedDrawings?: () => OnlyOfficeDrawing[];
+  GetSelectedShapes?: () => OnlyOfficeDrawing[];
   GetSelection?: () => OnlyOfficeRange | null;
+}
+
+interface OnlyOfficeDrawing {
+  Drawing?: {
+    getSelectionState?: () => unknown;
+  } & Record<string, unknown>;
+  GetClassType?: () => unknown;
+  GetName?: () => unknown;
+  GetTitle?: () => unknown;
 }
 
 interface OnlyOfficeRange {
@@ -724,6 +736,7 @@ function OnlyOfficeSpreadsheetDocumentViewer({
 >) {
   const hostId = useMemo(() => `onlyoffice-${crypto.randomUUID()}`, []);
   const editorRef = useRef<OnlyOfficeDocEditor | null>(null);
+  const lastSyncedSelectionKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [shouldFallback, setShouldFallback] = useState(false);
   const documentUrl = useMemo(
@@ -827,6 +840,51 @@ function OnlyOfficeSpreadsheetDocumentViewer({
     };
   }, [callbackUrl, documentKey, documentUrl, fileName, hostId, pluginConfigUrl]);
 
+  useEffect(() => {
+    if (!annotationMode || !onAnnotationTargetSelect) {
+      lastSyncedSelectionKeyRef.current = null;
+      return;
+    }
+
+    let canceled = false;
+    let isReading = false;
+
+    function syncSelection() {
+      if (isReading) {
+        return;
+      }
+      isReading = true;
+      void readOnlyOfficeSpreadsheetSelection({
+        editor: editorRef.current,
+        selectionCaptureUrl,
+      })
+        .then((selection) => {
+          if (canceled || !selection) {
+            return;
+          }
+          const selectionKey = createOnlyOfficeSelectionKey(selection);
+          if (selectionKey === lastSyncedSelectionKeyRef.current) {
+            return;
+          }
+          lastSyncedSelectionKeyRef.current = selectionKey;
+          onAnnotationTargetSelect(
+            buildOnlyOfficeSelectionAnnotationTarget({ fileName, selection }),
+          );
+        })
+        .catch(() => {})
+        .finally(() => {
+          isReading = false;
+        });
+    }
+
+    syncSelection();
+    const timer = window.setInterval(syncSelection, 800);
+    return () => {
+      canceled = true;
+      window.clearInterval(timer);
+    };
+  }, [annotationMode, fileName, onAnnotationTargetSelect, selectionCaptureUrl]);
+
   if (shouldFallback) {
     return (
       <XSpreadsheetDocumentViewer
@@ -841,92 +899,49 @@ function OnlyOfficeSpreadsheetDocumentViewer({
     <div data-testid="document-xlsx-onlyoffice-preview" style={webStyles.onlyOfficeRoot}>
       <div id={hostId} style={webStyles.onlyOfficeHost} />
       {isLoading ? <DocumentLoadingOverlay label={translateNow("ui.loading.xlsx")} /> : null}
-      {annotationMode && onAnnotationTargetSelect ? (
-        <OnlyOfficeSelectionAnnotationBar
-          editorRef={editorRef}
-          fileName={fileName}
-          onAnnotationTargetSelect={onAnnotationTargetSelect}
-          selectionCaptureUrl={selectionCaptureUrl}
-        />
-      ) : null}
     </div>
   );
 }
 
 interface OnlyOfficeSpreadsheetSelection {
+  kind?: "range" | "drawing";
   sheetName: string;
   address: string;
+  drawingIndex?: number;
+  drawingSelectionState?: string;
+  drawingType?: string;
   text?: string;
   value?: string;
   formula?: string;
-}
-
-type OnlyOfficeSelectionReadState = "idle" | "reading" | "error" | "unsupported";
-
-function OnlyOfficeSelectionAnnotationBar({
-  editorRef,
-  fileName,
-  onAnnotationTargetSelect,
-  selectionCaptureUrl,
-}: {
-  editorRef: React.RefObject<OnlyOfficeDocEditor | null>;
-  fileName: string;
-  onAnnotationTargetSelect: NonNullable<DocumentViewerProps["onAnnotationTargetSelect"]>;
-  selectionCaptureUrl: string | null;
-}) {
-  const [state, setState] = useState<OnlyOfficeSelectionReadState>("idle");
-
-  const handleReadSelection = useCallback(() => {
-    setState("reading");
-    void readOnlyOfficeSpreadsheetSelection({
-      editor: editorRef.current,
-      selectionCaptureUrl,
-    })
-      .then((selection) => {
-        if (!selection) {
-          setState("unsupported");
-          return;
-        }
-        onAnnotationTargetSelect(buildOnlyOfficeSelectionAnnotationTarget({ fileName, selection }));
-        setState("idle");
-      })
-      .catch(() => {
-        setState("error");
-      });
-  }, [editorRef, fileName, onAnnotationTargetSelect, selectionCaptureUrl]);
-
-  return (
-    <div style={webStyles.onlyOfficeSelectionBar}>
-      <button
-        data-testid="document-xlsx-onlyoffice-read-selection-button"
-        disabled={state === "reading"}
-        onClick={handleReadSelection}
-        style={webStyles.onlyOfficeSelectionButton}
-        type="button"
-      >
-        {state === "reading"
-          ? translateNow("document.annotation.xlsx.selection.reading")
-          : translateNow("document.annotation.xlsx.selection.readButton")}
-      </button>
-      <span style={webStyles.onlyOfficeSelectionHint}>{getOnlyOfficeSelectionHint(state)}</span>
-    </div>
-  );
-}
-
-function getOnlyOfficeSelectionHint(state: OnlyOfficeSelectionReadState): string {
-  if (state === "error") {
-    return translateNow("document.annotation.xlsx.selection.error");
-  }
-  if (state === "unsupported") {
-    return translateNow("document.annotation.xlsx.selection.unsupported");
-  }
-  return translateNow("document.annotation.xlsx.selection.barHint");
 }
 
 function buildOnlyOfficeSelectionAnnotationTarget(input: {
   fileName: string;
   selection: OnlyOfficeSpreadsheetSelection;
 }): DocumentAnnotationTarget {
+  if (input.selection.kind === "drawing") {
+    const locator: DocumentAnnotationTarget["locator"] = {
+      type: "drawing",
+      source: "onlyoffice_selection",
+      fileName: input.fileName,
+      sheet: input.selection.sheetName,
+      drawing: input.selection.address,
+    };
+    setLocatorNumber(locator, "drawingIndex", input.selection.drawingIndex);
+    setLocatorString(locator, "drawingSelectionState", input.selection.drawingSelectionState);
+    setLocatorString(locator, "drawingType", input.selection.drawingType);
+    setLocatorString(locator, "text", input.selection.text);
+
+    const drawingLabel =
+      input.selection.text || input.selection.drawingType || input.selection.address;
+    return {
+      kind: "xlsx",
+      label: `${input.selection.sheetName}!${drawingLabel}`,
+      locator,
+      context: buildOnlyOfficeSelectionContext(input.selection),
+    };
+  }
+
   const locator: DocumentAnnotationTarget["locator"] = {
     type: "range",
     source: "onlyoffice_selection",
@@ -946,8 +961,29 @@ function buildOnlyOfficeSelectionAnnotationTarget(input: {
   };
 }
 
+function createOnlyOfficeSelectionKey(selection: OnlyOfficeSpreadsheetSelection): string {
+  return JSON.stringify([
+    selection.kind ?? "range",
+    selection.sheetName,
+    selection.address,
+    selection.drawingIndex ?? "",
+    selection.drawingSelectionState ?? "",
+    selection.drawingType ?? "",
+    selection.text ?? "",
+    selection.value ?? "",
+    selection.formula ?? "",
+  ]);
+}
+
 function buildOnlyOfficeSelectionContext(selection: OnlyOfficeSpreadsheetSelection): string {
   return [
+    selection.kind === "drawing" ? `type=${selection.drawingType ?? "drawing"}` : null,
+    selection.kind === "drawing" && selection.drawingIndex
+      ? `drawingIndex=${selection.drawingIndex}`
+      : null,
+    selection.drawingSelectionState
+      ? `drawingSelectionState=${selection.drawingSelectionState}`
+      : null,
     selection.text ? `text=${selection.text}` : null,
     selection.value ? `value=${selection.value}` : null,
     selection.formula ? `formula=${selection.formula}` : null,
@@ -962,6 +998,16 @@ function setLocatorString(
   value: string | undefined,
 ): void {
   if (value) {
+    locator[key] = value;
+  }
+}
+
+function setLocatorNumber(
+  locator: DocumentAnnotationTarget["locator"],
+  key: string,
+  value: number | undefined,
+): void {
+  if (typeof value === "number" && Number.isFinite(value)) {
     locator[key] = value;
   }
 }
@@ -1038,16 +1084,144 @@ function readActiveOnlyOfficeSpreadsheetSelection(): unknown {
     }
     return readValue(read);
   }
+  function readArray(read: () => unknown): unknown[] {
+    const value = readValue(read);
+    return Array.isArray(value) ? value : [];
+  }
+  function readDrawingText(drawing: OnlyOfficeDrawing, fallback: string): string {
+    const title = readValue(() => drawing.GetTitle?.());
+    if (typeof title === "string" && title.trim()) {
+      return title.trim();
+    }
+    const name = readValue(() => drawing.GetName?.());
+    if (typeof name === "string" && name.trim()) {
+      return name.trim();
+    }
+    return fallback;
+  }
+  function compactSelectionState(value: unknown, depth = 5): unknown {
+    if (
+      value == null ||
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      return value;
+    }
+    if (depth <= 0) {
+      return undefined;
+    }
+    if (Array.isArray(value)) {
+      return value.slice(0, 20).map((item) => compactSelectionState(item, depth - 1));
+    }
+    if (typeof value !== "object") {
+      return undefined;
+    }
 
+    const source = value as Record<string, unknown>;
+    const result: Record<string, unknown> = {};
+    for (const key of Object.getOwnPropertyNames(source).slice(0, 80)) {
+      if (
+        !/^(selection|selected|chart|data|dLbl|label|idx|index|point|series|type|name|title|id|target|object|text|value|x|y|pos|state)/i.test(
+          key,
+        )
+      ) {
+        continue;
+      }
+      const compactValue = compactSelectionState(
+        readValue(() => source[key]),
+        depth - 1,
+      );
+      if (compactValue !== undefined) {
+        result[key] = compactValue;
+      }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+  function stringifySelectionState(value: unknown): string {
+    const compactValue = compactSelectionState(value);
+    if (compactValue === undefined) {
+      return "";
+    }
+    try {
+      return JSON.stringify(compactValue).slice(0, 4000);
+    } catch {
+      return "";
+    }
+  }
+  function safeString(value: unknown): string {
+    if (value == null) {
+      return "";
+    }
+    if (typeof value === "string") {
+      return value.trim();
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
+    try {
+      return JSON.stringify(value).slice(0, 2000);
+    } catch {
+      return Object.prototype.toString.call(value);
+    }
+  }
+  function drawingIdentity(drawing: unknown): string {
+    const candidate = drawing as OnlyOfficeDrawing;
+    return JSON.stringify([
+      safeString(readValue(() => candidate.GetClassType?.())),
+      safeString(readValue(() => candidate.GetName?.())),
+      safeString(readValue(() => candidate.GetTitle?.())),
+    ]);
+  }
+  function findDrawingIndex(allDrawings: unknown[], drawing: unknown): number {
+    const directIndex = allDrawings.indexOf(drawing);
+    if (directIndex >= 0) {
+      return directIndex + 1;
+    }
+    const identity = drawingIdentity(drawing);
+    const matchedIndex = allDrawings.findIndex(
+      (candidate) => drawingIdentity(candidate) === identity,
+    );
+    return matchedIndex >= 0 ? matchedIndex + 1 : 1;
+  }
   try {
     const sheet = Api.GetActiveSheet?.();
-    const selection = sheet?.GetSelection?.();
     const sheetName = readValue(() => sheet?.GetName?.()) ?? "Sheet1";
-    const address =
+    const selection = sheet?.GetSelection?.();
+    const selectionAddress =
       readValue(() => selection?.GetAddress?.(false, false, "xlA1", false)) ??
       readValue(() => selection?.GetAddress?.()) ??
       "";
+    const selectedDrawings = readArray(() => sheet?.GetSelectedDrawings?.());
+    if (selectedDrawings.length === 0) {
+      selectedDrawings.push(...readArray(() => sheet?.GetSelectedShapes?.()));
+    }
+    const allDrawings = readArray(() => sheet?.GetAllDrawings?.());
+
+    if (selectedDrawings.length > 0) {
+      const drawing = selectedDrawings[0] as OnlyOfficeDrawing;
+      const drawingIndex = findDrawingIndex(allDrawings, drawing);
+      const drawingType = safeString(readValue(() => drawing.GetClassType?.())) || "drawing";
+      const address = `drawing:${drawingIndex}`;
+      return JSON.stringify({
+        kind: "drawing",
+        sheetName,
+        address,
+        drawingIndex,
+        drawingSelectionState: stringifySelectionState(
+          readValue(() => drawing.Drawing?.getSelectionState?.()),
+        ),
+        drawingType,
+        text: readDrawingText(drawing, address),
+      });
+    }
+
+    const address = safeString(selectionAddress);
+    if (!address) {
+      return null;
+    }
     return JSON.stringify({
+      kind: "range",
       sheetName,
       address,
       formula: readSingleCellValue(address, () => selection?.GetFormula?.()),
@@ -1072,13 +1246,26 @@ function normalizeOnlyOfficeSpreadsheetSelection(
   if (!isRecord(value)) {
     return null;
   }
-  const address = toAnnotationLocatorString(value.address);
+  const kind = value.kind === "drawing" ? "drawing" : "range";
+  const address =
+    toAnnotationLocatorString(value.address) ??
+    (kind === "drawing" && typeof value.drawingIndex === "number"
+      ? `drawing:${value.drawingIndex}`
+      : undefined);
   if (!address) {
     return null;
   }
+  const drawingIndex =
+    typeof value.drawingIndex === "number" && Number.isFinite(value.drawingIndex)
+      ? value.drawingIndex
+      : undefined;
   return {
+    kind,
     sheetName: toAnnotationLocatorString(value.sheetName) || "Sheet1",
     address,
+    drawingIndex,
+    drawingSelectionState: toAnnotationLocatorString(value.drawingSelectionState),
+    drawingType: toAnnotationLocatorString(value.drawingType),
     formula: toAnnotationLocatorString(value.formula),
     text: toAnnotationLocatorString(value.text),
     value: toAnnotationLocatorString(value.value),
@@ -1840,40 +2027,6 @@ const webStyles = {
     width: "100%",
     height: "100%",
     minHeight: 0,
-  },
-  onlyOfficeSelectionBar: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    zIndex: 12,
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    maxWidth: "min(620px, calc(100% - 24px))",
-    padding: "8px 10px",
-    borderRadius: 8,
-    border: "1px solid rgba(32, 116, 74, 0.22)",
-    background: "rgba(255, 255, 255, 0.94)",
-    color: "#1f2937",
-    boxShadow: "0 8px 20px rgba(15, 23, 42, 0.12)",
-  },
-  onlyOfficeSelectionButton: {
-    flex: "0 0 auto",
-    border: "1px solid rgba(32, 116, 74, 0.42)",
-    borderRadius: 6,
-    background: "#20744A",
-    color: "#fff",
-    cursor: "pointer",
-    fontSize: 13,
-    fontWeight: 600,
-    lineHeight: 1.4,
-    padding: "5px 9px",
-  },
-  onlyOfficeSelectionHint: {
-    minWidth: 0,
-    color: "#4b5563",
-    fontSize: 12,
-    lineHeight: 1.35,
   },
   spreadsheetRoot: {
     width: "100%",

@@ -279,6 +279,13 @@ function extractFileAttachmentBlocks(text: string): {
 }
 
 function findFileAttachmentBlockStart(text: string): number | null {
+  const uploadedFileMatch = text.match(
+    /Uploaded file: [^\n]+\nMIME type: [^\n]+\nWorkspace path: [^\n]+\nUse the workspace path above when the user asks about this file\./,
+  );
+  if (uploadedFileMatch?.index !== undefined) {
+    return uploadedFileMatch.index;
+  }
+
   const matches = text.matchAll(/^(?:File: .+|Uploaded file: .+|Attached image: .+)$/gm);
   for (const match of matches) {
     const index = match.index;
@@ -313,7 +320,7 @@ function parseFileAttachmentBlocks(text: string): AgentAttachment[] {
     });
   }
   const uploadedPattern =
-    /(?:^|\n+)Uploaded file: ([^\n]+)\nMIME type: ([^\n]+)\nWorkspace path: ([^\n]+)\nUse the workspace path above when the user asks about this file\./g;
+    /Uploaded file: ([^\n]+)\nMIME type: ([^\n]+)\nWorkspace path: ([^\n]+)\nUse the workspace path above when the user asks about this file\./g;
   for (const match of text.matchAll(uploadedPattern)) {
     const title = match[1]?.trim();
     const mimeType = match[2]?.trim();

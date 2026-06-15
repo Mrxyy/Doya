@@ -4,6 +4,8 @@ import type { DaemonClient, FileReadResult } from "@getdoya/client/internal/daem
 import Markdown, { MarkdownIt } from "react-native-markdown-display";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Image as RNImage,
   ScrollView as RNScrollView,
   Text,
@@ -745,6 +747,61 @@ function DocumentAnnotationPanel({
     annotationMode: controller.annotationMode,
     documentKind,
   });
+  const shouldGuideTargetSelection =
+    controller.annotationMode && controller.selectedAnnotationTarget === null;
+  const targetGuidePulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!shouldGuideTargetSelection) {
+      targetGuidePulse.stopAnimation();
+      targetGuidePulse.setValue(0);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(targetGuidePulse, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(targetGuidePulse, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.in(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [shouldGuideTargetSelection, targetGuidePulse]);
+
+  const targetGuideStyle = useMemo(
+    () => ({
+      opacity: targetGuidePulse.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.18, 0.72],
+      }),
+      transform: [
+        {
+          scale: targetGuidePulse.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 1.018],
+          }),
+        },
+      ],
+    }),
+    [targetGuidePulse],
+  );
+  const targetBoxStyle = useMemo(
+    () => [
+      styles.annotationTargetBox,
+      shouldGuideTargetSelection ? styles.annotationTargetBoxGuided : null,
+    ],
+    [shouldGuideTargetSelection],
+  );
 
   return (
     <View style={panelStyle} testID="document-annotation-panel">
@@ -760,7 +817,13 @@ function DocumentAnnotationPanel({
         </Button>
       </View>
       <Text style={styles.annotationHint}>{annotationHint}</Text>
-      <View style={styles.annotationTargetBox}>
+      <View style={targetBoxStyle}>
+        {shouldGuideTargetSelection ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.annotationTargetGuidePulse, targetGuideStyle]}
+          />
+        ) : null}
         <Text style={styles.annotationTargetLabel}>当前位置</Text>
         <Text
           style={styles.annotationTargetText}
@@ -769,6 +832,11 @@ function DocumentAnnotationPanel({
         >
           {formatAnnotationTarget(controller.selectedAnnotationTarget)}
         </Text>
+        {shouldGuideTargetSelection ? (
+          <Text style={styles.annotationTargetGuideText}>
+            {getAnnotationTargetGuideText(documentKind)}
+          </Text>
+        ) : null}
       </View>
       <TextInput
         multiline
@@ -829,6 +897,16 @@ function getDocumentAnnotationHint(input: {
       : translateNow("document.annotation.xlsx.selection.offHint");
   }
   return input.annotationMode ? "在预览中点击单元格、文字或页面位置。" : "开启后选择要修改的位置。";
+}
+
+function getAnnotationTargetGuideText(documentKind: DocumentViewerKind | null | undefined): string {
+  if (documentKind === "xlsx" || documentKind === "csv") {
+    return translateNow("document.annotation.targetGuide.spreadsheet");
+  }
+  if (documentKind === "pdf") {
+    return translateNow("document.annotation.targetGuide.pdf");
+  }
+  return translateNow("document.annotation.targetGuide.default");
 }
 
 function DocumentAnnotationApplyOverlay({ phase }: { phase: DocumentAnnotationApplyPhase }) {
@@ -1191,12 +1269,29 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: 20,
   },
   annotationTargetBox: {
+    position: "relative",
+    overflow: "hidden",
     borderRadius: theme.borderRadius.lg,
     borderWidth: theme.borderWidth[1],
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface0,
     padding: theme.spacing[3],
     gap: theme.spacing[1],
+  },
+  annotationTargetBoxGuided: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.surface2,
+  },
+  annotationTargetGuidePulse: {
+    position: "absolute",
+    top: -1,
+    right: -1,
+    bottom: -1,
+    left: -1,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 2,
+    borderColor: theme.colors.accent,
+    backgroundColor: "transparent",
   },
   annotationTargetLabel: {
     color: theme.colors.foregroundMuted,
@@ -1207,6 +1302,11 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     fontSize: theme.fontSize.sm,
     lineHeight: 20,
+  },
+  annotationTargetGuideText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    lineHeight: 18,
   },
   annotationInput: {
     minHeight: 104,

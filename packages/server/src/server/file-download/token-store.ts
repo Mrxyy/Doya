@@ -38,15 +38,14 @@ export class DownloadTokenStore {
     return entry;
   }
 
-  consumeToken(token: string): DownloadTokenEntry | null {
+  resolveToken(token: string): DownloadTokenEntry | null {
     const entry = this.tokens.get(token);
     if (!entry) {
       return null;
     }
 
-    this.tokens.delete(token);
-
     if (entry.expiresAt <= this.now()) {
+      this.tokens.delete(token);
       return null;
     }
 

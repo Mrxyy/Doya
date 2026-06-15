@@ -164,9 +164,13 @@ const ONLYOFFICE_PREVIEW_XLSX_MIME_TYPE =
 const ONLYOFFICE_SELECTION_PLUGIN_GUID = "asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}";
 
 interface OnlyOfficeSelectionCapture {
+  kind?: "range" | "drawing";
   documentKey: string;
   sheetName: string;
   address: string;
+  drawingIndex?: number;
+  drawingSelectionState?: string;
+  drawingType?: string;
   text?: string;
   value?: string;
   formula?: string;
@@ -693,7 +697,7 @@ export async function createDoyaDaemon(
       return;
     }
 
-    const entry = downloadTokenStore.consumeToken(token);
+    const entry = downloadTokenStore.resolveToken(token);
     if (!entry) {
       res.status(403).json({ error: "Invalid or expired token" });
       return;
@@ -708,9 +712,8 @@ export async function createDoyaDaemon(
         return;
       }
 
-      const safeFileName = entry.fileName.replace(/["\r\n]/g, "_");
       res.setHeader("Content-Type", entry.mimeType);
-      res.setHeader("Content-Disposition", `attachment; filename="${safeFileName}"`);
+      res.setHeader("Content-Disposition", buildAttachmentContentDisposition(entry.fileName));
       res.setHeader("Content-Length", fileStats.size.toString());
 
       const stream = fileHandle.createReadStream();
@@ -737,6 +740,26 @@ export async function createDoyaDaemon(
   app.get("/api/files/download", (req, res) => {
     void handleFileDownload(req, res);
   });
+
+  function buildAttachmentContentDisposition(fileName: string): string {
+    const fallbackFileName = buildAsciiFileNameFallback(fileName);
+    const encodedFileName = encodeRfc5987Value(fileName);
+    return `attachment; filename="${fallbackFileName}"; filename*=UTF-8''${encodedFileName}`;
+  }
+
+  function buildAsciiFileNameFallback(fileName: string): string {
+    const fallback = fileName
+      .replace(/[^\x20-\x7E]+/g, "_")
+      .replace(/["\\\r\n]/g, "_")
+      .trim();
+    return fallback || "download";
+  }
+
+  function encodeRfc5987Value(value: string): string {
+    return encodeURIComponent(value).replace(/['()*]/g, (char) =>
+      `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+    );
+  }
 
   const handleWorkspaceFileRaw = async (
     req: express.Request,
@@ -957,14 +980,109 @@ export async function createDoyaDaemon(
         if (!address || address.indexOf(":") !== -1) return "";
         return readValue(read);
       }
+      function readArray(read) {
+        var value = readValue(read);
+        return Array.isArray(value) ? value : [];
+      }
+      function safeText(value) {
+        return typeof value === "string" && value.trim() ? value.trim() : "";
+      }
+      function safeString(value) {
+        if (value === null || value === undefined) return "";
+        var text = "";
+        if (typeof value === "string") {
+          text = value;
+        } else if (typeof value === "number" || typeof value === "boolean") {
+          text = String(value);
+        } else {
+          try {
+            text = JSON.stringify(value);
+          } catch (error) {
+            text = "";
+          }
+        }
+        return text.length > 4000 ? text.slice(0, 4000) + "..." : text;
+      }
+      function readDrawingText(drawing, fallback) {
+        return (
+          safeText(readValue(function () { return drawing && drawing.GetTitle && drawing.GetTitle(); })) ||
+          safeText(readValue(function () { return drawing && drawing.GetName && drawing.GetName(); })) ||
+          fallback
+        );
+      }
+      function compactSelectionState(value, depth) {
+        if (value === null || value === undefined || typeof value === "string" || typeof value === "number" || typeof value === "boolean") return value;
+        if (depth <= 0) return undefined;
+        if (Array.isArray(value)) {
+          return value.slice(0, 20).map(function (item) { return compactSelectionState(item, depth - 1); });
+        }
+        if (typeof value !== "object") return undefined;
+        var result = {};
+        Object.getOwnPropertyNames(value)
+          .slice(0, 80)
+          .forEach(function (key) {
+            if (!/^(selection|selected|chart|data|dLbl|label|idx|index|point|series|type|name|title|id|target|object|text|value|x|y|pos|state)/i.test(key)) return;
+            var compactValue = compactSelectionState(readValue(function () { return value[key]; }), depth - 1);
+            if (compactValue !== undefined) result[key] = compactValue;
+          });
+        return Object.keys(result).length ? result : undefined;
+      }
+      function stringifySelectionState(value) {
+        var compactValue = compactSelectionState(value, 5);
+        if (compactValue === undefined) return "";
+        try {
+          return JSON.stringify(compactValue).slice(0, 4000);
+        } catch (error) {
+          return "";
+        }
+      }
+      function drawingIdentity(drawing) {
+        return JSON.stringify([
+          safeString(readValue(function () { return drawing && drawing.GetClassType && drawing.GetClassType(); })),
+          safeString(readValue(function () { return drawing && drawing.GetName && drawing.GetName(); })),
+          safeString(readValue(function () { return drawing && drawing.GetTitle && drawing.GetTitle(); }))
+        ]);
+      }
+      function findDrawingIndex(allDrawings, drawing) {
+        var directIndex = allDrawings.indexOf(drawing);
+        if (directIndex >= 0) return directIndex + 1;
+        var identity = drawingIdentity(drawing);
+        for (var index = 0; index < allDrawings.length; index += 1) {
+          if (drawingIdentity(allDrawings[index]) === identity) return index + 1;
+        }
+        return 1;
+      }
       try {
         var sheet = Api.GetActiveSheet && Api.GetActiveSheet();
+        var sheetName = readValue(function () { return sheet && sheet.GetName && sheet.GetName(); }) || "Sheet1";
         var selection = sheet && sheet.GetSelection && sheet.GetSelection();
         var address =
           readValue(function () { return selection && selection.GetAddress && selection.GetAddress(false, false, "xlA1", false); }) ||
           readValue(function () { return selection && selection.GetAddress && selection.GetAddress(); });
+        var selectedDrawings = readArray(function () { return sheet && sheet.GetSelectedDrawings && sheet.GetSelectedDrawings(); });
+        if (!selectedDrawings.length) {
+          selectedDrawings = readArray(function () { return sheet && sheet.GetSelectedShapes && sheet.GetSelectedShapes(); });
+        }
+        var allDrawings = readArray(function () { return sheet && sheet.GetAllDrawings && sheet.GetAllDrawings(); });
+        if (selectedDrawings.length) {
+          var drawing = selectedDrawings[0];
+          var drawingIndex = findDrawingIndex(allDrawings, drawing);
+          var drawingType = safeText(readValue(function () { return drawing && drawing.GetClassType && drawing.GetClassType(); })) || "drawing";
+          var drawingAddress = "drawing:" + drawingIndex;
+          return JSON.stringify({
+            kind: "drawing",
+            sheetName: sheetName,
+            address: drawingAddress,
+            drawingIndex: drawingIndex,
+            drawingSelectionState: stringifySelectionState(readValue(function () { return drawing && drawing.Drawing && drawing.Drawing.getSelectionState && drawing.Drawing.getSelectionState(); })),
+            drawingType: drawingType,
+            text: readDrawingText(drawing, drawingAddress)
+          });
+        }
+        if (!address) return null;
         return JSON.stringify({
-          sheetName: readValue(function () { return sheet && sheet.GetName && sheet.GetName(); }) || "Sheet1",
+          kind: "range",
+          sheetName: sheetName,
           address: address || "",
           formula: readSingleCellValue(address, function () { return selection && selection.GetFormula && selection.GetFormula(); }),
           text: readSingleCellValue(address, function () { return selection && selection.GetText && selection.GetText(); }),
@@ -993,8 +1111,12 @@ export async function createDoyaDaemon(
       if (!result || !result.address) return;
       var payload = {
         documentKey: documentKey,
+        kind: safeString(result.kind),
         sheetName: safeString(result.sheetName) || "Sheet1",
         address: safeString(result.address),
+        drawingIndex: result.drawingIndex,
+        drawingSelectionState: safeString(result.drawingSelectionState),
+        drawingType: safeString(result.drawingType),
         formula: safeString(result.formula),
         text: safeString(result.text),
         value: safeString(result.value)
@@ -1734,9 +1856,13 @@ function normalizeOnlyOfficeSelectionCapture(input: unknown): OnlyOfficeSelectio
     return null;
   }
   return {
+    kind: input.kind === "drawing" ? "drawing" : "range",
     documentKey,
     sheetName: toTrimmedString(input.sheetName) || "Sheet1",
     address,
+    drawingIndex: toFiniteNumber(input.drawingIndex),
+    drawingSelectionState: toTrimmedString(input.drawingSelectionState),
+    drawingType: toTrimmedString(input.drawingType),
     text: toTrimmedString(input.text),
     value: toTrimmedString(input.value),
     formula: toTrimmedString(input.formula),
@@ -1764,11 +1890,16 @@ function toTrimmedString(value: unknown): string | undefined {
     if (!serialized) {
       return undefined;
     }
+
     const trimmed = serialized.trim();
     return trimmed.length > 0 ? trimmed : undefined;
   } catch {
     return undefined;
   }
+}
+
+function toFiniteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function escapeHtmlAttribute(value: string): string {

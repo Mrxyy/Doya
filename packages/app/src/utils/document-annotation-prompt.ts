@@ -141,6 +141,7 @@ function getDocumentKindInstructions(kind: DocumentViewerKind): string {
     return [
       "- Treat spreadsheet locators as authoritative: sheet + cell address identify the target.",
       '- Treat locator.type="range" as an authoritative worksheet range selected inside the spreadsheet editor.',
+      '- Treat locator.type="drawing" as an authoritative selected spreadsheet object such as a chart, image, or shape. Use sheet, drawingIndex, drawingType, text, and drawingSelectionState as the object anchor.',
       "- Preserve formulas unless the annotation explicitly asks to replace them; when changing a formula-driven cell, prefer updating the formula inputs or formula itself so dependent summaries and charts stay linked.",
       "- Preserve existing worksheets, tables, charts, number formats, merged cells, and column widths unless the annotation asks otherwise.",
       "- For CSV, preserve the tabular data shape and delimiter semantics; if formulas/charts are requested, create an XLSX only when necessary and state that in the result.",

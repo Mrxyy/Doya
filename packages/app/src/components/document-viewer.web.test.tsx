@@ -457,22 +457,68 @@ describe("DocumentViewer web annotation interactions", () => {
       />,
     );
 
-    fireEvent.click(await screen.findByTestId("document-xlsx-onlyoffice-read-selection-button"));
+    await waitFor(() => {
+      expect(onAnnotationTargetSelect).toHaveBeenCalledWith({
+        kind: "xlsx",
+        label: "Budget!B2:C4",
+        locator: {
+          type: "range",
+          source: "onlyoffice_selection",
+          fileName: "budget.xlsx",
+          sheet: "Budget",
+          range: "B2:C4",
+          text: "Revenue 120000",
+          value: "120000",
+          formula: "=SUM(C3:C4)",
+        },
+        context: "text=Revenue 120000; value=120000; formula==SUM(C3:C4)",
+      });
+    });
+  });
 
-    expect(onAnnotationTargetSelect).toHaveBeenCalledWith({
-      kind: "xlsx",
-      label: "Budget!B2:C4",
-      locator: {
-        type: "range",
-        source: "onlyoffice_selection",
-        fileName: "budget.xlsx",
-        sheet: "Budget",
-        range: "B2:C4",
-        text: "Revenue 120000",
-        value: "120000",
-        formula: "=SUM(C3:C4)",
-      },
-      context: "text=Revenue 120000; value=120000; formula==SUM(C3:C4)",
+  it("reads selected ONLYOFFICE spreadsheet drawings for XLSX annotations", async () => {
+    const { DocumentViewer } = await import("./document-viewer.web");
+    const onAnnotationTargetSelect = vi.fn();
+    onlyOfficeMockState.connectorResult = {
+      kind: "drawing",
+      sheetName: "Overview",
+      address: "drawing:2",
+      drawingIndex: 2,
+      drawingSelectionState: '{"target":"dataLabel","pointIndex":8,"text":"4%"}',
+      drawingType: "chart",
+      text: "成本占比",
+    };
+
+    render(
+      <DocumentViewer
+        kind="xlsx"
+        bytes={createWorkbookBytes()}
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        fileName="budget.xlsx"
+        sourceUrl="http://localhost:6767/api/workspace-files/raw?cwd=/repo&path=budget.xlsx&access_token=secret"
+        annotationMode
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onAnnotationTargetSelect).toHaveBeenCalledWith({
+        kind: "xlsx",
+        label: "Overview!成本占比",
+        locator: {
+          type: "drawing",
+          source: "onlyoffice_selection",
+          fileName: "budget.xlsx",
+          sheet: "Overview",
+          drawing: "drawing:2",
+          drawingIndex: 2,
+          drawingSelectionState: '{"target":"dataLabel","pointIndex":8,"text":"4%"}',
+          drawingType: "chart",
+          text: "成本占比",
+        },
+        context:
+          'type=chart; drawingIndex=2; drawingSelectionState={"target":"dataLabel","pointIndex":8,"text":"4%"}; text=成本占比',
+      });
     });
   });
 
@@ -503,8 +549,6 @@ describe("DocumentViewer web annotation interactions", () => {
         onAnnotationTargetSelect={onAnnotationTargetSelect}
       />,
     );
-
-    fireEvent.click(await screen.findByTestId("document-xlsx-onlyoffice-read-selection-button"));
 
     await waitFor(() => {
       expect(onAnnotationTargetSelect).toHaveBeenCalledWith({

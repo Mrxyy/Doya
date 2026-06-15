@@ -26,7 +26,8 @@ describe("daemon E2E", () => {
   describe("file download tokens", () => {
     test("issues token over WS and downloads via HTTP", async () => {
       const cwd = tmpCwd();
-      const filePath = path.join(cwd, "download.txt");
+      const fileName = "徐清樾-web前端开发-本科5年-已修改.pdf";
+      const filePath = path.join(cwd, fileName);
       const fileContents = "download test payload";
       writeFileSync(filePath, fileContents, "utf-8");
 
@@ -40,11 +41,11 @@ describe("daemon E2E", () => {
 
       expect(agent.id).toBeTruthy();
 
-      const tokenResponse = await ctx.client.requestDownloadToken(cwd, "download.txt");
+      const tokenResponse = await ctx.client.requestDownloadToken(cwd, fileName);
 
       expect(tokenResponse.error).toBeNull();
       expect(tokenResponse.token).toBeTruthy();
-      expect(tokenResponse.fileName).toBe("download.txt");
+      expect(tokenResponse.fileName).toBe(fileName);
 
       const response = await fetch(
         `http://127.0.0.1:${ctx.daemon.port}/api/files/download?token=${tokenResponse.token}`,
@@ -53,10 +54,20 @@ describe("daemon E2E", () => {
       expect(response.status).toBe(200);
       expect(response.headers.get("content-type")).toBe(tokenResponse.mimeType);
       const disposition = response.headers.get("content-disposition") ?? "";
-      expect(disposition).toContain("download.txt");
+      expect(disposition).toContain('filename="_-web_-_5_-_.pdf"');
+      expect(disposition).toContain(
+        "filename*=UTF-8''%E5%BE%90%E6%B8%85%E6%A8%BE-web%E5%89%8D%E7%AB%AF%E5%BC%80%E5%8F%91-%E6%9C%AC%E7%A7%915%E5%B9%B4-%E5%B7%B2%E4%BF%AE%E6%94%B9.pdf",
+      );
 
       const body = await response.text();
       expect(body).toBe(fileContents);
+
+      const retryResponse = await fetch(
+        `http://127.0.0.1:${ctx.daemon.port}/api/files/download?token=${tokenResponse.token}`,
+      );
+
+      expect(retryResponse.status).toBe(200);
+      await retryResponse.text();
 
       rmSync(cwd, { recursive: true, force: true });
     }, 60000);

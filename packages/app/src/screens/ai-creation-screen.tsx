@@ -1908,6 +1908,7 @@ export function AiCreationScreen({
           text: userMessageText,
           metadata: {
             images: optimisticImages,
+            displayAttachments: editAttachments,
             ...(hasSelectionReference
               ? {
                   selectionPreviewUri: displaySelectionPreviewUri,
@@ -1927,6 +1928,7 @@ export function AiCreationScreen({
             text: userMessageText,
             timestamp: new Date(),
             images: optimisticImages,
+            attachments: editAttachments,
             selectionPreviewUri: hasSelectionReference ? displaySelectionPreviewUri : undefined,
             ...(hasSelectionReference && selectionImageSource ? { selectionImageSource } : {}),
             ...(hasSelectionReference ? { selectionImage: selectionImageForDisplay } : {}),
