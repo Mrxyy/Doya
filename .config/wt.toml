@@ -1,6 +1,6 @@
 
 [pre-start]
-install-deps='pnpm i'
+install-deps='npm i'
 
 
 [pre-switch]
