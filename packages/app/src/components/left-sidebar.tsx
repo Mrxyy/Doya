@@ -51,10 +51,10 @@ import { useWindowControlsPadding } from "@/utils/desktop-window";
 import {
   buildHostAiCreationRoute,
   buildHostHomeRoute,
-  buildHostLoginRoute,
   buildSettingsRoute,
 } from "@/utils/host-routes";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
+import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
@@ -120,6 +120,7 @@ export const LeftSidebar = memo(function LeftSidebar({
     selectIsAgentListOpen(state, { isCompact: isCompactLayout }),
   );
   const showMobileAgent = usePanelStore((state) => state.showMobileAgent);
+  const openAccountLogin = useAccountLoginModalStore((state) => state.open);
   const pathname = usePathname();
   const daemons = useHosts();
   const activeDaemon = useMemo(
@@ -199,13 +200,13 @@ export const LeftSidebar = memo(function LeftSidebar({
   const handleAccountLoginMobile = useCallback(() => {
     if (!activeServerId) return;
     showMobileAgent();
-    router.push(buildHostLoginRoute(activeServerId));
-  }, [activeServerId, showMobileAgent]);
+    openAccountLogin(activeServerId);
+  }, [activeServerId, openAccountLogin, showMobileAgent]);
 
   const handleAccountLoginDesktop = useCallback(() => {
     if (!activeServerId) return;
-    router.push(buildHostLoginRoute(activeServerId));
-  }, [activeServerId]);
+    openAccountLogin(activeServerId);
+  }, [activeServerId, openAccountLogin]);
 
   const handleAccountLogoutMobile = useCallback(() => {
     if (!activeServerId) return;
@@ -332,10 +333,6 @@ function AccountMenuTrigger({
   const { t } = useI18n();
   const label = accountSession?.user.email ?? t("common.login");
   const avatarLabel = accountSession?.user.email.trim().charAt(0).toUpperCase() || null;
-  const accountLoginLeadingIcon = useMemo(
-    () => <UserRound size={14} color={theme.colors.foregroundMuted} />,
-    [theme.colors.foregroundMuted],
-  );
   const accountLogoutLeadingIcon = useMemo(
     () => <LogOut size={14} color={theme.colors.foregroundMuted} />,
     [theme.colors.foregroundMuted],
@@ -347,15 +344,43 @@ function AccountMenuTrigger({
     ],
     [],
   );
+
+  const loginStyle = useCallback(
+    ({ hovered, pressed }: { hovered: boolean; pressed: boolean }) => [
+      styles.accountTrigger,
+      (hovered || pressed) && styles.accountTriggerHovered,
+    ],
+    [],
+  );
+
+  if (!accountSession) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t("common.login")}
+        onPress={onLogin}
+        style={loginStyle}
+        testID="sidebar-account-login"
+      >
+        <View style={styles.accountAvatarEmpty}>
+          <UserRound size={16} color={styles.accountAvatarIcon.color} />
+        </View>
+        <Text style={styles.accountLabel} numberOfLines={1}>
+          {label}
+        </Text>
+      </Pressable>
+    );
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         style={triggerStyle}
         accessibilityRole="button"
-        accessibilityLabel={accountSession ? t("sidebar.account.menu") : t("common.login")}
+        accessibilityLabel={t("sidebar.account.menu")}
         testID="sidebar-account-menu"
       >
-        <View style={accountSession ? styles.accountAvatar : styles.accountAvatarEmpty}>
+        <View style={styles.accountAvatar}>
           {avatarLabel ? (
             <Text style={styles.accountAvatarText}>{avatarLabel}</Text>
           ) : (
@@ -367,23 +392,13 @@ function AccountMenuTrigger({
         </Text>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" width={260}>
-        {accountSession ? (
-          <DropdownMenuItem
-            testID="sidebar-account-logout"
-            leading={accountLogoutLeadingIcon}
-            onSelect={onLogout}
-          >
-            {t("common.logout")}
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem
-            testID="sidebar-account-login"
-            leading={accountLoginLeadingIcon}
-            onSelect={onLogin}
-          >
-            {t("common.login")}
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem
+          testID="sidebar-account-logout"
+          leading={accountLogoutLeadingIcon}
+          onSelect={onLogout}
+        >
+          {t("common.logout")}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

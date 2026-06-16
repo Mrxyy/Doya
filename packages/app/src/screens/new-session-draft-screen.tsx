@@ -53,7 +53,8 @@ import {
   buildDoyaResponseLanguageInstruction,
   escapeDoyaMarkupText,
 } from "@/utils/doya-message-markup";
-import { buildHostAgentDetailRoute, buildHostLoginRoute } from "@/utils/host-routes";
+import { buildHostAgentDetailRoute } from "@/utils/host-routes";
+import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
@@ -235,6 +236,7 @@ export function NewSessionDraftScreen({
     },
   });
   const composerState = draft.composerState;
+  const openAccountLogin = useAccountLoginModalStore((state) => state.open);
   const mobileHeaderLeft = useMemo(() => <SidebarMenuToggle />, []);
   const agentControlsWithDisabled = useMemo(
     () =>
@@ -255,7 +257,7 @@ export function NewSessionDraftScreen({
       }
       if (!accountSession) {
         toast.error(t("home.newSession.loginRequired"));
-        router.push(buildHostLoginRoute(serverId));
+        openAccountLogin(serverId);
         return;
       }
       const provider = composerState.selectedProvider;
@@ -391,6 +393,7 @@ export function NewSessionDraftScreen({
       isConnected,
       locale,
       mergeWorkspaces,
+      openAccountLogin,
       recordConversation,
       serverId,
       setHasHydratedWorkspaces,

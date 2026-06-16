@@ -117,11 +117,8 @@ import {
   buildDoyaResponseLanguageInstruction,
   escapeDoyaMarkupText,
 } from "@/utils/doya-message-markup";
-import {
-  buildHostAgentDetailRoute,
-  buildHostHomeRoute,
-  buildHostLoginRoute,
-} from "@/utils/host-routes";
+import { buildHostAgentDetailRoute, buildHostHomeRoute } from "@/utils/host-routes";
+import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 import { useImageAttachmentPicker } from "@/hooks/use-image-attachment-picker";
 import { useFileAttachmentPicker } from "@/hooks/use-file-attachment-picker";
 import type { PickedImageAttachmentInput } from "@/hooks/image-attachment-picker";
@@ -1357,6 +1354,7 @@ export function AiCreationScreen({
   const isConnected = useHostRuntimeIsConnected(serverId);
   const toggleMobileAgentList = usePanelStore((state) => state.toggleMobileAgentList);
   const toggleDesktopAgentList = usePanelStore((state) => state.toggleDesktopAgentList);
+  const openAccountLogin = useAccountLoginModalStore((state) => state.open);
   const accountSession = useAccountWorkspaceMetadata(serverId);
   const mergeWorkspaces = useSessionStore((state) => state.mergeWorkspaces);
   const setHasHydratedWorkspaces = useSessionStore((state) => state.setHasHydratedWorkspaces);
@@ -1955,7 +1953,7 @@ export function AiCreationScreen({
 
       if (!accountSession) {
         toast.error(t("aiCreation.error.loginRequired"));
-        router.push(buildHostLoginRoute(serverId));
+        openAccountLogin(serverId);
         return;
       }
 
@@ -2130,6 +2128,7 @@ export function AiCreationScreen({
     sourceEditAgentCwd,
     conversationEditImages,
     mergeWorkspaces,
+    openAccountLogin,
     prompt,
     ratio,
     recordConversation,

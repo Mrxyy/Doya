@@ -355,14 +355,6 @@ export function buildHostHomeRoute(serverId: string) {
   return `${base}/home` as const;
 }
 
-export function buildHostLoginRoute(serverId: string) {
-  const base = buildHostRootRoute(serverId);
-  if (base === "/") {
-    return "/" as const;
-  }
-  return `${base}/login` as const;
-}
-
 export function buildHostOpenProjectRoute(serverId: string) {
   const base = buildHostRootRoute(serverId);
   if (base === "/") {

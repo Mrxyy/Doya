@@ -19,20 +19,19 @@ import { isDev, isWeb } from "@/constants/platform";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
-import { buildHostHomeRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import {
   createAccountProject,
   loadAccountBootstrapSession,
-  loginAccountUserWithSms,
   refreshAccountBootstrapSession,
-  registerAccountUser,
   saveAccountBootstrapSession,
-  sendAccountSmsCode,
+  subscribeAccountSessionChanges,
   type AccountBootstrapSession,
 } from "@/account/account-api";
 import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
 import { useOpenProject } from "@/hooks/use-open-project";
 import { useI18n, translateNow } from "@/i18n/i18n";
+import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 
 const FULL_WIDTH_STYLE = { width: "100%" } as const;
 const AUTH_BUTTON_GRADIENT_KEYFRAME_ID = "doya-auth-button-gradient-keyframes";
@@ -59,7 +58,7 @@ const AUTH_BUTTON_GRADIENT_KEYFRAME_CSS = `
     }
   }
 `;
-type AccountAuthMode = "sms" | "email";
+export type AccountAuthMode = "sms" | "email";
 
 function ensureAuthButtonGradientKeyframes() {
   if (!isWeb || typeof document === "undefined") {
@@ -84,18 +83,11 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const openDesktopAgentList = usePanelStore((s) => s.openDesktopAgentList);
   const isLocalDaemon = useIsLocalDaemon(serverId);
   const openProject = useOpenProject(serverId);
+  const openAccountLogin = useAccountLoginModalStore((state) => state.open);
   const [isPairDeviceOpen, setIsPairDeviceOpen] = useState(false);
   const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null>(null);
   const [isAccountProjectOpen, setIsAccountProjectOpen] = useState(false);
   const [hasLoadedAccount, setHasLoadedAccount] = useState(false);
-  const [accountEmail, setAccountEmail] = useState("");
-  const [accountPhone, setAccountPhone] = useState("");
-  const [accountSmsCode, setAccountSmsCode] = useState("");
-  const [accountAuthMode, setAccountAuthMode] = useState<AccountAuthMode>(() =>
-    isDev ? "email" : "sms",
-  );
-  const [isSendingSmsCode, setIsSendingSmsCode] = useState(false);
-  const accountWorkspaceName = t("account.workspace.defaultName");
   const [accountProjectName, setAccountProjectName] = useState(() =>
     t("account.project.defaultName"),
   );
@@ -113,32 +105,36 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
 
   useEffect(() => {
     let disposed = false;
-    void (async () => {
-      const stored = await loadAccountBootstrapSession();
-      if (!disposed) {
-        try {
-          const refreshed = stored ? await refreshAccountBootstrapSession(stored) : null;
-          if (refreshed) {
-            await saveAccountBootstrapSession(refreshed);
+    const refreshAccount = () => {
+      void (async () => {
+        const stored = await loadAccountBootstrapSession();
+        if (!disposed) {
+          try {
+            const refreshed = stored ? await refreshAccountBootstrapSession(stored) : null;
+            setAccountSession(refreshed);
+          } catch {
+            setAccountSession(stored ? { ...stored, projects: [] } : null);
+            if (stored) {
+              setAccountError(t("openProject.error.sessionKept"));
+            }
           }
-          setAccountSession(refreshed);
-          setAccountEmail(refreshed?.user.email ?? stored?.user.email ?? "");
-          setAccountPhone(refreshed?.user.phone ?? stored?.user.phone ?? "");
-        } catch {
-          setAccountSession(stored ? { ...stored, projects: [] } : null);
-          setAccountEmail(stored?.user.email ?? "");
-          setAccountPhone(stored?.user.phone ?? "");
-          if (stored) {
-            setAccountError(t("openProject.error.sessionKept"));
-          }
+          setHasLoadedAccount(true);
         }
-        setHasLoadedAccount(true);
-      }
-    })();
+      })();
+    };
+    refreshAccount();
+    const unsubscribe = subscribeAccountSessionChanges(refreshAccount);
     return () => {
       disposed = true;
+      unsubscribe();
     };
   }, [t]);
+
+  useEffect(() => {
+    if (hasLoadedAccount && !accountSession) {
+      openAccountLogin(serverId);
+    }
+  }, [accountSession, hasLoadedAccount, openAccountLogin, serverId]);
 
   const handleOpenPairDevice = useCallback(() => setIsPairDeviceOpen(true), []);
   const handleClosePairDevice = useCallback(() => setIsPairDeviceOpen(false), []);
@@ -161,70 +157,7 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const handleSaveAccountSession = useCallback(async (session: AccountBootstrapSession) => {
     await saveAccountBootstrapSession(session);
     setAccountSession(session);
-    setAccountEmail(session.user.email);
-    setAccountPhone(session.user.phone ?? "");
   }, []);
-
-  const handleSendAccountSmsCode = useCallback(() => {
-    setIsSendingSmsCode(true);
-    setAccountError(null);
-    void (async () => {
-      try {
-        await sendAccountSmsCode({ phone: accountPhone });
-      } catch (caught) {
-        setAccountError(caught instanceof Error ? caught.message : t("openProject.error.sendCode"));
-      } finally {
-        setIsSendingSmsCode(false);
-      }
-    })();
-  }, [accountPhone, t]);
-
-  const handleLoginAccount = useCallback(() => {
-    setAccountBusy(true);
-    setAccountError(null);
-    void (async () => {
-      try {
-        const session = await loginAccountUserWithSms({
-          phone: accountPhone,
-          code: accountSmsCode,
-          displayName: accountWorkspaceName,
-        });
-        await handleSaveAccountSession(session);
-        router.replace(buildHostHomeRoute(serverId));
-      } catch (caught) {
-        setAccountError(caught instanceof Error ? caught.message : t("openProject.error.login"));
-      } finally {
-        setAccountBusy(false);
-      }
-    })();
-  }, [
-    handleSaveAccountSession,
-    accountPhone,
-    accountSmsCode,
-    accountWorkspaceName,
-    router,
-    serverId,
-    t,
-  ]);
-
-  const handleDevEmailLoginAccount = useCallback(() => {
-    setAccountBusy(true);
-    setAccountError(null);
-    void (async () => {
-      try {
-        const session = await registerAccountUser({
-          email: accountEmail,
-          displayName: accountWorkspaceName,
-        });
-        await handleSaveAccountSession(session);
-        router.replace(buildHostHomeRoute(serverId));
-      } catch (caught) {
-        setAccountError(caught instanceof Error ? caught.message : t("openProject.error.login"));
-      } finally {
-        setAccountBusy(false);
-      }
-    })();
-  }, [handleSaveAccountSession, accountEmail, accountWorkspaceName, router, serverId, t]);
 
   const handleCreateAccountProject = useCallback(() => {
     if (!accountSession) return;
@@ -280,30 +213,6 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
     );
   }
 
-  if (!accountSession) {
-    return (
-      <View style={styles.container}>
-        <MenuHeader style={styles.authHeaderBar} />
-        <AuthLoginScreen
-          accountAuthMode={accountAuthMode}
-          accountBusy={accountBusy}
-          accountEmail={accountEmail}
-          accountError={accountError}
-          accountPhone={accountPhone}
-          accountSmsCode={accountSmsCode}
-          isSendingSmsCode={isSendingSmsCode}
-          onAuthModeChange={setAccountAuthMode}
-          onEmailChange={setAccountEmail}
-          onEmailLogin={handleDevEmailLoginAccount}
-          onPhoneChange={setAccountPhone}
-          onSmsCodeChange={setAccountSmsCode}
-          onSmsCodeSend={handleSendAccountSmsCode}
-          onSmsLogin={handleLoginAccount}
-        />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <MenuHeader borderless />
@@ -313,16 +222,18 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
           <DoyaLogo size={52} />
         </View>
         <View style={styles.tiles}>
-          <HomeTile
-            icon={MessagesSquare}
-            title={t("openProject.newProject.title")}
-            description={t("openProject.newProject.description")}
-            status={accountError ?? accountSession.user.phone ?? accountSession.user.email}
-            onPress={handleOpenAccountProject}
-            testID="open-project-account-workspace"
-            accent
-            disabled={accountBusy}
-          />
+          {accountSession ? (
+            <HomeTile
+              icon={MessagesSquare}
+              title={t("openProject.newProject.title")}
+              description={t("openProject.newProject.description")}
+              status={accountError ?? accountSession.user.phone ?? accountSession.user.email}
+              onPress={handleOpenAccountProject}
+              testID="open-project-account-workspace"
+              accent
+              disabled={accountBusy}
+            />
+          ) : null}
           <HomeTile
             icon={Plug}
             title={t("common.setupProviders")}
@@ -346,43 +257,45 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
         onClose={handleClosePairDevice}
         testID="open-project-pair-device-modal"
       />
-      <AdaptiveModalSheet
-        header={accountProjectHeader}
-        visible={isAccountProjectOpen}
-        onClose={handleCloseAccountProject}
-        desktopMaxWidth={420}
-        testID="account-project-modal"
-      >
-        <View style={styles.sheetStack}>
-          <Text style={styles.fieldLabel}>{t("account.project.fieldName")}</Text>
-          <AdaptiveTextInput
-            testID="account-project-name"
-            accessibilityLabel={t("account.project.fieldName")}
-            value={accountProjectName}
-            onChangeText={setAccountProjectName}
-            placeholder={t("account.project.defaultName")}
-            style={styles.sheetInput}
-          />
-          {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
-          <View style={styles.sheetActions}>
-            <Button
-              variant="secondary"
-              style={FULL_WIDTH_STYLE}
-              onPress={handleCloseAccountProject}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button
-              style={FULL_WIDTH_STYLE}
-              loading={accountBusy}
-              disabled={accountBusy || !accountProjectName.trim()}
-              onPress={handleCreateAccountProject}
-            >
-              {t("common.createAndOpen")}
-            </Button>
+      {accountSession ? (
+        <AdaptiveModalSheet
+          header={accountProjectHeader}
+          visible={isAccountProjectOpen}
+          onClose={handleCloseAccountProject}
+          desktopMaxWidth={420}
+          testID="account-project-modal"
+        >
+          <View style={styles.sheetStack}>
+            <Text style={styles.fieldLabel}>{t("account.project.fieldName")}</Text>
+            <AdaptiveTextInput
+              testID="account-project-name"
+              accessibilityLabel={t("account.project.fieldName")}
+              value={accountProjectName}
+              onChangeText={setAccountProjectName}
+              placeholder={t("account.project.defaultName")}
+              style={styles.sheetInput}
+            />
+            {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
+            <View style={styles.sheetActions}>
+              <Button
+                variant="secondary"
+                style={FULL_WIDTH_STYLE}
+                onPress={handleCloseAccountProject}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                style={FULL_WIDTH_STYLE}
+                loading={accountBusy}
+                disabled={accountBusy || !accountProjectName.trim()}
+                onPress={handleCreateAccountProject}
+              >
+                {t("common.createAndOpen")}
+              </Button>
+            </View>
           </View>
-        </View>
-      </AdaptiveModalSheet>
+        </AdaptiveModalSheet>
+      ) : null}
     </View>
   );
 }
@@ -398,7 +311,7 @@ interface HomeTileProps {
   status?: string | null;
 }
 
-interface AuthLoginScreenProps {
+export interface AccountLoginCardProps {
   accountAuthMode: AccountAuthMode;
   accountBusy: boolean;
   accountEmail: string;
@@ -413,30 +326,34 @@ interface AuthLoginScreenProps {
   onSmsCodeChange: (code: string) => void;
   onSmsCodeSend: () => void;
   onSmsLogin: () => void;
+  presentation?: "page" | "modal";
 }
 
-function AuthLoginScreen(props: AuthLoginScreenProps) {
+export function AccountLoginCard(props: AccountLoginCardProps) {
+  const { presentation = "page", ...loginProps } = props;
+  const cardStyle = useMemo(
+    () => [styles.authCard, presentation === "modal" ? styles.authCardModal : null],
+    [presentation],
+  );
+
   return (
-    <View style={styles.authContent}>
-      <TitlebarDragRegion />
-      <View style={styles.authCard}>
-        <View style={styles.authHeader}>
-          <View style={styles.authHeaderTop}>
-            <View style={styles.authLogoBadge}>
-              <DoyaLogo size={64} />
-            </View>
-            <AuthHeroArt />
+    <View style={cardStyle}>
+      <View style={styles.authHeader}>
+        <View style={styles.authHeaderTop}>
+          <View style={styles.authLogoBadge}>
+            <DoyaLogo size={64} />
           </View>
-          <View style={styles.authTitleGroup}>
-            <Text style={styles.authTitle}>{translateNow("openProject.accountAuth.title")}</Text>
-            <Text style={styles.authSubtitle}>
-              {translateNow("openProject.accountAuth.subtitle")}
-            </Text>
-          </View>
+          <AuthHeroArt />
         </View>
-        <LoginFormPanel {...props} />
-        <AuthPetIllustration />
+        <View style={styles.authTitleGroup}>
+          <Text style={styles.authTitle}>{translateNow("openProject.accountAuth.title")}</Text>
+          <Text style={styles.authSubtitle}>
+            {translateNow("openProject.accountAuth.subtitle")}
+          </Text>
+        </View>
       </View>
+      <LoginFormPanel {...loginProps} />
+      <AuthPetIllustration />
     </View>
   );
 }
@@ -456,7 +373,7 @@ function LoginFormPanel({
   onSmsCodeChange,
   onSmsCodeSend,
   onSmsLogin,
-}: AuthLoginScreenProps) {
+}: AccountLoginCardProps) {
   const shouldUseEmail = accountAuthMode === "email" && isDev;
   const formContent = shouldUseEmail ? (
     <EmailLoginForm
@@ -788,6 +705,8 @@ function SmsLoginForm({
         />
         <Button
           variant="secondary"
+          size="sm"
+          style={styles.sendCodeButton}
           loading={isSendingSmsCode}
           disabled={isSendingSmsCode || !accountPhone.trim()}
           onPress={onSmsCodeSend}
@@ -868,21 +787,6 @@ const styles = StyleSheet.create((theme) => ({
       md: HEADER_INNER_HEIGHT + theme.spacing[6],
     },
   },
-  authContent: {
-    position: "relative",
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fcfcfc",
-    padding: theme.spacing[6],
-    paddingBottom: {
-      xs: HEADER_INNER_HEIGHT_MOBILE + HEADER_TOP_PADDING_MOBILE + theme.spacing[6],
-      md: HEADER_INNER_HEIGHT + theme.spacing[6],
-    },
-  },
-  authHeaderBar: {
-    backgroundColor: "#fcfcfc",
-  },
   authCard: {
     position: "relative",
     width: "100%",
@@ -909,6 +813,11 @@ const styles = StyleSheet.create((theme) => ({
         }),
     gap: theme.spacing[6],
     overflow: "hidden",
+  },
+  authCardModal: {
+    maxWidth: { xs: 480, md: 600 },
+    paddingRight: { xs: 40, md: 56 },
+    paddingLeft: { xs: 40, md: 56 },
   },
   authHeader: {
     gap: theme.spacing[5],
@@ -999,6 +908,7 @@ const styles = StyleSheet.create((theme) => ({
   authFormShell: {
     flex: { xs: 0, md: 1 },
     alignSelf: "stretch",
+    maxWidth: 500,
     gap: theme.spacing[6],
     zIndex: 1,
   },
@@ -1146,11 +1056,14 @@ const styles = StyleSheet.create((theme) => ({
   },
   codeRow: {
     flexDirection: { xs: "column", md: "row" },
-    gap: theme.spacing[1],
+    gap: theme.spacing[2],
     alignItems: "stretch",
   },
   codeInput: {
     flex: 1,
+  },
+  sendCodeButton: {
+    minWidth: 116,
   },
   errorText: {
     color: theme.colors.destructive,

@@ -21,6 +21,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { Extrapolation, interpolate, runOnJS, useSharedValue } from "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StyleSheet, UnistylesRuntime, useUnistyles } from "react-native-unistyles";
+import { AccountLoginModalHost } from "@/components/account-login-modal";
 import { CommandCenter } from "@/components/command-center";
 import { WorktreeSetupCalloutSource } from "@/components/worktree-setup-callout-source";
 import { DownloadToast } from "@/components/download-toast";
@@ -875,7 +876,6 @@ function RootStack() {
       <Stack.Screen name="h/[serverId]/index" />
       <Stack.Screen name="h/[serverId]/home" />
       <Stack.Screen name="h/[serverId]/sessions" />
-      <Stack.Screen name="h/[serverId]/login" />
       <Stack.Screen name="h/[serverId]/open-project" />
       <Stack.Screen name="h/[serverId]/settings" />
       <Stack.Screen name="settings/hosts/[serverId]/index" />
@@ -892,6 +892,7 @@ function AppShell() {
         <AppWithSidebar>
           <RootStack />
         </AppWithSidebar>
+        <AccountLoginModalHost />
       </HorizontalScrollProvider>
     </SidebarAnimationProvider>
   );
