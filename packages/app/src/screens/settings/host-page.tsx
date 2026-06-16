@@ -170,7 +170,13 @@ function HostConnectionError({ serverId }: { serverId: string }) {
   return <Text style={styles.errorText}>{connectionError}</Text>;
 }
 
-export function HostConnectionsPage({ serverId }: { serverId: string }) {
+export function HostConnectionsPage({
+  serverId,
+  onAddHost,
+}: {
+  serverId: string;
+  onAddHost?: () => void;
+}) {
   const host = useHostProfile(serverId);
   const isLocalDaemon = useIsLocalDaemon(serverId);
 
@@ -181,7 +187,7 @@ export function HostConnectionsPage({ serverId }: { serverId: string }) {
   return (
     <View>
       <HostConnectionError serverId={serverId} />
-      <ConnectionsSection host={host} />
+      <ConnectionsSection host={host} onAddHost={onAddHost} />
       {isLocalDaemon ? (
         <SettingsSection title={translateNow("ui.pair.devices.rppznb")}>
           <PairDeviceRow />
@@ -307,7 +313,7 @@ export function HostRenameButton({ host }: { host: HostProfile }) {
   );
 }
 
-function ConnectionsSection({ host }: { host: HostProfile }) {
+function ConnectionsSection({ host, onAddHost }: { host: HostProfile; onAddHost?: () => void }) {
   const { removeConnection } = useHostMutations();
   const snapshot = useHostRuntimeSnapshot(host.serverId);
   const probeByConnectionId = snapshot?.probeByConnectionId ?? new Map();
@@ -349,8 +355,13 @@ function ConnectionsSection({ host }: { host: HostProfile }) {
       .finally(() => setIsRemovingConnection(false));
   }, [pendingRemoveConnection, removeConnection, host.serverId]);
 
+  const addConnectionButton = useMemo(
+    () => (onAddHost ? <AddHostHeaderButton onPress={onAddHost} /> : null),
+    [onAddHost],
+  );
+
   return (
-    <SettingsSection title={translateNow("ui.connections.1k3sgfp")}>
+    <SettingsSection title={translateNow("ui.connections.1k3sgfp")} trailing={addConnectionButton}>
       <View style={settingsStyles.card} testID="host-page-connections-card">
         {host.connections.map((conn, index) => {
           const probe = probeByConnectionId.get(conn.id);
@@ -404,6 +415,20 @@ function ConnectionsSection({ host }: { host: HostProfile }) {
         </AdaptiveModalSheet>
       ) : null}
     </SettingsSection>
+  );
+}
+
+function AddHostHeaderButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      textStyle={settingsStyles.sectionHeaderLinkText}
+      style={settingsStyles.sectionHeaderLink}
+      onPress={onPress}
+    >
+      {translateNow("settings.addHost")}
+    </Button>
   );
 }
 

@@ -258,6 +258,15 @@ const INTERRUPT_TOOL_USE_PLACEHOLDER = "[Request interrupted by user for tool us
 const INTERRUPT_PLACEHOLDER_PATTERN = /^\[Request interrupted by user(?:[^\]]*)\]$/;
 const NO_RESPONSE_REQUESTED_PLACEHOLDER = "No response requested.";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CLAUDE_ALLOW_DANGEROUSLY_SKIP_PERMISSIONS_FLAG = "--allow-dangerously-skip-permissions";
+const CLAUDE_HELP_PROBE_TIMEOUT_MS = 5_000;
+const CLAUDE_HELP_PROBE_MAX_BUFFER = 1024 * 1024;
+
+type ClaudeAllowDangerouslySkipPermissionsSupportResolver = (
+  executable: string,
+) => Promise<boolean>;
+
+const claudeAllowDangerouslySkipPermissionsSupportCache = new Map<string, Promise<boolean>>();
 
 interface SlashCommandInvocation {
   commandName: string;
@@ -278,6 +287,7 @@ interface ClaudeAgentClientOptions {
   runtimeSettings?: ProviderRuntimeSettings;
   queryFactory?: ClaudeQueryFactory;
   resolveBinary?: () => Promise<string>;
+  supportsAllowDangerouslySkipPermissions?: ClaudeAllowDangerouslySkipPermissionsSupportResolver;
 }
 
 interface ClaudeAgentSessionOptions {
@@ -290,6 +300,7 @@ interface ClaudeAgentSessionOptions {
   logger: Logger;
   queryFactory?: ClaudeQueryFactory;
   resolveBinary: () => Promise<string>;
+  supportsAllowDangerouslySkipPermissions: ClaudeAllowDangerouslySkipPermissionsSupportResolver;
 }
 
 type ClaudeThinkingEffort = "low" | "medium" | "high" | "xhigh" | "max";
@@ -304,6 +315,25 @@ function errorToMessageString(error: unknown): string {
   if (typeof error === "string") return error;
   if (error instanceof Error) return error.message;
   return "";
+}
+
+function supportsClaudeAllowDangerouslySkipPermissions(executable: string): Promise<boolean> {
+  const cached = claudeAllowDangerouslySkipPermissionsSupportCache.get(executable);
+  if (cached) {
+    return cached;
+  }
+
+  const support = execCommand(executable, ["--help"], {
+    timeout: CLAUDE_HELP_PROBE_TIMEOUT_MS,
+    maxBuffer: CLAUDE_HELP_PROBE_MAX_BUFFER,
+  })
+    .then(({ stdout, stderr }) =>
+      `${stdout}\n${stderr}`.includes(CLAUDE_ALLOW_DANGEROUSLY_SKIP_PERMISSIONS_FLAG),
+    )
+    .catch(() => false);
+
+  claudeAllowDangerouslySkipPermissionsSupportCache.set(executable, support);
+  return support;
 }
 
 function firstStringField(
@@ -1280,6 +1310,7 @@ export class ClaudeAgentClient implements AgentClient {
   private readonly runtimeSettings?: ProviderRuntimeSettings;
   private readonly queryFactory?: ClaudeQueryFactory;
   private readonly resolveBinary: () => Promise<string>;
+  private readonly supportsAllowDangerouslySkipPermissions: ClaudeAllowDangerouslySkipPermissionsSupportResolver;
 
   constructor(options: ClaudeAgentClientOptions) {
     this.defaults = options.defaults;
@@ -1287,6 +1318,9 @@ export class ClaudeAgentClient implements AgentClient {
     this.runtimeSettings = options.runtimeSettings;
     this.queryFactory = options.queryFactory;
     this.resolveBinary = options.resolveBinary ?? (() => resolveClaudeBinary(this.runtimeSettings));
+    this.supportsAllowDangerouslySkipPermissions =
+      options.supportsAllowDangerouslySkipPermissions ??
+      supportsClaudeAllowDangerouslySkipPermissions;
   }
 
   async createSession(
@@ -1304,6 +1338,7 @@ export class ClaudeAgentClient implements AgentClient {
       logger: this.logger,
       queryFactory: this.queryFactory,
       resolveBinary: this.resolveBinary,
+      supportsAllowDangerouslySkipPermissions: this.supportsAllowDangerouslySkipPermissions,
     });
   }
 
@@ -1332,6 +1367,7 @@ export class ClaudeAgentClient implements AgentClient {
       logger: this.logger,
       queryFactory: this.queryFactory,
       resolveBinary: this.resolveBinary,
+      supportsAllowDangerouslySkipPermissions: this.supportsAllowDangerouslySkipPermissions,
     });
   }
 
@@ -1573,6 +1609,7 @@ class ClaudeAgentSession implements AgentSession {
   private readonly logger: Logger;
   private readonly queryFactory?: ClaudeQueryFactory;
   private readonly resolveBinary: () => Promise<string>;
+  private readonly supportsAllowDangerouslySkipPermissions: ClaudeAllowDangerouslySkipPermissionsSupportResolver;
   private query: Query | null = null;
   private input: AsyncMessageInput<SDKUserMessage> | null = null;
   private claudeSessionId: string | null;
@@ -1626,6 +1663,7 @@ class ClaudeAgentSession implements AgentSession {
     this.logger = options.logger.child({ agentId: this.agentId });
     this.queryFactory = options.queryFactory;
     this.resolveBinary = options.resolveBinary;
+    this.supportsAllowDangerouslySkipPermissions = options.supportsAllowDangerouslySkipPermissions;
     const handle = options.handle;
 
     if (handle) {
@@ -2557,9 +2595,12 @@ class ClaudeAgentSession implements AgentSession {
     assertClaudeAutoModeEligible(this.currentMode, sdkEnv);
 
     const claudeBinary = await this.resolveBinary();
+    const allowDangerouslySkipPermissions =
+      await this.supportsAllowDangerouslySkipPermissions(claudeBinary);
     this.logger.debug(
       {
         claudeBinary,
+        allowDangerouslySkipPermissions,
         pathEnvKey: resolvePathEnvKey(),
         pathIncludesClaudeLocalBin: (process.env["Path"] ?? process.env["PATH"] ?? "")
           .toLowerCase()
@@ -2578,10 +2619,11 @@ class ClaudeAgentSession implements AgentSession {
       cwd: this.config.cwd,
       includePartialMessages: true,
       permissionMode: this.currentMode,
-      // Dynamic mode switching can recreate the underlying Claude query. Keep the
-      // bypass launch capability available so later setPermissionMode("bypassPermissions")
-      // calls do not fail after a model/thinking/rewind-driven restart.
-      allowDangerouslySkipPermissions: true,
+      // Dynamic mode switching can recreate the underlying Claude query. When the
+      // installed Claude executable supports it, keep the bypass launch capability
+      // available so later setPermissionMode("bypassPermissions") calls survive
+      // model/thinking/rewind-driven restarts.
+      allowDangerouslySkipPermissions,
       agents: this.defaults?.agents,
       canUseTool: this.handlePermissionRequest,
       pathToClaudeCodeExecutable: claudeBinary,

@@ -25,6 +25,7 @@ const LAST_WORKSPACE_SELECTION_STORAGE_KEY = "doya:last-workspace-route-selectio
 
 const lastWorkspaceSelectionStorage: LastWorkspaceSelectionStorage = {
   read: () => AsyncStorage.getItem(LAST_WORKSPACE_SELECTION_STORAGE_KEY),
+  clear: () => AsyncStorage.removeItem(LAST_WORKSPACE_SELECTION_STORAGE_KEY),
   write: (value) => AsyncStorage.setItem(LAST_WORKSPACE_SELECTION_STORAGE_KEY, value),
 };
 
@@ -55,6 +56,10 @@ export function getLastWorkspaceSelection(): ActiveWorkspaceSelection | null {
 
 export function getIsLastWorkspaceSelectionHydrated(): boolean {
   return lastWorkspaceSelectionStore.isHydrated();
+}
+
+export function forgetLastWorkspaceSelection(selection: ActiveWorkspaceSelection): void {
+  lastWorkspaceSelectionStore.forget(selection);
 }
 
 export function navigateToWorkspace(

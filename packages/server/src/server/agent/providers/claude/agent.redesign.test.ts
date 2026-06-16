@@ -67,6 +67,7 @@ async function createSession() {
     logger: createTestLogger(),
     queryFactory: sdkQueryFactory,
     resolveBinary: async () => "/test/claude/bin",
+    supportsAllowDangerouslySkipPermissions: async () => true,
   });
   return client.createSession({
     provider: "claude",
@@ -79,6 +80,7 @@ function createSessionWithLogger(logger: Logger) {
     logger,
     queryFactory: sdkQueryFactory,
     resolveBinary: async () => "/test/claude/bin",
+    supportsAllowDangerouslySkipPermissions: async () => true,
   });
   return client.createSession({
     provider: "claude",
@@ -225,6 +227,7 @@ test("allows launch env to disable inherited Bedrock transport for auto mode", a
     logger: createTestLogger(),
     queryFactory: sdkQueryFactory,
     resolveBinary: async () => "/test/claude/bin",
+    supportsAllowDangerouslySkipPermissions: async () => true,
   });
   const session = await client.createSession(
     {
@@ -255,6 +258,7 @@ test("fails an auto mode turn when Claude Code uses Vertex", async () => {
     logger: createTestLogger(),
     queryFactory: sdkQueryFactory,
     resolveBinary: async () => "/test/claude/bin",
+    supportsAllowDangerouslySkipPermissions: async () => true,
   });
   const session = await client.createSession({
     provider: "claude",
@@ -340,6 +344,7 @@ test("logs redacted query summary and never leaks sentinel secrets", async () =>
       },
     },
     resolveBinary: async () => "/test/claude/bin",
+    supportsAllowDangerouslySkipPermissions: async () => true,
   });
   const session = await client.createSession({
     provider: "claude",
@@ -915,6 +920,7 @@ test("captures Claude stderr in the turn failure diagnostic when stderr arrives 
     logger: loggerSpy.logger,
     queryFactory: sdkQueryFactory,
     resolveBinary: async () => "/test/claude/bin",
+    supportsAllowDangerouslySkipPermissions: async () => true,
   });
   const session = await client.createSession({
     provider: "claude",
@@ -991,6 +997,59 @@ test("preserves bypass capability across query restarts triggered by thinking ch
       permissionMode: "acceptEdits",
       allowDangerouslySkipPermissions: true,
       effort: "high",
+    });
+  } finally {
+    await session.close();
+  }
+});
+
+test("omits bypass launch capability when the Claude executable does not support it", async () => {
+  let capturedOptions: { allowDangerouslySkipPermissions?: boolean } | null = null;
+
+  sdkQueryFactory.mockImplementation(
+    ({ options }: { options: { allowDangerouslySkipPermissions?: boolean } }) => {
+      capturedOptions = {
+        allowDangerouslySkipPermissions: options.allowDangerouslySkipPermissions,
+      };
+
+      let emittedResult = false;
+      return createBaseQueryMock(
+        vi.fn(async () => {
+          if (!emittedResult) {
+            emittedResult = true;
+            return {
+              done: false,
+              value: {
+                type: "result",
+                subtype: "success",
+                session_id: "unsupported-bypass-flag-session",
+                usage: buildUsage(),
+                total_cost_usd: 0,
+              },
+            };
+          }
+          return { done: true, value: undefined };
+        }),
+      );
+    },
+  );
+
+  const client = new ClaudeAgentClient({
+    logger: createTestLogger(),
+    queryFactory: sdkQueryFactory,
+    resolveBinary: async () => "/test/claude/bin",
+    supportsAllowDangerouslySkipPermissions: async () => false,
+  });
+  const session = await client.createSession({
+    provider: "claude",
+    cwd: process.cwd(),
+  });
+
+  try {
+    await session.run("hello");
+
+    expect(capturedOptions).toEqual({
+      allowDangerouslySkipPermissions: false,
     });
   } finally {
     await session.close();

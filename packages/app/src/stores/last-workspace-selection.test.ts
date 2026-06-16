@@ -16,6 +16,10 @@ class DelayedWorkspaceSelectionStorage implements LastWorkspaceSelectionStorage 
     return this.pendingRead;
   }
 
+  async clear(): Promise<void> {
+    this.saved = null;
+  }
+
   async write(value: string): Promise<void> {
     this.saved = value;
   }
@@ -61,6 +65,31 @@ describe("last workspace selection", () => {
     expect(storage.getSavedSelection()).toEqual({
       serverId: "server-new",
       workspaceId: "workspace-new",
+    });
+  });
+
+  it("forgets the current workspace selection", () => {
+    const storage = new DelayedWorkspaceSelectionStorage();
+    const store = createLastWorkspaceSelectionStore(storage);
+
+    store.remember({ serverId: "server-1", workspaceId: "workspace-a" });
+    store.forget({ serverId: "server-1", workspaceId: "workspace-a" });
+
+    expect(store.getSelection()).toBeNull();
+    expect(storage.getSavedSelection()).toBeNull();
+  });
+
+  it("keeps a different workspace selection when forgetting a stale route", () => {
+    const storage = new DelayedWorkspaceSelectionStorage();
+    const store = createLastWorkspaceSelectionStore(storage);
+
+    store.remember({ serverId: "server-1", workspaceId: "workspace-a" });
+    store.forget({ serverId: "server-1", workspaceId: "workspace-b" });
+
+    expect(store.getSelection()).toEqual({ serverId: "server-1", workspaceId: "workspace-a" });
+    expect(storage.getSavedSelection()).toEqual({
+      serverId: "server-1",
+      workspaceId: "workspace-a",
     });
   });
 });

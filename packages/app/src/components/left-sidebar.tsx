@@ -1,5 +1,5 @@
 import { router, usePathname } from "expo-router";
-import { Home, LogOut, MessagesSquare, Settings, UserRound, X } from "lucide-react-native";
+import { LogOut, MessagesSquare, Settings, UserRound, X } from "lucide-react-native";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
   Pressable,
@@ -89,7 +89,6 @@ interface SidebarSharedProps {
   addProjectLabel: string;
   aiCreationLabel: string;
   emptyProjectHint: string;
-  handleHome: () => void;
   handleSettings: () => void;
 }
 
@@ -186,17 +185,6 @@ export const LeftSidebar = memo(function LeftSidebar({
     router.push(buildSettingsRoute());
   }, []);
 
-  const handleHomeMobile = useCallback(() => {
-    if (!activeServerId) return;
-    showMobileAgent();
-    router.push(buildHostHomeRoute(activeServerId));
-  }, [activeServerId, showMobileAgent]);
-
-  const handleHomeDesktop = useCallback(() => {
-    if (!activeServerId) return;
-    router.push(buildHostHomeRoute(activeServerId));
-  }, [activeServerId]);
-
   const handleAccountLoginMobile = useCallback(() => {
     if (!activeServerId) return;
     showMobileAgent();
@@ -261,7 +249,6 @@ export const LeftSidebar = memo(function LeftSidebar({
         closeToAgent={showMobileAgent}
         handleOpenProject={handleOpenProjectMobile}
         handleAiCreation={handleAiCreationMobile}
-        handleHome={handleHomeMobile}
         handleSettings={handleSettingsMobile}
         handleAccountLogin={handleAccountLoginMobile}
         handleAccountLogout={handleAccountLogoutMobile}
@@ -277,7 +264,6 @@ export const LeftSidebar = memo(function LeftSidebar({
       isOpen={isOpen}
       handleOpenProject={handleOpenProjectDesktop}
       handleAiCreation={handleAiCreationDesktop}
-      handleHome={handleHomeDesktop}
       handleSettings={handleSettingsDesktop}
       handleAccountLogin={handleAccountLoginDesktop}
       handleAccountLogout={handleAccountLogoutDesktop}
@@ -433,14 +419,12 @@ function SidebarFooter({
   accountSession,
   handleAccountLogin,
   handleAccountLogout,
-  handleHome,
   handleSettings,
 }: {
   theme: SidebarTheme;
   accountSession: AccountBootstrapSession | null;
   handleAccountLogin: () => void;
   handleAccountLogout: () => void;
-  handleHome: () => void;
   handleSettings: () => void;
 }) {
   return (
@@ -454,13 +438,6 @@ function SidebarFooter({
       </View>
       {accountSession ? (
         <View style={styles.footerIconRow}>
-          <FooterIconButton
-            onPress={handleHome}
-            testID="sidebar-home"
-            accessibilityLabel={translateNow("ui.home.1cc1r")}
-            icon={Home}
-            theme={theme}
-          />
           <FooterIconButton
             onPress={handleSettings}
             testID="sidebar-settings"
@@ -614,7 +591,6 @@ function MobileSidebar({
   isAgentHistoryInitialLoad,
   handleAccountLogin,
   handleAccountLogout,
-  handleHome,
   handleSettings,
   insetsTop,
   insetsBottom,
@@ -853,7 +829,6 @@ function MobileSidebar({
               accountSession={accountSession}
               handleAccountLogin={handleAccountLogin}
               handleAccountLogout={handleAccountLogout}
-              handleHome={handleHome}
               handleSettings={handleSettings}
             />
           </View>
@@ -884,7 +859,6 @@ function DesktopSidebar({
   isAgentHistoryInitialLoad,
   handleAccountLogin,
   handleAccountLogout,
-  handleHome,
   handleSettings,
   insetsTop,
   isOpen,
@@ -1005,7 +979,6 @@ function DesktopSidebar({
           accountSession={accountSession}
           handleAccountLogin={handleAccountLogin}
           handleAccountLogout={handleAccountLogout}
-          handleHome={handleHome}
           handleSettings={handleSettings}
         />
 

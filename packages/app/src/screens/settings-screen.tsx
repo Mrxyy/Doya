@@ -87,6 +87,7 @@ import ProjectsScreen from "@/screens/projects-screen";
 import ProjectSettingsScreen from "@/screens/project-settings-screen";
 import { useProjects } from "@/hooks/use-projects";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { isDev } from "@/constants/platform";
 import { useLocalDaemonServerId } from "@/hooks/use-is-local-daemon";
 import { useWebScrollbarStyle } from "@/hooks/use-web-scrollbar-style";
 import { useI18n, translateNow } from "@/i18n/i18n";
@@ -710,6 +711,86 @@ function SidebarSectionButton({
   );
 }
 
+interface SidebarNavigationButtonProps {
+  label: string;
+  icon: ComponentType<{ size: number; color: string }>;
+  isSelected: boolean;
+  onPress: () => void;
+}
+
+function SidebarNavigationButton({
+  label,
+  icon: IconComponent,
+  isSelected,
+  onPress,
+}: SidebarNavigationButtonProps) {
+  const { theme } = useUnistyles();
+  const accessibilityState = useMemo(() => ({ selected: isSelected }), [isSelected]);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={accessibilityState}
+      onPress={onPress}
+      style={isSelected ? selectedSidebarItemStyle : sidebarItemStyle}
+    >
+      <IconComponent size={22} color={theme.colors.foregroundMuted} />
+      <Text style={sidebarStyles.label} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+interface SidebarHostSectionButtonProps {
+  itemId: HostSectionSlug;
+  label: string;
+  icon: ComponentType<{ size: number; color: string }>;
+  isSelected: boolean;
+  onSelect: (section: HostSectionSlug) => void;
+}
+
+function SidebarHostSectionButton({
+  itemId,
+  label,
+  icon,
+  isSelected,
+  onSelect,
+}: SidebarHostSectionButtonProps) {
+  const handlePress = useCallback(() => {
+    onSelect(itemId);
+  }, [itemId, onSelect]);
+
+  return (
+    <SidebarNavigationButton
+      label={label}
+      icon={icon}
+      isSelected={isSelected}
+      onPress={handlePress}
+    />
+  );
+}
+
+interface SidebarHostButtonProps {
+  host: HostProfile;
+  isSelected: boolean;
+  onSelect: (serverId: string) => void;
+}
+
+function SidebarHostButton({ host, isSelected, onSelect }: SidebarHostButtonProps) {
+  const handlePress = useCallback(() => {
+    onSelect(host.serverId);
+  }, [host.serverId, onSelect]);
+
+  return (
+    <SidebarNavigationButton
+      label={host.label}
+      icon={Server}
+      isSelected={isSelected}
+      onPress={handlePress}
+    />
+  );
+}
+
 interface SidebarBackButtonProps {
   label: string;
   onPress: () => void;
@@ -732,21 +813,6 @@ function SidebarBackButton({ label, onPress }: SidebarBackButtonProps) {
   );
 }
 
-interface SettingsDetailPageTitleProps {
-  title: string;
-  icon: ComponentType<{ size: number; color: string }>;
-}
-
-function SettingsDetailPageTitle({ title, icon: IconComponent }: SettingsDetailPageTitleProps) {
-  const { theme } = useUnistyles();
-  return (
-    <View style={styles.detailPageTitle}>
-      <IconComponent size={32} color={theme.colors.foregroundMuted} />
-      <Text style={styles.detailPageTitleText}>{title}</Text>
-    </View>
-  );
-}
-
 interface SettingsSidebarProps {
   view: SettingsView;
   onSelectSection: (section: SettingsSectionSlug) => void;
@@ -756,19 +822,29 @@ interface SettingsSidebarProps {
   onAddHost: () => void;
   onBackToWorkspace: () => void;
   activeHostServerId: string | null;
+  hosts: HostProfile[];
   layout: "desktop" | "mobile";
 }
 
 function SettingsSidebar({
   view,
   onSelectSection,
+  onSelectHostSection,
+  onSelectHost,
+  onSelectProjects,
+  onAddHost,
   onBackToWorkspace,
+  activeHostServerId,
+  hosts,
   layout,
 }: SettingsSidebarProps) {
   const { t } = useI18n();
   const isDesktopApp = isElectronRuntime();
+  const showDevSettingsEntries = isDev;
   const items = SIDEBAR_SECTION_ITEMS.filter(
-    (item) => VISIBLE_SETTINGS_SIDEBAR_SECTIONS.has(item.id) && (!item.desktopOnly || isDesktopApp),
+    (item) =>
+      (isDev || VISIBLE_SETTINGS_SIDEBAR_SECTIONS.has(item.id)) &&
+      (!item.desktopOnly || isDesktopApp),
   );
   const insets = useSafeAreaInsets();
   const padding = useWindowControlsPadding("sidebar");
@@ -781,6 +857,7 @@ function SettingsSidebar({
     [insets.top, isDesktop],
   );
   const selectedSectionId = view.kind === "section" ? view.section : null;
+  const selectedHostSectionId = view.kind === "host" ? view.section : null;
   const paddingTopStyle = useMemo(() => ({ height: padding.top }), [padding.top]);
 
   return (
@@ -802,6 +879,44 @@ function SettingsSidebar({
             onSelect={onSelectSection}
           />
         ))}
+        {showDevSettingsEntries ? (
+          <>
+            <View style={sidebarStyles.groupGap} />
+            <SidebarNavigationButton
+              label={t("openProject.projects.title")}
+              icon={FolderGit2}
+              isSelected={view.kind === "projects" || view.kind === "project"}
+              onPress={onSelectProjects}
+            />
+            {hosts.map((host) => (
+              <SidebarHostButton
+                key={host.serverId}
+                host={host}
+                isSelected={activeHostServerId === host.serverId}
+                onSelect={onSelectHost}
+              />
+            ))}
+            {activeHostServerId ? (
+              HOST_SECTION_ITEMS.map((item) => (
+                <SidebarHostSectionButton
+                  key={item.id}
+                  itemId={item.id}
+                  label={hostSectionLabel(item.id, t)}
+                  icon={item.icon}
+                  isSelected={selectedHostSectionId === item.id}
+                  onSelect={onSelectHostSection}
+                />
+              ))
+            ) : (
+              <SidebarNavigationButton
+                label={t("settings.addHost")}
+                icon={Server}
+                isSelected={false}
+                onPress={onAddHost}
+              />
+            )}
+          </>
+        ) : null}
       </View>
       <View style={sidebarStyles.footer}>
         <SidebarBackButton label={t("settings.back")} onPress={onBackToWorkspace} />
@@ -1065,7 +1180,7 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
     if (view.kind === "host") {
       switch (view.section) {
         case "connections":
-          return <HostConnectionsPage serverId={view.serverId} />;
+          return <HostConnectionsPage serverId={view.serverId} onAddHost={handleAddHost} />;
         case "orchestration":
           return <HostOrchestrationPage serverId={view.serverId} />;
         case "providers":
@@ -1169,6 +1284,7 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
             onAddHost={handleAddHost}
             onBackToWorkspace={handleBackToWorkspace}
             activeHostServerId={activeHostServerId}
+            hosts={sortedHosts}
             layout="mobile"
           />
         </ScrollView>
@@ -1213,6 +1329,7 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
           onAddHost={handleAddHost}
           onBackToWorkspace={handleBackToWorkspace}
           activeHostServerId={activeHostServerId}
+          hosts={sortedHosts}
           layout="desktop"
         />
         <View style={desktopStyles.contentPane}>
@@ -1372,6 +1489,9 @@ const sidebarStyles = StyleSheet.create((theme) => ({
   list: {
     paddingTop: theme.spacing[3],
     gap: 3,
+  },
+  groupGap: {
+    height: theme.spacing[3],
   },
   footer: {
     marginTop: "auto",

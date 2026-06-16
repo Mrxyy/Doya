@@ -182,7 +182,8 @@ import { isAbsolutePath } from "@/utils/path";
 import { useIsCompactFormFactor, supportsDesktopPaneSplits } from "@/constants/layout";
 import { getIsElectron, isNative, isWeb } from "@/constants/platform";
 import { useContainerWidthBelow } from "@/hooks/use-container-width";
-import { buildHostRootRoute, buildSettingsHostRoute } from "@/utils/host-routes";
+import { buildHostHomeRoute, buildSettingsHostRoute } from "@/utils/host-routes";
+import { forgetLastWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import { canCreateWorkspaceTerminal } from "@/screens/workspace/terminals/state";
 import { useWorkspaceTerminals } from "@/screens/workspace/terminals/use-workspace-terminals";
 import {
@@ -1307,7 +1308,7 @@ function getHostDisplayName(host: { label?: string | null } | null, fallback: st
 function useWorkspaceRouteActions(normalizedServerId: string): {
   handleRetryHost: () => void;
   handleManageHost: () => void;
-  handleDismissMissingWorkspace: () => void;
+  handleDismissMissingWorkspace: (workspaceId: string) => void;
 } {
   const router = useRouter();
   const handleRetryHost = useCallback(() => {
@@ -1322,17 +1323,17 @@ function useWorkspaceRouteActions(normalizedServerId: string): {
     }
     router.push(buildSettingsHostRoute(normalizedServerId) as Href);
   }, [normalizedServerId, router]);
-  const handleDismissMissingWorkspace = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    if (normalizedServerId) {
-      router.replace(buildHostRootRoute(normalizedServerId) as Href);
-      return;
-    }
-    router.replace("/" as Href);
-  }, [normalizedServerId, router]);
+  const handleDismissMissingWorkspace = useCallback(
+    (workspaceId: string) => {
+      if (normalizedServerId) {
+        forgetLastWorkspaceSelection({ serverId: normalizedServerId, workspaceId });
+        router.replace(buildHostHomeRoute(normalizedServerId) as Href);
+        return;
+      }
+      router.replace("/" as Href);
+    },
+    [normalizedServerId, router],
+  );
 
   return {
     handleRetryHost,
@@ -1760,6 +1761,17 @@ function WorkspaceScreenContent({
     workspace: workspaceDescriptor,
     hasHydratedWorkspaces,
   });
+  useEffect(() => {
+    if (!isRouteFocused || workspaceRouteState.kind !== "missing") {
+      return;
+    }
+    handleDismissMissingWorkspace(normalizedWorkspaceId);
+  }, [
+    handleDismissMissingWorkspace,
+    isRouteFocused,
+    normalizedWorkspaceId,
+    workspaceRouteState.kind,
+  ]);
   const workspaceHeaderCheckoutState = buildWorkspaceHeaderCheckoutState({
     isCheckoutStatusLoading,
     isError: checkoutQuery.isError,
@@ -3183,7 +3195,7 @@ function WorkspaceScreenContent({
     actions: {
       onRetryHost: handleRetryHost,
       onManageHost: handleManageHost,
-      onDismissMissingWorkspace: handleDismissMissingWorkspace,
+      onDismissMissingWorkspace: () => handleDismissMissingWorkspace(normalizedWorkspaceId),
     },
   });
   const gatedWorkspaceScreen = renderWorkspaceScreenGateShell({

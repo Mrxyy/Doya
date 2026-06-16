@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigation } from "@react-navigation/native";
 import { StyleSheet, View } from "react-native";
-import { useGlobalSearchParams, useLocalSearchParams, useRootNavigationState } from "expo-router";
+import {
+  useGlobalSearchParams,
+  useLocalSearchParams,
+  useRootNavigationState,
+  useRouter,
+  type Href,
+} from "expo-router";
+import {
+  loadAccountBootstrapSession,
+  subscribeAccountSessionChanges,
+  type AccountBootstrapSession,
+} from "@/account/account-api";
 import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
 import {
   type ActiveWorkspaceSelection,
@@ -12,11 +23,13 @@ import { WorkspaceScreen } from "@/screens/workspace/workspace-screen";
 import { useWorkspaceLayoutStoreHydrated } from "@/stores/workspace-layout-store";
 import {
   decodeWorkspaceIdFromPathSegment,
+  buildHostHomeRoute,
   parseWorkspaceOpenIntent,
   type WorkspaceOpenIntent,
 } from "@/utils/host-routes";
 import { prepareWorkspaceTab } from "@/utils/workspace-navigation";
 import { isWeb } from "@/constants/platform";
+import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 
 function getParamValue(value: string | string[] | undefined): string {
   if (typeof value === "string") {
@@ -76,10 +89,15 @@ export default function HostWorkspaceIndexRoute() {
 
 function HostWorkspaceRouteContent() {
   const navigation = useNavigation();
+  const router = useRouter();
   const rootNavigationState = useRootNavigationState();
   const hasHydratedWorkspaceLayoutStore = useWorkspaceLayoutStoreHydrated();
   const consumedIntentRef = useRef<string | null>(null);
   const [intentConsumed, setIntentConsumed] = useState(false);
+  const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null | undefined>(
+    undefined,
+  );
+  const openAccountLogin = useAccountLoginModalStore((state) => state.open);
   const params = useLocalSearchParams<{
     serverId?: string | string[];
     workspaceId?: string | string[];
@@ -93,7 +111,37 @@ function HostWorkspaceRouteContent() {
     ? (decodeWorkspaceIdFromPathSegment(workspaceValue) ?? "")
     : "";
   const openValue = getParamValue(globalParams.open);
+
   useEffect(() => {
+    let disposed = false;
+    const refresh = () => {
+      void (async () => {
+        const stored = await loadAccountBootstrapSession();
+        if (!disposed) {
+          setAccountSession(stored);
+        }
+      })();
+    };
+    refresh();
+    const unsubscribe = subscribeAccountSessionChanges(refresh);
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (accountSession !== null || !serverId) {
+      return;
+    }
+    openAccountLogin(serverId);
+    router.replace(buildHostHomeRoute(serverId) as Href);
+  }, [accountSession, openAccountLogin, router, serverId]);
+
+  useEffect(() => {
+    if (!accountSession) {
+      return;
+    }
     if (!openValue) {
       return;
     }
@@ -137,6 +185,7 @@ function HostWorkspaceRouteContent() {
 
     setIntentConsumed(true);
   }, [
+    accountSession,
     hasHydratedWorkspaceLayoutStore,
     navigation,
     openValue,
@@ -144,6 +193,10 @@ function HostWorkspaceRouteContent() {
     serverId,
     workspaceId,
   ]);
+
+  if (accountSession === undefined || accountSession === null) {
+    return null;
+  }
 
   if (openValue && (!intentConsumed || !hasHydratedWorkspaceLayoutStore)) {
     return null;

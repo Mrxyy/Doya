@@ -5,6 +5,7 @@ export interface ActiveWorkspaceSelection {
 
 export interface LastWorkspaceSelectionStorage {
   read(): Promise<string | null>;
+  clear(): Promise<void>;
   write(value: string): Promise<void>;
 }
 
@@ -62,6 +63,23 @@ export function createLastWorkspaceSelectionStore(storage: LastWorkspaceSelectio
     void storage.write(JSON.stringify(normalized)).catch(() => {});
   }
 
+  function forget(target: ActiveWorkspaceSelection) {
+    const normalized = normalizeWorkspaceSelection(target);
+    if (!normalized) {
+      return;
+    }
+    if (
+      selection?.serverId !== normalized.serverId ||
+      selection.workspaceId !== normalized.workspaceId
+    ) {
+      return;
+    }
+    selection = null;
+    revision += 1;
+    notifyListeners();
+    void storage.clear().catch(() => {});
+  }
+
   function hydrate(): Promise<void> {
     if (hydrationPromise) {
       return hydrationPromise;
@@ -89,6 +107,7 @@ export function createLastWorkspaceSelectionStore(storage: LastWorkspaceSelectio
 
   return {
     getSelection: () => selection,
+    forget,
     hydrate,
     isHydrated: () => hydrated,
     remember,
