@@ -39,6 +39,8 @@
     "onlyoffice:up": "docker compose -f docker-compose.onlyoffice.yml up -d",
     "onlyoffice:down": "docker compose -f docker-compose.onlyoffice.yml down",
     "onlyoffice:logs": "docker compose -f docker-compose.onlyoffice.yml logs -f",
+    "logs:app": "touch /tmp/doya-dev-app.log && tail -n 120 -f /tmp/doya-dev-app.log",
+    "logs:xyy": "touch /tmp/doya-dev-xyy.log && tail -n 120 -f /tmp/doya-dev-xyy.log",
     "dev:win": "powershell ./scripts/dev.ps1",
     "dev:server": "npm run build:server-deps && concurrently --kill-others --names protocol,client,server --prefix-colors yellow,blue,cyan \"npm run watch:protocol\" \"npm run watch:client\" \"npm run dev:server:raw\"",
     "dev:server:raw": "npm run dev --workspace=@getdoya/server",
