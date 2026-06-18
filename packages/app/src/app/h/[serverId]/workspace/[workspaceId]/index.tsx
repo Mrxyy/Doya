@@ -13,6 +13,7 @@ import {
   subscribeAccountSessionChanges,
   type AccountBootstrapSession,
 } from "@/account/account-api";
+import { selectAccountSessionForDirectHost } from "@/account/account-workspace-display";
 import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
 import {
   type ActiveWorkspaceSelection,
@@ -30,6 +31,7 @@ import {
 import { prepareWorkspaceTab } from "@/utils/workspace-navigation";
 import { isWeb } from "@/constants/platform";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
+import { useEnsureHostRuntimeStarted, useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 
 function getParamValue(value: string | string[] | undefined): string {
   if (typeof value === "string") {
@@ -106,6 +108,10 @@ function HostWorkspaceRouteContent() {
     open?: string | string[];
   }>();
   const serverId = getParamValue(params.serverId);
+  useEnsureHostRuntimeStarted(serverId);
+  const snapshot = useHostRuntimeSnapshot(serverId);
+  const directHostEndpoint =
+    snapshot?.activeConnection?.type === "directTcp" ? snapshot.activeConnection.endpoint : null;
   const workspaceValue = getParamValue(params.workspaceId);
   const workspaceId = workspaceValue
     ? (decodeWorkspaceIdFromPathSegment(workspaceValue) ?? "")
@@ -118,7 +124,14 @@ function HostWorkspaceRouteContent() {
       void (async () => {
         const stored = await loadAccountBootstrapSession();
         if (!disposed) {
-          setAccountSession(stored);
+          setAccountSession(
+            stored?.workspace.workspaceId.startsWith("control:") === true
+              ? stored
+              : selectAccountSessionForDirectHost({
+                  session: stored,
+                  endpoint: directHostEndpoint,
+                }),
+          );
         }
       })();
     };
@@ -128,7 +141,7 @@ function HostWorkspaceRouteContent() {
       disposed = true;
       unsubscribe();
     };
-  }, []);
+  }, [directHostEndpoint]);
 
   useEffect(() => {
     if (accountSession !== null || !serverId) {

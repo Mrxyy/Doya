@@ -310,6 +310,8 @@ function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const hosts = useHosts();
+  const firstHostServerId = hosts[0]?.serverId ?? null;
   const anyOnlineHostServerId = useEarliestOnlineHostServerId();
   const daemonStartError = useDaemonStartLastError();
   const daemonStartIsRunning = useDaemonStartIsRunning();
@@ -319,6 +321,7 @@ function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
   const [hasGivenUpWaitingForHost, setHasGivenUpWaitingForHost] = useState(false);
   useEffect(() => {
     if (
+      firstHostServerId ||
       anyOnlineHostServerId ||
       daemonStartError ||
       daemonStartIsRunning ||
@@ -334,6 +337,7 @@ function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
       clearTimeout(handle);
     };
   }, [
+    firstHostServerId,
     anyOnlineHostServerId,
     daemonStartError,
     daemonStartIsRunning,
@@ -352,7 +356,10 @@ function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
 
   const splashError = !anyOnlineHostServerId ? daemonStartError : null;
   const isCurrentlyStoreReady =
-    Boolean(anyOnlineHostServerId) || Boolean(splashError) || hasGivenUpWaitingForHost;
+    Boolean(firstHostServerId) ||
+    Boolean(anyOnlineHostServerId) ||
+    Boolean(splashError) ||
+    hasGivenUpWaitingForHost;
   const storeReady = useLatchedBoolean(isCurrentlyStoreReady);
 
   const state = useMemo<HostRuntimeBootstrapState>(

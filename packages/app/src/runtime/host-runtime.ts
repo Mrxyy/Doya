@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useMemo } from "react";
+import { useEffect, useSyncExternalStore, useMemo } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import equal from "fast-deep-equal/es6";
 import {
@@ -377,7 +377,7 @@ function toSnapshotConnectionPatch(
     return {
       activeConnectionId: null,
       activeConnection: null,
-      connectionStatus: "connecting",
+      connectionStatus: "idle",
       lastError: null,
       lastOnlineAt: null,
     };
@@ -1725,18 +1725,12 @@ export class HostRuntimeStore {
         this.maybeAutoBootstrapAgentDirectory(host.serverId);
         this.emit(host.serverId);
       });
-      void controller
-        .start(
-          initialConnection
-            ? {
-                initialConnection,
-              }
-            : {},
-        )
-        .catch((error) => {
+      if (initialConnection) {
+        void controller.start({ initialConnection }).catch((error) => {
           const message = error instanceof Error ? error.message : String(error);
           controller.markStartupError(message);
         });
+      }
       this.emit(host.serverId);
     }
   }
@@ -1806,6 +1800,19 @@ export class HostRuntimeStore {
     return this.controllers.get(serverId)?.getClient() ?? null;
   }
 
+  async ensureStarted(serverId: string): Promise<void> {
+    const controller = this.controllers.get(serverId);
+    if (!controller) {
+      return;
+    }
+    try {
+      await controller.start();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      controller.markStartupError(message);
+    }
+  }
+
   subscribe(serverId: string, listener: () => void): () => void {
     const existing = this.serverListeners.get(serverId) ?? new Set<() => void>();
     existing.add(listener);
@@ -1851,6 +1858,7 @@ export class HostRuntimeStore {
 
   runProbeCycleNow(serverId?: string): Promise<void> {
     if (serverId) {
+      this.ensureStarted(serverId);
       return this.controllers.get(serverId)?.runProbeCycleNow() ?? Promise.resolve();
     }
     return Promise.all(
@@ -2004,6 +2012,17 @@ export function useHostRuntimeSnapshot(serverId: string): HostRuntimeSnapshot | 
   );
 }
 
+export function useEnsureHostRuntimeStarted(serverId: string | null | undefined): void {
+  const store = getHostRuntimeStore();
+  useEffect(() => {
+    const normalizedServerId = serverId?.trim();
+    if (!normalizedServerId) {
+      return;
+    }
+    void store.ensureStarted(normalizedServerId);
+  }, [serverId, store]);
+}
+
 export function useHostRuntimeClient(serverId: string): DaemonClient | null {
   const store = getHostRuntimeStore();
   return useSyncExternalStore(
@@ -2026,8 +2045,8 @@ export function useHostRuntimeConnectionStatus(serverId: string): HostRuntimeCon
   const store = getHostRuntimeStore();
   return useSyncExternalStore(
     (onStoreChange) => store.subscribe(serverId, onStoreChange),
-    () => store.getSnapshot(serverId)?.connectionStatus ?? "connecting",
-    () => store.getSnapshot(serverId)?.connectionStatus ?? "connecting",
+    () => store.getSnapshot(serverId)?.connectionStatus ?? "idle",
+    () => store.getSnapshot(serverId)?.connectionStatus ?? "idle",
   );
 }
 

@@ -1,9 +1,10 @@
 import { Text, View } from "react-native";
 import { ArrowLeftToLine, RotateCw, Settings } from "lucide-react-native";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
+import { DoyaLoadingMark } from "@/components/doya-loading-mark";
 import { Button } from "@/components/ui/button";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { isDev } from "@/constants/platform";
 import { formatConnectionStatus } from "@/utils/daemons";
 import type { WorkspaceRouteState } from "@/screens/workspace/workspace-route-state";
 import { translateNow } from "@/i18n/i18n";
@@ -20,7 +21,12 @@ export function renderWorkspaceRouteGate(input: {
 }): React.ReactNode {
   switch (input.state.kind) {
     case "loading":
-      return <WorkspaceConnecting hostName={input.state.hostName} />;
+      return (
+        <WorkspaceConnecting
+          hostName={input.state.hostName}
+          hostAddress={input.state.hostAddress}
+        />
+      );
     case "unreachable":
       return (
         <WorkspaceUnreachable
@@ -54,15 +60,21 @@ function getWorkspaceHostStateTitle(
   return `Cannot reach ${state.hostName}`;
 }
 
-function WorkspaceConnecting({ hostName }: { hostName: string }) {
-  const { theme } = useUnistyles();
+function WorkspaceConnecting({
+  hostName,
+  hostAddress,
+}: {
+  hostName: string;
+  hostAddress?: string;
+}) {
+  const developmentLabel = hostAddress ?? hostName;
 
   return (
     <View style={styles.emptyState}>
-      <LoadingSpinner size="small" color={theme.colors.foregroundMuted} />
+      <DoyaLoadingMark />
       <View style={styles.textStack}>
-        <Text style={styles.title}>{translateNow("ui.loading.workspace.1p9mm4x")}</Text>
-        <Text style={styles.description}>{hostName}</Text>
+        <Text style={styles.title}>Connecting</Text>
+        {isDev ? <Text style={styles.description}>{developmentLabel}</Text> : null}
       </View>
     </View>
   );
@@ -77,21 +89,22 @@ function WorkspaceUnreachable({
   onRetry: () => void;
   onManageHost: () => void;
 }) {
-  const { theme } = useUnistyles();
+  const isConnecting = state.connectionStatus === "connecting" || state.connectionStatus === "idle";
   const canRetry = state.connectionStatus === "offline" || state.connectionStatus === "error";
 
   return (
     <View style={styles.emptyState}>
-      {state.connectionStatus === "connecting" || state.connectionStatus === "idle" ? (
-        <LoadingSpinner size="small" color={theme.colors.foregroundMuted} />
-      ) : null}
+      {isConnecting ? <DoyaLoadingMark /> : null}
       <View style={styles.textStack}>
         <Text style={styles.title}>{getWorkspaceHostStateTitle(state)}</Text>
-        <Text style={styles.description}>
-          {state.connectionStatus === "connecting" || state.connectionStatus === "idle"
-            ? state.hostName
-            : `Host status: ${formatConnectionStatus(state.connectionStatus)}`}
-        </Text>
+        {isConnecting && isDev ? (
+          <Text style={styles.description}>{state.hostAddress ?? state.hostName}</Text>
+        ) : null}
+        {!isConnecting ? (
+          <Text style={styles.description}>
+            Host status: {formatConnectionStatus(state.connectionStatus)}
+          </Text>
+        ) : null}
         {state.lastError ? (
           <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
             <TooltipTrigger asChild>

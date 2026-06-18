@@ -162,6 +162,7 @@ export type AgentArchivedCallback = (agentId: string) => Promise<void> | void;
 export type AgentRawStreamEventCallback = (params: {
   agentId: string;
   event: AgentStreamEvent;
+  labels: Record<string, string>;
 }) => Promise<void> | void;
 
 export interface ProviderAvailability {
@@ -2767,7 +2768,7 @@ export class AgentManager {
 
     // Only update timestamp for live events, not history replay
     if (!options?.fromHistory) {
-      this.recordRawStreamEvent(agent.id, event);
+      this.recordRawStreamEvent(agent, event);
       this.touchUpdatedAt(agent);
       if (this.agentStreamCoalescer.handle(agent.id, event)) {
         this.traceCoalescerBuffered(agent, event, eventTurnId);
@@ -2803,16 +2804,16 @@ export class AgentManager {
     return flags.shouldNotifyWaiters;
   }
 
-  private recordRawStreamEvent(agentId: string, event: AgentStreamEvent): void {
+  private recordRawStreamEvent(agent: ActiveManagedAgent, event: AgentStreamEvent): void {
     if (!this.onRawStreamEvent) {
       return;
     }
     try {
-      const result = this.onRawStreamEvent({ agentId, event });
+      const result = this.onRawStreamEvent({ agentId: agent.id, event, labels: agent.labels });
       if (result && typeof result.then === "function") {
         const task = result.catch((err) => {
           this.logger.warn(
-            { err, agentId, eventType: event.type },
+            { err, agentId: agent.id, eventType: event.type },
             "Failed to record raw stream event",
           );
         });
@@ -2820,7 +2821,7 @@ export class AgentManager {
       }
     } catch (err) {
       this.logger.warn(
-        { err, agentId, eventType: event.type },
+        { err, agentId: agent.id, eventType: event.type },
         "Failed to record raw stream event",
       );
     }

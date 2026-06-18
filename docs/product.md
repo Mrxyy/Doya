@@ -21,9 +21,26 @@ Freedom and flexibility. Every design decision follows from this:
 
 ## How it works
 
+### Sessions
+
+Doya is moving toward a session-centered product shape: users create a session,
+do work inside it, and reopen it from history later. A session owns the durable
+intent and history: title, messages, artifacts, status, and working context.
+
+Daemon nodes, runtime allocations, workspace directories, ports, and provider
+processes are internal implementation details. A session can be bound to a
+runtime while work is happening, but the session history is not owned by a
+daemon-local `cwd`.
+
 ### Projects and workspaces
 
-Projects are grouped in the sidebar, detected automatically from your filesystem and tagged by git remote when available.
+Projects are the current local UI grouping for filesystem work and legacy
+account projects. In the control-plane model, this historical conversation
+shape becomes a Session; project `cwd` remains a compatibility/runtime path,
+not the durable user history record.
+
+Projects are grouped in the sidebar, detected automatically from your filesystem
+and tagged by git remote when available.
 
 Each project opens as a workspace. For git projects, the default workspace is the main checkout. Users can create additional workspaces, which are isolated copies (git worktrees) where agents work without affecting main.
 

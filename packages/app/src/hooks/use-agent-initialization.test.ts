@@ -61,6 +61,26 @@ describe("ensureAgentIsInitialized", () => {
     expect(getInitDeferred(getInitKey(serverId, agentId))?.requestDirection).toBe("after");
   });
 
+  it("does not fetch history again when authoritative history is already synchronized", async () => {
+    const client = makeClient();
+    useSessionStore.getState().initializeSession(serverId, client as never);
+    useSessionStore.getState().setAgentAuthoritativeHistoryApplied(serverId, agentId, true);
+    useSessionStore.getState().markAgentHistorySynchronized(serverId, agentId);
+
+    await ensureAgentIsInitialized({
+      serverId,
+      agentId,
+      client: client as never,
+      setAgentInitializing: bindSetAgentInitializing(),
+    });
+
+    expect(client.fetchAgentTimeline).not.toHaveBeenCalled();
+    expect(getInitDeferred(getInitKey(serverId, agentId))).toBeUndefined();
+    expect(useSessionStore.getState().sessions[serverId]?.initializingAgents.get(agentId)).not.toBe(
+      true,
+    );
+  });
+
   it("requests a bounded projected tail when no authoritative cursor is available", () => {
     const client = makeClient();
     useSessionStore.getState().initializeSession(serverId, client as never);

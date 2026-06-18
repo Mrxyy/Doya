@@ -95,6 +95,22 @@ export function isPathInAccountWorkspace(input: {
   return Boolean(sessionCwd && candidatePath && isSameOrChildPath(candidatePath, sessionCwd));
 }
 
+export function isAccountSessionUsableForDirectHost(input: {
+  session: AccountBootstrapSession | null | undefined;
+  endpoint: string | null | undefined;
+}): boolean {
+  const sessionEndpoint = normalizeAccountApiEndpoint(input.session?.apiBaseUrl);
+  const hostEndpoint = normalizeDirectHostEndpoint(input.endpoint);
+  return Boolean(sessionEndpoint && hostEndpoint && sessionEndpoint === hostEndpoint);
+}
+
+export function selectAccountSessionForDirectHost(input: {
+  session: AccountBootstrapSession | null | undefined;
+  endpoint: string | null | undefined;
+}): AccountBootstrapSession | null {
+  return isAccountSessionUsableForDirectHost(input) ? (input.session ?? null) : null;
+}
+
 export function doesAccountSessionOwnWorkspace(input: {
   session: AccountBootstrapSession | null;
   workspaceDirectory: string | null | undefined;
@@ -103,6 +119,38 @@ export function doesAccountSessionOwnWorkspace(input: {
     session: input.session,
     path: input.workspaceDirectory,
   });
+}
+
+function normalizeAccountApiEndpoint(apiBaseUrl: string | null | undefined): string | null {
+  const trimmed = apiBaseUrl?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    return normalizeDirectHostEndpoint(new URL(trimmed).host);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeDirectHostEndpoint(endpoint: string | null | undefined): string | null {
+  const trimmed = endpoint?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  try {
+    const parsed = new URL(trimmed.includes("://") ? trimmed : `http://${trimmed}`);
+    const hostname = normalizeLoopbackHostname(parsed.hostname.toLowerCase());
+    return parsed.port ? `${hostname}:${parsed.port}` : hostname;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeLoopbackHostname(hostname: string): string {
+  return hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]"
+    ? "localhost"
+    : hostname;
 }
 
 function isSameOrChildPath(candidatePath: string, parentPath: string): boolean {

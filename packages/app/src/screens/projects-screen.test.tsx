@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProjectHostEntry, ProjectSummary, WorkspaceSummary } from "@/utils/projects";
 import type { ProjectHostError, UseProjectsResult } from "@/hooks/use-projects";
 
-const { theme, projectsState, navigate } = vi.hoisted(() => ({
+const { theme, projectsState, navigate, restoreControlSessionToAgent } = vi.hoisted(() => ({
   theme: {
     spacing: { 0: 0, 1: 4, "1.5": 6, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32 },
     iconSize: { sm: 14, md: 20 },
@@ -38,6 +38,7 @@ const { theme, projectsState, navigate } = vi.hoisted(() => ({
     } as UseProjectsResult,
   },
   navigate: vi.fn(),
+  restoreControlSessionToAgent: vi.fn(),
 }));
 
 vi.mock("react-native", () => {
@@ -103,6 +104,7 @@ vi.mock("react-native-unistyles", () => ({
     create: (factory: unknown) =>
       typeof factory === "function" ? (factory as (t: typeof theme) => unknown)(theme) : factory,
   },
+  withUnistyles: (Component: React.ComponentType<unknown>) => Component,
   useUnistyles: () => ({ theme }),
 }));
 
@@ -123,6 +125,46 @@ vi.mock("lucide-react-native", () => {
 
 vi.mock("expo-router", () => ({
   router: { navigate },
+}));
+
+vi.mock("@/account/account-api", () => ({
+  loadAccountBootstrapSession: vi.fn(async () => ({
+    user: { userId: "usr_1", email: "admin@example.com", phone: null },
+    workspace: { workspaceId: "control:usr_1", displayName: "Doya", runtime: null },
+    projects: [],
+    accessToken: "token",
+    apiBaseUrl: "http://localhost:6777",
+  })),
+}));
+
+vi.mock("@/control/control-session-restore", () => ({
+  restoreControlSessionToAgent,
+}));
+
+vi.mock("@/runtime/host-runtime", () => ({
+  useHosts: () => [{ serverId: "srv_1", label: "local", connections: [] }],
+  useHostMutations: () => ({
+    upsertDirectConnection: vi.fn(),
+  }),
+}));
+
+vi.mock("@/stores/session-store", () => ({
+  useSessionStore: (selector: (state: unknown) => unknown) =>
+    selector({
+      mergeWorkspaces: vi.fn(),
+      setHasHydratedWorkspaces: vi.fn(),
+    }),
+}));
+
+vi.mock("@/contexts/toast-context", () => ({
+  useToast: () => ({ error: vi.fn(), show: vi.fn() }),
+}));
+
+vi.mock("@/utils/host-routes", () => ({
+  buildHostAgentDetailRoute: (serverId: string, agentId: string) =>
+    `/h/${serverId}/agent/${agentId}`,
+  buildProjectSettingsRoute: (projectKey: string) =>
+    `/settings/projects/${encodeURIComponent(projectKey)}`,
 }));
 
 vi.mock("@/components/ui/loading-spinner", () => ({
@@ -186,6 +228,8 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 
 vi.mock("@/hooks/use-projects", () => ({
   useProjects: () => projectsState.current,
+  parseControlSessionProjectKey: (projectKey: string) =>
+    projectKey.startsWith("control-session:") ? projectKey.slice("control-session:".length) : null,
 }));
 
 vi.mock("@/hooks/use-project-icon-query", () => ({
@@ -320,6 +364,41 @@ describe("ProjectsScreen", () => {
     expect(navigate).toHaveBeenCalledWith("/settings/projects/remote%3Agithub.com%2Facme%2Fapp");
   });
 
+  it("restores control session rows before navigating to the agent route", async () => {
+    restoreControlSessionToAgent.mockResolvedValueOnce({ nodeId: "srv_1", agentId: "agent_1" });
+    setProjectsState({
+      projects: [
+        project({
+          projectKey: "control-session:ses_123",
+          projectName: "Quarterly budget",
+          hosts: [],
+          hostCount: 0,
+          onlineHostCount: 0,
+          totalWorkspaceCount: 0,
+          githubUrl: undefined,
+        }),
+      ],
+    });
+
+    render({ kind: "projects" });
+
+    const row = findRow(container!, "control-session:ses_123");
+    act(() => {
+      row.dispatchEvent(new window.MouseEvent("click", { bubbles: true }));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(restoreControlSessionToAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: "ses_123" }),
+    );
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith("/h/srv_1/agent/agent_1");
+  });
+
   it("does not render a kebab menu on the row", () => {
     setProjectsState({
       projects: [project({ projectKey: "remote:github.com/acme/app" })],
@@ -345,7 +424,7 @@ describe("ProjectsScreen", () => {
 
     render({ kind: "projects" });
 
-    expect(container?.textContent).toContain("No projects yet");
+    expect(container?.textContent).toContain("No sessions yet");
     expect(container?.textContent).not.toContain("Non-GitHub remote projects aren't supported yet");
   });
 

@@ -11,17 +11,29 @@ import {
   applyAccountWorkspaceDisplay,
   doesAccountSessionOwnWorkspace,
   findAccountProjectForWorkspaceDirectory,
+  selectAccountSessionForDirectHost,
 } from "@/account/account-workspace-display";
+import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-store";
 
 export function useAccountWorkspaceMetadata(
   serverId: string | null,
 ): AccountBootstrapSession | null {
   const [session, setSession] = useState<AccountBootstrapSession | null>(null);
+  const snapshot = useHostRuntimeSnapshot(serverId ?? "");
+  const directHostEndpoint =
+    snapshot?.activeConnection?.type === "directTcp" ? snapshot.activeConnection.endpoint : null;
+  const hostScopedSession =
+    session?.workspace.workspaceId.startsWith("control:") === true
+      ? session
+      : selectAccountSessionForDirectHost({
+          session,
+          endpoint: directHostEndpoint,
+        });
   const accountWorkspaces = useStoreWithEqualityFn(
     useSessionStore,
     (state) => {
-      if (!serverId || !session) {
+      if (!serverId || !hostScopedSession) {
         return [];
       }
       const workspaces = state.sessions[serverId]?.workspaces;
@@ -30,7 +42,7 @@ export function useAccountWorkspaceMetadata(
       }
       return Array.from(workspaces.values()).filter((workspace) =>
         doesAccountSessionOwnWorkspace({
-          session,
+          session: hostScopedSession,
           workspaceDirectory: workspace.workspaceDirectory,
         }),
       );
@@ -59,11 +71,13 @@ export function useAccountWorkspaceMetadata(
   }, [reloadSession]);
 
   useEffect(() => {
-    if (!serverId || !session || accountWorkspaces.length === 0) {
+    if (!serverId || !hostScopedSession || accountWorkspaces.length === 0) {
       return;
     }
     const nextWorkspaces = accountWorkspaces
-      .map((workspace) => applyAccountDisplayForWorkspace({ workspace, session }))
+      .map((workspace) =>
+        applyAccountDisplayForWorkspace({ workspace, session: hostScopedSession }),
+      )
       .filter((workspace, index) => {
         const current = accountWorkspaces[index];
         return (
@@ -77,9 +91,9 @@ export function useAccountWorkspaceMetadata(
       return;
     }
     mergeWorkspaces(serverId, nextWorkspaces);
-  }, [accountWorkspaces, mergeWorkspaces, serverId, session]);
+  }, [accountWorkspaces, hostScopedSession, mergeWorkspaces, serverId]);
 
-  return session;
+  return hostScopedSession;
 }
 
 function applyAccountDisplayForWorkspace(input: {

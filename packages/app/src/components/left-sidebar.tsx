@@ -8,6 +8,7 @@ import {
   Text,
   useWindowDimensions,
   View,
+  type PressableStateCallbackType,
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -39,7 +40,7 @@ import {
   useSidebarWorkspacesList,
 } from "@/hooks/use-sidebar-workspaces-list";
 import { useI18n, translateNow } from "@/i18n/i18n";
-import { useHosts } from "@/runtime/host-runtime";
+import { type HostRuntimeConnectionStatus, useHosts } from "@/runtime/host-runtime";
 import {
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
@@ -73,6 +74,7 @@ interface SidebarSharedProps {
   activeServerId: string | null;
   accountSession: AccountBootstrapSession | null;
   projects: SidebarProjectEntry[];
+  connectionStatus: HostRuntimeConnectionStatus;
   agents: AggregatedAgent[];
   isAgentHistoryInitialLoad: boolean;
   isInitialLoad: boolean;
@@ -129,12 +131,13 @@ export const LeftSidebar = memo(function LeftSidebar({
   const activeServerId = activeDaemon?.serverId ?? null;
   const accountSession = useAccountWorkspaceMetadata(activeServerId);
 
-  const { projects, isInitialLoad, isRevalidating, refreshAll } = useSidebarWorkspacesList({
-    serverId: activeServerId,
-    enabled: isCompactLayout || isOpen,
-    accountSession,
-    requireAccount: true,
-  });
+  const { projects, connectionStatus, isInitialLoad, isRevalidating, refreshAll } =
+    useSidebarWorkspacesList({
+      serverId: activeServerId,
+      enabled: isCompactLayout || isOpen,
+      accountSession,
+      requireAccount: true,
+    });
   const { collapsedProjectKeys, shortcutIndexByWorkspaceKey, toggleProjectCollapsed } =
     useSidebarShortcutModel({ projects, isInitialLoad });
   const addProjectLabel = t("sidebar.addProject");
@@ -225,6 +228,7 @@ export const LeftSidebar = memo(function LeftSidebar({
     activeServerId,
     accountSession,
     projects,
+    connectionStatus,
     agents: [],
     isAgentHistoryInitialLoad: false,
     isInitialLoad,
@@ -332,7 +336,7 @@ function AccountMenuTrigger({
   );
 
   const loginStyle = useCallback(
-    ({ hovered, pressed }: { hovered: boolean; pressed: boolean }) => [
+    ({ hovered, pressed }: PressableStateCallbackType) => [
       styles.accountTrigger,
       (hovered || pressed) && styles.accountTriggerHovered,
     ],
@@ -453,6 +457,7 @@ function SidebarFooter({
 
 function AnonymousConversationList({
   agents,
+  connectionStatus,
   onAddProject,
   onAiCreation,
   addProjectLabel,
@@ -461,6 +466,7 @@ function AnonymousConversationList({
   onConversationPress,
 }: {
   agents: AggregatedAgent[];
+  connectionStatus: HostRuntimeConnectionStatus;
   onAddProject: () => void;
   onAiCreation: () => void;
   addProjectLabel: string;
@@ -496,6 +502,7 @@ function AnonymousConversationList({
             <AnonymousConversationRow
               key={`${agent.serverId}:${agent.id}`}
               agent={agent}
+              connectionStatus={connectionStatus}
               onConversationPress={onConversationPress}
             />
           ))
@@ -535,21 +542,28 @@ function AnonymousSidebarAction({
 
 function AnonymousConversationRow({
   agent,
+  connectionStatus,
   onConversationPress,
 }: {
   agent: AggregatedAgent;
+  connectionStatus: HostRuntimeConnectionStatus;
   onConversationPress?: () => void;
 }) {
   const { theme } = useUnistyles();
+  const toast = useToast();
   const title = agent.title?.trim() || translateNow("account.project.defaultName");
   const handlePress = useCallback(() => {
+    if (connectionStatus !== "online") {
+      toast.error(translateNow("ui.host.is.not.connected.n90cm6"));
+      return;
+    }
     onConversationPress?.();
     navigateToAgent({
       serverId: agent.serverId,
       agentId: agent.id,
       pin: Boolean(agent.archivedAt),
     });
-  }, [agent.archivedAt, agent.id, agent.serverId, onConversationPress]);
+  }, [agent.archivedAt, agent.id, agent.serverId, connectionStatus, onConversationPress, toast]);
   const rowStyle = useCallback(
     ({ hovered = false, pressed }: { hovered?: boolean; pressed: boolean }) => [
       styles.anonymousConversationRow,
@@ -575,6 +589,7 @@ function MobileSidebar({
   activeServerId,
   accountSession,
   projects,
+  connectionStatus,
   isInitialLoad,
   isRevalidating,
   isManualRefresh,
@@ -624,6 +639,7 @@ function MobileSidebar({
         serverId={activeServerId}
         accountSession={accountSession}
         collapsedProjectKeys={collapsedProjectKeys}
+        connectionStatus={connectionStatus}
         onToggleProjectCollapsed={toggleProjectCollapsed}
         shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
         projects={projects}
@@ -644,6 +660,7 @@ function MobileSidebar({
     conversationListContent = (
       <AnonymousConversationList
         agents={agents}
+        connectionStatus={connectionStatus}
         onAddProject={handleOpenProject}
         onAiCreation={handleAiCreation}
         addProjectLabel={addProjectLabel}
@@ -843,6 +860,7 @@ function DesktopSidebar({
   activeServerId,
   accountSession,
   projects,
+  connectionStatus,
   isInitialLoad,
   isRevalidating,
   isManualRefresh,
@@ -873,6 +891,7 @@ function DesktopSidebar({
         serverId={activeServerId}
         accountSession={accountSession}
         collapsedProjectKeys={collapsedProjectKeys}
+        connectionStatus={connectionStatus}
         onToggleProjectCollapsed={toggleProjectCollapsed}
         shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
         projects={projects}
@@ -891,6 +910,7 @@ function DesktopSidebar({
     conversationListContent = (
       <AnonymousConversationList
         agents={agents}
+        connectionStatus={connectionStatus}
         onAddProject={handleOpenProject}
         onAiCreation={handleAiCreation}
         addProjectLabel={addProjectLabel}

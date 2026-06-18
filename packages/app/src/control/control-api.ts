@@ -1,0 +1,805 @@
+import type { AccountBootstrapSession } from "@/account/account-api";
+import { isDev } from "@/constants/platform";
+import { translateNow } from "@/i18n/i18n";
+import type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@getdoya/protocol/messages";
+
+export type SessionStatus = "idle" | "running" | "needs_input" | "done" | "error";
+export type RuntimeStatus = "starting" | "running" | "stopped" | "lost";
+export type MessageRole = "user" | "assistant" | "system" | "tool";
+
+export type WorkingContext =
+  | { type: "git"; repoUrl: string; branch?: string; baseCommit?: string }
+  | { type: "uploaded_files"; snapshotId: string }
+  | { type: "generated_workspace"; snapshotId?: string };
+
+export interface ControlUserRecord {
+  id: string;
+  email: string;
+  phone: string | null;
+  createdAt: string;
+  disabledAt: string | null;
+}
+
+export interface ControlAccountSession {
+  user: ControlUserRecord;
+  accessToken: string;
+}
+
+export interface ControlSessionRecord {
+  id: string;
+  userId: string;
+  title: string;
+  status: SessionStatus;
+  workingContext: WorkingContext;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  workDirDeletedAt: string | null;
+}
+
+export interface ControlSessionMessageRecord {
+  id: string;
+  sessionId: string;
+  role: MessageRole;
+  externalId: string | null;
+  content: unknown;
+  sequence: number;
+  createdAt: string;
+}
+
+export interface ControlArtifactRecord {
+  id: string;
+  sessionId: string;
+  type: string;
+  name: string;
+  uri: string;
+  externalId: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+
+export interface ControlRuntimeAllocationRecord {
+  id: string;
+  runtimeId: string;
+  sessionId: string;
+  nodeId: string;
+  providerId: string | null;
+  modelId: string | null;
+  selectionReason: string | null;
+  userWorkspaceId: string | null;
+  workspaceDir: string;
+  status: RuntimeStatus;
+  leasedAt: string;
+  releasedAt: string | null;
+  lastHeartbeatAt: string;
+}
+
+export type ControlAgentBindingStatus = "active" | "lost" | "archived";
+
+export interface ControlAgentBindingRecord {
+  id: string;
+  sessionId: string;
+  nodeId: string;
+  agentId: string;
+  userWorkspaceId: string | null;
+  workspaceId: string | null;
+  cwd: string | null;
+  status: ControlAgentBindingStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ControlUserDaemonWorkspaceRecord {
+  id: string;
+  userId: string;
+  nodeId: string;
+  workspaceDir: string;
+  status: "active" | "lost";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ControlFileSnapshotFileRecord {
+  path: string;
+  contentBase64: string;
+  mode: number | null;
+}
+
+export interface ControlFileSnapshotRecord {
+  id: string;
+  userId: string;
+  files: ControlFileSnapshotFileRecord[];
+  createdAt: string;
+}
+
+export interface ControlDaemonNodeRecord {
+  id: string;
+  endpoint: string;
+  status: "online" | "offline" | "draining";
+  capabilities: unknown;
+  doyaHome: string | null;
+  lastHeartbeatAt: string;
+  createdAt: string;
+}
+
+export interface ControlSettingsRecord {
+  defaultDaemonNodeId: string | null;
+}
+
+export interface ControlDaemonNodeSummary {
+  node: ControlDaemonNodeRecord;
+  isDefault: boolean;
+  userWorkspaceCount: number;
+  runtimeCounts: Record<RuntimeStatus, number>;
+  activeSessionCount: number;
+  agentBindingCounts: Record<ControlAgentBindingStatus, number>;
+  load: ControlDaemonLoadResult | ControlDaemonLoadUnavailable;
+  userWorkspaces: ControlUserDaemonWorkspaceSummary[];
+}
+
+export interface ControlAdminOverview {
+  settings: ControlSettingsRecord;
+  daemonNodes: ControlDaemonNodeSummary[];
+  totals: {
+    daemonCount: number;
+    userWorkspaceCount: number;
+    runtimeCounts: Record<RuntimeStatus, number>;
+    activeSessionCount: number;
+    agentBindingCounts: Record<ControlAgentBindingStatus, number>;
+  };
+}
+
+export interface ControlDaemonLoadResult {
+  status: "ok";
+  nodeId: string;
+  sampledAt: string;
+  cpu: {
+    loadAverage: number[];
+  };
+  memory: ControlUsageStats;
+  disk: ControlUsageStats | null;
+  uptimeSeconds: number;
+}
+
+export interface ControlDaemonLoadUnavailable {
+  status: "unavailable";
+  error: string;
+}
+
+export interface ControlUsageStats {
+  totalBytes: number;
+  freeBytes: number;
+  usedBytes: number;
+  usedRatio: number;
+}
+
+export interface ControlUserDaemonWorkspaceSummary {
+  workspace: ControlUserDaemonWorkspaceRecord;
+  user: ControlUserRecord | null;
+  sessions: ControlAdminSessionSummary[];
+}
+
+export interface ControlAdminSessionSummary {
+  session: ControlSessionRecord;
+  runtimeAllocations: ControlRuntimeAllocationRecord[];
+  agentBindings: ControlAgentBindingRecord[];
+}
+
+export interface ControlDaemonSessionCleanupResult {
+  requestedSessionCount: number;
+  matchedSessionCount: number;
+  deletedSessionCount: number;
+  stoppedRuntimeCount: number;
+  archivedBindingCount: number;
+  workDirCleanup: {
+    deleted: Array<{ sessionId: string; workDir: string; deleted: boolean }>;
+    failed: Array<{ sessionId: string; error: string }>;
+  };
+}
+
+export interface ControlDaemonRestartResult {
+  status: "restart_requested";
+  nodeId: string;
+  requestId: string;
+  reason: string;
+}
+
+export type ControlDaemonConfig = MutableDaemonConfig;
+export type ControlDaemonConfigPatch = MutableDaemonConfigPatch;
+
+export interface ControlRuntimeLease {
+  runtime: ControlRuntimeAllocationRecord;
+  node: ControlDaemonNodeRecord;
+}
+
+export interface ControlAgentBindingResponse {
+  binding: ControlAgentBindingRecord | null;
+  node: ControlDaemonNodeRecord | null;
+}
+
+export interface ControlErrorPayload {
+  error?: string;
+}
+
+export function controlApiBaseUrl(): string | null {
+  const explicit = process.env.EXPO_PUBLIC_CONTROL_API_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, "");
+  }
+  return isDev ? "http://localhost:6777" : null;
+}
+
+export function isControlApiConfigured(): boolean {
+  return Boolean(controlApiBaseUrl());
+}
+
+export function mapControlAccountSession(input: ControlAccountSession): AccountBootstrapSession {
+  return {
+    user: {
+      userId: input.user.id,
+      email: input.user.email,
+      phone: input.user.phone,
+    },
+    workspace: {
+      workspaceId: `control:${input.user.id}`,
+      displayName: "Doya",
+      runtime: null,
+    },
+    projects: [],
+    accessToken: input.accessToken,
+    apiBaseUrl: controlApiBaseUrl() ?? "",
+  };
+}
+
+export async function registerControlAccount(input: {
+  email: string;
+  phone?: string | null;
+}): Promise<AccountBootstrapSession> {
+  const payload = await postControlApi<ControlAccountSession>("/api/account/register", input);
+  return mapControlAccountSession(payload);
+}
+
+export async function loginControlAccount(input: {
+  email: string;
+}): Promise<AccountBootstrapSession> {
+  const payload = await postControlApi<ControlAccountSession>("/api/account/login", input);
+  return mapControlAccountSession(payload);
+}
+
+export async function refreshControlAccountSession(
+  session: AccountBootstrapSession,
+): Promise<AccountBootstrapSession> {
+  const payload = await getControlApi<ControlAccountSession>("/api/account/session", session);
+  return mapControlAccountSession(payload);
+}
+
+export async function listControlSessions(input: {
+  accountSession: AccountBootstrapSession;
+  limit?: number;
+}): Promise<ControlSessionRecord[]> {
+  const search = input.limit ? `?limit=${encodeURIComponent(String(input.limit))}` : "";
+  const payload = await getControlApi<{ sessions: ControlSessionRecord[] }>(
+    `/api/sessions${search}`,
+    input.accountSession,
+  );
+  return payload.sessions;
+}
+
+export async function createControlSession(input: {
+  accountSession: AccountBootstrapSession;
+  title: string;
+  workingContext: WorkingContext;
+}): Promise<ControlSessionRecord> {
+  const payload = await postControlApi<{ session: ControlSessionRecord }>(
+    "/api/sessions",
+    {
+      title: input.title,
+      workingContext: input.workingContext,
+    },
+    input.accountSession,
+  );
+  return payload.session;
+}
+
+export async function getControlSession(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+}): Promise<ControlSessionRecord> {
+  const payload = await getControlApi<{ session: ControlSessionRecord }>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}`,
+    input.accountSession,
+  );
+  return payload.session;
+}
+
+export async function updateControlSession(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+  title?: string;
+  status?: SessionStatus;
+}): Promise<ControlSessionRecord> {
+  const body: { title?: string; status?: SessionStatus } = {};
+  if (input.title !== undefined) {
+    body.title = input.title;
+  }
+  if (input.status !== undefined) {
+    body.status = input.status;
+  }
+  const payload = await patchControlApi<{ session: ControlSessionRecord }>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}`,
+    body,
+    input.accountSession,
+  );
+  return payload.session;
+}
+
+export async function deleteControlSession(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+}): Promise<void> {
+  await deleteControlApi(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}`,
+    input.accountSession,
+  );
+}
+
+export async function listControlSessionMessages(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+}): Promise<ControlSessionMessageRecord[]> {
+  const payload = await getControlApi<{ messages: ControlSessionMessageRecord[] }>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/messages`,
+    input.accountSession,
+  );
+  return payload.messages;
+}
+
+export async function listControlSessionArtifacts(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+}): Promise<ControlArtifactRecord[]> {
+  const payload = await getControlApi<{ artifacts: ControlArtifactRecord[] }>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/artifacts`,
+    input.accountSession,
+  );
+  return payload.artifacts;
+}
+
+export async function appendControlSessionMessage(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+  role: MessageRole;
+  externalId?: string | null;
+  content: unknown;
+}): Promise<ControlSessionMessageRecord> {
+  const payload = await postControlApi<{ message: ControlSessionMessageRecord }>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/messages`,
+    {
+      role: input.role,
+      externalId: input.externalId,
+      content: input.content,
+    },
+    input.accountSession,
+  );
+  return payload.message;
+}
+
+export async function createControlSessionArtifact(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+  type: string;
+  name: string;
+  uri: string;
+  externalId?: string | null;
+  metadata?: unknown;
+}): Promise<ControlArtifactRecord> {
+  const payload = await postControlApi<{ artifact: ControlArtifactRecord }>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/artifacts`,
+    {
+      type: input.type,
+      name: input.name,
+      uri: input.uri,
+      externalId: input.externalId,
+      metadata: input.metadata,
+    },
+    input.accountSession,
+  );
+  return payload.artifact;
+}
+
+export async function createControlFileSnapshot(input: {
+  accountSession: AccountBootstrapSession;
+  files: Array<{
+    path: string;
+    contentBase64: string;
+    mode?: number | null;
+  }>;
+}): Promise<ControlFileSnapshotRecord> {
+  const payload = await postControlApi<{ snapshot: ControlFileSnapshotRecord }>(
+    "/api/file-snapshots",
+    {
+      files: input.files,
+    },
+    input.accountSession,
+  );
+  return payload.snapshot;
+}
+
+export async function getControlFileSnapshot(input: {
+  accountSession: AccountBootstrapSession;
+  snapshotId: string;
+}): Promise<ControlFileSnapshotRecord> {
+  const payload = await getControlApi<{ snapshot: ControlFileSnapshotRecord }>(
+    `/api/file-snapshots/${encodeURIComponent(input.snapshotId)}`,
+    input.accountSession,
+  );
+  return payload.snapshot;
+}
+
+export async function registerControlNode(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId?: string;
+  endpoint: string;
+  capabilities?: unknown;
+  runtimeAuthToken?: string | null;
+  status?: ControlDaemonNodeRecord["status"];
+  doyaHome?: string | null;
+}): Promise<ControlDaemonNodeRecord> {
+  const payload = await postControlApi<{ node: ControlDaemonNodeRecord }>(
+    "/api/nodes/register",
+    {
+      nodeId: input.nodeId,
+      endpoint: input.endpoint,
+      capabilities: input.capabilities,
+      runtimeAuthToken: input.runtimeAuthToken,
+      status: input.status,
+      doyaHome: input.doyaHome,
+    },
+    input.accountSession,
+  );
+  return payload.node;
+}
+
+export async function getControlAdminOverview(input: {
+  accountSession: AccountBootstrapSession;
+}): Promise<ControlAdminOverview> {
+  return await getControlApi<ControlAdminOverview>(
+    "/api/admin/daemon-overview",
+    input.accountSession,
+  );
+}
+
+export async function setControlDefaultDaemon(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string | null;
+}): Promise<ControlSettingsRecord> {
+  const payload = await patchControlApi<{ settings: ControlSettingsRecord }>(
+    "/api/admin/default-daemon",
+    { nodeId: input.nodeId },
+    input.accountSession,
+  );
+  return payload.settings;
+}
+
+export async function updateControlDaemonNode(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string;
+  status: ControlDaemonNodeRecord["status"];
+}): Promise<ControlDaemonNodeRecord> {
+  const payload = await patchControlApi<{ node: ControlDaemonNodeRecord }>(
+    `/api/admin/nodes/${encodeURIComponent(input.nodeId)}`,
+    { status: input.status },
+    input.accountSession,
+  );
+  return payload.node;
+}
+
+export async function removeControlDaemonNode(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string;
+}): Promise<void> {
+  await deleteControlApi(
+    `/api/admin/nodes/${encodeURIComponent(input.nodeId)}`,
+    input.accountSession,
+  );
+}
+
+export async function restartControlDaemonNode(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string;
+}): Promise<ControlDaemonRestartResult> {
+  const payload = await postControlApi<{ restart: ControlDaemonRestartResult }>(
+    `/api/admin/nodes/${encodeURIComponent(input.nodeId)}/restart`,
+    {},
+    input.accountSession,
+  );
+  return payload.restart;
+}
+
+export async function getControlDaemonConfig(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string;
+}): Promise<ControlDaemonConfig> {
+  const payload = await getControlApi<{ config: ControlDaemonConfig }>(
+    `/api/admin/nodes/${encodeURIComponent(input.nodeId)}/config`,
+    input.accountSession,
+  );
+  return payload.config;
+}
+
+export async function patchControlDaemonConfig(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string;
+  patch: ControlDaemonConfigPatch;
+}): Promise<ControlDaemonConfig> {
+  const payload = await patchControlApi<{ config: ControlDaemonConfig }>(
+    `/api/admin/nodes/${encodeURIComponent(input.nodeId)}/config`,
+    input.patch,
+    input.accountSession,
+  );
+  return payload.config;
+}
+
+export async function cleanupControlDaemonSessions(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string;
+  sessionIds: string[];
+  deleteSessions: boolean;
+  deleteWorkDirs: boolean;
+}): Promise<ControlDaemonSessionCleanupResult> {
+  const payload = await postControlApi<{ cleanup: ControlDaemonSessionCleanupResult }>(
+    `/api/admin/nodes/${encodeURIComponent(input.nodeId)}/cleanup-sessions`,
+    {
+      sessionIds: input.sessionIds,
+      deleteSessions: input.deleteSessions,
+      deleteWorkDirs: input.deleteWorkDirs,
+    },
+    input.accountSession,
+  );
+  return payload.cleanup;
+}
+
+export async function getActiveControlRuntime(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+}): Promise<ControlRuntimeAllocationRecord | null> {
+  const payload = await getControlApi<{ runtime: ControlRuntimeAllocationRecord | null }>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/runtimes/active`,
+    input.accountSession,
+  );
+  return payload.runtime;
+}
+
+export async function createControlRuntimeAllocation(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+  nodeId: string;
+  runtimeId: string;
+  providerId?: string | null;
+  modelId?: string | null;
+  selectionReason?: string | null;
+  userWorkspaceId?: string | null;
+  workspaceDir: string;
+  status?: RuntimeStatus;
+}): Promise<ControlRuntimeAllocationRecord> {
+  const payload = await postControlApi<{ runtime: ControlRuntimeAllocationRecord }>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/runtimes`,
+    {
+      nodeId: input.nodeId,
+      runtimeId: input.runtimeId,
+      providerId: input.providerId,
+      modelId: input.modelId,
+      selectionReason: input.selectionReason,
+      userWorkspaceId: input.userWorkspaceId,
+      workspaceDir: input.workspaceDir,
+      status: input.status,
+    },
+    input.accountSession,
+  );
+  return payload.runtime;
+}
+
+export async function allocateControlSessionWorkDir(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+  nodeId: string;
+  runtimeId?: string;
+  providerId?: string | null;
+  modelId?: string | null;
+  selectionReason?: string | null;
+}): Promise<{
+  runtime: ControlRuntimeAllocationRecord;
+  userWorkspace: ControlUserDaemonWorkspaceRecord;
+}> {
+  return await postControlApi<{
+    runtime: ControlRuntimeAllocationRecord;
+    userWorkspace: ControlUserDaemonWorkspaceRecord;
+  }>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/workdir`,
+    {
+      nodeId: input.nodeId,
+      runtimeId: input.runtimeId,
+      providerId: input.providerId,
+      modelId: input.modelId,
+      selectionReason: input.selectionReason,
+    },
+    input.accountSession,
+  );
+}
+
+export async function getControlUserDaemonWorkspace(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string;
+}): Promise<ControlUserDaemonWorkspaceRecord | null> {
+  const payload = await getControlApi<{ workspace: ControlUserDaemonWorkspaceRecord | null }>(
+    `/api/nodes/${encodeURIComponent(input.nodeId)}/user-workspace`,
+    input.accountSession,
+  );
+  return payload.workspace;
+}
+
+export async function ensureControlUserDaemonWorkspace(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string;
+}): Promise<ControlUserDaemonWorkspaceRecord> {
+  const payload = await postControlApi<{ workspace: ControlUserDaemonWorkspaceRecord }>(
+    `/api/nodes/${encodeURIComponent(input.nodeId)}/user-workspace/ensure`,
+    {},
+    input.accountSession,
+  );
+  return payload.workspace;
+}
+
+export async function upsertControlUserDaemonWorkspace(input: {
+  accountSession: AccountBootstrapSession;
+  nodeId: string;
+  workspaceDir: string;
+  status?: ControlUserDaemonWorkspaceRecord["status"];
+}): Promise<ControlUserDaemonWorkspaceRecord> {
+  const payload = await postControlApi<{ workspace: ControlUserDaemonWorkspaceRecord }>(
+    `/api/nodes/${encodeURIComponent(input.nodeId)}/user-workspace`,
+    {
+      workspaceDir: input.workspaceDir,
+      status: input.status,
+    },
+    input.accountSession,
+  );
+  return payload.workspace;
+}
+
+export async function getControlAgentBinding(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+}): Promise<ControlAgentBindingResponse> {
+  return await getControlApi<ControlAgentBindingResponse>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/agent-binding`,
+    input.accountSession,
+  );
+}
+
+export async function upsertControlAgentBinding(input: {
+  accountSession: AccountBootstrapSession;
+  sessionId: string;
+  nodeId: string;
+  agentId: string;
+  userWorkspaceId?: string | null;
+  workspaceId?: string | null;
+  cwd?: string | null;
+  status?: ControlAgentBindingStatus;
+}): Promise<ControlAgentBindingResponse> {
+  return await postControlApi<ControlAgentBindingResponse>(
+    `/api/sessions/${encodeURIComponent(input.sessionId)}/agent-binding`,
+    {
+      nodeId: input.nodeId,
+      agentId: input.agentId,
+      userWorkspaceId: input.userWorkspaceId,
+      workspaceId: input.workspaceId,
+      cwd: input.cwd,
+      status: input.status,
+    },
+    input.accountSession,
+  );
+}
+
+async function getControlApi<T extends object>(
+  path: string,
+  accountSession: AccountBootstrapSession,
+): Promise<T> {
+  return requestControlApi<T>(path, {
+    method: "GET",
+    accountSession,
+  });
+}
+
+async function postControlApi<T extends object>(
+  path: string,
+  input: unknown,
+  accountSession?: AccountBootstrapSession,
+): Promise<T> {
+  return requestControlApi<T>(path, {
+    method: "POST",
+    body: input,
+    accountSession,
+  });
+}
+
+async function patchControlApi<T extends object>(
+  path: string,
+  input: unknown,
+  accountSession: AccountBootstrapSession,
+): Promise<T> {
+  return requestControlApi<T>(path, {
+    method: "PATCH",
+    body: input,
+    accountSession,
+  });
+}
+
+async function deleteControlApi(
+  path: string,
+  accountSession: AccountBootstrapSession,
+): Promise<void> {
+  await requestControlApi<Record<string, never>>(path, {
+    method: "DELETE",
+    accountSession,
+  });
+}
+
+async function requestControlApi<T extends object>(
+  path: string,
+  options: {
+    method: "GET" | "POST" | "PATCH" | "DELETE";
+    body?: unknown;
+    accountSession?: AccountBootstrapSession;
+  },
+): Promise<T> {
+  const baseUrl = controlApiBaseUrl();
+  if (!baseUrl) {
+    throw new Error("Control API is not configured");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      method: options.method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.accountSession
+          ? {
+              Authorization: `Bearer ${options.accountSession.accessToken}`,
+              "X-Doya-User-Id": options.accountSession.user.userId,
+            }
+          : {}),
+      },
+      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+    });
+  } catch {
+    throw new Error(translateNow("account.error.connectDaemon"));
+  }
+
+  if (response.status === 204) {
+    if (!response.ok) {
+      throw new Error(`${translateNow("account.error.requestFailed")} (${response.status})`);
+    }
+    return {} as T;
+  }
+
+  let payload: T | ControlErrorPayload;
+  try {
+    payload = (await response.json()) as T | ControlErrorPayload;
+  } catch {
+    if (!response.ok) {
+      throw new Error(`${translateNow("account.error.requestFailed")} (${response.status})`);
+    }
+    throw new Error(translateNow("account.error.invalidDaemonResponse"));
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      "error" in payload && payload.error
+        ? payload.error
+        : translateNow("account.error.requestFailed"),
+    );
+  }
+  return payload as T;
+}

@@ -31,6 +31,12 @@ export interface SidebarProjectEntry {
   projectName: string;
   projectKind: WorkspaceDescriptor["projectKind"];
   iconWorkingDir: string;
+  controlSessionId?: string;
+  controlAgentNodeId?: string | null;
+  controlAgentId?: string | null;
+  controlWorkspaceId?: string | null;
+  controlCwd?: string | null;
+  controlSessionStatus?: "idle" | "running" | "needs_input" | "done" | "error";
   workspaces: SidebarWorkspaceEntry[];
 }
 

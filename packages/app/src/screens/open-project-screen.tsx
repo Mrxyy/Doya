@@ -19,19 +19,23 @@ import { isDev, isWeb } from "@/constants/platform";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useIsLocalDaemon } from "@/hooks/use-is-local-daemon";
 import { PairDeviceModal } from "@/desktop/components/pair-device-modal";
-import { buildSettingsHostSectionRoute } from "@/utils/host-routes";
+import { buildHostHomeRoute, buildSettingsHostSectionRoute } from "@/utils/host-routes";
 import {
-  createAccountProject,
   loadAccountBootstrapSession,
   refreshAccountBootstrapSession,
   saveAccountBootstrapSession,
   subscribeAccountSessionChanges,
   type AccountBootstrapSession,
 } from "@/account/account-api";
-import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
+import { createAccountProject } from "@/account/account-project-api";
+import {
+  applyAccountProjectDisplay,
+  selectAccountSessionForDirectHost,
+} from "@/account/account-workspace-display";
 import { useOpenProject } from "@/hooks/use-open-project";
 import { useI18n, translateNow } from "@/i18n/i18n";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
+import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 
 const FULL_WIDTH_STYLE = { width: "100%" } as const;
 const AUTH_BUTTON_GRADIENT_KEYFRAME_ID = "doya-auth-button-gradient-keyframes";
@@ -82,6 +86,9 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
   const router = useRouter();
   const openDesktopAgentList = usePanelStore((s) => s.openDesktopAgentList);
   const isLocalDaemon = useIsLocalDaemon(serverId);
+  const snapshot = useHostRuntimeSnapshot(serverId);
+  const directHostEndpoint =
+    snapshot?.activeConnection?.type === "directTcp" ? snapshot.activeConnection.endpoint : null;
   const openProject = useOpenProject(serverId);
   const openAccountLogin = useAccountLoginModalStore((state) => state.open);
   const [isPairDeviceOpen, setIsPairDeviceOpen] = useState(false);
@@ -111,9 +118,28 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
         if (!disposed) {
           try {
             const refreshed = stored ? await refreshAccountBootstrapSession(stored) : null;
-            setAccountSession(refreshed);
+            if (refreshed?.workspace.workspaceId.startsWith("control:") === true) {
+              router.replace(buildHostHomeRoute(serverId));
+              return;
+            }
+            setAccountSession(
+              selectAccountSessionForDirectHost({
+                session: refreshed,
+                endpoint: directHostEndpoint,
+              }),
+            );
           } catch {
-            setAccountSession(stored ? { ...stored, projects: [] } : null);
+            const fallbackSession = stored ? { ...stored, projects: [] } : null;
+            if (fallbackSession?.workspace.workspaceId.startsWith("control:") === true) {
+              router.replace(buildHostHomeRoute(serverId));
+              return;
+            }
+            setAccountSession(
+              selectAccountSessionForDirectHost({
+                session: fallbackSession,
+                endpoint: directHostEndpoint,
+              }),
+            );
             if (stored) {
               setAccountError(t("openProject.error.sessionKept"));
             }
@@ -128,13 +154,19 @@ export function OpenProjectScreen({ serverId }: { serverId: string }) {
       disposed = true;
       unsubscribe();
     };
-  }, [t]);
+  }, [directHostEndpoint, router, serverId, t]);
 
   useEffect(() => {
     if (hasLoadedAccount && !accountSession) {
       openAccountLogin(serverId);
     }
   }, [accountSession, hasLoadedAccount, openAccountLogin, serverId]);
+
+  useEffect(() => {
+    if (accountSession?.workspace.workspaceId.startsWith("control:") === true) {
+      router.replace(buildHostHomeRoute(serverId));
+    }
+  }, [accountSession, router, serverId]);
 
   const handleOpenPairDevice = useCallback(() => setIsPairDeviceOpen(true), []);
   const handleClosePairDevice = useCallback(() => setIsPairDeviceOpen(false), []);
@@ -820,7 +852,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingLeft: { xs: 40, md: 56 },
   },
   authHeader: {
-    gap: theme.spacing[5],
+    gap: theme.spacing[6],
     alignSelf: "stretch",
     zIndex: 1,
   },
@@ -973,7 +1005,7 @@ const styles = StyleSheet.create((theme) => ({
     width: 1,
     height: 20,
     backgroundColor: theme.colors.foregroundMuted,
-    opacity: theme.opacity[40],
+    opacity: theme.opacity[50],
   },
   authTabDividerWrap: {
     width: 42,

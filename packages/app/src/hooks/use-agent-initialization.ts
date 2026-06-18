@@ -33,6 +33,11 @@ export function ensureAgentIsInitialized(input: EnsureAgentIsInitializedInput): 
   const session = useSessionStore.getState().sessions[serverId];
   const cursor = session?.agentTimelineCursor.get(agentId);
   const hasAuthoritativeHistory = session?.agentAuthoritativeHistoryApplied.get(agentId) === true;
+  const synchronizedGeneration = session?.agentHistorySyncGeneration.get(agentId) ?? -1;
+  const currentGeneration = session?.historySyncGeneration ?? 0;
+  if (hasAuthoritativeHistory && synchronizedGeneration >= currentGeneration) {
+    return Promise.resolve();
+  }
   const timelineRequest = planInitialAgentTimelineSync({ cursor, hasAuthoritativeHistory });
 
   const deferred = createInitDeferred(key, timelineRequest.direction);

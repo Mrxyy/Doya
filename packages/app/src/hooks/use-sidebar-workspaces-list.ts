@@ -6,6 +6,12 @@ import {
   type WorkspaceDescriptor,
 } from "@/stores/session-store";
 import type { AccountBootstrapSession, AccountProjectRecord } from "@/account/account-api";
+import type { ControlSessionRecord } from "@/control/control-api";
+import { getControlSessionDisplayTitle } from "@/control/control-session-display-title";
+import {
+  useControlSessions,
+  type ControlSessionAgentBindingSummary,
+} from "@/control/use-control-sessions";
 import {
   accountProjectDisplayName,
   doesAccountSessionOwnWorkspace,
@@ -13,7 +19,7 @@ import {
 } from "@/account/account-workspace-display";
 import { selectPrHintFromStatus } from "@/git/use-pr-status-query";
 import { useWorkspaceStructureForFilter } from "@/stores/session-store-hooks";
-import { getHostRuntimeStore } from "@/runtime/host-runtime";
+import { getHostRuntimeStore, type HostRuntimeConnectionStatus } from "@/runtime/host-runtime";
 import { useSidebarOrderStore } from "@/stores/sidebar-order-store";
 import { shouldSuppressWorkspaceForLocalArchive } from "@/contexts/session-workspace-upserts";
 import {
@@ -67,6 +73,7 @@ const EMPTY_PROJECTS: SidebarProjectEntry[] = [];
 
 export interface SidebarWorkspacesListResult {
   projects: SidebarProjectEntry[];
+  connectionStatus: HostRuntimeConnectionStatus;
   isLoading: boolean;
   isInitialLoad: boolean;
   isRevalidating: boolean;
@@ -133,6 +140,29 @@ function mergeAccountProjectsIntoSidebar(input: {
   });
 }
 
+function mapControlSessionToSidebarProject(input: {
+  session: ControlSessionRecord;
+  binding: ControlSessionAgentBindingSummary | null;
+  agentTitle: string | null;
+}): SidebarProjectEntry {
+  return {
+    projectKey: `control-session:${input.session.id}`,
+    projectName: getControlSessionDisplayTitle({
+      session: input.session,
+      agentTitle: input.agentTitle,
+    }),
+    projectKind: "directory",
+    iconWorkingDir: "",
+    controlSessionId: input.session.id,
+    controlAgentNodeId: input.binding?.nodeId ?? null,
+    controlAgentId: input.binding?.agentId ?? null,
+    controlWorkspaceId: input.binding?.workspaceId ?? null,
+    controlCwd: input.binding?.cwd ?? null,
+    controlSessionStatus: input.session.status,
+    workspaces: [],
+  };
+}
+
 function selectPrimaryAccountProjectWorkspace(input: {
   accountProject: AccountProjectRecord;
   workspaces: SidebarWorkspaceEntry[];
@@ -196,6 +226,7 @@ export function useSidebarWorkspacesList(options?: {
   requireAccount?: boolean;
 }): SidebarWorkspacesListResult {
   const runtime = getHostRuntimeStore();
+  const controlSessions = useControlSessions();
 
   const serverId = useMemo(() => {
     const value = options?.serverId;
@@ -210,6 +241,8 @@ export function useSidebarWorkspacesList(options?: {
   );
   const shouldFilterByAccount = options?.requireAccount === true;
   const accountSession = options?.accountSession ?? null;
+  const useControlSessionHistory =
+    shouldFilterByAccount && accountSession?.workspace.workspaceId.startsWith("control:") === true;
   const workspaceFilter = useCallback(
     (workspace: WorkspaceDescriptor) => {
       if (!shouldFilterByAccount) {
@@ -273,8 +306,30 @@ export function useSidebarWorkspacesList(options?: {
       return snapshot?.connectionStatus ?? "idle";
     },
   );
+  const sessionsByServer = useSessionStore((state) => state.sessions);
+  const agentTitleByBindingKey = useMemo(() => {
+    const titles = new Map<string, string | null>();
+    for (const [nodeId, session] of Object.entries(sessionsByServer)) {
+      for (const agent of session.agents.values()) {
+        titles.set(`${nodeId}:${agent.id}`, agent.title ?? null);
+      }
+    }
+    return titles;
+  }, [sessionsByServer]);
 
   const projects = useMemo(() => {
+    if (useControlSessionHistory) {
+      return controlSessions.sessions.map((session) => {
+        const binding = controlSessions.agentBindingsBySessionId.get(session.id) ?? null;
+        return mapControlSessionToSidebarProject({
+          session,
+          binding,
+          agentTitle: binding
+            ? (agentTitleByBindingKey.get(`${binding.nodeId}:${binding.agentId}`) ?? null)
+            : null,
+        });
+      });
+    }
     if (!serverId) {
       return EMPTY_PROJECTS;
     }
@@ -291,7 +346,16 @@ export function useSidebarWorkspacesList(options?: {
       ),
       workspaceProjects,
     });
-  }, [accountSession, serverId, shouldFilterByAccount, workspaceStructure]);
+  }, [
+    accountSession,
+    agentTitleByBindingKey,
+    controlSessions.agentBindingsBySessionId,
+    controlSessions.sessions,
+    serverId,
+    shouldFilterByAccount,
+    useControlSessionHistory,
+    workspaceStructure,
+  ]);
 
   useEffect(() => {
     if (!serverId) {
@@ -320,6 +384,10 @@ export function useSidebarWorkspacesList(options?: {
   }, [persistedProjectOrder, projects, serverId]);
 
   const refreshAll = useCallback(() => {
+    if (useControlSessionHistory) {
+      controlSessions.refetch();
+      return;
+    }
     if (!isActive || !serverId || connectionStatus !== "online") {
       return;
     }
@@ -360,7 +428,7 @@ export function useSidebarWorkspacesList(options?: {
         // ignore explicit refresh failures; hook keeps existing data
       }
     })();
-  }, [connectionStatus, isActive, runtime, serverId]);
+  }, [connectionStatus, controlSessions, isActive, runtime, serverId, useControlSessionHistory]);
 
   const loadingState = deriveSidebarLoadingState({
     isActive,
@@ -371,7 +439,14 @@ export function useSidebarWorkspacesList(options?: {
 
   return {
     projects,
-    ...loadingState,
+    connectionStatus,
+    ...(useControlSessionHistory
+      ? {
+          isLoading: controlSessions.isLoading,
+          isInitialLoad: controlSessions.isLoading && projects.length === 0,
+          isRevalidating: false,
+        }
+      : loadingState),
     refreshAll,
   };
 }

@@ -152,6 +152,10 @@ import {
 import { createPptPreviewRouter } from "./ai-creation/ppt-preview-service.js";
 import { getDownloadableFileInfo } from "./file-explorer/service.js";
 import { createOnlyOfficeXlsxPreviewBuffer } from "./onlyoffice-xlsx-preview.js";
+import { createRuntimeApiRouter } from "./runtime-api.js";
+import { createUserWorkspaceApiRouter } from "./user-workspace-api.js";
+import { createDaemonAdminApiRouter } from "./daemon-admin-api.js";
+import { createControlTimelineSync } from "./control-timeline-sync.js";
 
 type AgentMcpTransportMap = Map<string, StreamableHTTPServerTransport>;
 
@@ -489,10 +493,10 @@ export async function createDoyaDaemon(
     const origin = req.headers.origin;
     if (origin && (allowedOrigins.has("*") || allowedOrigins.has(origin))) {
       res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
       res.setHeader(
         "Access-Control-Allow-Headers",
-        "Content-Type, Authorization, X-Doya-File-Mime-Type",
+        "Content-Type, Authorization, X-Doya-File-Mime-Type, X-Doya-User-Id, X-Doya-Access-Token",
       );
       res.setHeader("Access-Control-Allow-Credentials", "true");
     }
@@ -671,6 +675,38 @@ export async function createDoyaDaemon(
     })();
   });
 
+  app.use(
+    "/api/runtimes",
+    createRuntimeApiRouter({
+      doyaHome,
+      nodeId: serverId,
+      logger,
+    }),
+  );
+  app.use(
+    "/api/user-workspaces",
+    createUserWorkspaceApiRouter({
+      doyaHome,
+    }),
+  );
+  app.use(
+    "/api/admin/daemon",
+    createDaemonAdminApiRouter({
+      doyaHome,
+      nodeId: serverId,
+      getConfig: () => daemonConfigStore.get(),
+      patchConfig: (patch) => daemonConfigStore.patch(patch),
+      requestRestart: ({ requestId, reason }) => {
+        config.onLifecycleIntent?.({
+          type: "restart",
+          clientId: "daemon-admin-api",
+          requestId,
+          ...(reason ? { reason } : {}),
+        });
+      },
+    }),
+  );
+
   // Health check endpoint
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
@@ -756,8 +792,9 @@ export async function createDoyaDaemon(
   }
 
   function encodeRfc5987Value(value: string): string {
-    return encodeURIComponent(value).replace(/['()*]/g, (char) =>
-      `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
+    return encodeURIComponent(value).replace(
+      /['()*]/g,
+      (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
     );
   }
 
@@ -1224,13 +1261,15 @@ export async function createDoyaDaemon(
   const conversationRecordingStore = new ConversationRecordingStore(
     path.join(doyaHome, "recordings"),
   );
+  const controlTimelineSync = createControlTimelineSync({ logger });
   const agentManager = new AgentManager({
     clients: initialAgentManagerState.clients,
     providerDefinitions: initialAgentManagerState.providerDefinitions,
     registry: agentStorage,
     appendSystemPrompt: config.appendSystemPrompt,
-    onRawStreamEvent: ({ agentId, event }) => {
+    onRawStreamEvent: ({ agentId, event, labels }) => {
       conversationRecordingStore.recordAgentStreamEvent(agentId, event);
+      return controlTimelineSync.sync({ agentId, event, labels });
     },
     logger,
   });

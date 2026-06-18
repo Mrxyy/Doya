@@ -9,6 +9,7 @@ import {
   providersSnapshotQueryKey,
   refreshAndApplyProvidersSnapshot,
   selectorOpenRefetchDecision,
+  shouldAwaitProvidersSnapshotServerInfo,
   type ProvidersSnapshotClient,
   type ProvidersSnapshotUpdateMessage,
 } from "./use-providers-snapshot";
@@ -293,5 +294,31 @@ describe("selectorOpenRefetchDecision", () => {
         selectedProvider: "codex",
       }),
     ).toBe("refetch-stale");
+  });
+});
+
+describe("shouldAwaitProvidersSnapshotServerInfo", () => {
+  it("keeps the selector in a loading state while a connected host has not published server info", () => {
+    expect(
+      shouldAwaitProvidersSnapshotServerInfo({
+        enabled: true,
+        serverId,
+        hasClient: true,
+        isConnected: true,
+        hasServerInfo: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not wait once server info is known", () => {
+    expect(
+      shouldAwaitProvidersSnapshotServerInfo({
+        enabled: true,
+        serverId,
+        hasClient: true,
+        isConnected: true,
+        hasServerInfo: true,
+      }),
+    ).toBe(false);
   });
 });

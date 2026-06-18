@@ -60,6 +60,7 @@ const session = {
 
 describe("account session storage", () => {
   beforeEach(() => {
+    delete process.env.EXPO_PUBLIC_CONTROL_API_URL;
     storageState.values.clear();
     storageState.getItem.mockClear();
     storageState.setItem.mockClear();
@@ -88,5 +89,56 @@ describe("account session storage", () => {
 
     expect(storageState.values.has("doya.account.session.v1")).toBe(true);
     expect(storageState.values.has(legacyKey)).toBe(false);
+  });
+
+  it("repairs a stored control account session without workspace metadata", async () => {
+    storageState.values.set(
+      "doya.account.session.v1",
+      JSON.stringify({
+        user: session.user,
+        accessToken: "token_1",
+        projects: [],
+      }),
+    );
+
+    await expect(loadAccountBootstrapSession()).resolves.toMatchObject({
+      user: { userId: "usr_1" },
+      workspace: {
+        workspaceId: "control:usr_1",
+        runtime: null,
+      },
+      accessToken: "token_1",
+    });
+  });
+
+  it("preserves the configured control API URL for stored control sessions", async () => {
+    process.env.EXPO_PUBLIC_CONTROL_API_URL = "http://127.0.0.1:6777";
+    storageState.values.set(
+      "doya.account.session.v1",
+      JSON.stringify({
+        user: session.user,
+        workspace: {
+          workspaceId: "control:usr_1",
+          displayName: "Doya",
+          runtime: null,
+        },
+        accessToken: "token_1",
+        projects: [],
+        apiBaseUrl: "http://stale.example",
+      }),
+    );
+
+    await expect(loadAccountBootstrapSession()).resolves.toMatchObject({
+      workspace: { workspaceId: "control:usr_1" },
+      apiBaseUrl: "http://127.0.0.1:6777",
+    });
+  });
+
+  it("does not reuse legacy workspace sessions when the control API is configured", async () => {
+    process.env.EXPO_PUBLIC_CONTROL_API_URL = "http://127.0.0.1:6777";
+    storageState.values.set("doya.account.session.v1", JSON.stringify(session));
+
+    await expect(loadAccountBootstrapSession()).resolves.toBeNull();
+    expect(storageState.values.has("doya.account.session.v1")).toBe(false);
   });
 });

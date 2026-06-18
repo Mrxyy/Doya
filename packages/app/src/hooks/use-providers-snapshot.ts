@@ -93,6 +93,18 @@ export function selectorOpenRefetchDecision(input: {
   return "refetch-stale";
 }
 
+export function shouldAwaitProvidersSnapshotServerInfo(input: {
+  enabled: boolean;
+  serverId: string | null;
+  hasClient: boolean;
+  isConnected: boolean;
+  hasServerInfo: boolean;
+}): boolean {
+  return Boolean(
+    input.enabled && input.serverId && input.hasClient && input.isConnected && !input.hasServerInfo,
+  );
+}
+
 interface UseProvidersSnapshotResult {
   entries: ProviderSnapshotEntry[] | undefined;
   isLoading: boolean;
@@ -118,9 +130,15 @@ export function useProvidersSnapshot(
   const isConnected = useHostRuntimeIsConnected(serverId ?? "");
   const enabled = options.enabled ?? true;
   const cwd = normalizeProvidersSnapshotCwd(options.cwd);
-  const supportsSnapshot = useSessionStore(
-    (state) => state.sessions[serverId ?? ""]?.serverInfo?.features?.providersSnapshot === true,
-  );
+  const serverInfo = useSessionStore((state) => state.sessions[serverId ?? ""]?.serverInfo ?? null);
+  const supportsSnapshot = serverInfo?.features?.providersSnapshot === true;
+  const isAwaitingServerInfo = shouldAwaitProvidersSnapshotServerInfo({
+    enabled,
+    serverId,
+    hasClient: Boolean(client),
+    isConnected,
+    hasServerInfo: serverInfo !== null,
+  });
 
   const queryKey = useMemo(() => providersSnapshotQueryKey(serverId, cwd), [cwd, serverId]);
 
@@ -189,7 +207,7 @@ export function useProvidersSnapshot(
 
   return {
     entries: snapshotQuery.data?.entries ?? undefined,
-    isLoading: snapshotQuery.isLoading,
+    isLoading: isAwaitingServerInfo || snapshotQuery.isLoading,
     isFetching: snapshotQuery.isFetching,
     isRefreshing,
     error: snapshotQuery.error instanceof Error ? snapshotQuery.error.message : null,

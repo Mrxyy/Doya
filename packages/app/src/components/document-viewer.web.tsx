@@ -845,6 +845,7 @@ function OnlyOfficeSpreadsheetDocumentViewer({
       lastSyncedSelectionKeyRef.current = null;
       return;
     }
+    const handleAnnotationTargetSelect = onAnnotationTargetSelect;
 
     let canceled = false;
     let isReading = false;
@@ -867,7 +868,7 @@ function OnlyOfficeSpreadsheetDocumentViewer({
             return;
           }
           lastSyncedSelectionKeyRef.current = selectionKey;
-          onAnnotationTargetSelect(
+          handleAnnotationTargetSelect(
             buildOnlyOfficeSelectionAnnotationTarget({ fileName, selection }),
           );
         })
@@ -1030,6 +1031,7 @@ async function readOnlyOfficeSpreadsheetSelectionFromConnector(
   if (!connector?.callCommand) {
     return null;
   }
+  const callCommand = connector.callCommand;
   return new Promise((resolve, reject) => {
     let settled = false;
     const timeout = window.setTimeout(() => {
@@ -1037,7 +1039,7 @@ async function readOnlyOfficeSpreadsheetSelectionFromConnector(
       reject(new Error("ONLYOFFICE selection timeout"));
     }, 3000);
     try {
-      connector.callCommand(readActiveOnlyOfficeSpreadsheetSelection, (result) => {
+      callCommand(readActiveOnlyOfficeSpreadsheetSelection, (result) => {
         if (settled) {
           return;
         }

@@ -4,6 +4,11 @@ Doya is a client-server system for monitoring and controlling local AI coding ag
 
 Your code never leaves your machine. Doya is local-first.
 
+The north-star product shape is session-centered: users create and reopen
+sessions, while daemon nodes, runtimes, workspace directories, and ports stay
+internal. See [product shape](product-shape.md) and
+[cloud agent architecture](cloud-agent-architecture.md).
+
 ## System overview
 
 ```
@@ -31,9 +36,36 @@ Your code never leaves your machine. Doya is local-first.
 └───────────┘ └────────┘ └────────────┘ └──────────┘ └─────────┘
 ```
 
+目标态：以 Session 为中心的运行时视图：
+
+```mermaid
+flowchart TB
+  Clients["移动端 / Web / 桌面端 App"]
+  Control["控制面\n用户、会话、历史、产物"]
+  ControlStore["控制面存储\n$DOYA_CONTROL_HOME/control.json"]
+  RuntimeNode["Daemon 运行节点\nserverId = nodeId"]
+  RuntimeWorkspace["运行时工作目录\n$DOYA_HOME/runtimes/{runtimeId}/workspace"]
+  Agent["Provider agent\nClaude / Codex / Copilot / OpenCode / Pi"]
+  Legacy["旧账号项目\n仅兼容层"]
+
+  Clients -->|"账号 + 会话 API"| Control
+  Control --> ControlStore
+  Control -->|"分配运行时"| RuntimeNode
+  Clients -->|"WebSocket 实时连接"| RuntimeNode
+  RuntimeNode --> RuntimeWorkspace
+  RuntimeWorkspace --> Agent
+  RuntimeNode -. "运行时同步" .-> Control
+  Legacy -. "迁移到 Session" .-> Control
+```
+
 ## Components at a glance
 
-- **Daemon:** Local server that spawns and manages agent processes and exposes the WebSocket API.
+- **Control plane:** Owns users, sessions, durable message history, artifact metadata, file snapshots, daemon node inventory, and runtime allocation records. The local implementation lives in `packages/control`.
+- **Daemon:** Runtime node that spawns and manages agent processes and exposes the WebSocket API.
+- **Provider capability:** A daemon-scoped execution capability such as Claude,
+  Codex, Copilot, OpenCode, or Pi. Provider availability is not global; each
+  daemon reports whether that provider is installed, authenticated, enabled, and
+  which models it can run.
 - **App:** Cross-platform Expo client for iOS, Android, web, and the shared UI used by desktop.
 - **CLI:** Terminal interface for agent workflows that can also start and manage the daemon.
 - **Desktop app:** Electron wrapper around the web app that bundles and auto-manages its own daemon.
@@ -41,22 +73,57 @@ Your code never leaves your machine. Doya is local-first.
 
 ## Account Workspaces
 
-The daemon includes a lightweight account/workspace control plane for local
+The daemon includes a lightweight account/workspace compatibility layer for local
 multi-user flows. Registration creates a user record and an assigned workspace
 directory under `$DOYA_HOME/accounts/workspaces/{workspaceId}`. Creating a
 project from the app creates a subdirectory inside that workspace, then opens it
 through the normal project/workspace and agent lifecycle. See
 [multi-tenant](multi-tenant/README.md) for the current model.
 
+That account/workspace model is transitional. New durable work should be modeled
+as control-plane sessions. `accounts.projects.cwd` is a legacy runtime path, not
+the owner of user-visible session history.
+
 ## Packages
+
+### `packages/control` — The local control plane
+
+Owns durable user/session state for the session-centered model:
+
+- Account registration/login and stored access tokens
+- Sessions, session messages, artifact metadata, and file snapshots
+- Daemon node inventory and internal runtime auth tokens
+- Daemon-scoped provider capability snapshots for scheduling
+- Runtime allocation records and session-agent bindings
+- Runtime sync ingestion from daemon nodes
+
+The local store is file-backed at `$DOYA_CONTROL_HOME/control.json` by default.
+Daemon-local account project data under `$DOYA_HOME/accounts` is a compatibility
+layer, not the owner of new durable session history.
+
+Runtime allocation is provider-aware in the target architecture. A new Session
+selects a provider/model first, then the control plane chooses a daemon that can
+run that provider/model. Default daemon is a scheduling preference, not a hard
+pin: the selected daemon must still be online, non-draining, provider-enabled,
+provider-available, model-compatible, and under load limits. The selected
+`nodeId`, `providerId`, `modelId`, and `selectionReason` are stored on the
+RuntimeAllocation so the admin UI can explain why a session landed on a daemon.
+
+During migration, App flows may still choose the active direct host before
+calling the control plane. Those flows still write `providerId`, `modelId`, and
+`selectionReason: "preferred_node_direct"` to allocations so later scheduler
+handoff does not lose intent.
 
 ### `packages/server` — The daemon
 
-The heart of Doya. A Node.js process that:
+The runtime node for Doya. A Node.js process that:
 
 - Listens for WebSocket connections from clients
 - Manages agent lifecycle (create, run, stop, resume, archive)
+- Reports daemon-scoped provider capability: enabled state, availability,
+  models, versions, and recent provider errors
 - Streams agent output in real time via a timeline model
+- Exposes runtime HTTP APIs for session workdirs and runtime workspaces
 - Exposes an MCP server for agent-to-agent control
 - Optionally connects outbound to a relay for remote access
 
@@ -73,6 +140,9 @@ All paths are under `packages/server/src/`.
 | `server/agent/agent-storage.ts` | File-backed JSON persistence at `$DOYA_HOME/agents/`                         |
 | `server/agent/mcp-server.ts`    | MCP server for sub-agent creation, permissions, timeouts                     |
 | `server/agent/providers/`       | Provider adapters (see "Agent providers" below)                              |
+| `server/runtime-api.ts`         | Runtime workspace create/attach/stop/status API for control allocations      |
+| `server/user-workspace-api.ts`  | Daemon-local user workspace/session workdir allocation API                   |
+| `server/control-timeline-sync.ts` | Posts labeled agent timeline events back to the control plane              |
 | `server/relay-transport.ts`     | Outbound relay connection with E2E encryption                                |
 | `server/schedule/`              | Cron-based scheduled agents                                                  |
 | `server/loop-service.ts`        | Looping agent runs that retry until an exit condition                        |
@@ -98,6 +168,7 @@ Cross-platform React Native app that connects to one or more daemons.
 
 - Expo Router navigation (`/h/[serverId]/workspace/[workspaceId]`, `/h/[serverId]/agent/[agentId]`, etc.)
 - `HostRuntimeController` manages saved host connections, reconnection, and per-host runtime state
+- Host runtime connections are lazy: boot loads the saved host registry, but WebSocket connection starts only when a route or workflow targets a specific `serverId`. Host lists, settings summaries, and admin overview screens must not connect every saved daemon just because they render the list.
 - `SessionContext` wraps the daemon client for the active session
 - Composer UI and submit/draft behavior live in `packages/app/src/composer/`; screens and panels should integrate it from there instead of dropping composer internals into `components/`, `hooks/`, or `screens/workspace/`
 - Timeline reducers in `timeline/session-stream-reducers.ts` handle compaction, gap detection, sequence-based deduplication

@@ -2,6 +2,7 @@ import { Redirect, usePathname } from "expo-router";
 import { StartupSplashScreen } from "@/screens/startup-splash-screen";
 import { useEarliestOnlineHostServerId, useHostRuntimeBootstrapState } from "@/app/_layout";
 import { resolveStartupRedirectRoute } from "@/app/host-runtime-bootstrap";
+import { useHosts } from "@/runtime/host-runtime";
 import {
   useIsLastWorkspaceSelectionHydrated,
   useLastWorkspaceSelection,
@@ -14,6 +15,8 @@ const isDesktop = shouldUseDesktopDaemon();
 export default function Index() {
   const pathname = usePathname();
   const bootstrapState = useHostRuntimeBootstrapState();
+  const hosts = useHosts();
+  const startupHostServerId = hosts[0]?.serverId ?? null;
   const anyOnlineHostServerId = useEarliestOnlineHostServerId();
   const workspaceSelection = useLastWorkspaceSelection();
   const isWorkspaceSelectionLoaded = useIsLastWorkspaceSelectionHydrated();
@@ -32,6 +35,10 @@ export default function Index() {
 
   if (anyOnlineHostServerId) {
     return <Redirect href={buildHostHomeRoute(anyOnlineHostServerId)} />;
+  }
+
+  if (startupHostServerId) {
+    return <Redirect href={buildHostHomeRoute(startupHostServerId)} />;
   }
 
   return <StartupSplashScreen bootstrapState={isDesktop ? bootstrapState : undefined} />;

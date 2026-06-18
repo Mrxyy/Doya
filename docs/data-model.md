@@ -2,12 +2,70 @@
 
 Doya uses **file-based JSON persistence** instead of a traditional database. All data is validated at runtime with Zod schemas. Most stores write atomically (write to temp file, then rename); a few still use plain `writeFile` — see each section. There is no schema-versioning/migration framework — schemas rely on optional fields with defaults for forward compatibility, with a small amount of inline normalization in `persisted-config.ts` for legacy provider/speech entries.
 
-All server-side stores live under `$DOYA_HOME` (defaults to `~/.doya`).
+Today most daemon-side stores live under `$DOYA_HOME` (defaults to `~/.doya`).
+In the session-centered target model, durable user/session data belongs to the
+control plane while `$DOYA_HOME` belongs to one daemon node.
 
-Account/workspace records are part of the daemon data model. The daemon maps a
+The local control package stores control-plane records in:
+
+```text
+$DOYA_CONTROL_HOME/control.json
+```
+
+It owns users, sessions, session messages, artifact metadata, file snapshots,
+daemon node inventory, and runtime allocation records. This is separate from
+daemon-local runtime directories.
+
+Control sessions use soft-delete timestamps for user-facing deletion. When an
+admin later cleans up a deleted session's daemon-local working directory, the
+session records `workDirDeletedAt`; older control files read without that field
+are normalized to `null`. Admin overviews hide sessions with
+`workDirDeletedAt`, so a cleaned daemon workdir does not reappear after refresh.
+
+Account/workspace records are legacy daemon-local data. The daemon maps a
 registered user to an automatically assigned workspace directory, and projects
 created from the app become subdirectories inside that user's workspace. See
 [multi-tenant](multi-tenant/README.md).
+
+New durable work should be represented as control-plane sessions.
+`accounts.projects.cwd` is a compatibility field and must not be treated as
+the owner of a user's session history.
+
+Control file snapshots store uploaded-file workspace inputs by `snapshotId`.
+The durable `Session.workingContext` keeps only `{ type: "uploaded_files",
+snapshotId }`; the file contents live in `fileSnapshots` and are sent to the
+selected daemon only when leasing/restoring a runtime.
+
+Runtime sync writes provider timeline events back into `sessionMessages` and
+artifact metadata into `artifacts` through the control runtime-sync API. The
+control API accepts these writes only when the supplied
+`(sessionId, runtimeId, nodeId)` matches a persisted `runtimeAllocation`.
+Artifact writes use `externalId` as an upsert key within a session. Timeline
+`artifact` items are stored as artifact metadata instead of daemon-local UI
+state, with the inline artifact payload retained in metadata. Each accepted
+runtime-sync write refreshes the allocation `lastHeartbeatAt`, so the control
+record reflects live daemon activity instead of only the original lease time.
+The local control JSON store is separate from legacy daemon `accounts.json`;
+control data lives under `$DOYA_CONTROL_HOME`, while daemon-local account
+compatibility data still lives under `$DOYA_HOME/accounts`.
+Daemon node records may carry an internal runtime auth token so the control
+plane can call password-protected Runtime APIs. HTTP node responses must strip
+that field; it is an internal scheduler credential, not session or user history.
+
+Runtime allocations are durable lease records, not proof that a daemon still has
+the runtime in memory. The daemon exposes `/api/runtimes/:runtimeId/status` so
+the control plane can probe runtime liveness. Today the app confirms an internal
+control-agent binding still points at an existing daemon agent before navigating
+to it. Target runtime leasing will mark missing or unreachable allocations
+`lost`, then lease the session onto an available daemon and rebuild it from its
+`workingContext`.
+
+Runtime allocations are provider-aware. New records may include `providerId`,
+`modelId`, and `selectionReason`; older records read without these fields are
+normalized to `null`. These fields describe the scheduling decision for a
+runtime lease, not the durable Session identity. Provider capability itself is
+daemon-scoped: the same provider can be available on one daemon, disabled on
+another, and unauthenticated on a third.
 
 ---
 
@@ -23,6 +81,9 @@ $DOYA_HOME/
 ├── agents/
 │   └── {sanitized-cwd}/
 │       └── {agentId}.json               # One file per agent
+├── runtimes/
+│   └── {runtimeId}/
+│       └── workspace/                   # Control-plane allocated runtime workspace
 ├── recordings/
 │   └── {agentId}/
 │       └── {recordingId}.json           # Manual conversation replay recordings
@@ -213,6 +274,82 @@ All fields are optional with sensible defaults.
 `agents.metadataGeneration.providers` controls the preferred structured-generation fallback order for daemon-side metadata tasks such as commit messages, PR text, branch names, and generated agent titles. Entries are tried first in the configured order, then Doya falls through to dynamically discovered defaults and finally the current selection when available.
 
 Local speech model ids are intentionally narrow: STT uses `parakeet-tdt-0.6b-v2-int8`, TTS uses `kokoro-en-v0_19`, and turn detection uses the bundled Silero VAD model.
+
+---
+
+## Control plane records
+
+**Path:** `$DOYA_CONTROL_HOME/control.json`
+
+The local control plane stores all records in one atomic JSON file. There is no
+migration framework, so new fields are optional on read and normalized to safe
+defaults.
+
+### DaemonNode
+
+| Field              | Type                                      | Description                                                             |
+| ------------------ | ----------------------------------------- | ----------------------------------------------------------------------- |
+| `id`               | `string`                                  | Stable daemon `serverId`; used as control-plane `nodeId`                |
+| `endpoint`         | `string`                                  | Runtime API endpoint used by the control plane                          |
+| `status`           | `"online" \| "offline" \| "draining"`     | Scheduler state; `draining` stops new runtime leases                    |
+| `capabilities`     | `unknown`                                 | Forward-compatible daemon capability payload                            |
+| `runtimeAuthToken` | `string \| null`                          | Internal credential for runtime API calls; stripped from public payloads |
+| `doyaHome`         | `string \| null`                          | Daemon-local home path, admin-only                                      |
+| `lastHeartbeatAt`  | `string`                                  | Last registration/heartbeat/update time                                 |
+| `createdAt`        | `string`                                  | Creation time                                                           |
+
+Provider capability belongs to a daemon node. Target provider snapshots should
+record at least:
+
+| Field           | Type                                                                    | Description                                     |
+| --------------- | ----------------------------------------------------------------------- | ----------------------------------------------- |
+| `nodeId`        | `string`                                                                | Daemon node                                     |
+| `providerId`    | `string`                                                                | `claude`, `codex`, `copilot`, `opencode`, `pi`  |
+| `enabled`       | `boolean`                                                               | Whether this daemon accepts new runtime leases  |
+| `availability`  | `"available" \| "not_installed" \| "unauthenticated" \| "error"`        | Current provider state on this daemon           |
+| `models`        | `Array<{ id: string; label?: string }>`                                 | Models usable for scheduling                    |
+| `version`       | `string \| null`                                                        | Provider/binary version if known                |
+| `binaryPath`    | `string \| null`                                                        | Provider executable path if known               |
+| `lastRefreshAt` | `string \| null`                                                        | Last explicit capability refresh                |
+| `lastError`     | `string \| null`                                                        | Last provider error                             |
+
+### RuntimeAllocation
+
+| Field             | Type                                      | Description                                                        |
+| ----------------- | ----------------------------------------- | ------------------------------------------------------------------ |
+| `id`              | `string`                                  | Allocation id                                                      |
+| `runtimeId`       | `string`                                  | Runtime lease id, usually `rt_${sessionId}` during migration       |
+| `sessionId`       | `string`                                  | Session being executed                                             |
+| `nodeId`          | `string`                                  | Selected daemon node                                               |
+| `providerId`      | `string \| null`                          | Provider selected for this runtime lease                           |
+| `modelId`         | `string \| null`                          | Model selected for this runtime lease                              |
+| `selectionReason` | `string \| null`                          | Scheduler explanation such as `default_available` or `lowest_load` |
+| `userWorkspaceId` | `string \| null`                          | User-daemon workspace backing this runtime                         |
+| `workspaceDir`    | `string`                                  | Daemon-local runtime working directory                             |
+| `status`          | `"starting" \| "running" \| "stopped" \| "lost"` | Runtime lease state                                          |
+| `leasedAt`        | `string`                                  | Lease creation time                                                |
+| `releasedAt`      | `string \| null`                          | Stop/lost time                                                     |
+| `lastHeartbeatAt` | `string`                                  | Last runtime-sync or touch time                                    |
+
+`providerId`, `modelId`, and `selectionReason` are nullable for records created
+before provider-aware scheduling. They should be filled for all new allocations,
+including migration flows where the app still preselects a direct daemon.
+
+### SessionAgentBinding
+
+| Field             | Type                              | Description                               |
+| ----------------- | --------------------------------- | ----------------------------------------- |
+| `sessionId`       | `string`                          | Durable Session                           |
+| `nodeId`          | `string`                          | Daemon hosting the live agent             |
+| `agentId`         | `string`                          | Daemon-local agent id                     |
+| `userWorkspaceId` | `string \| null`                  | User-daemon workspace                     |
+| `workspaceId`     | `string \| null`                  | Daemon workspace descriptor id            |
+| `cwd`             | `string \| null`                  | Daemon-local cwd                          |
+| `status`          | `"active" \| "lost" \| "archived"` | Whether this pointer can still be trusted |
+
+SessionAgentBinding is a live pointer, not the source of durable history. If the
+daemon loses the agent, the binding becomes stale and the Session can be leased
+again through provider-aware scheduling.
 
 ---
 

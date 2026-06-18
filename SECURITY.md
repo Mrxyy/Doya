@@ -54,6 +54,18 @@ For remote access, use the relay connection. It is the supported path for reachi
 
 Host header validation and CORS origin checks are defense-in-depth controls for localhost exposure. They help block DNS rebinding and browser-based attacks, but they do not replace network isolation.
 
+## Local admin UI gate
+
+The web app can expose owner/operator pages such as daemon management and
+provider management behind a local password prompt. This prompt is a product UI
+gate for accidental access, not a daemon security boundary. Anyone who can reach
+the daemon socket or authenticated control endpoint still has the authority
+described above.
+
+Do not treat the default development password as a secret. For real exposure,
+use the daemon password, relay pairing, network isolation, and host/origin
+protections described in this document.
+
 ## DNS rebinding protection
 
 CORS is not a complete security boundary. It controls which browser origins can make requests, but does not prevent a malicious website from resolving its domain to your local machine (DNS rebinding).

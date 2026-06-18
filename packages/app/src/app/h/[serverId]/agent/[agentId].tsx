@@ -3,7 +3,11 @@ import { useLocalSearchParams, usePathname, useRouter, type Href } from "expo-ro
 import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
 import { useSessionStore } from "@/stores/session-store";
 import { useResolveWorkspaceIdByCwd } from "@/stores/session-store-hooks";
-import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import {
+  useEnsureHostRuntimeStarted,
+  useHostRuntimeClient,
+  useHostRuntimeIsConnected,
+} from "@/runtime/host-runtime";
 import { buildHostRootRoute } from "@/utils/host-routes";
 import { resolveWorkspaceIdByExecutionDirectory } from "@/utils/workspace-execution";
 import { navigateToPreparedWorkspaceTab } from "@/utils/workspace-navigation";
@@ -26,6 +30,7 @@ function HostAgentReadyRouteContent() {
   const redirectedRef = useRef(false);
   const serverId = typeof params.serverId === "string" ? params.serverId : "";
   const agentId = typeof params.agentId === "string" ? params.agentId : "";
+  useEnsureHostRuntimeStarted(serverId);
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
   const agentCwd = useSessionStore((state) => {

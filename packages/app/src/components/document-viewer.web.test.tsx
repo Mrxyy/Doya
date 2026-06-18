@@ -233,22 +233,22 @@ describe("DocumentViewer web annotation interactions", () => {
     xSpreadsheetMockState.instances = [];
     window.DocsAPI = {
       DocEditor: class DocEditor {
+        createConnector?: () => {
+          callCommand: <T>(command: () => T, callback: (result: T | null) => void) => void;
+        };
+
         constructor(_elementId: string, config: unknown) {
           onlyOfficeMockState.configs.push(config);
+          if (onlyOfficeMockState.connectorAvailable) {
+            this.createConnector = () => ({
+              callCommand: <T,>(_command: () => T, callback: (result: T | null) => void) => {
+                callback(onlyOfficeMockState.connectorResult as T | null);
+              },
+            });
+          }
         }
 
         destroyEditor() {}
-
-        createConnector() {
-          if (!onlyOfficeMockState.connectorAvailable) {
-            return undefined;
-          }
-          return {
-            callCommand: (_command: () => unknown, callback: (result: unknown) => void) => {
-              callback(onlyOfficeMockState.connectorResult);
-            },
-          };
-        }
       },
     };
   });

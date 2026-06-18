@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
+import { AdminAccessGate } from "@/components/admin-access-gate";
 import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
 import SettingsScreen from "@/screens/settings-screen";
 import { type HostSectionSlug, isHostSectionSlug } from "@/utils/host-routes";
@@ -11,9 +12,15 @@ export default function SettingsHostSectionRoute() {
   const section: HostSectionSlug = isHostSectionSlug(rawSection) ? rawSection : "connections";
   const view = useMemo(() => ({ kind: "host" as const, serverId, section }), [serverId, section]);
 
-  return (
+  const screen = (
     <HostRouteBootstrapBoundary>
       <SettingsScreen view={view} />
     </HostRouteBootstrapBoundary>
   );
+
+  if (section === "providers") {
+    return <AdminAccessGate>{screen}</AdminAccessGate>;
+  }
+
+  return screen;
 }

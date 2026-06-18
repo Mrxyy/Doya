@@ -1,16 +1,29 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { router } from "expo-router";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { ChevronRight } from "lucide-react-native";
 import { ProjectIconView } from "@/components/project-icon-view";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { projectIconToDataUri, useProjectIconQuery } from "@/hooks/use-project-icon-query";
-import { useProjects, type ProjectHostError } from "@/hooks/use-projects";
+import {
+  parseControlSessionProjectKey,
+  useProjects,
+  type ProjectHostError,
+} from "@/hooks/use-projects";
 import { settingsStyles } from "@/styles/settings";
-import { buildProjectSettingsRoute } from "@/utils/host-routes";
+import { buildHostAgentDetailRoute, buildProjectSettingsRoute } from "@/utils/host-routes";
 import type { ProjectHostEntry, ProjectSummary } from "@/utils/projects";
 import { translateNow } from "@/i18n/i18n";
+import { loadAccountBootstrapSession } from "@/account/account-api";
+import { restoreControlSessionToAgent } from "@/control/control-session-restore";
+import { useHostMutations, useHosts } from "@/runtime/host-runtime";
+import { useToast } from "@/contexts/toast-context";
+
+const ThemedChevronRight = withUnistyles(ChevronRight, (theme) => ({
+  color: theme.colors.foregroundMuted,
+  size: theme.iconSize.sm,
+}));
 
 interface ProjectsScreenProps {
   view: { kind: "projects" } | { kind: "project"; projectKey: string };
@@ -72,13 +85,45 @@ interface ProjectRowProps {
 }
 
 function ProjectRow({ project, isFirst, isSelected }: ProjectRowProps) {
-  const { theme } = useUnistyles();
   const { hosts, projectKey, projectName } = project;
   const leadingHost = hosts[0];
+  const connectedHosts = useHosts();
+  const { upsertDirectConnection } = useHostMutations();
+  const toast = useToast();
+  const [isOpeningControlSession, setIsOpeningControlSession] = useState(false);
 
   const handleNavigate = useCallback(() => {
+    const controlSessionId = parseControlSessionProjectKey(projectKey);
+    if (controlSessionId) {
+      if (isOpeningControlSession) {
+        return;
+      }
+      setIsOpeningControlSession(true);
+      void (async () => {
+        try {
+          const accountSession = await loadAccountBootstrapSession();
+          if (!accountSession) {
+            throw new Error(translateNow("ui.login.required.short"));
+          }
+          const restored = await restoreControlSessionToAgent({
+            accountSession,
+            sessionId: controlSessionId,
+            hosts: connectedHosts,
+            upsertDirectConnection,
+          });
+          router.navigate(buildHostAgentDetailRoute(restored.nodeId, restored.agentId));
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : translateNow("ui.failed.to.open.workspace"),
+          );
+        } finally {
+          setIsOpeningControlSession(false);
+        }
+      })();
+      return;
+    }
     router.navigate(buildProjectSettingsRoute(projectKey));
-  }, [projectKey]);
+  }, [connectedHosts, isOpeningControlSession, projectKey, toast, upsertDirectConnection]);
 
   const rowStyle = useCallback(
     ({ pressed, hovered }: PressableStateCallbackType & { hovered?: boolean }) => [
@@ -109,7 +154,7 @@ function ProjectRow({ project, isFirst, isSelected }: ProjectRowProps) {
           {projectName}
         </Text>
       </View>
-      <ChevronRight size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+      <ThemedChevronRight />
     </Pressable>
   );
 }

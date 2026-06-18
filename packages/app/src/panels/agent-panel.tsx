@@ -802,6 +802,12 @@ function ChatAgentContent({
     },
     [agentId, ensureAgentIsInitialized, handleHistorySyncFailure],
   );
+  const needsAuthoritativeSync = useMemo(() => {
+    if (!agentId) {
+      return false;
+    }
+    return agentHistorySyncGeneration < historySyncGeneration;
+  }, [agentHistorySyncGeneration, agentId, historySyncGeneration]);
 
   useEffect(() => {
     if (connectionStatus === "online") {
@@ -827,8 +833,19 @@ function ChatAgentContent({
     if (!isPaneFocused || !agentId || !isConnected || !hasSession) {
       return;
     }
+    if (hasAppliedAuthoritativeHistory && !needsAuthoritativeSync) {
+      return;
+    }
     ensureInitializedWithSyncErrorHandling("focus");
-  }, [agentId, ensureInitializedWithSyncErrorHandling, hasSession, isConnected, isPaneFocused]);
+  }, [
+    agentId,
+    ensureInitializedWithSyncErrorHandling,
+    hasAppliedAuthoritativeHistory,
+    hasSession,
+    isConnected,
+    isPaneFocused,
+    needsAuthoritativeSync,
+  ]);
 
   const isArchivingCurrentAgent = Boolean(agentId && isArchivingAgent({ serverId, agentId }));
 
@@ -855,12 +872,6 @@ function ChatAgentContent({
     const initKey = getInitKey(serverId, agentId);
     return Boolean(getInitDeferred(initKey));
   }, [agentId, isInitializing, serverId]);
-  const needsAuthoritativeSync = useMemo(() => {
-    if (!agentId) {
-      return false;
-    }
-    return agentHistorySyncGeneration < historySyncGeneration;
-  }, [agentHistorySyncGeneration, agentId, historySyncGeneration]);
 
   const agent = useMemo<AgentScreenAgent | null>(
     () => buildChatAgentFromState(agentState, projectPlacement),

@@ -49,11 +49,8 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import type { AgentProvider } from "@getdoya/protocol/agent-types";
 import type { AgentAttachment } from "@getdoya/protocol/messages";
-import {
-  createAccountProject,
-  saveAccountBootstrapSession,
-  type AccountBootstrapSession,
-} from "@/account/account-api";
+import { saveAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
+import { createAccountProject } from "@/account/account-project-api";
 import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
 import { useAccountWorkspaceMetadata } from "@/account/use-account-workspace-metadata";
 import {
@@ -91,8 +88,24 @@ import {
   useIsCompactFormFactor,
 } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
+import {
+  allocateControlSessionWorkDir,
+  appendControlSessionMessage,
+  controlApiBaseUrl,
+  createControlSession,
+  ensureControlUserDaemonWorkspace,
+  isControlApiConfigured,
+  registerControlNode,
+  upsertControlAgentBinding,
+} from "@/control/control-api";
+import { notifyControlSessionsChanged } from "@/control/control-session-events";
 import { useToast } from "@/contexts/toast-context";
-import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import {
+  useHostRuntimeClient,
+  useHostRuntimeIsConnected,
+  useHostRuntimeSnapshot,
+  useHosts,
+} from "@/runtime/host-runtime";
 import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import { translate } from "@/i18n/translate";
 import type { TranslationKey } from "@/i18n/translations";
@@ -111,6 +124,7 @@ import {
 } from "@/stores/session-store";
 import { useRecommendedProjectPaths, useWorkspaceFields } from "@/stores/session-store-hooks";
 import { buildAiCreationTitle } from "@/utils/ai-creation-display";
+import { normalizeHostPort } from "@/utils/daemon-endpoints";
 import { encodeImages } from "@/utils/encode-images";
 import {
   buildDoyaMessageMeta,
@@ -223,13 +237,28 @@ interface EncodedAiCreationImages {
 interface AiCreationWorkspace {
   cwd: string;
   workspaceId: string;
+  controlSessionId?: string;
+  nodeId?: string;
+  userWorkspaceId?: string;
+}
+
+interface AiCreationAgentConfig {
+  provider: AgentProvider;
+  modeId?: string;
+  model?: string;
+  thinkingOptionId?: string;
+  featureValues?: Record<string, unknown>;
 }
 
 interface CreateAiCreationWorkspaceInput {
   accountSession: AccountBootstrapSession | null;
   client: Pick<DaemonClient, "openProject">;
+  agentConfig: AiCreationAgentConfig;
   displayName: string;
+  initialPrompt: string;
   mergeWorkspaces: (serverId: string, workspaces: Iterable<WorkspaceDescriptor>) => void;
+  preferredNodeEndpoint?: string | null;
+  runtimeAuthToken?: string | null;
   serverId: string;
   setHasHydratedWorkspaces: (serverId: string, hydrated: boolean) => void;
 }
@@ -1352,6 +1381,8 @@ export function AiCreationScreen({
   const isCompact = useIsCompactFormFactor();
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
+  const hostRuntimeSnapshot = useHostRuntimeSnapshot(serverId);
+  const hosts = useHosts();
   const toggleMobileAgentList = usePanelStore((state) => state.toggleMobileAgentList);
   const toggleDesktopAgentList = usePanelStore((state) => state.toggleDesktopAgentList);
   const openAccountLogin = useAccountLoginModalStore((state) => state.open);
@@ -1957,11 +1988,34 @@ export function AiCreationScreen({
         return;
       }
 
+      const aiCreationAgentConfig: AiCreationAgentConfig = {
+        provider: provider ?? "codex",
+        ...(composerState.modeOptions.length > 0 && composerState.selectedMode
+          ? { modeId: composerState.selectedMode }
+          : {}),
+        model: composerState.effectiveModelId || undefined,
+        thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
+        featureValues: composerState.featureValues,
+      };
+      const preferredNodeEndpoint =
+        hostRuntimeSnapshot?.activeConnection?.type === "directTcp"
+          ? normalizeHostPort(hostRuntimeSnapshot.activeConnection.endpoint)
+          : null;
       const workspace = await createAiCreationWorkspace({
         accountSession,
+        agentConfig: aiCreationAgentConfig,
         client,
         displayName: title,
+        initialPrompt,
         mergeWorkspaces,
+        preferredNodeEndpoint,
+        runtimeAuthToken: preferredNodeEndpoint
+          ? findDirectHostRuntimeAuthToken({
+              endpoint: preferredNodeEndpoint,
+              hosts,
+              serverId,
+            })
+          : null,
         serverId,
         setHasHydratedWorkspaces,
       });
@@ -2019,15 +2073,9 @@ export function AiCreationScreen({
         fileAttachments = [existingEditSourceAttachment, ...(fileAttachments ?? [])];
       }
       const config = buildWorkspaceDraftAgentConfig({
-        provider: provider ?? "codex",
+        ...aiCreationAgentConfig,
         cwd: workspace.cwd,
         title,
-        ...(composerState.modeOptions.length > 0 && composerState.selectedMode
-          ? { modeId: composerState.selectedMode }
-          : {}),
-        model: composerState.effectiveModelId || undefined,
-        thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
-        featureValues: composerState.featureValues,
       });
       const initialImages =
         mode === "image" && references.length > 0 ? undefined : (images ?? composerImages);
@@ -2040,11 +2088,17 @@ export function AiCreationScreen({
         labels: {
           surface: "ai_creation",
           intent: getAiCreationIntentForMode(mode),
+          ...buildAiCreationControlLabels(workspace),
         },
         ...(!hasSelectionGuide && initialImages && initialImages.length > 0
           ? { images: initialImages }
           : {}),
         ...(fileAttachments && fileAttachments.length > 0 ? { attachments: fileAttachments } : {}),
+      });
+      await appendAiCreationControlAgentBinding({
+        accountSession,
+        agentId: result.id,
+        workspace,
       });
       const selectionImageForDisplay =
         mode === "edit" && hasSelectionGuide && submittedEditImage ? submittedEditImage : undefined;
@@ -2127,6 +2181,8 @@ export function AiCreationScreen({
     editTargetAgentId,
     sourceEditAgentCwd,
     conversationEditImages,
+    hostRuntimeSnapshot?.activeConnection,
+    hosts,
     mergeWorkspaces,
     openAccountLogin,
     prompt,
@@ -3505,11 +3561,135 @@ function getConversationEditTitle(image: AttachmentMetadata | undefined): string
   return fileName.replace(/\.[A-Za-z0-9]+$/, "") || translateNow("aiCreation.display.editPrefix");
 }
 
+function buildAiCreationControlLabels(workspace: AiCreationWorkspace): Record<string, string> {
+  if (!workspace.controlSessionId || !workspace.nodeId) {
+    return {};
+  }
+  const apiBaseUrl = controlApiBaseUrl();
+  return {
+    "doya.control.sessionId": workspace.controlSessionId,
+    "doya.control.nodeId": workspace.nodeId,
+    ...(apiBaseUrl ? { "doya.control.apiBaseUrl": apiBaseUrl } : {}),
+  };
+}
+
+async function appendAiCreationControlAgentBinding(input: {
+  accountSession: AccountBootstrapSession;
+  agentId: string;
+  workspace: AiCreationWorkspace;
+}): Promise<void> {
+  if (!input.workspace.controlSessionId || !input.workspace.nodeId) {
+    return;
+  }
+  await upsertControlAgentBinding({
+    accountSession: input.accountSession,
+    sessionId: input.workspace.controlSessionId,
+    nodeId: input.workspace.nodeId,
+    agentId: input.agentId,
+    userWorkspaceId: input.workspace.userWorkspaceId ?? null,
+    workspaceId: input.workspace.workspaceId,
+    cwd: input.workspace.cwd,
+  });
+  await appendControlSessionMessage({
+    accountSession: input.accountSession,
+    sessionId: input.workspace.controlSessionId,
+    role: "system",
+    externalId: `agent:${input.agentId}:binding`,
+    content: {
+      kind: "control_agent_binding",
+      nodeId: input.workspace.nodeId,
+      agentId: input.agentId,
+      workspaceId: input.workspace.workspaceId,
+      workspaceDir: input.workspace.cwd,
+    },
+  });
+}
+
+function findDirectHostRuntimeAuthToken(input: {
+  endpoint: string;
+  hosts: ReturnType<typeof useHosts>;
+  serverId: string;
+}): string | null {
+  const host = input.hosts.find((entry) => entry.serverId === input.serverId);
+  if (!host) {
+    return null;
+  }
+  const normalizedEndpoint = normalizeHostPort(input.endpoint);
+  const connection = host.connections.find(
+    (entry) =>
+      entry.type === "directTcp" && normalizeHostPort(entry.endpoint) === normalizedEndpoint,
+  );
+  return connection?.type === "directTcp" ? (connection.password ?? null) : null;
+}
+
 async function createAiCreationWorkspace(
   input: CreateAiCreationWorkspaceInput,
 ): Promise<AiCreationWorkspace> {
   if (!input.accountSession) {
     throw new Error(translateNow("aiCreation.error.loginRequired"));
+  }
+  if (
+    isControlApiConfigured() &&
+    input.accountSession.workspace.workspaceId.startsWith("control:")
+  ) {
+    if (input.preferredNodeEndpoint) {
+      await registerControlNode({
+        accountSession: input.accountSession,
+        nodeId: input.serverId,
+        endpoint: input.preferredNodeEndpoint,
+        runtimeAuthToken: input.runtimeAuthToken ?? null,
+        status: "online",
+      });
+    }
+    const workingContext = { type: "generated_workspace" } as const;
+    const userWorkspace = await ensureControlUserDaemonWorkspace({
+      accountSession: input.accountSession,
+      nodeId: input.serverId,
+    });
+    const controlSession = await createControlSession({
+      accountSession: input.accountSession,
+      title: input.displayName,
+      workingContext,
+    });
+    notifyControlSessionsChanged();
+    await appendControlSessionMessage({
+      accountSession: input.accountSession,
+      sessionId: controlSession.id,
+      role: "user",
+      content: {
+        text: input.initialPrompt,
+        workingContext,
+        agentConfig: input.agentConfig,
+        surface: "ai_creation",
+      },
+    });
+    const sessionWorkDir = await allocateControlSessionWorkDir({
+      accountSession: input.accountSession,
+      sessionId: controlSession.id,
+      nodeId: input.serverId,
+      runtimeId: `rt_${controlSession.id}`,
+      providerId: input.agentConfig.provider,
+      modelId: input.agentConfig.model ?? null,
+      selectionReason: "preferred_node_direct",
+    });
+    const payload = await input.client.openProject(sessionWorkDir.runtime.workspaceDir);
+    if (payload.error || !payload.workspace) {
+      throw new Error(payload.error ?? translateNow("aiCreation.error.createWorkspace"));
+    }
+    const workspace = normalizeWorkspaceDescriptor(payload.workspace);
+    input.mergeWorkspaces(input.serverId, [workspace]);
+    input.setHasHydratedWorkspaces(input.serverId, true);
+    const cwd = workspace.workspaceDirectory.trim();
+    if (!cwd) {
+      throw new Error(translateNow("aiCreation.error.missingWorkspaceDirectory"));
+    }
+    return {
+      cwd,
+      workspaceId: workspace.id,
+      controlSessionId: controlSession.id,
+      nodeId: input.serverId,
+      userWorkspaceId: userWorkspace.id,
+    };
   }
   const project = await createAccountProject({
     userId: input.accountSession.user.userId,

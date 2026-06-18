@@ -45,6 +45,46 @@ DOYA_DEV_RESET_HOME=1 npm run dev              # clear and reseed the derived wo
 
 In any worktree-style or portless setup, never assume default ports.
 
+### Local control service
+
+The session-centered local control plane runs separately from the daemon:
+
+```bash
+npm run dev:control
+```
+
+By default it listens on `127.0.0.1:6777` and stores control data in
+`$DOYA_CONTROL_HOME/control.json` or `~/.doya-control/control.json`.
+Point the app at it with:
+
+```bash
+EXPO_PUBLIC_CONTROL_API_URL=http://127.0.0.1:6777
+```
+
+When using `doya.json` service orchestration, the `control` service and app env
+are wired together by the service config. The daemon remains the runtime node;
+control owns account/session/history state.
+
+### Host runtime lazy connections
+
+The app keeps saved host profiles in local state, but it must not open every
+daemon WebSocket just to render a list, home page, Settings page, or admin
+overview. A saved daemon with no active socket is a normal `idle` host runtime,
+not a failed connection.
+
+Start a host runtime only when the user enters a workflow that needs that
+specific daemon: opening a live session/agent, creating a new runtime on a
+selected host, running a probe, or opening a daemon-scoped admin surface that
+needs live provider/runtime details. Use `ensureStarted(serverId)` or the
+matching hook at that boundary, not in broad list components.
+
+Control-plane history can render from persisted sessions and bindings before a
+daemon socket exists. When the user opens a history item, resolve its active
+`SessionAgentBinding` and connect only to that binding's `nodeId`. Avoid
+prefetching artifacts or registering all online nodes during sidebar hydration;
+those operations create noisy `/register` and `/agent-binding` traffic and make
+startup look connected to daemons the user did not choose.
+
 ### Desktop renderer profiling
 
 `npm run dev:desktop` starts Electron with Chromium remote debugging enabled on
@@ -201,17 +241,21 @@ Use the named root build targets instead of remembering workspace dependency cha
 
 ```bash
 npm run build:client       # protocol -> client
-npm run build:server-deps  # highlight -> relay -> protocol -> client
+npm run build:server-deps  # highlight -> relay -> protocol -> client -> control
 npm run build:server       # server-deps -> server -> cli
 npm run build:app-deps     # highlight -> protocol -> client -> expo-two-way-audio
 ```
+
+The local control service lives in `packages/control`. The root
+`build:server-deps` target builds it alongside the other server-facing
+workspaces so app/server development has current control declarations.
 
 Use `npm run build:server` whenever you have changed any daemon/server-facing package and need clean cross-package types or runtime behavior.
 
 For tighter loops, you can rebuild a single workspace:
 
 - Changed `packages/protocol/src/*` or `packages/client/src/*`: `npm run build:client`.
-- Changed `packages/server/src/*`, `packages/cli/src/*`, `packages/relay/src/*`, or `packages/highlight/src/*`: `npm run build:server`.
+- Changed `packages/server/src/*`, `packages/control/src/*`, `packages/cli/src/*`, `packages/relay/src/*`, or `packages/highlight/src/*`: `npm run build:server`.
 - Changed app build dependencies: `npm run build:app-deps`.
 
 ## CLI reference

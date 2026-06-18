@@ -1,4 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  controlApiBaseUrl,
+  isControlApiConfigured,
+  loginControlAccount,
+  refreshControlAccountSession,
+  registerControlAccount,
+} from "@/control/control-api";
 import { translateNow } from "@/i18n/i18n";
 
 const ACCOUNT_SESSION_STORAGE_KEY = "doya.account.session.v1";
@@ -51,23 +58,11 @@ interface AccountSmsSendResponse {
   ok: boolean;
 }
 
-interface AccountCreateProjectResponse {
-  project: AccountProjectRecord;
-}
-
-interface AccountDeleteProjectResponse {
-  projects: AccountProjectRecord[];
-}
-
-interface AccountRenameProjectResponse {
-  projects: AccountProjectRecord[];
-}
-
 interface AccountErrorPayload {
   error?: string;
 }
 
-function accountApiBaseUrl(): string {
+export function accountApiBaseUrl(): string {
   const explicit = process.env.EXPO_PUBLIC_ACCOUNT_API_URL;
   if (explicit) {
     return explicit.replace(/\/$/, "");
@@ -99,8 +94,15 @@ export async function loadAccountBootstrapSession(): Promise<AccountBootstrapSes
     return null;
   }
   try {
-    const session = JSON.parse(raw) as AccountBootstrapSession;
+    const session = normalizeStoredAccountBootstrapSession(JSON.parse(raw));
     if (!session.accessToken) {
+      await removeAccountSessionStorageItems([
+        ACCOUNT_SESSION_STORAGE_KEY,
+        ...LEGACY_ACCOUNT_SESSION_STORAGE_KEYS,
+      ]);
+      return null;
+    }
+    if (isControlApiConfigured() && !isControlBootstrapSession(session)) {
       await removeAccountSessionStorageItems([
         ACCOUNT_SESSION_STORAGE_KEY,
         ...LEGACY_ACCOUNT_SESSION_STORAGE_KEYS,
@@ -110,7 +112,7 @@ export async function loadAccountBootstrapSession(): Promise<AccountBootstrapSes
     const migratedSession = {
       ...session,
       projects: Array.isArray(session.projects) ? session.projects : [],
-      apiBaseUrl: accountApiBaseUrl(),
+      apiBaseUrl: resolveAccountSessionApiBaseUrl(session),
     };
     await persistAccountBootstrapSession(migratedSession);
     return migratedSession;
@@ -165,7 +167,10 @@ export function subscribeAccountSessionChanges(listener: () => void): () => void
 export async function refreshAccountBootstrapSession(
   session: AccountBootstrapSession,
 ): Promise<AccountBootstrapSession> {
-  const payload = await postAccountApi<AccountAuthResponse>("/api/account/session", {
+  if (isControlApiConfigured() && isControlBootstrapSession(session)) {
+    return refreshControlAccountSession(session);
+  }
+  const payload = await postLegacyAccountApi<AccountAuthResponse>("/api/account/session", {
     userId: session.user.userId,
     accessToken: session.accessToken,
   });
@@ -180,7 +185,10 @@ export async function registerAccountUser(input: {
   email: string;
   displayName: string;
 }): Promise<AccountBootstrapSession> {
-  const payload = await postAccountApi<AccountAuthResponse>("/api/account/register", input);
+  if (isControlApiConfigured()) {
+    return registerControlAccount({ email: input.email });
+  }
+  const payload = await postLegacyAccountApi<AccountAuthResponse>("/api/account/register", input);
   return {
     ...payload,
     projects: payload.projects ?? [],
@@ -189,7 +197,10 @@ export async function registerAccountUser(input: {
 }
 
 export async function loginAccountUser(input: { email: string }): Promise<AccountBootstrapSession> {
-  const payload = await postAccountApi<AccountAuthResponse>("/api/account/login", input);
+  if (isControlApiConfigured()) {
+    return loginControlAccount(input);
+  }
+  const payload = await postLegacyAccountApi<AccountAuthResponse>("/api/account/login", input);
   return {
     ...payload,
     projects: payload.projects ?? [],
@@ -198,7 +209,7 @@ export async function loginAccountUser(input: { email: string }): Promise<Accoun
 }
 
 export async function sendAccountSmsCode(input: { phone: string }): Promise<void> {
-  await postAccountApi<AccountSmsSendResponse>("/api/account/sms/send", input);
+  await postLegacyAccountApi<AccountSmsSendResponse>("/api/account/sms/send", input);
 }
 
 export async function loginAccountUserWithSms(input: {
@@ -206,7 +217,7 @@ export async function loginAccountUserWithSms(input: {
   code: string;
   displayName: string;
 }): Promise<AccountBootstrapSession> {
-  const payload = await postAccountApi<AccountAuthResponse>("/api/account/sms/login", input);
+  const payload = await postLegacyAccountApi<AccountAuthResponse>("/api/account/sms/login", input);
   return {
     ...payload,
     projects: payload.projects ?? [],
@@ -214,47 +225,10 @@ export async function loginAccountUserWithSms(input: {
   };
 }
 
-export async function createAccountProject(input: {
-  userId: string;
-  workspaceId: string;
-  accessToken: string;
-  displayName: string;
-}): Promise<AccountProjectRecord> {
-  const payload = await postAccountApi<AccountCreateProjectResponse>(
-    "/api/account/projects",
-    input,
-  );
-  return payload.project;
-}
-
-export async function deleteAccountProject(input: {
-  userId: string;
-  workspaceId: string;
-  projectId: string;
-  accessToken: string;
-}): Promise<AccountProjectRecord[]> {
-  const payload = await postAccountApi<AccountDeleteProjectResponse>(
-    "/api/account/projects/delete",
-    input,
-  );
-  return payload.projects ?? [];
-}
-
-export async function renameAccountProject(input: {
-  userId: string;
-  workspaceId: string;
-  projectId: string;
-  accessToken: string;
-  displayName: string;
-}): Promise<AccountProjectRecord[]> {
-  const payload = await postAccountApi<AccountRenameProjectResponse>(
-    "/api/account/projects/rename",
-    input,
-  );
-  return payload.projects ?? [];
-}
-
-async function postAccountApi<T extends object>(path: string, input: unknown): Promise<T> {
+export async function postLegacyAccountApi<T extends object>(
+  path: string,
+  input: unknown,
+): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${accountApiBaseUrl()}${path}`, {
@@ -290,4 +264,36 @@ function notifyAccountSessionChanged(): void {
   for (const listener of accountSessionListeners) {
     listener();
   }
+}
+
+function isControlBootstrapSession(session: AccountBootstrapSession): boolean {
+  return session.workspace?.workspaceId.startsWith("control:") === true;
+}
+
+function resolveAccountSessionApiBaseUrl(session: AccountBootstrapSession): string {
+  if (isControlBootstrapSession(session)) {
+    return controlApiBaseUrl() ?? session.apiBaseUrl;
+  }
+  return accountApiBaseUrl();
+}
+
+function normalizeStoredAccountBootstrapSession(value: unknown): AccountBootstrapSession {
+  const session = value as Partial<AccountBootstrapSession>;
+  const user = session.user;
+  const workspace =
+    session.workspace ??
+    (user?.userId
+      ? {
+          workspaceId: `control:${user.userId}`,
+          displayName: "Doya",
+          runtime: null,
+        }
+      : undefined);
+  return {
+    user: user as AccountBootstrapSession["user"],
+    workspace: workspace as AccountBootstrapSession["workspace"],
+    projects: Array.isArray(session.projects) ? session.projects : [],
+    accessToken: typeof session.accessToken === "string" ? session.accessToken : "",
+    apiBaseUrl: accountApiBaseUrl(),
+  };
 }

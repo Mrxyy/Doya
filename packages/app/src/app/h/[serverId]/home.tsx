@@ -5,20 +5,20 @@ import {
   subscribeAccountSessionChanges,
   type AccountBootstrapSession,
 } from "@/account/account-api";
-import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
+import { selectAccountSessionForDirectHost } from "@/account/account-workspace-display";
+import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 import { NewSessionDraftScreen } from "@/screens/new-session-draft-screen";
 
 export default function HostHomeRoute() {
-  return (
-    <HostRouteBootstrapBoundary>
-      <HostHomeRouteContent />
-    </HostRouteBootstrapBoundary>
-  );
+  return <HostHomeRouteContent />;
 }
 
 function HostHomeRouteContent() {
   const params = useLocalSearchParams<{ serverId?: string }>();
   const serverId = typeof params.serverId === "string" ? params.serverId : "";
+  const snapshot = useHostRuntimeSnapshot(serverId);
+  const directHostEndpoint =
+    snapshot?.activeConnection?.type === "directTcp" ? snapshot.activeConnection.endpoint : null;
   const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null | undefined>(
     undefined,
   );
@@ -29,7 +29,14 @@ function HostHomeRouteContent() {
       void (async () => {
         const stored = await loadAccountBootstrapSession();
         if (!disposed) {
-          setAccountSession(stored);
+          setAccountSession(
+            stored?.workspace.workspaceId.startsWith("control:") === true
+              ? stored
+              : selectAccountSessionForDirectHost({
+                  session: stored,
+                  endpoint: directHostEndpoint,
+                }),
+          );
         }
       })();
     };
@@ -39,7 +46,7 @@ function HostHomeRouteContent() {
       disposed = true;
       unsubscribe();
     };
-  }, []);
+  }, [directHostEndpoint]);
 
   if (accountSession === undefined) {
     return null;

@@ -91,12 +91,14 @@ import {
   workspaceTabTargetsEqual,
 } from "@/workspace-tabs/identity";
 import {
+  type ActiveConnection,
   getHostRuntimeStore,
   useHostRuntimeClient,
   useHostRuntimeIsConnected,
   useHostRuntimeSnapshot,
   useHosts,
 } from "@/runtime/host-runtime";
+import type { HostProfile } from "@/types/host-connection";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import { shouldShowWorkspaceSetup, useWorkspaceSetupStore } from "@/stores/workspace-setup-store";
 import { useWorkspace } from "@/stores/session-store-hooks";
@@ -114,7 +116,14 @@ import {
   applyAccountWorkspaceDisplay,
   doesAccountSessionOwnWorkspace,
   findAccountProjectForWorkspaceDirectory,
+  selectAccountSessionForDirectHost,
 } from "@/account/account-workspace-display";
+import { getControlSessionDisplayTitle } from "@/control/control-session-display-title";
+import type { ControlSessionRecord } from "@/control/control-api";
+import {
+  useControlSessions,
+  type ControlSessionAgentBindingSummary,
+} from "@/control/use-control-sessions";
 import { useArchiveAgent } from "@/hooks/use-archive-agent";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { createWorkspaceBrowser, useBrowserStore } from "@/stores/browser-store";
@@ -1262,6 +1271,8 @@ function buildWorkspaceHeaderCheckoutState(input: {
 function deriveWorkspaceHeaderFields(input: {
   workspace: WorkspaceDescriptor | null;
   checkoutState: WorkspaceHeaderCheckoutState;
+  titleOverride?: string | null;
+  hideSubtitle?: boolean;
 }): WorkspaceHeaderFields {
   const renderState = resolveWorkspaceHeaderRenderState(input);
   if (renderState.kind !== "ready") {
@@ -1303,6 +1314,29 @@ function resolveWorkspaceAuthorityState(
 function getHostDisplayName(host: { label?: string | null } | null, fallback: string): string {
   const trimmed = host?.label?.trim();
   return trimmed ? trimmed : fallback;
+}
+
+function getHostAddress(
+  host: HostProfile | null,
+  activeConnection: ActiveConnection | null,
+): string | undefined {
+  if (activeConnection?.endpoint) {
+    return activeConnection.endpoint;
+  }
+
+  const preferredConnection =
+    host?.connections.find((connection) => connection.id === host.preferredConnectionId) ??
+    host?.connections[0];
+  if (!preferredConnection) {
+    return undefined;
+  }
+  if (preferredConnection.type === "directTcp") {
+    return preferredConnection.endpoint;
+  }
+  if (preferredConnection.type === "relay") {
+    return preferredConnection.relayEndpoint;
+  }
+  return preferredConnection.path;
 }
 
 function useWorkspaceRouteActions(normalizedServerId: string): {
@@ -1354,11 +1388,16 @@ function useResolvedWorkspaceRouteState(input: {
   );
   const hostSnapshot = useHostRuntimeSnapshot(input.serverId);
   const hostName = useMemo(() => getHostDisplayName(host, input.serverId), [host, input.serverId]);
+  const hostAddress = useMemo(
+    () => getHostAddress(host, hostSnapshot?.activeConnection ?? null),
+    [host, hostSnapshot?.activeConnection],
+  );
 
   return useMemo(
     () =>
       resolveWorkspaceRouteState({
         hostName,
+        hostAddress,
         connectionStatus: hostSnapshot?.connectionStatus ?? "connecting",
         lastError: hostSnapshot?.lastError ?? null,
         workspace: input.workspace,
@@ -1366,6 +1405,7 @@ function useResolvedWorkspaceRouteState(input: {
       }),
     [
       hostName,
+      hostAddress,
       hostSnapshot?.connectionStatus,
       hostSnapshot?.lastError,
       input.workspace,
@@ -1555,6 +1595,36 @@ function useWorkspaceCheckoutStatus(input: {
   return { checkoutQuery, isCheckoutStatusLoading };
 }
 
+interface ControlSessionWorkspaceMatch {
+  session: ControlSessionRecord;
+  binding: ControlSessionAgentBindingSummary;
+}
+
+function findControlSessionForWorkspace(input: {
+  serverId: string;
+  workspaceId: string;
+  workspaceDirectory: string | null;
+  sessions: ControlSessionRecord[];
+  agentBindingsBySessionId: Map<string, ControlSessionAgentBindingSummary>;
+}): ControlSessionWorkspaceMatch | null {
+  for (const session of input.sessions) {
+    const binding = input.agentBindingsBySessionId.get(session.id);
+    if (!binding || binding.nodeId !== input.serverId) {
+      continue;
+    }
+    if (binding.workspaceId && binding.workspaceId === input.workspaceId) {
+      return { session, binding };
+    }
+    if (binding.cwd && binding.cwd === input.workspaceDirectory) {
+      return { session, binding };
+    }
+    if (input.workspaceDirectory?.includes(`/sessions/${session.id}`)) {
+      return { session, binding };
+    }
+  }
+  return null;
+}
+
 function WorkspaceScreenContent({
   serverId,
   workspaceId,
@@ -1592,6 +1662,11 @@ function WorkspaceScreenContent({
 
   const client = useHostRuntimeClient(normalizedServerId);
   const isConnected = useHostRuntimeIsConnected(normalizedServerId);
+  const runtimeSnapshot = useHostRuntimeSnapshot(normalizedServerId);
+  const directHostEndpoint =
+    runtimeSnapshot?.activeConnection?.type === "directTcp"
+      ? runtimeSnapshot.activeConnection.endpoint
+      : null;
   const workspaceAuthority = useMemo(
     () =>
       getWorkspaceExecutionAuthority({
@@ -1601,6 +1676,40 @@ function WorkspaceScreenContent({
   );
   const { workspaceDirectory, isMissingWorkspaceExecutionAuthority } =
     resolveWorkspaceAuthorityState(workspaceAuthority, workspaceDescriptor);
+  const controlSessions = useControlSessions();
+  const controlSessionWorkspaceMatch = useMemo(
+    () =>
+      findControlSessionForWorkspace({
+        serverId: normalizedServerId,
+        workspaceId: normalizedWorkspaceId,
+        workspaceDirectory,
+        sessions: controlSessions.sessions,
+        agentBindingsBySessionId: controlSessions.agentBindingsBySessionId,
+      }),
+    [
+      controlSessions.agentBindingsBySessionId,
+      controlSessions.sessions,
+      normalizedServerId,
+      normalizedWorkspaceId,
+      workspaceDirectory,
+    ],
+  );
+  const controlSessionAgentTitle = useSessionStore((state) => {
+    const binding = controlSessionWorkspaceMatch?.binding;
+    if (!binding) {
+      return null;
+    }
+    return state.sessions[binding.nodeId]?.agents.get(binding.agentId)?.title ?? null;
+  });
+  const workspaceHeaderTitleOverride = useMemo(() => {
+    if (!controlSessionWorkspaceMatch) {
+      return null;
+    }
+    return getControlSessionDisplayTitle({
+      session: controlSessionWorkspaceMatch.session,
+      agentTitle: controlSessionAgentTitle,
+    });
+  }, [controlSessionAgentTitle, controlSessionWorkspaceMatch]);
 
   useEffect(() => {
     if (!normalizedServerId || !workspaceDescriptor || !workspaceDirectory) {
@@ -1608,7 +1717,10 @@ function WorkspaceScreenContent({
     }
     let disposed = false;
     void (async () => {
-      const accountSession = await loadAccountBootstrapSession();
+      const accountSession = selectAccountSessionForDirectHost({
+        session: await loadAccountBootstrapSession(),
+        endpoint: directHostEndpoint,
+      });
       if (!accountSession) {
         if (!disposed) {
           setAccountSessionForWorkspace(null);
@@ -1657,7 +1769,14 @@ function WorkspaceScreenContent({
     return () => {
       disposed = true;
     };
-  }, [mergeWorkspaces, normalizedServerId, router, workspaceDescriptor, workspaceDirectory]);
+  }, [
+    directHostEndpoint,
+    mergeWorkspaces,
+    normalizedServerId,
+    router,
+    workspaceDescriptor,
+    workspaceDirectory,
+  ]);
   const [isImportSheetVisible, setIsImportSheetVisible] = useState(false);
   const canOpenImportSheet = [client, isConnected, workspaceDirectory].every(Boolean);
   const openImportSheet = useCallback(() => {
@@ -1787,6 +1906,8 @@ function WorkspaceScreenContent({
   } = deriveWorkspaceHeaderFields({
     workspace: workspaceDescriptor,
     checkoutState: workspaceHeaderCheckoutState,
+    titleOverride: workspaceHeaderTitleOverride,
+    hideSubtitle: Boolean(controlSessionWorkspaceMatch),
   });
 
   const isExplorerOpen = usePanelStore((state) =>

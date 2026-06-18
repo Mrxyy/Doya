@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
-import { getHostRuntimeStore, useHosts } from "@/runtime/host-runtime";
+import { getHostRuntimeStore, useHosts, type ActiveConnection } from "@/runtime/host-runtime";
 import { normalizeWorkspaceDescriptor, type WorkspaceDescriptor } from "@/stores/session-store";
 import { buildProjects, type ProjectHost, type ProjectSummary } from "@/utils/projects";
 import {
@@ -13,9 +13,14 @@ import {
   applyAccountProjectDisplay,
   doesAccountSessionOwnWorkspace,
   findAccountProjectForWorkspaceDirectory,
+  selectAccountSessionForDirectHost,
 } from "@/account/account-workspace-display";
+import { getControlSessionDisplayTitle } from "@/control/control-session-display-title";
+import { useControlSessions } from "@/control/use-control-sessions";
+import type { ControlSessionRecord } from "@/control/control-api";
 
 export const projectsQueryKey = ["projects"] as const;
+const CONTROL_SESSION_PROJECT_KEY_PREFIX = "control-session:";
 
 export interface ProjectHostError {
   serverId: string;
@@ -33,6 +38,7 @@ export interface UseProjectsResult {
 
 export interface ProjectsRuntimeSnapshot {
   connectionStatus: string;
+  activeConnection?: ActiveConnection | null;
 }
 
 export interface ProjectsRuntime {
@@ -143,6 +149,13 @@ export async function fetchAggregatedProjects(
       }
 
       try {
+        const hostAccountSession = selectAccountSessionForDirectHost({
+          session: input.accountSession,
+          endpoint:
+            snapshot?.activeConnection?.type === "directTcp"
+              ? snapshot.activeConnection.endpoint
+              : null,
+        });
         return {
           host: {
             serverId: host.serverId,
@@ -150,7 +163,7 @@ export async function fetchAggregatedProjects(
             isOnline,
             workspaces: applyAccountProjectScope(
               await fetchAllWorkspaceDescriptors(client),
-              input.accountSession,
+              hostAccountSession,
             ),
           },
           error: null,
@@ -184,6 +197,7 @@ export function useProjects(): UseProjectsResult {
   const hosts = useHosts();
   const runtime = getHostRuntimeStore();
   const accountSession = useAccountBootstrapSessionForProjects();
+  const controlSessions = useControlSessions();
   const hostInputs = useMemo<ProjectsHostInput[]>(
     () =>
       hosts.map((host) => ({
@@ -209,15 +223,44 @@ export function useProjects(): UseProjectsResult {
     enabled: accountSession !== undefined,
   });
 
+  const controlSessionProjects = useMemo(
+    () => controlSessions.sessions.map(controlSessionToProjectSummary),
+    [controlSessions.sessions],
+  );
+
   return {
-    projects: projectsQuery.data?.projects ?? [],
+    projects: [...controlSessionProjects, ...(projectsQuery.data?.projects ?? [])],
     hostErrors: projectsQuery.data?.hostErrors ?? [],
-    isLoading: accountSession === undefined || projectsQuery.isLoading,
-    isFetching: projectsQuery.isFetching,
+    isLoading: accountSession === undefined || projectsQuery.isLoading || controlSessions.isLoading,
+    isFetching: projectsQuery.isFetching || controlSessions.isLoading,
     refetch: () => {
       void projectsQuery.refetch();
+      controlSessions.refetch();
     },
   };
+}
+
+function controlSessionToProjectSummary(session: ControlSessionRecord): ProjectSummary {
+  const projectName = getControlSessionDisplayTitle({ session });
+  return {
+    projectKey: buildControlSessionProjectKey(session.id),
+    projectName,
+    projectCustomName: projectName,
+    hosts: [],
+    totalWorkspaceCount: 0,
+    hostCount: 0,
+    onlineHostCount: 0,
+  };
+}
+
+export function buildControlSessionProjectKey(sessionId: string): string {
+  return `${CONTROL_SESSION_PROJECT_KEY_PREFIX}${sessionId}`;
+}
+
+export function parseControlSessionProjectKey(projectKey: string): string | null {
+  return projectKey.startsWith(CONTROL_SESSION_PROJECT_KEY_PREFIX)
+    ? projectKey.slice(CONTROL_SESSION_PROJECT_KEY_PREFIX.length) || null
+    : null;
 }
 
 function useAccountBootstrapSessionForProjects(): AccountBootstrapSession | null | undefined {

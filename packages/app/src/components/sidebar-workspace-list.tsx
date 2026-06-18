@@ -15,12 +15,9 @@ import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { slugify, validateBranchSlug, MAX_SLUG_LENGTH } from "@getdoya/protocol/branch-slug";
 import { ProjectIconView } from "@/components/project-icon-view";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
-import {
-  deleteAccountProject,
-  renameAccountProject,
-  saveAccountBootstrapSession,
-  type AccountBootstrapSession,
-} from "@/account/account-api";
+import { saveAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
+import { deleteAccountProject, renameAccountProject } from "@/account/account-project-api";
+import { deleteControlSession, updateControlSession } from "@/control/control-api";
 import { invalidateCheckoutGitQueriesForClient } from "@/git/query-keys";
 import {
   memo,
@@ -33,7 +30,7 @@ import {
   type MutableRefObject,
   type Ref,
 } from "react";
-import { router, usePathname, type Href } from "expo-router";
+import { router, useLocalSearchParams, usePathname, type Href } from "expo-router";
 import {
   navigateToWorkspace,
   useActiveWorkspaceSelection,
@@ -44,6 +41,7 @@ import type { Theme } from "@/styles/theme";
 import { type GestureType } from "react-native-gesture-handler";
 import * as Clipboard from "expo-clipboard";
 import { DiffStat } from "@/components/diff-stat";
+import { getProviderIcon } from "@/components/provider-icons";
 import {
   Archive,
   CircleAlert,
@@ -70,14 +68,23 @@ import Svg, { Path } from "react-native-svg";
 import { NestableScrollContainer } from "react-native-draggable-flatlist";
 import { DraggableList, type DraggableRenderItemInfo } from "./draggable-list";
 import type { DraggableListDragHandleProps } from "./draggable-list.types";
-import { getHostRuntimeStore, isHostRuntimeConnected } from "@/runtime/host-runtime";
+import {
+  getHostRuntimeStore,
+  isHostRuntimeConnected,
+  type HostRuntimeConnectionStatus,
+  useHostMutations,
+  useHosts,
+} from "@/runtime/host-runtime";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useI18n, translateNow } from "@/i18n/i18n";
 import { projectIconQueryKey, projectIconToDataUri } from "@/hooks/use-project-icon-query";
 import {
+  buildHostAgentDetailRoute,
   buildHostNewWorkspaceRoute,
   buildProjectSettingsRoute,
+  parseHostAgentRouteFromPathname,
   parseHostWorkspaceRouteFromPathname,
+  parseWorkspaceOpenIntent,
 } from "@/utils/host-routes";
 import {
   createSidebarWorkspaceEntry,
@@ -109,6 +116,7 @@ import { projectIconPlaceholderLabelFromDisplayName } from "@/utils/project-disp
 import { shouldRenderSyncedStatusLoader } from "@/utils/status-loader";
 import { isEmphasizedStatusDotBucket } from "@/utils/status-dot-color";
 import type { SidebarStateBucket } from "@/utils/sidebar-agent-state";
+import { deriveSidebarStateBucket } from "@/utils/sidebar-agent-state";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Shortcut } from "@/components/ui/shortcut";
@@ -118,9 +126,15 @@ import { useKeyboardActionHandler } from "@/hooks/use-keyboard-action-handler";
 import type { PrHint } from "@/git/use-pr-status-query";
 import { buildSidebarProjectRowModel } from "@/utils/sidebar-project-row-model";
 import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-store";
+import {
+  buildWorkspaceTabPersistenceKey,
+  collectAllTabs,
+  useWorkspaceLayoutStore,
+} from "@/stores/workspace-layout-store";
 import { useWorkspaceFields } from "@/stores/session-store-hooks";
 import { redirectIfArchivingActiveWorkspace } from "@/utils/sidebar-workspace-archive-redirect";
 import { openExternalUrl } from "@/utils/open-external-url";
+import { restoreControlSessionToAgent } from "@/control/control-session-restore";
 import {
   requireWorkspaceExecutionDirectory,
   resolveWorkspaceExecutionDirectory,
@@ -133,6 +147,11 @@ import {
 import { WorkspaceHoverCard } from "@/components/workspace-hover-card";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import { isWeb as platformIsWeb, isNative as platformIsNative } from "@/constants/platform";
+import {
+  WorkspaceTabIcon,
+  type WorkspaceTabPresentation,
+} from "@/screens/workspace/workspace-tab-presentation";
+import { useShallow } from "zustand/shallow";
 
 const workspaceKeyExtractor = (workspace: SidebarWorkspaceEntry) => workspace.workspaceKey;
 
@@ -258,10 +277,22 @@ function isWorkspaceSelected(input: {
 
 function isProjectSelectedByRoute(input: {
   selection: ActiveWorkspaceSelection | null;
+  agentRoute: { serverId: string; agentId: string } | null;
   project: SidebarProjectEntry;
   serverId: string | null;
   enabled: boolean;
 }): boolean {
+  if (
+    input.enabled &&
+    input.agentRoute &&
+    input.project.controlAgentNodeId === input.agentRoute.serverId &&
+    input.project.controlAgentId === input.agentRoute.agentId
+  ) {
+    return true;
+  }
+  if (isControlProjectSelectedByWorkspace(input)) {
+    return true;
+  }
   return (
     input.enabled &&
     input.selection?.serverId === input.serverId &&
@@ -269,6 +300,30 @@ function isProjectSelectedByRoute(input: {
       (workspace) => workspace.workspaceId === input.selection?.workspaceId,
     )
   );
+}
+
+function isControlProjectSelectedByWorkspace(input: {
+  selection: ActiveWorkspaceSelection | null;
+  project: SidebarProjectEntry;
+  enabled: boolean;
+}): boolean {
+  if (!input.enabled || !input.selection || !input.project.controlSessionId) {
+    return false;
+  }
+  const controlNodeId = input.project.controlAgentNodeId?.trim();
+  if (controlNodeId && input.selection.serverId !== controlNodeId) {
+    return false;
+  }
+  const selectedWorkspaceId = input.selection.workspaceId.trim();
+  const controlWorkspaceId = input.project.controlWorkspaceId?.trim();
+  if (controlWorkspaceId && selectedWorkspaceId === controlWorkspaceId) {
+    return true;
+  }
+  const controlCwd = input.project.controlCwd?.trim();
+  if (controlCwd && selectedWorkspaceId === controlCwd) {
+    return true;
+  }
+  return selectedWorkspaceId.includes(`/sessions/${input.project.controlSessionId}`);
 }
 
 function selectionForSelectedWorkspace(
@@ -281,6 +336,7 @@ function selectionForSelectedWorkspace(
 interface SidebarWorkspaceListProps {
   projects: SidebarProjectEntry[];
   serverId: string | null;
+  connectionStatus: HostRuntimeConnectionStatus;
   accountSession?: AccountBootstrapSession | null;
   collapsedProjectKeys: ReadonlySet<string>;
   onToggleProjectCollapsed: (projectKey: string) => void;
@@ -288,6 +344,7 @@ interface SidebarWorkspaceListProps {
   isRefreshing?: boolean;
   onRefresh?: () => void;
   onWorkspacePress?: () => void;
+  onProjectMutated?: () => void;
   onAddProject?: () => void;
   onAiCreation?: () => void;
   addProjectLabel?: string;
@@ -323,6 +380,7 @@ interface ProjectHeaderRowProps {
   onRemoveProject?: () => void;
   removeProjectStatus?: "idle" | "pending";
   dragHandleProps?: DraggableListDragHandleProps;
+  activeAgentRoute?: { serverId: string; agentId: string } | null;
 }
 
 interface WorkspaceRowInnerProps {
@@ -382,6 +440,12 @@ function ProjectShortcutBadge({
       <Text style={styles.shortcutBadgeText}>{shortcutNumber}</Text>
     </View>
   );
+}
+
+function normalizeActiveAgentRoute(
+  route: ProjectHeaderRowProps["activeAgentRoute"],
+): { serverId: string; agentId: string } | null {
+  return route ?? null;
 }
 
 function getWorkspaceArchiveStatus(
@@ -612,11 +676,187 @@ function StatusDotOverlay({
   return <View style={overlayStyle} />;
 }
 
+interface ControlSessionAgentTabState {
+  provider: string;
+  title: string | null;
+  statusBucket: SidebarStateBucket | null;
+  titleState: "ready" | "loading";
+}
+
+interface ControlSessionWorkspaceAgentTabs {
+  serverId: string | null;
+  agentIdsSignature: string;
+}
+
+function useControlSessionWorkspaceAgentTabs(
+  project: SidebarProjectEntry,
+): ControlSessionWorkspaceAgentTabs {
+  const workspaceKey = useMemo(() => {
+    const serverId = project.controlAgentNodeId?.trim();
+    const workspaceId = project.controlWorkspaceId?.trim();
+    if (!serverId || !workspaceId) {
+      return null;
+    }
+    return buildWorkspaceTabPersistenceKey({ serverId, workspaceId });
+  }, [project.controlAgentNodeId, project.controlWorkspaceId]);
+
+  return useWorkspaceLayoutStore(
+    useShallow((state): ControlSessionWorkspaceAgentTabs => {
+      const serverId = project.controlAgentNodeId?.trim();
+      if (!serverId || !workspaceKey) {
+        return { serverId: serverId ?? null, agentIdsSignature: "" };
+      }
+      const layout = state.layoutByWorkspace[workspaceKey] ?? null;
+      if (!layout) {
+        return { serverId, agentIdsSignature: "" };
+      }
+      const agentIds = collectAllTabs(layout.root)
+        .map((tab) => (tab.target.kind === "agent" ? tab.target.agentId.trim() : ""))
+        .filter(Boolean);
+      if (agentIds.length === 0) {
+        return { serverId, agentIdsSignature: "" };
+      }
+      return { serverId, agentIdsSignature: Array.from(new Set(agentIds)).sort().join("\n") };
+    }),
+  );
+}
+
+function useControlSessionTabPresentation(input: {
+  project: SidebarProjectEntry;
+  selected: boolean;
+  activeAgentRoute: { serverId: string; agentId: string } | null;
+}): WorkspaceTabPresentation | null {
+  const { project, selected, activeAgentRoute } = input;
+  const workspaceAgentTabs = useControlSessionWorkspaceAgentTabs(project);
+  const agentIds = useMemo(() => {
+    if (selected && activeAgentRoute) {
+      return [activeAgentRoute.agentId];
+    }
+    const fromWorkspaceTabs = workspaceAgentTabs.agentIdsSignature
+      .split("\n")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    if (fromWorkspaceTabs.length > 0) {
+      return fromWorkspaceTabs;
+    }
+    const fallbackAgentId = project.controlAgentId?.trim();
+    return fallbackAgentId ? [fallbackAgentId] : [];
+  }, [activeAgentRoute, project.controlAgentId, selected, workspaceAgentTabs.agentIdsSignature]);
+  const serverId =
+    selected && activeAgentRoute
+      ? activeAgentRoute.serverId
+      : (workspaceAgentTabs.serverId ?? project.controlAgentNodeId?.trim() ?? null);
+  const agentState = useSessionStore(
+    useShallow((state): ControlSessionAgentTabState | null => {
+      if (!serverId || agentIds.length === 0) {
+        return null;
+      }
+      const session = state.sessions[serverId];
+      if (!session) {
+        return null;
+      }
+      const tabStates = agentIds
+        .map((agentId) => session.agents.get(agentId) ?? session.agentDetails.get(agentId) ?? null)
+        .filter(Boolean)
+        .map((agent) => ({
+          provider: agent.provider,
+          title: agent.title,
+          bucket: deriveSidebarStateBucket({
+            status: agent.status,
+            pendingPermissionCount: agent.pendingPermissions.length,
+            requiresAttention: agent.requiresAttention ?? false,
+            attentionReason: agent.attentionReason ?? null,
+          }),
+        }));
+      if (tabStates.length === 0) {
+        return null;
+      }
+      const primary = selectPrimaryControlSessionTabState(tabStates);
+      return {
+        provider: primary.provider,
+        title: primary.title,
+        statusBucket: selectControlSessionAggregateStatus(tabStates.map((tab) => tab.bucket)),
+        titleState: primary.title ? "ready" : "loading",
+      };
+    }),
+  );
+
+  return useMemo(() => {
+    if (!agentState) {
+      const fallbackStatusBucket = mapControlSessionStatusToSidebarBucket(
+        project.controlSessionStatus,
+        selected,
+      );
+      if (!fallbackStatusBucket) {
+        return null;
+      }
+      return {
+        key: `${project.projectKey}:control-session`,
+        kind: "agent",
+        label: project.projectName,
+        subtitle: "",
+        titleState: "ready",
+        icon: SquareTerminal,
+        statusBucket: fallbackStatusBucket,
+      };
+    }
+    return {
+      key: `${project.projectKey}:aggregate-tabs`,
+      kind: "agent",
+      label: agentState.title ?? project.projectName,
+      subtitle: "",
+      titleState: agentState.titleState,
+      icon: getProviderIcon(agentState.provider),
+      statusBucket: agentState.statusBucket,
+    };
+  }, [agentState, project.controlSessionStatus, project.projectKey, project.projectName, selected]);
+}
+
+function mapControlSessionStatusToSidebarBucket(
+  status: SidebarProjectEntry["controlSessionStatus"],
+  selected: boolean,
+): SidebarStateBucket | null {
+  if (selected && status === "running") {
+    return "running";
+  }
+  if (status === "needs_input") {
+    return "needs_input";
+  }
+  if (status === "error") {
+    return "failed";
+  }
+  return null;
+}
+
+function selectControlSessionAggregateStatus(buckets: SidebarStateBucket[]): SidebarStateBucket {
+  if (buckets.includes("needs_input")) {
+    return "needs_input";
+  }
+  if (buckets.includes("failed")) {
+    return "failed";
+  }
+  if (buckets.includes("running")) {
+    return "running";
+  }
+  if (buckets.includes("attention")) {
+    return "attention";
+  }
+  return "done";
+}
+
+function selectPrimaryControlSessionTabState<
+  T extends { bucket: SidebarStateBucket; provider: string; title: string | null },
+>(tabStates: T[]): T {
+  const selectedBucket = selectControlSessionAggregateStatus(tabStates.map((tab) => tab.bucket));
+  return tabStates.find((tab) => tab.bucket === selectedBucket) ?? tabStates[0];
+}
+
 function ProjectLeadingVisual({
   displayName,
   iconDataUri,
   workspace,
   projectKey,
+  tabPresentation = null,
   conversationVisual = false,
   chevron = null,
   showChevron = false,
@@ -626,6 +866,7 @@ function ProjectLeadingVisual({
   iconDataUri: string | null;
   workspace: SidebarWorkspaceEntry | null;
   projectKey: string;
+  tabPresentation?: WorkspaceTabPresentation | null;
   conversationVisual?: boolean;
   chevron?: "expand" | "collapse" | null;
   showChevron?: boolean;
@@ -647,6 +888,14 @@ function ProjectLeadingVisual({
     return (
       <View style={visualSlotStyle}>
         <ProjectInlineChevron chevron={chevron} />
+      </View>
+    );
+  }
+
+  if (conversationVisual && tabPresentation) {
+    return (
+      <View style={visualSlotStyle}>
+        <WorkspaceTabIcon presentation={tabPresentation} size={14} />
       </View>
     );
   }
@@ -1440,9 +1689,15 @@ function ProjectHeaderRow({
   onRemoveProject,
   removeProjectStatus = "idle",
   dragHandleProps,
+  activeAgentRoute,
 }: ProjectHeaderRowProps) {
   const [isHovered, setIsHovered] = useState(false);
   const isMobileBreakpoint = useIsCompactFormFactor();
+  const controlSessionTabPresentation = useControlSessionTabPresentation({
+    project,
+    selected,
+    activeAgentRoute: normalizeActiveAgentRoute(activeAgentRoute),
+  });
   const handleBeginWorkspaceSetup = useCallback(() => {
     if (!serverId) {
       return;
@@ -1455,9 +1710,6 @@ function ProjectHeaderRow({
     );
     onWorkspacePress?.();
   }, [displayName, onWorkspacePress, project.iconWorkingDir, project.projectKey, serverId]);
-  const _mergeWorkspaces = useSessionStore((state) => state.mergeWorkspaces);
-  const _toast = useToast();
-
   const interaction = useLongPressDragInteraction({
     drag,
     menuController,
@@ -1506,6 +1758,7 @@ function ProjectHeaderRow({
         iconDataUri={iconDataUri}
         workspace={workspace}
         projectKey={project.projectKey}
+        tabPresentation={controlSessionTabPresentation}
         conversationVisual={conversationVisual}
         chevron={chevron}
         showChevron={isHovered && chevron !== null}
@@ -2296,6 +2549,7 @@ interface WorkspaceRowItemProps {
   showShortcutBadge: boolean;
   canCopyBranchName: boolean;
   isCreating?: boolean;
+  connectionStatus: HostRuntimeConnectionStatus;
   selectionEnabled: boolean;
   serverId: string | null;
   activeWorkspaceSelection: ActiveWorkspaceSelection | null;
@@ -2311,6 +2565,7 @@ function WorkspaceRowItem({
   showShortcutBadge,
   canCopyBranchName,
   isCreating = false,
+  connectionStatus,
   selectionEnabled,
   serverId,
   activeWorkspaceSelection,
@@ -2319,13 +2574,18 @@ function WorkspaceRowItem({
   isDragging = false,
   dragHandleProps,
 }: WorkspaceRowItemProps) {
+  const toast = useToast();
   const handlePress = useCallback(() => {
     if (!serverId) {
       return;
     }
+    if (connectionStatus !== "online") {
+      toast.error(translateNow("ui.host.is.not.connected.n90cm6"));
+      return;
+    }
     onWorkspacePress?.();
     navigateToWorkspace(serverId, workspace.workspaceId);
-  }, [serverId, onWorkspacePress, workspace.workspaceId]);
+  }, [connectionStatus, serverId, onWorkspacePress, toast, workspace.workspaceId]);
 
   return (
     <WorkspaceRow
@@ -2370,6 +2630,7 @@ function areWorkspaceRowItemPropsEqual(
     previous.showShortcutBadge === next.showShortcutBadge &&
     previous.canCopyBranchName === next.canCopyBranchName &&
     previous.isCreating === next.isCreating &&
+    previous.connectionStatus === next.connectionStatus &&
     previous.serverId === next.serverId &&
     previous.onWorkspacePress === next.onWorkspacePress &&
     previous.drag === next.drag &&
@@ -2433,6 +2694,7 @@ function ProjectBlock({
   displayName,
   iconDataUri,
   serverId,
+  connectionStatus,
   selectionEnabled,
   showShortcutBadges,
   shortcutIndexByWorkspaceKey,
@@ -2442,12 +2704,14 @@ function ProjectBlock({
   onWorkspaceReorder,
   onPinProject,
   onWorktreeCreated,
+  onProjectMutated,
   drag,
   isDragging,
   dragHandleProps,
   useNestable,
   creatingWorkspaceIds,
   activeWorkspaceSelection,
+  activeAgentRoute,
 }: {
   project: SidebarProjectEntry;
   accountSession: AccountBootstrapSession | null;
@@ -2455,6 +2719,7 @@ function ProjectBlock({
   displayName: string;
   iconDataUri: string | null;
   serverId: string | null;
+  connectionStatus: HostRuntimeConnectionStatus;
   selectionEnabled: boolean;
   showShortcutBadges: boolean;
   shortcutIndexByWorkspaceKey: Map<string, number>;
@@ -2464,12 +2729,14 @@ function ProjectBlock({
   onWorkspaceReorder: (projectKey: string, workspaces: SidebarWorkspaceEntry[]) => void;
   onPinProject: (projectKey: string) => void;
   onWorktreeCreated?: (workspaceId: string) => void;
+  onProjectMutated?: () => void;
   drag: () => void;
   isDragging: boolean;
   dragHandleProps?: DraggableListDragHandleProps;
   useNestable: boolean;
   creatingWorkspaceIds: ReadonlySet<string>;
   activeWorkspaceSelection: ActiveWorkspaceSelection | null;
+  activeAgentRoute: { serverId: string; agentId: string } | null;
 }) {
   const rowModel = useMemo(
     () =>
@@ -2483,6 +2750,7 @@ function ProjectBlock({
 
   const active = isProjectSelectedByRoute({
     selection: activeWorkspaceSelection,
+    agentRoute: activeAgentRoute,
     serverId,
     project,
     enabled: selectionEnabled,
@@ -2504,6 +2772,7 @@ function ProjectBlock({
           showShortcutBadge={showShortcutBadges}
           canCopyBranchName={project.projectKind === "git"}
           isCreating={creatingWorkspaceIds.has(item.workspaceId)}
+          connectionStatus={connectionStatus}
           selectionEnabled={selectionEnabled}
           serverId={serverId}
           activeWorkspaceSelection={activeWorkspaceSelection}
@@ -2517,6 +2786,7 @@ function ProjectBlock({
     [
       project.projectKind,
       activeWorkspaceSelection,
+      connectionStatus,
       creatingWorkspaceIds,
       onWorkspacePress,
       serverId,
@@ -2552,6 +2822,10 @@ function ProjectBlock({
   const toast = useToast();
   const [isRemovingProject, setIsRemovingProject] = useState(false);
   const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [isOpeningControlSession, setIsOpeningControlSession] = useState(false);
+  const controlSessionId = project.controlSessionId ?? null;
+  const hosts = useHosts();
+  const { upsertDirectConnection } = useHostMutations();
 
   const handleRemoveProject = useCallback(() => {
     if (isRemovingProject || !serverId) {
@@ -2584,6 +2858,15 @@ function ProjectBlock({
       setIsRemovingProject(true);
       void (async () => {
         try {
+          if (controlSessionId) {
+            await deleteControlSession({
+              accountSession,
+              sessionId: controlSessionId,
+            });
+            onProjectMutated?.();
+            return;
+          }
+
           const projects = await deleteAccountProject({
             userId: accountSession.user.userId,
             workspaceId: accountSession.workspace.workspaceId,
@@ -2594,6 +2877,7 @@ function ProjectBlock({
             ...accountSession,
             projects,
           });
+          onProjectMutated?.();
 
           if (client && project.workspaces.length > 0) {
             const failures = await archiveWorkspacesOptimistically({
@@ -2613,7 +2897,16 @@ function ProjectBlock({
         }
       })();
     })();
-  }, [accountSession, isRemovingProject, serverId, displayName, toast, project]);
+  }, [
+    accountSession,
+    controlSessionId,
+    isRemovingProject,
+    onProjectMutated,
+    serverId,
+    displayName,
+    toast,
+    project,
+  ]);
 
   const handlePinProject = useCallback(() => {
     onPinProject(project.projectKey);
@@ -2637,6 +2930,16 @@ function ProjectBlock({
       if (!nextDisplayName) {
         throw new Error(translateNow("ui.session.name.required.42zqz7"));
       }
+      if (controlSessionId) {
+        await updateControlSession({
+          accountSession,
+          sessionId: controlSessionId,
+          title: nextDisplayName,
+        });
+        onProjectMutated?.();
+        toast.show(translateNow("ui.project.renamed.1rzcbzz"), { variant: "success" });
+        return;
+      }
       const projects = await renameAccountProject({
         userId: accountSession.user.userId,
         workspaceId: accountSession.workspace.workspaceId,
@@ -2648,9 +2951,10 @@ function ProjectBlock({
         ...accountSession,
         projects,
       });
+      onProjectMutated?.();
       toast.show(translateNow("ui.project.renamed.1rzcbzz"), { variant: "success" });
     },
-    [accountSession, project.projectKey, toast],
+    [accountSession, controlSessionId, onProjectMutated, project.projectKey, toast],
   );
 
   const validateConversationName = useCallback((value: string): string | null => {
@@ -2663,13 +2967,74 @@ function ProjectBlock({
     if (!serverId || !flattenedRowWorkspaceId) {
       return;
     }
+    void (async () => {
+      if (connectionStatus !== "online") {
+        await getHostRuntimeStore().ensureStarted(serverId);
+        const snapshot = getHostRuntimeStore().getSnapshot(serverId);
+        if (!isHostRuntimeConnected(snapshot)) {
+          toast.error(translateNow("ui.host.is.not.connected.n90cm6"));
+          return;
+        }
+      }
+      onWorkspacePress?.();
+      navigateToWorkspace(serverId, flattenedRowWorkspaceId);
+    })();
+  }, [connectionStatus, serverId, flattenedRowWorkspaceId, onWorkspacePress, toast]);
+
+  const handleOpenControlSession = useCallback(() => {
+    if (!controlSessionId || isOpeningControlSession) {
+      return;
+    }
+    if (!accountSession) {
+      toast.error(translateNow("ui.login.required.short"));
+      return;
+    }
     onWorkspacePress?.();
-    navigateToWorkspace(serverId, flattenedRowWorkspaceId);
-  }, [serverId, flattenedRowWorkspaceId, onWorkspacePress]);
+    setIsOpeningControlSession(true);
+    void (async () => {
+      try {
+        if (connectionStatus !== "online" && serverId) {
+          await getHostRuntimeStore().ensureStarted(serverId);
+          const snapshot = getHostRuntimeStore().getSnapshot(serverId);
+          if (!isHostRuntimeConnected(snapshot)) {
+            toast.error(translateNow("ui.host.is.not.connected.n90cm6"));
+            return;
+          }
+        }
+        const restored = await restoreControlSessionToAgent({
+          accountSession,
+          sessionId: controlSessionId,
+          hosts,
+          upsertDirectConnection,
+        });
+        router.navigate(buildHostAgentDetailRoute(restored.nodeId, restored.agentId));
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : translateNow("ui.failed.to.open.workspace"),
+        );
+      } finally {
+        setIsOpeningControlSession(false);
+      }
+    })();
+  }, [
+    accountSession,
+    connectionStatus,
+    controlSessionId,
+    hosts,
+    isOpeningControlSession,
+    onWorkspacePress,
+    serverId,
+    toast,
+    upsertDirectConnection,
+  ]);
 
   const handleToggleCollapsed = useCallback(() => {
     onToggleCollapsed(project.projectKey);
   }, [onToggleCollapsed, project.projectKey]);
+
+  const handleProjectHeaderPress = controlSessionId
+    ? handleOpenControlSession
+    : handleToggleCollapsed;
 
   return (
     <View style={styles.projectBlock}>
@@ -2705,9 +3070,9 @@ function ProjectBlock({
             iconDataUri={iconDataUri}
             workspace={null}
             conversationVisual={conversationVisual}
-            selected={false}
+            selected={active}
             chevron={rowModel.chevron}
-            onPress={handleToggleCollapsed}
+            onPress={handleProjectHeaderPress}
             serverId={serverId}
             canCreateWorktree={rowModel.trailingAction === "new_worktree"}
             isProjectActive={active}
@@ -2722,6 +3087,7 @@ function ProjectBlock({
             onRemoveProject={handleRemoveProject}
             removeProjectStatus={isRemovingProject ? "pending" : "idle"}
             dragHandleProps={dragHandleProps}
+            activeAgentRoute={activeAgentRoute}
           />
 
           {!collapsed ? (
@@ -2761,12 +3127,14 @@ type ProjectBlockProps = Parameters<typeof ProjectBlock>[0];
 function areProjectBlockPropsEqual(previous: ProjectBlockProps, next: ProjectBlockProps): boolean {
   const previousActive = isProjectSelectedByRoute({
     selection: previous.activeWorkspaceSelection,
+    agentRoute: previous.activeAgentRoute,
     project: previous.project,
     serverId: previous.serverId,
     enabled: previous.selectionEnabled,
   });
   const nextActive = isProjectSelectedByRoute({
     selection: next.activeWorkspaceSelection,
+    agentRoute: next.activeAgentRoute,
     project: next.project,
     serverId: next.serverId,
     enabled: next.selectionEnabled,
@@ -2778,14 +3146,12 @@ function areProjectBlockPropsEqual(previous: ProjectBlockProps, next: ProjectBlo
     previous.displayName === next.displayName &&
     previous.iconDataUri === next.iconDataUri &&
     previous.serverId === next.serverId &&
+    previous.connectionStatus === next.connectionStatus &&
     previous.selectionEnabled === next.selectionEnabled &&
     previous.showShortcutBadges === next.showShortcutBadges &&
     previous.shortcutIndexByWorkspaceKey === next.shortcutIndexByWorkspaceKey &&
     previous.parentGestureRef === next.parentGestureRef &&
-    previous.onToggleCollapsed === next.onToggleCollapsed &&
-    previous.onWorkspacePress === next.onWorkspacePress &&
-    previous.onWorkspaceReorder === next.onWorkspaceReorder &&
-    previous.onWorktreeCreated === next.onWorktreeCreated &&
+    areProjectBlockCallbacksEqual(previous, next) &&
     previous.drag === next.drag &&
     previous.isDragging === next.isDragging &&
     previous.dragHandleProps === next.dragHandleProps &&
@@ -2795,11 +3161,25 @@ function areProjectBlockPropsEqual(previous: ProjectBlockProps, next: ProjectBlo
   );
 }
 
+function areProjectBlockCallbacksEqual(
+  previous: ProjectBlockProps,
+  next: ProjectBlockProps,
+): boolean {
+  return (
+    previous.onToggleCollapsed === next.onToggleCollapsed &&
+    previous.onWorkspacePress === next.onWorkspacePress &&
+    previous.onWorkspaceReorder === next.onWorkspaceReorder &&
+    previous.onWorktreeCreated === next.onWorktreeCreated &&
+    previous.onProjectMutated === next.onProjectMutated
+  );
+}
+
 const MemoProjectBlock = memo(ProjectBlock, areProjectBlockPropsEqual);
 
 export function SidebarWorkspaceList({
   projects,
   serverId,
+  connectionStatus,
   accountSession = null,
   collapsedProjectKeys,
   onToggleProjectCollapsed,
@@ -2817,6 +3197,7 @@ export function SidebarWorkspaceList({
 }: SidebarWorkspaceListProps) {
   const { t } = useI18n();
   const pathname = usePathname();
+  const searchParams = useLocalSearchParams<{ open?: string | string[] }>();
   const [creatingWorkspaceIds, setCreatingWorkspaceIds] = useState<Set<string>>(() => new Set());
   const creatingWorkspaceTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
     new Map(),
@@ -2832,11 +3213,27 @@ export function SidebarWorkspaceList({
     () => Boolean(pathname && parseHostWorkspaceRouteFromPathname(pathname)),
     [pathname],
   );
-  const selectionEnabled = isWorkspaceRoute;
+  const activeAgentRoute = useMemo(() => {
+    const directAgentRoute = pathname ? parseHostAgentRouteFromPathname(pathname) : null;
+    if (directAgentRoute) {
+      return directAgentRoute;
+    }
+    const workspaceRoute = pathname ? parseHostWorkspaceRouteFromPathname(pathname) : null;
+    const openValue = Array.isArray(searchParams.open) ? searchParams.open[0] : searchParams.open;
+    const openIntent = parseWorkspaceOpenIntent(openValue);
+    if (!workspaceRoute || openIntent?.kind !== "agent") {
+      return null;
+    }
+    return {
+      serverId: workspaceRoute.serverId,
+      agentId: openIntent.agentId,
+    };
+  }, [pathname, searchParams.open]);
+  const selectionEnabled = isWorkspaceRoute || activeAgentRoute !== null;
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
   const useConversationSidebar = accountSession !== null;
   const isAiCreationActive = pathname.includes("/ai-creation");
-  const isNewConversationActive = pathname.includes("/open-project");
+  const isNewConversationActive = pathname.includes("/home") || pathname.includes("/open-project");
   const newConversationButtonStyle = useMemo(
     () => [
       styles.primaryConversationButton,
@@ -3099,6 +3496,7 @@ export function SidebarWorkspaceList({
           displayName={item.projectName}
           iconDataUri={projectIconByProjectKey.get(item.projectKey) ?? null}
           serverId={serverId}
+          connectionStatus={connectionStatus}
           selectionEnabled={selectionEnabled}
           showShortcutBadges={showShortcutBadges}
           shortcutIndexByWorkspaceKey={shortcutIndexByWorkspaceKey}
@@ -3108,19 +3506,23 @@ export function SidebarWorkspaceList({
           onWorkspaceReorder={handleWorkspaceReorder}
           onPinProject={handlePinProject}
           onWorktreeCreated={handleWorktreeCreated}
+          onProjectMutated={_onRefresh}
           drag={drag}
           isDragging={isActive}
           dragHandleProps={dragHandleProps}
           useNestable={platformIsNative}
           creatingWorkspaceIds={creatingWorkspaceIds}
           activeWorkspaceSelection={activeWorkspaceSelection}
+          activeAgentRoute={activeAgentRoute}
         />
       );
     },
     [
       collapsedProjectKeys,
       accountSession,
+      activeAgentRoute,
       activeWorkspaceSelection,
+      connectionStatus,
       handleWorktreeCreated,
       handlePinProject,
       handleWorkspaceReorder,
@@ -3133,6 +3535,7 @@ export function SidebarWorkspaceList({
       shortcutIndexByWorkspaceKey,
       showShortcutBadges,
       creatingWorkspaceIds,
+      _onRefresh,
     ],
   );
 
@@ -3384,6 +3787,7 @@ const styles = StyleSheet.create((theme) => ({
   },
   conversationProjectRowSelected: {
     backgroundColor: theme.colors.surface0,
+    ...theme.shadow.sm,
   },
   projectRowPressed: {
     backgroundColor: theme.colors.surface2,

@@ -6,7 +6,10 @@ install-deps='npm i'
 [pre-switch]
 stop-dev = 'lsof -ti:8081 | while read -r pid; do kill -9 $pid; done || true'
 stop-dev-xyy = 'lsof -ti:6767 | while read -r pid; do kill -9 $pid; done || true'
+stop-dev-control = 'lsof -ti:6777 | while read -r pid; do kill -9 $pid; done || true'
+
 
 [post-switch]
-start--dev-xyy = "nohup pnpm dev-xyy >/tmp/doya-dev-xyy.log 2>&1 &"
+start-dev-control = "nohup pnpm dev:control >/tmp/doya-dev-control.log 2>&1 &"
+start-dev-xyy = "nohup pnpm dev-xyy >/tmp/doya-dev-xyy.log 2>&1 &"
 start-dev = "nohup sh -c 'pnpm build:app-deps && pnpm dev:app' >/tmp/doya-dev-app.log 2>&1 &"

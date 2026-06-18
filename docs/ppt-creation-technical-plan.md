@@ -169,7 +169,9 @@ agent 工作区
 
 App 侧 `slides` 模式提交后：
 
-1. 使用现有 `createAiCreationWorkspace()` 创建账号项目和工作区。
+1. 使用现有 `createAiCreationWorkspace()` 创建账号项目和工作区。迁移到
+   session-centered control plane 后，新建幻灯片任务应走 control session +
+   runtime allocation 流程；账号项目路径只作为 legacy compatibility。
 2. daemon 为该工作区准备 `.doya/skills/ppt-master` symlink。
 3. 将用户输入写成 `user-request.md`，附件保存到工作区 `attachments/`。
 4. 创建 agent，labels 使用：

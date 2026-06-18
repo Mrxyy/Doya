@@ -49,6 +49,8 @@ export function resolveWorkspaceHeader(input: { workspace: WorkspaceDescriptor }
 export function resolveWorkspaceHeaderRenderState(input: {
   workspace: WorkspaceDescriptor | null;
   checkoutState: WorkspaceHeaderCheckoutState;
+  titleOverride?: string | null;
+  hideSubtitle?: boolean;
 }): WorkspaceHeaderRenderState {
   if (!input.workspace) {
     return { kind: "skeleton" };
@@ -59,6 +61,7 @@ export function resolveWorkspaceHeaderRenderState(input: {
   }
 
   const header = resolveWorkspaceHeader({ workspace: input.workspace });
+  const title = trimNonEmpty(input.titleOverride) ?? header.title;
   const checkout = input.checkoutState.kind === "ready" ? input.checkoutState.checkout : null;
   const currentBranchName =
     checkout?.isGit && checkout.currentBranch !== "HEAD"
@@ -67,9 +70,10 @@ export function resolveWorkspaceHeaderRenderState(input: {
 
   return {
     kind: "ready",
-    title: header.title,
+    title,
     subtitle: header.subtitle,
-    shouldShowSubtitle: !areHeaderLabelsEquivalent(header.title, header.subtitle),
+    shouldShowSubtitle:
+      input.hideSubtitle !== true && !areHeaderLabelsEquivalent(title, header.subtitle),
     isGitCheckout: checkout?.isGit ?? false,
     currentBranchName,
   };

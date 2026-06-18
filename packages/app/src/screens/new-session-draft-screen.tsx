@@ -14,12 +14,10 @@ import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Check, Copy, Download, Link2, Share2, Sparkles } from "lucide-react-native";
+import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import type { AgentProvider } from "@getdoya/protocol/agent-types";
-import {
-  createAccountProject,
-  saveAccountBootstrapSession,
-  type AccountBootstrapSession,
-} from "@/account/account-api";
+import { saveAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
+import { createAccountProject } from "@/account/account-project-api";
 import { applyAccountProjectDisplay } from "@/account/account-workspace-display";
 import type { ComposerAttachment } from "@/attachments/types";
 import {
@@ -42,12 +40,20 @@ import { useToast } from "@/contexts/toast-context";
 import { useI18n, type Locale } from "@/i18n/i18n";
 import { translate } from "@/i18n/translate";
 import type { TranslationKey, TranslationParams } from "@/i18n/translations";
-import { useHostRuntimeClient, useHostRuntimeIsConnected } from "@/runtime/host-runtime";
+import {
+  getHostRuntimeStore,
+  isHostRuntimeConnected,
+  useHostRuntimeClient,
+  useHostRuntimeIsConnected,
+  useHostRuntimeSnapshot,
+} from "@/runtime/host-runtime";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
 import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
 import { encodeImages } from "@/utils/encode-images";
+import { normalizeHostPort } from "@/utils/daemon-endpoints";
+import { getAttachmentStore } from "@/attachments/store";
 import {
   buildDoyaMessageMeta,
   buildDoyaResponseLanguageInstruction,
@@ -59,6 +65,20 @@ import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { ConversationReplayDraftControls } from "@/replay/conversation-replay-composer-controls";
+import {
+  appendControlSessionMessage,
+  allocateControlSessionWorkDir,
+  controlApiBaseUrl,
+  createControlFileSnapshot,
+  createControlSession,
+  ensureControlUserDaemonWorkspace,
+  getControlAdminOverview,
+  isControlApiConfigured,
+  registerControlNode,
+  upsertControlAgentBinding,
+  type WorkingContext,
+} from "@/control/control-api";
+import { notifyControlSessionsChanged } from "@/control/control-session-events";
 
 const MAX_SESSION_TITLE_LENGTH = 60;
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
@@ -198,6 +218,189 @@ function ensureHomeTitleGradientKeyframes() {
   document.head.appendChild(styleElement);
 }
 
+function summarizeControlAttachment(attachment: ComposerAttachment) {
+  switch (attachment.kind) {
+    case "image":
+    case "file":
+      return {
+        kind: attachment.kind,
+        id: attachment.metadata.id,
+        name: attachment.metadata.fileName ?? null,
+        mimeType: attachment.metadata.mimeType,
+      };
+    case "github_issue":
+    case "github_pr":
+      return {
+        kind: attachment.kind,
+        title: attachment.item.title,
+        url: attachment.item.url,
+      };
+    case "browser_element":
+      return {
+        kind: attachment.kind,
+        url: attachment.attachment.url,
+        tag: attachment.attachment.tag,
+        text: attachment.attachment.text,
+      };
+    case "review":
+      return {
+        kind: attachment.kind,
+        reviewDraftKey: attachment.reviewDraftKey,
+        commentCount: attachment.commentCount,
+      };
+  }
+}
+
+function buildControlAgentConfig(input: {
+  provider: AgentProvider;
+  modeId?: string;
+  model?: string;
+  thinkingOptionId?: string;
+  featureValues?: Record<string, unknown>;
+}) {
+  return {
+    provider: input.provider,
+    ...(input.modeId ? { modeId: input.modeId } : {}),
+    ...(input.model ? { model: input.model } : {}),
+    ...(input.thinkingOptionId ? { thinkingOptionId: input.thinkingOptionId } : {}),
+    ...(input.featureValues && Object.keys(input.featureValues).length > 0
+      ? { featureValues: input.featureValues }
+      : {}),
+  };
+}
+
+function buildControlAgentLabels(input: {
+  sessionId: string;
+  nodeId: string;
+  aiCreationContext?: HomeAiCreationSubmitContext;
+}): Record<string, string> {
+  const aiCreationLabels = buildHomeAiCreationLabels(input.aiCreationContext).labels ?? {};
+  const apiBaseUrl = controlApiBaseUrl();
+  return {
+    ...aiCreationLabels,
+    "doya.control.sessionId": input.sessionId,
+    "doya.control.nodeId": input.nodeId,
+    ...(apiBaseUrl ? { "doya.control.apiBaseUrl": apiBaseUrl } : {}),
+  };
+}
+
+async function createWorkingContextFromAttachments(input: {
+  accountSession: AccountBootstrapSession;
+  attachments: readonly ComposerAttachment[];
+}): Promise<WorkingContext> {
+  const fileAttachments = input.attachments.filter(
+    (attachment): attachment is Extract<ComposerAttachment, { kind: "image" | "file" }> =>
+      attachment.kind === "image" || attachment.kind === "file",
+  );
+  if (fileAttachments.length === 0) {
+    return { type: "generated_workspace" };
+  }
+
+  const store = await getAttachmentStore();
+  const files = await Promise.all(
+    fileAttachments.map(async (attachment) => {
+      const metadata = attachment.metadata;
+      const contentBase64 = await store.encodeBase64({ attachment: metadata });
+      return {
+        path: buildControlSnapshotAttachmentPath({
+          id: metadata.id,
+          fileName: metadata.fileName,
+          fallbackKind: attachment.kind,
+        }),
+        contentBase64,
+        mode: null,
+      };
+    }),
+  );
+  const snapshot = await createControlFileSnapshot({
+    accountSession: input.accountSession,
+    files,
+  });
+  return { type: "uploaded_files", snapshotId: snapshot.id };
+}
+
+function buildControlSnapshotAttachmentPath(input: {
+  id: string;
+  fileName?: string | null;
+  fallbackKind: "image" | "file";
+}): string {
+  const id = sanitizeSnapshotPathSegment(input.id) || "attachment";
+  const fileName =
+    sanitizeSnapshotPathSegment(input.fileName) ||
+    (input.fallbackKind === "image" ? "image" : "file");
+  return `attachments/${id}-${fileName}`;
+}
+
+function sanitizeSnapshotPathSegment(value: string | null | undefined): string {
+  return (
+    value
+      ?.replace(/[/\\:]/g, "-")
+      .replace(/^\.+$/, "")
+      .trim()
+      .slice(0, 120) ?? ""
+  );
+}
+
+function findDirectHostRuntimeAuthToken(input: {
+  serverId: string;
+  endpoint: string;
+}): string | null {
+  const normalizedEndpoint = normalizeHostPort(input.endpoint);
+  const host = getHostRuntimeStore()
+    .getHosts()
+    .find((entry) => entry.serverId === input.serverId);
+  const connection = host?.connections.find(
+    (entry) =>
+      entry.type === "directTcp" && normalizeHostPort(entry.endpoint) === normalizedEndpoint,
+  );
+  return connection?.type === "directTcp" ? (connection.password ?? null) : null;
+}
+
+function findConnectedRuntime(preferredServerId: string): {
+  serverId: string;
+  client: DaemonClient;
+  snapshot: ReturnType<ReturnType<typeof getHostRuntimeStore>["getSnapshot"]>;
+} | null {
+  const store = getHostRuntimeStore();
+  const preferredSnapshot = store.getSnapshot(preferredServerId);
+  if (preferredSnapshot?.connectionStatus === "online" && preferredSnapshot.client) {
+    return {
+      serverId: preferredServerId,
+      client: preferredSnapshot.client,
+      snapshot: preferredSnapshot,
+    };
+  }
+  for (const host of store.getHosts()) {
+    const snapshot = store.getSnapshot(host.serverId);
+    if (snapshot?.connectionStatus === "online" && snapshot.client) {
+      return {
+        serverId: host.serverId,
+        client: snapshot.client,
+        snapshot,
+      };
+    }
+  }
+  return null;
+}
+
+async function resolvePreferredControlRuntimeServerId(input: {
+  accountSession: AccountBootstrapSession;
+  fallbackServerId: string;
+}): Promise<string> {
+  if (
+    !isControlApiConfigured() ||
+    !input.accountSession.workspace.workspaceId.startsWith("control:")
+  ) {
+    return input.fallbackServerId;
+  }
+  try {
+    const overview = await getControlAdminOverview({ accountSession: input.accountSession });
+    return overview.settings.defaultDaemonNodeId ?? input.fallbackServerId;
+  } catch {
+    return input.fallbackServerId;
+  }
+}
+
 export function NewSessionDraftScreen({
   serverId,
   accountSession,
@@ -210,6 +413,7 @@ export function NewSessionDraftScreen({
   const isCompact = useIsCompactFormFactor();
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
+  const hostRuntimeSnapshot = useHostRuntimeSnapshot(serverId);
   const mergeWorkspaces = useSessionStore((state) => state.mergeWorkspaces);
   const setHasHydratedWorkspaces = useSessionStore((state) => state.setHasHydratedWorkspaces);
   const appendOptimisticUserMessageToAgentStream = useSessionStore(
@@ -251,13 +455,40 @@ export function NewSessionDraftScreen({
 
   const handleSubmit = useCallback(
     async (payload: MessagePayload, aiCreationContext?: HomeAiCreationSubmitContext) => {
-      if (!client || !isConnected || !composerState) {
+      if (!composerState) {
         toast.error(t("openProject.error.openProjectDaemon"));
         return;
       }
       if (!accountSession) {
         toast.error(t("home.newSession.loginRequired"));
         openAccountLogin(serverId);
+        return;
+      }
+      const preferredRuntimeServerId = await resolvePreferredControlRuntimeServerId({
+        accountSession,
+        fallbackServerId: serverId,
+      });
+      const runtimeStore = getHostRuntimeStore();
+      await runtimeStore.ensureStarted(preferredRuntimeServerId);
+      const startedSnapshot = runtimeStore.getSnapshot(preferredRuntimeServerId);
+      const useCurrentRuntime =
+        preferredRuntimeServerId === serverId &&
+        Boolean(startedSnapshot?.client ?? client) &&
+        (isHostRuntimeConnected(startedSnapshot) || isConnected);
+      const fallbackRuntime = useCurrentRuntime
+        ? null
+        : findConnectedRuntime(preferredRuntimeServerId);
+      const runtimeClient = useCurrentRuntime
+        ? (startedSnapshot?.client ?? client)
+        : (fallbackRuntime?.client ?? null);
+      const runtimeServerId = useCurrentRuntime
+        ? serverId
+        : (fallbackRuntime?.serverId ?? preferredRuntimeServerId);
+      const runtimeSnapshot = useCurrentRuntime
+        ? (startedSnapshot ?? hostRuntimeSnapshot)
+        : (fallbackRuntime?.snapshot ?? hostRuntimeSnapshot);
+      if (!runtimeClient) {
+        toast.error(t("openProject.error.openProjectDaemon"));
         return;
       }
       const provider = composerState.selectedProvider;
@@ -287,6 +518,173 @@ export function NewSessionDraftScreen({
           fallback: t("account.project.defaultName"),
           t,
         });
+        if (
+          isControlApiConfigured() &&
+          accountSession.workspace.workspaceId.startsWith("control:")
+        ) {
+          const preferredNodeEndpoint =
+            runtimeSnapshot?.activeConnection?.type === "directTcp"
+              ? normalizeHostPort(runtimeSnapshot.activeConnection.endpoint)
+              : null;
+          if (!preferredNodeEndpoint) {
+            throw new Error(t("openProject.error.openProjectDaemon"));
+          }
+          const runtimeAuthToken = findDirectHostRuntimeAuthToken({
+            serverId: runtimeServerId,
+            endpoint: preferredNodeEndpoint,
+          });
+          if (preferredNodeEndpoint) {
+            await registerControlNode({
+              accountSession,
+              nodeId: runtimeServerId,
+              endpoint: preferredNodeEndpoint,
+              runtimeAuthToken,
+              status: "online",
+            });
+          }
+          const userWorkspace = await ensureControlUserDaemonWorkspace({
+            accountSession,
+            nodeId: runtimeServerId,
+          });
+          const workingContext = await createWorkingContextFromAttachments({
+            accountSession,
+            attachments: payload.attachments,
+          });
+          const controlSession = await createControlSession({
+            accountSession,
+            title: sessionTitle,
+            workingContext,
+          });
+          notifyControlSessionsChanged();
+          const controlAgentConfig = buildControlAgentConfig({
+            provider: provider as AgentProvider,
+            ...(composerState.modeOptions.length > 0 && composerState.selectedMode
+              ? { modeId: composerState.selectedMode }
+              : {}),
+            model: composerState.effectiveModelId || undefined,
+            thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
+            featureValues: composerState.featureValues,
+          });
+          await appendControlSessionMessage({
+            accountSession,
+            sessionId: controlSession.id,
+            role: "user",
+            externalId: clientMessageId,
+            content: {
+              text: submitText.displayText,
+              workingContext,
+              agentConfig: controlAgentConfig,
+              attachments: payload.attachments.map(summarizeControlAttachment),
+            },
+          });
+          const sessionWorkDir = await allocateControlSessionWorkDir({
+            accountSession,
+            sessionId: controlSession.id,
+            nodeId: runtimeServerId,
+            runtimeId: `rt_${controlSession.id}`,
+            providerId: controlAgentConfig.provider,
+            modelId: controlAgentConfig.model ?? null,
+            selectionReason: "preferred_node_direct",
+          });
+          const openPayload = await runtimeClient.openProject(sessionWorkDir.runtime.workspaceDir);
+          if (openPayload.error || !openPayload.workspace) {
+            throw new Error(openPayload.error ?? t("openProject.error.createProject"));
+          }
+          const workspace = normalizeWorkspaceDescriptor(openPayload.workspace);
+          mergeWorkspaces(runtimeServerId, [workspace]);
+          setHasHydratedWorkspaces(runtimeServerId, true);
+
+          const wirePayload = await splitComposerAttachmentsForSubmit(payload.attachments, {
+            materializeImages: (images) =>
+              materializeWorkspaceImageAttachmentsForSubmit({
+                client: runtimeClient,
+                cwd: workspace.workspaceDirectory,
+                images,
+              }),
+            materializeFiles: (files) =>
+              materializeWorkspaceFileAttachments({
+                client: runtimeClient,
+                cwd: workspace.workspaceDirectory,
+                files,
+              }),
+          });
+          const images = await encodeImages(wirePayload.images);
+          const agent = await runtimeClient.createAgent({
+            config: buildWorkspaceDraftAgentConfig({
+              provider: provider as AgentProvider,
+              cwd: workspace.workspaceDirectory,
+              title: sessionTitle,
+              ...(composerState.modeOptions.length > 0 && composerState.selectedMode
+                ? { modeId: composerState.selectedMode }
+                : {}),
+              model: composerState.effectiveModelId || undefined,
+              thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
+              featureValues: composerState.featureValues,
+            }),
+            workspaceId: workspace.id,
+            ...(submitText.agentText ? { initialPrompt: submitText.agentText } : {}),
+            clientMessageId,
+            recordConversation,
+            labels: buildControlAgentLabels({
+              sessionId: controlSession.id,
+              nodeId: runtimeServerId,
+              aiCreationContext: effectiveAiCreationContext,
+            }),
+            ...(images && images.length > 0 ? { images } : {}),
+            ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
+          });
+          await upsertControlAgentBinding({
+            accountSession,
+            sessionId: controlSession.id,
+            nodeId: runtimeServerId,
+            agentId: agent.id,
+            userWorkspaceId: userWorkspace.id,
+            workspaceId: workspace.id,
+            cwd: workspace.workspaceDirectory,
+          });
+          await appendControlSessionMessage({
+            accountSession,
+            sessionId: controlSession.id,
+            role: "system",
+            externalId: `agent:${agent.id}:binding`,
+            content: {
+              kind: "control_agent_binding",
+              nodeId: runtimeServerId,
+              agentId: agent.id,
+              workspaceId: workspace.id,
+              workspaceDir: workspace.workspaceDirectory,
+            },
+          });
+          await saveAiCreationMessageDisplayMetadata({
+            serverId: runtimeServerId,
+            agentId: agent.id,
+            messageId: clientMessageId,
+            text: submitText.agentText,
+            metadata: {
+              images: wirePayload.displayImages,
+              displayAttachments: wirePayload.displayAttachments,
+            },
+          }).catch((error) => {
+            console.warn("[NewSessionDraft] Failed to persist message display metadata", error);
+          });
+          appendOptimisticUserMessageToAgentStream(
+            runtimeServerId,
+            agent.id,
+            buildOptimisticUserMessage({
+              id: clientMessageId,
+              text: submitText.agentText,
+              timestamp: new Date(),
+              images: wirePayload.displayImages,
+              attachments: wirePayload.attachments,
+              displayAttachments: wirePayload.displayAttachments,
+            }),
+            { placement: "tail" },
+          );
+          await composerState.persistFormPreferences();
+          draft.clear("sent");
+          router.replace(buildHostAgentDetailRoute(runtimeServerId, agent.id));
+          return;
+        }
         const project = await createAccountProject({
           userId: accountSession.user.userId,
           workspaceId: accountSession.workspace.workspaceId,
@@ -302,7 +700,7 @@ export function NewSessionDraftScreen({
         };
         await saveAccountBootstrapSession(nextSession);
 
-        const openPayload = await client.openProject(project.cwd);
+        const openPayload = await runtimeClient.openProject(project.cwd);
         if (openPayload.error || !openPayload.workspace) {
           throw new Error(openPayload.error ?? t("openProject.error.createProject"));
         }
@@ -311,19 +709,19 @@ export function NewSessionDraftScreen({
           session: nextSession,
           project,
         });
-        mergeWorkspaces(serverId, [workspace]);
-        setHasHydratedWorkspaces(serverId, true);
+        mergeWorkspaces(runtimeServerId, [workspace]);
+        setHasHydratedWorkspaces(runtimeServerId, true);
 
         const wirePayload = await splitComposerAttachmentsForSubmit(payload.attachments, {
           materializeImages: (images) =>
             materializeWorkspaceImageAttachmentsForSubmit({
-              client,
+              client: runtimeClient,
               cwd: workspace.workspaceDirectory,
               images,
             }),
           materializeFiles: (files) =>
             materializeWorkspaceFileAttachments({
-              client,
+              client: runtimeClient,
               cwd: workspace.workspaceDirectory,
               files,
             }),
@@ -340,7 +738,7 @@ export function NewSessionDraftScreen({
           thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
           featureValues: composerState.featureValues,
         });
-        const agent = await client.createAgent({
+        const agent = await runtimeClient.createAgent({
           config,
           workspaceId: workspace.id,
           ...(submitText.agentText ? { initialPrompt: submitText.agentText } : {}),
@@ -351,7 +749,7 @@ export function NewSessionDraftScreen({
           ...(wirePayload.attachments.length > 0 ? { attachments: wirePayload.attachments } : {}),
         });
         await saveAiCreationMessageDisplayMetadata({
-          serverId,
+          serverId: runtimeServerId,
           agentId: agent.id,
           messageId: clientMessageId,
           text: submitText.agentText,
@@ -363,7 +761,7 @@ export function NewSessionDraftScreen({
           console.warn("[NewSessionDraft] Failed to persist message display metadata", error);
         });
         appendOptimisticUserMessageToAgentStream(
-          serverId,
+          runtimeServerId,
           agent.id,
           buildOptimisticUserMessage({
             id: clientMessageId,
@@ -377,7 +775,7 @@ export function NewSessionDraftScreen({
         );
         await composerState.persistFormPreferences();
         draft.clear("sent");
-        router.replace(buildHostAgentDetailRoute(serverId, agent.id));
+        router.replace(buildHostAgentDetailRoute(runtimeServerId, agent.id));
       } catch (error) {
         toast.error(error instanceof Error ? error.message : t("openProject.error.createProject"));
       } finally {
@@ -390,6 +788,7 @@ export function NewSessionDraftScreen({
       client,
       composerState,
       draft,
+      hostRuntimeSnapshot,
       isConnected,
       locale,
       mergeWorkspaces,
@@ -1865,7 +2264,7 @@ const styles = StyleSheet.create((theme) => ({
     maxWidth: "100%",
     justifyContent: "center",
     paddingHorizontal: theme.spacing[4],
-    paddingVertical: theme.spacing[1.25],
+    paddingVertical: theme.spacing[1.5],
     borderRadius: 16,
     borderWidth: 1,
     backgroundColor: "rgba(255, 255, 255, 0.86)",
