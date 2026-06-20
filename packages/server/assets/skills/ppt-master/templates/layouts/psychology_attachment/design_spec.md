@@ -15,12 +15,12 @@ page_types: [cover, toc, chapter, content, ending]
 
 ## I. Template Overview
 
-| Property          | Description                                                                                     |
-| ----------------- | ----------------------------------------------------------------------------------------------- |
-| **Template Name** | psychology_attachment (Psychology Healing Template)                                             |
-| **Use Cases**     | Psychotherapy training, academic lectures, counseling case analysis, professional sharing       |
-| **Design Tone**   | Professional, warm, healing, trustworthy                                                        |
-| **Theme Mode**    | Light theme (cloud white background + blue-green gradient accent + multi-color semantic colors) |
+| Property         | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| **Template Name**| psychology_attachment (Psychology Healing Template)           |
+| **Use Cases**    | Psychotherapy training, academic lectures, counseling case analysis, professional sharing |
+| **Design Tone**  | Professional, warm, healing, trustworthy                     |
+| **Theme Mode**   | Light theme (cloud white background + blue-green gradient accent + multi-color semantic colors) |
 
 ### Core Visual Metaphor
 
@@ -34,21 +34,21 @@ The design adopts "**Secure Base**" as the core visual metaphor:
 
 ## II. Canvas Specification
 
-| Property              | Value                                  |
-| --------------------- | -------------------------------------- |
-| **Format**            | Standard 16:9                          |
-| **Dimensions**        | 1280 × 720 px                          |
-| **viewBox**           | `0 0 1280 720`                         |
-| **Page Margins**      | Left/right 40px, top 60px, bottom 40px |
-| **Content Safe Area** | x: 40-1240, y: 60-680                  |
+| Property           | Value                           |
+| ------------------ | ------------------------------- |
+| **Format**         | Standard 16:9                   |
+| **Dimensions**     | 1280 × 720 px                  |
+| **viewBox**        | `0 0 1280 720`                 |
+| **Page Margins**   | Left/right 40px, top 60px, bottom 40px |
+| **Content Safe Area** | x: 40-1240, y: 60-680       |
 
 ### Page Zones
 
-| Zone             | Y-Range | Height | Usage                      |
-| ---------------- | ------- | ------ | -------------------------- |
-| Top Title Area   | 60-120  | 60px   | Page title, chapter labels |
-| Main Content     | 130-640 | 510px  | Core content display       |
-| Bottom Info Area | 650-680 | 30px   | Page number, chapter nav   |
+| Zone             | Y-Range   | Height | Usage                      |
+| ---------------- | --------- | ------ | -------------------------- |
+| Top Title Area   | 60-120    | 60px   | Page title, chapter labels |
+| Main Content     | 130-640   | 510px  | Core content display       |
+| Bottom Info Area | 650-680   | 30px   | Page number, chapter nav   |
 
 ---
 
@@ -56,13 +56,13 @@ The design adopts "**Secure Base**" as the core visual metaphor:
 
 ### General Layout
 
-| Area             | Position/Height | Description                                 |
-| ---------------- | --------------- | ------------------------------------------- |
-| **Left Accent**  | x=0, w=8px      | Dominant color vertical bar (content pages) |
-| **Top**          | y=60-120        | Page title + English subtitle               |
-| **Divider**      | y=125-130       | Decorative divider line                     |
-| **Content Area** | y=130-640       | Main content area (510px height)            |
-| **Footer**       | y=650-700       | Page number, chapter info                   |
+| Area              | Position/Height | Description                          |
+| ----------------- | --------------- | ------------------------------------ |
+| **Left Accent**   | x=0, w=8px      | Dominant color vertical bar (content pages) |
+| **Top**           | y=60-120        | Page title + English subtitle        |
+| **Divider**       | y=125-130       | Decorative divider line              |
+| **Content Area**  | y=130-640       | Main content area (510px height)     |
+| **Footer**        | y=650-700       | Page number, chapter info            |
 
 ### Decorative Design
 
@@ -140,13 +140,13 @@ The design adopts "**Secure Base**" as the core visual metaphor:
 
 ## V. SVG Page Roster
 
-| File             | Role    | Description                                         |
-| ---------------- | ------- | --------------------------------------------------- |
-| `01_cover.svg`   | cover   | Title slide; project name, presenter, date          |
+| File | Role | Description |
+|------|------|-------------|
+| `01_cover.svg` | cover | Title slide; project name, presenter, date |
 | `02_chapter.svg` | chapter | Chapter divider page (large number + chapter title) |
-| `02_toc.svg`     | toc     | Table of contents listing major sections            |
-| `03_content.svg` | content | Main content page; body of the deck                 |
-| `04_ending.svg`  | ending  | Closing/thank-you page                              |
+| `02_toc.svg` | toc | Table of contents listing major sections |
+| `03_content.svg` | content | Main content page; body of the deck |
+| `04_ending.svg` | ending | Closing/thank-you page |
 
 ## VI. Layout Patterns
 
@@ -255,16 +255,16 @@ Use `tabler-outline` as the stylistic icon library for this template. It matches
 
 ### Common Icon Mappings
 
-| Concept            | Icons                                                              |
-| ------------------ | ------------------------------------------------------------------ |
-| Attachment/Bonding | `tabler-outline/heart`, `tabler-outline/link`                      |
-| Secure Base        | `tabler-outline/home`, `tabler-outline/shield-check`               |
-| Mentalization      | `tabler-outline/brain`, `tabler-outline/bulb`                      |
-| Affect Regulation  | `tabler-outline/activity`, `tabler-outline/adjustments-horizontal` |
-| Awareness          | `tabler-outline/eye`, `tabler-outline/compass`                     |
-| Trauma             | `tabler-outline/alert-triangle`, `tabler-outline/bolt`             |
-| Repair             | `tabler-outline/refresh`, `tabler-outline/tool`                    |
-| Development        | `tabler-outline/trending-up`, `tabler-outline/layers-linked`       |
+| Concept              | Icons                     |
+| -------------------- | ------------------------- |
+| Attachment/Bonding   | `tabler-outline/heart`, `tabler-outline/link` |
+| Secure Base          | `tabler-outline/home`, `tabler-outline/shield-check` |
+| Mentalization        | `tabler-outline/brain`, `tabler-outline/bulb` |
+| Affect Regulation    | `tabler-outline/activity`, `tabler-outline/adjustments-horizontal` |
+| Awareness            | `tabler-outline/eye`, `tabler-outline/compass` |
+| Trauma               | `tabler-outline/alert-triangle`, `tabler-outline/bolt` |
+| Repair               | `tabler-outline/refresh`, `tabler-outline/tool` |
+| Development          | `tabler-outline/trending-up`, `tabler-outline/layers-linked` |
 
 ---
 
@@ -278,46 +278,46 @@ Use `tabler-outline` as the stylistic icon library for this template. It matches
 
 ### Prohibited Features (Blocklist)
 
-| Category                  | Prohibited Items                                                                              |
-| ------------------------- | --------------------------------------------------------------------------------------------- |
-| **Clipping/Masking**      | `mask` is forbidden; `clipPath` is allowed only on `<image>` under `shared-standards.md` §1.2 |
-| **Style System**          | `<style>`, `class` (`id` inside `<defs>` is allowed)                                          |
-| **Structure/Nesting**     | `<foreignObject>`                                                                             |
-| **Text/Font**             | `textPath`, `@font-face`                                                                      |
-| **Animation/Interaction** | `<animate*>`, `<set>`, `on*`                                                                  |
+| Category           | Prohibited Items                        |
+| ------------------ | --------------------------------------- |
+| **Clipping/Masking** | `mask` is forbidden; `clipPath` is allowed only on `<image>` under `shared-standards.md` §1.2 |
+| **Style System**   | `<style>`, `class` (`id` inside `<defs>` is allowed) |
+| **Structure/Nesting** | `<foreignObject>`                   |
+| **Text/Font**      | `textPath`, `@font-face`               |
+| **Animation/Interaction** | `<animate*>`, `<set>`, `on*`    |
 
 > `marker-start` / `marker-end` are conditionally allowed — see `shared-standards.md` §1.1 (marker must be in `<defs>`, `orient="auto"`, shape = triangle / diamond / oval).
 
 ### PPT Compatibility Rules
 
-| Prohibited                     | Correct Alternative                                               |
-| ------------------------------ | ----------------------------------------------------------------- |
-| `fill="rgba(255,255,255,0.1)"` | `fill="#FFFFFF" fill-opacity="0.1"`                               |
-| `stroke="rgba(0,0,0,0.5)"`     | `stroke="#000000" stroke-opacity="0.5"`                           |
-| `<g opacity="0.2">...</g>`     | Set `opacity` / `fill-opacity` on each child element individually |
+| Prohibited                         | Correct Alternative                                    |
+| ---------------------------------- | ------------------------------------------------------ |
+| `fill="rgba(255,255,255,0.1)"`     | `fill="#FFFFFF" fill-opacity="0.1"`                    |
+| `stroke="rgba(0,0,0,0.5)"`        | `stroke="#000000" stroke-opacity="0.5"`                |
+| `<g opacity="0.2">...</g>`        | Set `opacity` / `fill-opacity` on each child element individually |
 
 ---
 
 ## X. Placeholder Specification
 
-| Placeholder            | Usage                       |
-| ---------------------- | --------------------------- |
-| `{{TITLE}}`            | Main title                  |
-| `{{SUBTITLE}}`         | Subtitle                    |
-| `{{TITLE_EN}}`         | English title               |
-| `{{PAGE_TITLE}}`       | Content page title          |
-| `{{CONTENT_AREA}}`     | Flexible content area       |
-| `{{CHAPTER_NUM}}`      | Chapter number              |
-| `{{CHAPTER_TITLE}}`    | Chapter title               |
-| `{{CHAPTER_EN}}`       | Chapter English title       |
-| `{{QUOTE}}`            | Quote content               |
-| `{{QUOTE_AUTHOR}}`     | Quote author                |
-| `{{PAGE_NUM}}`         | Page number                 |
-| `{{COVER_BG_IMAGE}}`   | Cover background image path |
-| `{{TOC_ITEM_N_TITLE}}` | TOC item title              |
-| `{{TOC_ITEM_N_DESC}}`  | TOC item description        |
-| `{{THANK_YOU}}`        | Thank-you message           |
-| `{{CONTACT_INFO}}`     | Primary contact info        |
+| Placeholder          | Usage                |
+| -------------------- | -------------------- |
+| `{{TITLE}}`          | Main title           |
+| `{{SUBTITLE}}`       | Subtitle             |
+| `{{TITLE_EN}}`       | English title        |
+| `{{PAGE_TITLE}}`     | Content page title   |
+| `{{CONTENT_AREA}}`   | Flexible content area |
+| `{{CHAPTER_NUM}}`    | Chapter number       |
+| `{{CHAPTER_TITLE}}`  | Chapter title        |
+| `{{CHAPTER_EN}}`     | Chapter English title |
+| `{{QUOTE}}`          | Quote content        |
+| `{{QUOTE_AUTHOR}}`   | Quote author         |
+| `{{PAGE_NUM}}`       | Page number          |
+| `{{COVER_BG_IMAGE}}` | Cover background image path |
+| `{{TOC_ITEM_N_TITLE}}` | TOC item title     |
+| `{{TOC_ITEM_N_DESC}}`  | TOC item description |
+| `{{THANK_YOU}}`      | Thank-you message    |
+| `{{CONTACT_INFO}}`   | Primary contact info |
 
 ---
 

@@ -14,17 +14,17 @@ AI images exist to serve the deck's communication goal. Pick whatever combinatio
 
 **Two page roles** (orthogonal to type):
 
-| `page_role` | Use                                                                                                                                                                 |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `local`     | Image occupies a region of an SVG page (left half, right column, hero band, accent corner). Composition is the AI's call — fill the region as the page design wants |
-| `hero_page` | Image is the page's main voice — cover, chapter divider, mood transition, single-number hero, closing quote. SVG above may be minimal or empty                      |
+| `page_role` | Use |
+|---|---|
+| `local` | Image occupies a region of an SVG page (left half, right column, hero band, accent corner). Composition is the AI's call — fill the region as the page design wants |
+| `hero_page` | Image is the page's main voice — cover, chapter divider, mood transition, single-number hero, closing quote. SVG above may be minimal or empty |
 
 **Two text policies** (orthogonal to page_role):
 
-| `text_policy` | Use                                                                                                                                                    |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `none`        | No text inside the image                                                                                                                               |
-| `embedded`    | Image contains text as part of the artwork — decorative lettering, designed title, hand-lettered keywords, infographic labels, anything the page needs |
+| `text_policy` | Use |
+|---|---|
+| `none` | No text inside the image |
+| `embedded` | Image contains text as part of the artwork — decorative lettering, designed title, hand-lettered keywords, infographic labels, anything the page needs |
 
 **Hard rule — only what's actually hard**:
 
@@ -42,24 +42,24 @@ Everything else is the AI's judgment per page. No mandated padding, no type-lock
 
 Every AI image is described by three orthogonal dimensions. Lock them in this order: **Rendering** (deck-wide) → **Palette** (deck-wide) → **Type** (per image).
 
-| Dimension     | Decides                                                                                                                                                                                                                                                                                                                                                         | When fixed                                                      |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| **Rendering** | Visual style family (vector / sketch-notes / 3d-isometric / corporate-photo / …)                                                                                                                                                                                                                                                                                | Once per deck — every AI image in the deck shares one rendering |
-| **Palette**   | How the deck's HEX colors are _used_ (proportion + role + temperament). HEX values come from `design_spec.colors`, not from the palette                                                                                                                                                                                                                         | Once per deck                                                   |
-| **Type**      | What the image's internal composition skeleton looks like — geometric layout of a local infographic block (infographic / flowchart / framework / matrix / cycle / funnel / pyramid / comparison / timeline / map / scene). Only applies to `page_role: local`; for `page_role: hero_page`, describe composition with §4.1 primitives instead of picking a type. | Per image                                                       |
+| Dimension | Decides | When fixed |
+|---|---|---|
+| **Rendering** | Visual style family (vector / sketch-notes / 3d-isometric / corporate-photo / …) | Once per deck — every AI image in the deck shares one rendering |
+| **Palette** | How the deck's HEX colors are *used* (proportion + role + temperament). HEX values come from `design_spec.colors`, not from the palette | Once per deck |
+| **Type** | What the image's internal composition skeleton looks like — geometric layout of a local infographic block (infographic / flowchart / framework / matrix / cycle / funnel / pyramid / comparison / timeline / map / scene). Only applies to `page_role: local`; for `page_role: hero_page`, describe composition with §4.1 primitives instead of picking a type. | Per image |
 
-> **What rendering vs palette means**: rendering is _how the image is drawn_ (line quality, texture, depth). Palette is _how colors are distributed and behave_ (which color dominates, which is accent, what proportion). The HEX values come from Strategist; palette is the **usage contract** for those HEX values.
+> **What rendering vs palette means**: rendering is *how the image is drawn* (line quality, texture, depth). Palette is *how colors are distributed and behave* (which color dominates, which is accent, what proportion). The HEX values come from Strategist; palette is the **usage contract** for those HEX values.
 
 ### 2.1 Where to find each dimension
 
-| Reference                                                                                                  | Loaded                                                               |
-| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [`image-renderings/_index.md`](./image-renderings/_index.md) — rendering catalog + auto-selection table    | Always (Step 1 below)                                                |
-| [`image-palettes/_index.md`](./image-palettes/_index.md) — palette catalog + auto-selection table          | Always (Step 1 below)                                                |
-| [`image-type-templates/_index.md`](./image-type-templates/_index.md) — type catalog + auto-selection table | Always (Step 1 below)                                                |
-| `image-renderings/<chosen>.md`                                                                             | After Step 2 picks the rendering — only the chosen one               |
-| `image-palettes/<chosen>.md`                                                                               | After Step 2 picks the palette — only the chosen one                 |
-| `image-type-templates/<chosen>.md`                                                                         | After Step 3 picks the type per image — only the types actually used |
+| Reference | Loaded |
+|---|---|
+| [`image-renderings/_index.md`](./image-renderings/_index.md) — rendering catalog + auto-selection table | Always (Step 1 below) |
+| [`image-palettes/_index.md`](./image-palettes/_index.md) — palette catalog + auto-selection table | Always (Step 1 below) |
+| [`image-type-templates/_index.md`](./image-type-templates/_index.md) — type catalog + auto-selection table | Always (Step 1 below) |
+| `image-renderings/<chosen>.md` | After Step 2 picks the rendering — only the chosen one |
+| `image-palettes/<chosen>.md` | After Step 2 picks the palette — only the chosen one |
+| `image-type-templates/<chosen>.md` | After Step 3 picks the type per image — only the types actually used |
 
 **Hard rule — on-demand loading**:
 
@@ -96,11 +96,11 @@ If both fields are present, use them directly — Strategist made the decision i
 
 **Fallback path — when `spec_lock.md` lacks both fields** (legacy decks or pipelines that skipped h.5):
 
-| Signal                                                | Maps to                                                                                   |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `design_spec.md d. Style` mode + descriptor           | Rendering (consult renderings `_index.md` auto-selection table)                           |
-| `design_spec.md e. Color Scheme` (HEX) + content vibe | Palette (consult palettes `_index.md` auto-selection table)                               |
-| `design_spec.md f. Icon library`                      | Sanity check: chosen rendering should be compatible with the icon library's visual weight |
+| Signal | Maps to |
+|---|---|
+| `design_spec.md d. Style` mode + descriptor | Rendering (consult renderings `_index.md` auto-selection table) |
+| `design_spec.md e. Color Scheme` (HEX) + content vibe | Palette (consult palettes `_index.md` auto-selection table) |
+| `design_spec.md f. Icon library` | Sanity check: chosen rendering should be compatible with the icon library's visual weight |
 
 If the auto-selection table surfaces multiple candidates, pick the first; do not present a choice to the user.
 
@@ -161,7 +161,7 @@ This produces generic, model-average output. The model is not weighting your tag
 
 ### 4.1 Hero-page composition primitives
 
-When `page_role: hero_page` (the image is the page's main voice — cover, chapter divider, mood transition, signature stat, closing quote), the image's internal composition does not need its own structural `type` (matrix / cycle / framework etc. are for _local_ infographic blocks). Instead, describe the composition directly in the prompt using one of the four primitives below.
+When `page_role: hero_page` (the image is the page's main voice — cover, chapter divider, mood transition, signature stat, closing quote), the image's internal composition does not need its own structural `type` (matrix / cycle / framework etc. are for *local* infographic blocks). Instead, describe the composition directly in the prompt using one of the four primitives below.
 
 **Primitive A — single dominant subject (product / object / concept hero)**
 
@@ -175,7 +175,7 @@ Use for: product reveal, concept introduction, chapter title visual, brand state
 
 Use for: founder profile, speaker bio, testimonial page, executive intro. Pair with `rendering: corporate-photo` for photographic realism; otherwise the §5.2 simplified-figures rule applies.
 
-**Primitive C — typographic hero (the text _is_ the image)**
+**Primitive C — typographic hero (the text *is* the image)**
 
 > The image's central content is one large text element — a short headline, big number, or single word — rendered as art, occupying 40-60% of canvas height. Minimal supporting visual (small icon, geometric anchor, accent line) at <25% weight. At least 20% padding around the text.
 
@@ -195,11 +195,11 @@ When none of A/B/C/D describe the page's intended layout (triptych, asymmetric m
 
 **Hard rule — custom composition prose**:
 
-| Rule             | Value                                                                                          |
-| ---------------- | ---------------------------------------------------------------------------------------------- |
-| Length           | One paragraph, 2-5 sentences, replacing A/B/C/D's opening paragraph                            |
+| Rule | Value |
+|---|---|
+| Length | One paragraph, 2-5 sentences, replacing A/B/C/D's opening paragraph |
 | Required content | subject count, layout structure, where breathing room sits, where SVG overlay can claim canvas |
-| Forbidden        | Naming a competing primitive ("like A but two subjects")                                       |
+| Forbidden | Naming a competing primitive ("like A but two subjects") |
 
 Example opening for a triptych hero:
 
@@ -231,12 +231,12 @@ Example opening for a triptych hero:
 
 **Detail to name in the prompt** (illustrative, not an enumeration to match):
 
-| Domain                | Conventions to spell out                                                                                          |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Domain | Conventions to spell out |
+|---|---|
 | chemistry / materials | IUPAC atom colors, bond conventions, lattice type, Å / ps units, subplot labeling (A / B / C circles), view angle |
-| biology               | cell compartment colors, scale bars, organelle conventions, staining palette                                      |
-| physics               | axis labels with proper symbols, signature curve shapes, unit annotations, peak labeling format                   |
-| engineering           | schematic notation, dimension callouts, section-cut conventions                                                   |
+| biology | cell compartment colors, scale bars, organelle conventions, staining palette |
+| physics | axis labels with proper symbols, signature curve shapes, unit annotations, peak labeling format |
+| engineering | schematic notation, dimension callouts, section-cut conventions |
 
 **When uncertain about field conventions**: read `sources/` before drafting the prompt.
 
@@ -266,29 +266,29 @@ Exception: when the chosen rendering is `corporate-photo`, photorealism is inten
 
 Every AI-image page carries text in two layers:
 
-| Layer                 | Owned by                           | Examples                                                                                                                                                                                                                                  |
-| --------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Layer 1 (image-owned) | the prompt — baked into the raster | figure-internal annotations (axis labels, A / B / C markers, units, scale bars, panel labels); architecture / schematic module names, node labels, signal-path identifiers; hero typographic or decorative lettering that _is_ the visual |
-| Layer 2 (SVG-owned)   | `<text>` overlay — fully editable  | page-level chrome (title, navigation, footer, body bullets, conclusion callout); readable copy, captions                                                                                                                                  |
+| Layer | Owned by | Examples |
+|---|---|---|
+| Layer 1 (image-owned) | the prompt — baked into the raster | figure-internal annotations (axis labels, A / B / C markers, units, scale bars, panel labels); architecture / schematic module names, node labels, signal-path identifiers; hero typographic or decorative lettering that *is* the visual |
+| Layer 2 (SVG-owned) | `<text>` overlay — fully editable | page-level chrome (title, navigation, footer, body bullets, conclusion callout); readable copy, captions |
 
 `text_policy` controls only Layer 1. AI judges per image; no global default bias.
 
 **When `embedded` is the right call — positive triggers** (any one match flips the row from a `none` starting point to `embedded`; the editability rule at the tail of §5.3 still has final say):
 
-| Trigger                                                   | Typical Layer 1 text                                                             |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Paper-figure panel comparison (A/B/C, before/after)       | Panel labels — `A` / `B` / `C`, or short panel descriptors                       |
-| Textbook math / signal figure                             | Curve names (`sin` / `cos`), axis labels, unit symbols                           |
+| Trigger | Typical Layer 1 text |
+|---|---|
+| Paper-figure panel comparison (A/B/C, before/after) | Panel labels — `A` / `B` / `C`, or short panel descriptors |
+| Textbook math / signal figure | Curve names (`sin` / `cos`), axis labels, unit symbols |
 | Architecture / schematic following discipline conventions | Module names (`Self-Attention`, `FFN`, `Add & Norm`), node ids, signal-path tags |
-| Data figure with stable axes                              | Axis labels, units, scale bars                                                   |
-| Typographic hero (§4.1 Primitive C)                       | The designed word / number that _is_ the image                                   |
+| Data figure with stable axes | Axis labels, units, scale bars |
+| Typographic hero (§4.1 Primitive C) | The designed word / number that *is* the image |
 
 Defaulting an entire `ai` resource list to `none` because "SVG can always overlay" is the failure mode this table exists to break. When any row matches a trigger, start at `embedded` and verify the editability filter below still holds.
 
-| `text_policy` | Prompt cue                                                                                                                 |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `none`        | "NO text of any kind anywhere in the image — no letters, numbers, signs, watermarks, labels, or written symbols."          |
-| `embedded`    | Describe the Layer 1 text directly inside the visual scene: the word(s), how they're rendered, and the artistic treatment. |
+| `text_policy` | Prompt cue |
+|---|---|
+| `none` | "NO text of any kind anywhere in the image — no letters, numbers, signs, watermarks, labels, or written symbols." |
+| `embedded` | Describe the Layer 1 text directly inside the visual scene: the word(s), how they're rendered, and the artistic treatment. |
 
 **Hard rule — cross-cutting**: Layer 2 chrome stays SVG regardless of `text_policy`. Never bake the deck title, navigation, footer, body bullets, or conclusion callout into the image, even when `embedded`.
 
@@ -300,13 +300,13 @@ The font for in-image text is a free natural-language description, not an enum. 
 
 The table below is **a reference for the one case where you want the in-image lettering to read as the same typographic family as the SVG body** (e.g. a clean editorial deck where the cover title in the image should feel like the body Helvetica, not a surprise blackletter). Use it as a starting point, not a constraint.
 
-| `spec_lock typography.font_family` contains                       | Optional descriptor if you want to echo the SVG body |
-| ----------------------------------------------------------------- | ---------------------------------------------------- |
-| `KaiTi` / `FangSong` / `Georgia` / serif families                 | "elegant serif lettering, refined letterforms"       |
-| `Microsoft YaHei` / `PingFang SC` / `Arial` / sans-serif families | "clean geometric sans-serif, modern letterforms"     |
-| `SimHei` / `Impact` / `Arial Black` / display families            | "bold display lettering, heavy expressive strokes"   |
-| `Consolas` / `Courier New` / monospace families                   | "monospace technical lettering, fixed-width"         |
-| sketch-notes / ink-notes rendering, or no family specified        | "hand-lettered organic strokes, natural variation"   |
+| `spec_lock typography.font_family` contains | Optional descriptor if you want to echo the SVG body |
+|---|---|
+| `KaiTi` / `FangSong` / `Georgia` / serif families | "elegant serif lettering, refined letterforms" |
+| `Microsoft YaHei` / `PingFang SC` / `Arial` / sans-serif families | "clean geometric sans-serif, modern letterforms" |
+| `SimHei` / `Impact` / `Arial Black` / display families | "bold display lettering, heavy expressive strokes" |
+| `Consolas` / `Courier New` / monospace families | "monospace technical lettering, fixed-width" |
+| sketch-notes / ink-notes rendering, or no family specified | "hand-lettered organic strokes, natural variation" |
 
 **When to ignore the table**:
 
@@ -321,10 +321,10 @@ The table below is **a reference for the one case where you want the in-image le
 
 Layer 1 text is rasterized into the artwork — once generated it cannot be edited, corrected, searched, restyled, or reflowed. That is the durable reason to choose where text lives, independent of any backend's rendering ability or the script / length involved:
 
-| Text                                                                                                                                                          | Layer              |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| Text | Layer |
+|---|---|
 | Part of the artwork and stable — decorative lettering, designed title, hand-lettered keyword, figure-internal identifiers (axis labels, panel letters, units) | Layer 1 (image) OK |
-| Page chrome, body copy, captions, data values — anything that must stay exact, searchable, or may be reworded                                                 | Layer 2 (SVG)      |
+| Page chrome, body copy, captions, data values — anything that must stay exact, searchable, or may be reworded | Layer 2 (SVG) |
 
 Generation is non-deterministic on every backend, but **do not pre-judge by script or length** — never push text to SVG, shorten a headline, or downgrade `embedded` to `none` on the assumption that a particular script or a long string "won't render". Decide where text lives by the editability rule above, not by guessed rendering ability. Name the exact characters to bake literally in the prompt; do not re-read the generated image to verify them.
 
@@ -382,20 +382,20 @@ Write `project/images/image_prompts.json` with this shape:
 
 ### Field reference
 
-| Field                  | Required    | Source                                          | Description                                                                                                                                                                                                                                                                                                                |
-| ---------------------- | ----------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `deck_rendering`       | yes         | Step 2 lock                                     | Single rendering name shared by all items in this deck                                                                                                                                                                                                                                                                     |
-| `deck_palette`         | yes         | Step 2 lock                                     | Single palette name shared by all items                                                                                                                                                                                                                                                                                    |
-| `color_scheme`         | yes         | `design_spec.md §III`                           | HEX triplet from Strategist                                                                                                                                                                                                                                                                                                |
-| `items[].filename`     | yes         | `§VIII` resource list                           | Output filename with extension                                                                                                                                                                                                                                                                                             |
-| `items[].type`         | conditional | Step 3 per-image (only when `page_role: local`) | One of 11 internal-composition types: `infographic`, `flowchart`, `framework`, `matrix`, `cycle`, `funnel`, `pyramid`, `comparison`, `timeline`, `map`, `scene`. **Omit `type` entirely when `page_role: hero_page`** — the composition comes from §4.1 primitives written directly into the prompt, not from a type file. |
-| `items[].page_role`    | yes         | Step 3 per-image                                | `local` (default — region block on SVG page) or `hero_page` (image is page's main voice; SVG overlay minimal or empty)                                                                                                                                                                                                     |
-| `items[].text_policy`  | yes         | Step 3 per-image                                | `none` (image carries no text — explicit visual rule) or `embedded` (image contains decorative lettering, designed title, hand-lettered keywords, or stable visual identifiers like axis labels / subplot letters / unit symbols). AI judges per image; no global default bias — see §5.3.                                 |
-| `items[].aspect_ratio` | yes         | Container sizing                                | Passed to `image_gen.py --aspect_ratio`                                                                                                                                                                                                                                                                                    |
-| `items[].prompt`       | yes         | §4 assembly                                     | The full assembled paragraph                                                                                                                                                                                                                                                                                               |
-| `items[].image_size`   | no          | Container sizing                                | `512px` / `1K` / `2K` / `4K`                                                                                                                                                                                                                                                                                               |
-| `items[].alt_text`     | no          | Accessibility                                   | Short caption                                                                                                                                                                                                                                                                                                              |
-| `items[].status`       | yes         | CLI manages                                     | `Pending` initially; CLI updates to `Generated` / `Failed` / `Needs-Manual`                                                                                                                                                                                                                                                |
+| Field | Required | Source | Description |
+|---|---|---|---|
+| `deck_rendering` | yes | Step 2 lock | Single rendering name shared by all items in this deck |
+| `deck_palette` | yes | Step 2 lock | Single palette name shared by all items |
+| `color_scheme` | yes | `design_spec.md §III` | HEX triplet from Strategist |
+| `items[].filename` | yes | `§VIII` resource list | Output filename with extension |
+| `items[].type` | conditional | Step 3 per-image (only when `page_role: local`) | One of 11 internal-composition types: `infographic`, `flowchart`, `framework`, `matrix`, `cycle`, `funnel`, `pyramid`, `comparison`, `timeline`, `map`, `scene`. **Omit `type` entirely when `page_role: hero_page`** — the composition comes from §4.1 primitives written directly into the prompt, not from a type file. |
+| `items[].page_role` | yes | Step 3 per-image | `local` (default — region block on SVG page) or `hero_page` (image is page's main voice; SVG overlay minimal or empty) |
+| `items[].text_policy` | yes | Step 3 per-image | `none` (image carries no text — explicit visual rule) or `embedded` (image contains decorative lettering, designed title, hand-lettered keywords, or stable visual identifiers like axis labels / subplot letters / unit symbols). AI judges per image; no global default bias — see §5.3. |
+| `items[].aspect_ratio` | yes | Container sizing | Passed to `image_gen.py --aspect_ratio` |
+| `items[].prompt` | yes | §4 assembly | The full assembled paragraph |
+| `items[].image_size` | no | Container sizing | `512px` / `1K` / `2K` / `4K` |
+| `items[].alt_text` | no | Accessibility | Short caption |
+| `items[].status` | yes | CLI manages | `Pending` initially; CLI updates to `Generated` / `Failed` / `Needs-Manual` |
 
 > **Back-compat for legacy `type` values**: existing manifests using `background` / `hero` / `portrait` / `typography` (the four removed pseudo-types) remain readable. Read them as: `background` → `page_role: hero_page` + no type; `hero` → `page_role: hero_page` + no type (use §4.1 Primitive A in prompt); `portrait` → `page_role: local` + no type (use §4.1 Primitive B); `typography` → `page_role: hero_page` + `text_policy: embedded` + no type (use §4.1 Primitive C). New manifests should follow the rule above (omit `type` when `page_role: hero_page`).
 >
@@ -411,19 +411,22 @@ Write `project/images/image_prompts.json` with this shape:
 
 C (AI-generated) supports three implementation modes sharing one `image_prompts.json` source:
 
-| Trigger                                                                           | Mode                                  | Mechanism                                                                                                               |
-| --------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| **Default** — `IMAGE_BACKEND` configured                                          | **Path A**: `image_gen.py --manifest` | One command runs the whole manifest with concurrency; status writes back per item                                       |
-| `IMAGE_BACKEND` not configured (or Path A fails) AND host has a native image tool | **Path B**: Host-native tool          | Agent invokes the host's image capability; outputs land at `project/images/<filename>`                                  |
-| **Both Path A and Path B fail/unavailable**                                       | **Offline Manual Mode**               | Manifest stays on disk; user generates externally from `items[].prompt` and places files at `project/images/<filename>` |
+| Trigger | Mode | Mechanism |
+|---|---|---|
+| **Default** — `IMAGE_BACKEND` configured | **Path A**: `image_gen.py --manifest` | One command runs the whole manifest with concurrency; status writes back per item |
+| `IMAGE_BACKEND` not configured (or Path A fails) AND host has a native image tool | **Path B**: Host-native tool | Agent invokes the host's image capability; outputs land at `project/images/<filename>` |
+| **Both Path A and Path B fail/unavailable** | **Offline Manual Mode** | Manifest stays on disk; user generates externally from `items[].prompt` and places files at `project/images/<filename>` |
 
-**Selection logic** — monotonic A → B → C fallback chain (automatic, no user prompting):
+**Selection logic** — the confirmed user choice wins; absent one, fall back to the automatic A → B → C chain:
 
+0. **Confirmed override (wins)** — honor the confirmed image source. The **chat choice is canonical**; the Confirm UI is only a convenience surface that, when used, records the same choice to `<project>/confirm_ui/result.json` as `image_ai_path` (so there is no `result.json` on the chat path — read the choice from the conversation). From either channel, if the choice is set and not `auto`, honor it directly, **even when it contradicts `IMAGE_BACKEND`**:
+   - `api` → **Path A** (`image_gen.py --manifest`).
+   - `host-native` → **Path B** (host's native image tool) — skip A *even if `IMAGE_BACKEND` is configured*.
+   - `manual` → **Offline Manual** (write prompts, hand off).
+   ("use Codex's image tool" / "走接口生成" in chat = `host-native` / `api`.) If the chosen path turns out unavailable (e.g. `host-native` but the host has no image tool), fall through along the chain below from that point. Only when no source named a path (chat silent, and `image_ai_path` `auto` / absent) does the automatic chain decide.
 1. **Try Path A** — if `IMAGE_BACKEND` is configured (env or `.env`), run `image_gen.py --manifest`. If it fails twice in a row, fall to Path B.
 2. **Try Path B** — if `IMAGE_BACKEND` was not configured (A skipped), or A failed, and the host has a native image tool (Codex / Antigravity / Claude Code / similar), the agent invokes the host's image capability directly.
 3. **Fall to C (Offline Manual)** — if B is also unavailable (no host-native tool) or fails, write prompts to `images/image_prompts.json` and hand off to the user.
-
-**User override**: If the user explicitly names Path B ("use Codex's image tool"), skip A and start at B. Explicit naming is the only way to bypass an earlier path in the chain; otherwise the chain is monotonic.
 
 **Hard rule**: Step 4 is execution, not re-decision. Never present an interactive choice between paths here — image strategy was locked in Strategist Step 4 h item.
 
@@ -441,37 +444,40 @@ The CLI iterates `items[]` with adaptive concurrency, writes `status` back per i
 
 **Parameters**:
 
-| Parameter         | Short | Description                                                       | Default                        |
-| ----------------- | ----- | ----------------------------------------------------------------- | ------------------------------ |
-| `--manifest`      | -     | Path to `image_prompts.json`                                      | —                              |
-| `--concurrency`   | -     | Max concurrent requests; halves on rate-limit, min 1              | `IMAGE_CONCURRENCY` env or `3` |
-| `--image_size`    | -     | Default size (`512px`/`1K`/`2K`/`4K`); per-item `image_size` wins | `1K`                           |
-| `--output`        | `-o`  | Output directory                                                  | Manifest's parent dir          |
-| `--backend`       | `-b`  | Override `IMAGE_BACKEND` for this run                             | env                            |
-| `--model`         | `-m`  | Default model; per-item `model` wins                              | Backend default                |
-| `--list-backends` | -     | Print support tiers and exit                                      | —                              |
+| Parameter | Short | Description | Default |
+|---|---|---|---|
+| `--manifest` | - | Path to `image_prompts.json` | — |
+| `--concurrency` | - | Max concurrent requests; halves on rate-limit, min 1 | `IMAGE_CONCURRENCY` env or `3` |
+| `--image_size` | - | Default size (`512px`/`1K`/`2K`/`4K`); per-item `image_size` wins | `1K` |
+| `--output` | `-o` | Output directory | Manifest's parent dir |
+| `--backend` | `-b` | Override `IMAGE_BACKEND` for this run | env |
+| `--model` | `-m` | Default model; per-item `model` wins | Backend default |
+| `--list-backends` | - | Print support tiers and exit | — |
 
 > The single-image form `image_gen.py "prompt" --filename ...` is preserved for ad-hoc one-offs (re-rolling a single image) but is no longer the primary path.
 
 **Configuration sources**:
-
 - Current process environment variables
 - First `.env` found in this order: current working directory, skill directory (e.g. `~/.agents/skills/ppt-master/.env`), clone repo root, `~/.ppt-master/.env`
 
 Precedence:
-
 - Current process environment wins
 - `.env` fills missing values only
 
-| Variable              | Required | Description                                                                |
-| --------------------- | -------- | -------------------------------------------------------------------------- |
-| `IMAGE_BACKEND`       | Required | Backend identifier; run `image_gen.py --list-backends` for the current set |
-| `IMAGE_CONCURRENCY`   | Optional | Manifest-mode default concurrency (CLI `--concurrency` wins)               |
-| `{PROVIDER}_API_KEY`  | Required | Provider-specific API key, e.g. `GEMINI_API_KEY`, `ZHIPU_API_KEY`          |
-| `{PROVIDER}_BASE_URL` | Optional | Provider-specific custom endpoint                                          |
-| `{PROVIDER}_MODEL`    | Optional | Provider-specific model override                                           |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `IMAGE_BACKEND` | Required | Backend identifier; run `image_gen.py --list-backends` for the current set |
+| `IMAGE_CONCURRENCY` | Optional | Manifest-mode default concurrency (CLI `--concurrency` wins) |
+| `{PROVIDER}_API_KEY` | Required | Provider-specific API key, e.g. `GEMINI_API_KEY`, `ZHIPU_API_KEY` |
+| `{PROVIDER}_BASE_URL` | Optional | Provider-specific custom endpoint |
+| `{PROVIDER}_MODEL` | Optional | Provider-specific model override |
+| `OPENAI_SIZE_PRESET` | Optional | OpenAI-compatible size mapping: `auto`, `legacy`, `gpt-image`, `gpt-image-2`, `dall-e-2` |
+| `OPENAI_RESPONSE_FORMAT` | Optional | OpenAI-compatible response field: `auto`, `b64_json`, `url`, `omit` |
+| `OPENAI_QUALITY` | Optional | OpenAI-compatible quality field: `auto`, `omit`, `low`, `medium`, `high`, `standard`, `hd` |
 
 > Use provider-specific names only (e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`). See `.env.example` in clone mode or `${SKILL_DIR}/.env.example` in skill-install mode for the full set per backend.
+
+> Note: OpenAI-compatible platforms that reject OpenAI-specific fields stay under `IMAGE_BACKEND=openai`; configure the `OPENAI_*` compatibility knobs instead of adding a provider-specific backend.
 
 > `IMAGE_API_KEY`, `IMAGE_MODEL`, and `IMAGE_BASE_URL` are intentionally unsupported.
 
@@ -480,7 +486,6 @@ Precedence:
 **Support tiers (recommended usage)**: Core / Extended / Experimental. Run `image_gen.py --list-backends` for the current assignments.
 
 **Concurrency (manifest mode)**:
-
 - Default 3 concurrent requests, halves on the first rate-limit response, minimum 1 (= serial fallback)
 - Rate-limited items requeue automatically; per-item failures are recorded with `last_error` and skipped
 - Interrupting mid-run is safe — completed items keep `status: Generated` and are skipped on re-run
@@ -541,32 +546,32 @@ If Path A's backend fails twice in a row:
 
 When the Resource List row has no `Reference`, infer a reasonable image from `Purpose`. Examples (not prescriptions):
 
-| Purpose                              | A reasonable starting point                                                                                                              |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Cover                                | `page_role: hero_page` + §4.1 Primitive A (single-subject) or D (atmospheric); choose `text_policy` by what the cover should communicate |
-| Chapter divider                      | `page_role: hero_page` + Primitive D (atmospheric) or A (single-subject); often `text_policy: embedded` with a designed chapter title    |
-| Methodology / framework illustration | `type: framework`, `page_role: local`                                                                                                    |
-| Process / workflow illustration      | `type: flowchart`, `page_role: local`                                                                                                    |
-| Before/After or two-option page      | `type: comparison`, `page_role: local`                                                                                                   |
-| Team / lifestyle photo (group)       | `type: scene`, `page_role: local`; rendering = `corporate-photo` or `warm-scene`                                                         |
-| Single-person headshot / bio         | `page_role: local` + §4.1 Primitive B (portrait); rendering = `corporate-photo` for photo realism                                        |
-| Big-number / hero quote block        | `page_role: hero_page` + §4.1 Primitive C (typographic); `text_policy: embedded`                                                         |
-| Mood transition / atmosphere         | `page_role: hero_page` + Primitive D (atmospheric), or `type: scene` if narrative                                                        |
+| Purpose | A reasonable starting point |
+|---------|-----------------------------|
+| Cover | `page_role: hero_page` + §4.1 Primitive A (single-subject) or D (atmospheric); choose `text_policy` by what the cover should communicate |
+| Chapter divider | `page_role: hero_page` + Primitive D (atmospheric) or A (single-subject); often `text_policy: embedded` with a designed chapter title |
+| Methodology / framework illustration | `type: framework`, `page_role: local` |
+| Process / workflow illustration | `type: flowchart`, `page_role: local` |
+| Before/After or two-option page | `type: comparison`, `page_role: local` |
+| Team / lifestyle photo (group) | `type: scene`, `page_role: local`; rendering = `corporate-photo` or `warm-scene` |
+| Single-person headshot / bio | `page_role: local` + §4.1 Primitive B (portrait); rendering = `corporate-photo` for photo realism |
+| Big-number / hero quote block | `page_role: hero_page` + §4.1 Primitive C (typographic); `text_policy: embedded` |
+| Mood transition / atmosphere | `page_role: hero_page` + Primitive D (atmospheric), or `type: scene` if narrative |
 
 ### When Images Are Unsatisfactory
 
 Diagnose the failure category, adjust the **one specific dimension** responsible, do not rewrite the whole prompt.
 
-| Symptom                                                          | Most likely cause                                            | Adjustment                                                                                                                                                                 |
-| ---------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Image looks generic, model-average                               | Tag-soup prompt                                              | Rewrite as one coherent paragraph per §4                                                                                                                                   |
-| Wrong style family (looks photorealistic when flat was intended) | Rendering mismatch or rendering paragraph diluted            | Reaffirm chosen rendering's style paragraph at the top of the prompt                                                                                                       |
-| Colors don't match deck                                          | HEX not echoed in prompt, or palette proportion rule omitted | Repeat HEX values 2-3 times in the prompt; restate palette proportion rule                                                                                                 |
-| Hex code or color name visible as text in image                  | Missing §5.1 closing sentence                                | Append the §5.1 hard rule verbatim                                                                                                                                         |
-| Garbled letters in supposedly text-free image                    | `text_policy: none` rule too weak                            | Strengthen with explicit list: "no letters, no numbers, no words, no signs, no labels, no captions, no watermarks"                                                         |
-| SVG text overlay clashes with busy image area                    | Page design needs negative space the prompt didn't request   | Add a composition cue like "leave the {center / left third / lower band} relatively calm for text overlay" — only when the page actually overlays text on top of the image |
-| Subject vague                                                    | Reference field too abstract                                 | Rewrite reference with concrete nouns (verbs + objects)                                                                                                                    |
-| Faces too realistic / uncanny                                    | §5.2 rule omitted, or rendering is photo-incompatible        | Either append §5.2, or switch rendering to a non-photo family                                                                                                              |
+| Symptom | Most likely cause | Adjustment |
+|---|---|---|
+| Image looks generic, model-average | Tag-soup prompt | Rewrite as one coherent paragraph per §4 |
+| Wrong style family (looks photorealistic when flat was intended) | Rendering mismatch or rendering paragraph diluted | Reaffirm chosen rendering's style paragraph at the top of the prompt |
+| Colors don't match deck | HEX not echoed in prompt, or palette proportion rule omitted | Repeat HEX values 2-3 times in the prompt; restate palette proportion rule |
+| Hex code or color name visible as text in image | Missing §5.1 closing sentence | Append the §5.1 hard rule verbatim |
+| Garbled letters in supposedly text-free image | `text_policy: none` rule too weak | Strengthen with explicit list: "no letters, no numbers, no words, no signs, no labels, no captions, no watermarks" |
+| SVG text overlay clashes with busy image area | Page design needs negative space the prompt didn't request | Add a composition cue like "leave the {center / left third / lower band} relatively calm for text overlay" — only when the page actually overlays text on top of the image |
+| Subject vague | Reference field too abstract | Rewrite reference with concrete nouns (verbs + objects) |
+| Faces too realistic / uncanny | §5.2 rule omitted, or rendering is photo-incompatible | Either append §5.2, or switch rendering to a non-photo family |
 
 **Variant workflow**:
 

@@ -994,6 +994,13 @@ body {
   font-weight: 620;
 }
 
+.panel-header-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 #panel-right .panel-header {
   padding-right: 58px;
 }
@@ -1317,11 +1324,170 @@ body {
 }
 
 #annotation-list {
-  padding: 14px 0 10px;
+  display: none;
+}
+
+.annotation-visibility-toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--doya-subtle);
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--doya-border);
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.annotation-visibility-toggle:hover,
+.annotation-visibility-toggle:focus-visible {
+  color: var(--doya-text);
+  background: var(--doya-surface);
+  border-color: var(--doya-border-strong);
+  outline: none;
+}
+
+.annotation-visibility-toggle::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  max-width: 180px;
+  padding: 7px 10px;
+  color: var(--doya-text);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--doya-border);
+  border-radius: 9px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.14s ease,
+    transform 0.14s ease;
+}
+
+.annotation-visibility-toggle:hover::after,
+.annotation-visibility-toggle:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.annotation-visibility-icon {
+  position: relative;
+  width: 18px;
+  height: 11px;
+  border: 1.8px solid currentColor;
+  border-radius: 50% / 58%;
+}
+
+.annotation-visibility-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+}
+
+body.annotations-hidden .annotation-visibility-icon::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 4px;
+  width: 16px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 999px;
+  transform: rotate(-38deg);
+  transform-origin: center;
+}
+
+body.annotations-hidden #annotations {
+  display: none;
 }
 
 #annotations {
-  gap: 10px;
+  display: none;
+}
+
+#annotation-tip-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.annotation-tip {
+  position: absolute;
+  max-width: min(240px, 40vw);
+  padding: 8px 11px 8px 26px;
+  color: var(--doya-text);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(31, 122, 82, 0.18);
+  border-radius: 11px;
+  box-shadow:
+    0 10px 28px rgba(15, 23, 42, 0.1),
+    0 2px 8px rgba(31, 122, 82, 0.08);
+  font-size: 12px;
+  font-weight: 520;
+  line-height: 17px;
+  transform: translate(-50%, calc(-100% - 12px));
+  white-space: normal;
+}
+
+.annotation-tip::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 12px;
+  width: 7px;
+  height: 7px;
+  background: var(--doya-accent);
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(31, 122, 82, 0.12);
+}
+
+.annotation-tip::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  border-right: 1px solid rgba(31, 122, 82, 0.18);
+  border-bottom: 1px solid rgba(31, 122, 82, 0.18);
+  transform: translate(-50%, -5px) rotate(45deg);
+}
+
+.annotation-tip.annotation-tip-below {
+  transform: translate(-50%, 12px);
+}
+
+.annotation-tip.annotation-tip-below::after {
+  top: auto;
+  bottom: 100%;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 1px solid rgba(31, 122, 82, 0.18);
+  border-top: 1px solid rgba(31, 122, 82, 0.18);
+  transform: translate(-50%, 5px) rotate(45deg);
 }
 
 .annotation-item {
@@ -1555,4 +1721,240 @@ select.prop-edit-select {
 
 .overlap-id {
   color: var(--doya-text);
+}
+
+/* Maximize the slide canvas by default; tools open from lightweight header controls. */
+:root {
+  --ppt-inspector-width: clamp(280px, 24vw, 320px);
+  --ppt-inspector-gap: 16px;
+}
+
+#app {
+  position: relative;
+}
+
+#panel-right {
+  position: absolute;
+  z-index: 18;
+  top: 64px;
+  right: var(--ppt-inspector-gap);
+  bottom: 16px;
+  width: var(--ppt-inspector-width);
+  min-width: 280px;
+  display: none;
+  border: 1px solid var(--doya-border);
+  border-radius: 14px;
+  box-shadow: var(--doya-shadow);
+  padding: 16px;
+}
+
+body.inspector-sidebar-expanded #panel-right {
+  display: flex;
+}
+
+#panel-right .panel-header {
+  padding-right: 0;
+}
+
+body.inspector-sidebar-expanded #selection-info {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+body.inspector-sidebar-expanded #annotation-input {
+  flex: 0 0 auto;
+  padding-top: 12px;
+}
+
+body.inspector-sidebar-expanded #annotation-text {
+  min-height: 78px;
+  max-height: 120px;
+}
+
+body.inspector-sidebar-expanded #preview-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 12px 0 0;
+}
+
+body.inspector-sidebar-expanded #btn-save {
+  grid-column: 1 / -1;
+}
+
+body.inspector-sidebar-expanded #btn-exit-preview,
+body.inspector-sidebar-expanded .btn-undo {
+  min-width: 0;
+}
+
+.inspector-sidebar-toggle {
+  justify-self: end;
+}
+
+.inspector-sidebar-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.slide-list-toggle {
+  justify-self: start;
+}
+
+.slide-list-toggle-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.slide-list-popover {
+  position: absolute;
+  z-index: 20;
+  top: 64px;
+  left: 16px;
+  width: min(280px, calc(100vw - 32px));
+  max-height: min(520px, calc(100vh - 88px));
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--doya-panel);
+  border: 1px solid var(--doya-border);
+  border-radius: 14px;
+  box-shadow: var(--doya-shadow);
+}
+
+body.slide-list-popover-open .slide-list-popover {
+  display: flex;
+}
+
+.slide-list-popover .panel-header {
+  flex-shrink: 0;
+  padding: 14px 16px 10px;
+  color: var(--doya-text);
+  font-size: 15px;
+  font-weight: 620;
+  line-height: 22px;
+  border-bottom: 1px solid var(--doya-border);
+}
+
+.slide-list-popover #slide-list {
+  padding: 8px;
+}
+
+.slide-list-popover .slide-item {
+  position: relative;
+  min-height: 44px;
+  padding: 10px 12px;
+  gap: 10px;
+  border-radius: 10px;
+}
+
+.slide-item .slide-number {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+
+body.inspector-sidebar-expanded #btn-lang-toggle {
+  top: 16px;
+  right: 16px;
+  left: auto;
+}
+
+#slide-nav {
+  display: grid;
+  grid-template-columns: minmax(42px, 1fr) auto minmax(42px, 1fr);
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 10px 16px;
+}
+
+.slide-nav-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.slide-nav-side {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.slide-nav-side-left {
+  justify-content: flex-start;
+}
+
+.slide-nav-side-right {
+  justify-content: flex-end;
+}
+
+#panel-center {
+  position: relative;
+  min-width: 0;
+}
+
+#nav-label {
+  min-width: 180px;
+  max-width: min(480px, 42vw);
+}
+
+#svg-container {
+  padding: 24px;
+  margin-right: 0;
+  transition: margin-right 0.18s ease;
+}
+
+body.inspector-sidebar-expanded #svg-container {
+  margin-right: calc(var(--ppt-inspector-width) + (var(--ppt-inspector-gap) * 2));
+}
+
+#svg-content svg {
+  max-height: calc(100vh - 104px);
+}
+
+@media (max-width: 900px) {
+  body.inspector-sidebar-expanded #svg-container {
+    margin-right: 0;
+  }
+
+  body.inspector-sidebar-expanded #panel-right {
+    width: 280px;
+    min-width: 280px;
+  }
+
+  .slide-list-toggle {
+    justify-self: start;
+  }
+
+  .slide-list-popover {
+    left: 10px;
+    width: min(260px, calc(100vw - 20px));
+  }
+
+  #slide-nav {
+    gap: 8px;
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  #nav-label {
+    min-width: 116px;
+  }
+
+  #nav-name {
+    display: none;
+  }
+
+  #svg-container {
+    padding: 16px;
+  }
 }

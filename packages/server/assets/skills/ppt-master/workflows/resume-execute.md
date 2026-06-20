@@ -12,11 +12,11 @@ This workflow is **independent**: it owns Phase B starting from a fresh chat —
 
 The user opens a new chat and gives a phrase that names a project path and signals continuation. Recognize any of:
 
-| Pattern                                                     | Example                                         |
-| ----------------------------------------------------------- | ----------------------------------------------- |
-| "继续生成 projects/<project_name>"                          | "继续生成 projects/ppt169_joe_hisaishi"         |
-| "resume execution projects/<project_name>"                  | "resume execution projects/ppt169_joe_hisaishi" |
-| Project path + any "继续 / 恢复 / 继续做 / 接着做" semantic | "把 projects/ppt169_joe_hisaishi 继续做完"      |
+| Pattern | Example |
+|---|---|
+| "继续生成 projects/<project_name>" | "继续生成 projects/ppt169_joe_hisaishi" |
+| "resume execution projects/<project_name>" | "resume execution projects/ppt169_joe_hisaishi" |
+| Project path + any "继续 / 恢复 / 继续做 / 接着做" semantic | "把 projects/ppt169_joe_hisaishi 继续做完" |
 
 **Prerequisite**: Phase A must have completed in the named project. Verified by file presence in Step 1; do NOT auto-trigger Phase A on missing state.
 
@@ -26,12 +26,12 @@ The user opens a new chat and gives a phrase that names a project path and signa
 
 Verify the project's Phase-A artifacts before doing anything else:
 
-| File / Directory                | Required when                                           | Reason                                                      |
-| ------------------------------- | ------------------------------------------------------- | ----------------------------------------------------------- |
-| `<project_path>/spec_lock.md`   | Always                                                  | Strategist's execution contract; Executor reads it per page |
-| `<project_path>/design_spec.md` | Always                                                  | Section IX page outline; Executor cross-references it       |
-| `<project_path>/images/`        | `spec_lock images` references any image                 | Images must exist for embedding                             |
-| `<project_path>/templates/`     | `spec_lock page_layouts` / `page_charts` references any | Layout / chart SVGs needed for batch read                   |
+| File / Directory | Required when | Reason |
+|---|---|---|
+| `<project_path>/spec_lock.md` | Always | Strategist's execution contract; Executor reads it per page |
+| `<project_path>/design_spec.md` | Always | Section IX page outline; Executor cross-references it |
+| `<project_path>/images/` | `spec_lock images` references any image | Images must exist for embedding |
+| `<project_path>/templates/` | `spec_lock page_layouts` / `page_charts` references any | Layout / chart SVGs needed for batch read |
 
 If any required artifact is missing → report which one(s) and stop. Do NOT auto-fall-back into Phase A; the user must either complete Phase A in the original session or explicitly restart.
 
@@ -45,7 +45,7 @@ Read skills/ppt-master/SKILL.md
 
 Then jump to `### Step 6: Executor Phase` and run the documented pipeline:
 
-- Read references (executor-base + shared-standards + chosen style file + image-layout-spec + svg-image-embedding)
+- Read references (executor-base + shared-standards + the locked `mode` file under `modes/` + the locked `visual_style` file under `visual-styles/` + image-layout-spec + svg-image-embedding)
 - Design Parameter Confirmation
 - Pre-generation Batch Read (every layout / chart SVG referenced in `spec_lock`)
 - Per-page `spec_lock` re-read + sequential page generation

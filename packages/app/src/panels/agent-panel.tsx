@@ -1444,6 +1444,7 @@ const AgentStreamSection = memo(function AgentStreamSection({
       pendingPermissions={replayProjection ? EMPTY_PENDING_PERMISSIONS : pendingPermissions}
       routeBottomAnchorRequest={routeBottomAnchorRequest}
       isAuthoritativeHistoryReady={hasAppliedAuthoritativeHistory}
+      isReplayMode={Boolean(replayProjection)}
       toast={toast}
       onOpenWorkspaceFile={onOpenWorkspaceFile}
     />

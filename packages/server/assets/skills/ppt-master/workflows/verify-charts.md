@@ -22,16 +22,16 @@ The calculator has direct CLI models for simple bars, lines/scatter, pie/donut, 
 
 Read `<project_path>/design_spec.md` §VII Visualization Reference List (authoritative deck plan; cross-check against §IX page outline) and include every page whose SVG geometry is driven by data values. Classify each included page into exactly one mode:
 
-| Mode                | `charts_index.json` keys                                                                                                                                                                                        | Notes                                                                                                                           |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `direct-calc`       | `bar_chart`, `horizontal_bar_chart`                                                                                                                                                                             | Use `calc bar`; add `--horizontal` for horizontal bars.                                                                         |
-| `direct-calc`       | `line_chart`, `area_chart`, `scatter_chart`                                                                                                                                                                     | Use `calc line`; area uses line output as the top boundary, then closes to `y_max`.                                             |
-| `direct-calc`       | `pie_chart`, `donut_chart`                                                                                                                                                                                      | Use `calc pie`; donut passes `--inner-radius`.                                                                                  |
-| `direct-calc`       | `radar_chart`                                                                                                                                                                                                   | Use `calc radar`; separate subcommand, not under `calc pie`.                                                                    |
-| `decomposable-calc` | `stacked_bar_chart`, `stacked_area_chart`, `grouped_bar_chart`, `dumbbell_chart`, `pareto_chart`, `dual_axis_line_chart`, `bullet_chart`, `butterfly_chart`, `waterfall_chart`, `box_plot_chart`, `gantt_chart` | Verify by repeated direct calculations; see recipes below.                                                                      |
-| `partial-calc`      | `bubble_chart`                                                                                                                                                                                                  | Use `calc line` for `cx/cy`; verify radius only when a size scale is explicit.                                                  |
-| `formula-verify`    | `progress_bar_chart`, `gauge_chart`, `funnel_chart`                                                                                                                                                             | One-line math; record the formula and resulting length/angle/width in the receipt, no calculator call needed.                   |
-| `manual-verify`     | `sankey_chart`, `heatmap_chart`, `treemap_chart`                                                                                                                                                                | Data-driven geometry exists, but the current calculator has no complete layout model. Inspect and report; do not silently skip. |
+| Mode | `charts_index.json` keys | Notes |
+|------|--------------------------|-------|
+| `direct-calc` | `bar_chart`, `horizontal_bar_chart` | Use `calc bar`; add `--horizontal` for horizontal bars. |
+| `direct-calc` | `line_chart`, `area_chart`, `scatter_chart` | Use `calc line`; area uses line output as the top boundary, then closes to `y_max`. |
+| `direct-calc` | `pie_chart`, `donut_chart` | Use `calc pie`; donut passes `--inner-radius`. |
+| `direct-calc` | `radar_chart` | Use `calc radar`; separate subcommand, not under `calc pie`. |
+| `decomposable-calc` | `stacked_bar_chart`, `stacked_area_chart`, `grouped_bar_chart`, `dumbbell_chart`, `pareto_chart`, `dual_axis_line_chart`, `bullet_chart`, `butterfly_chart`, `waterfall_chart`, `box_plot_chart`, `gantt_chart` | Verify by repeated direct calculations; see recipes below. |
+| `partial-calc` | `bubble_chart` | Use `calc line` for `cx/cy`; verify radius only when a size scale is explicit. |
+| `formula-verify` | `progress_bar_chart`, `gauge_chart`, `funnel_chart` | One-line math; record the formula and resulting length/angle/width in the receipt, no calculator call needed. |
+| `manual-verify` | `sankey_chart`, `heatmap_chart`, `treemap_chart` | Data-driven geometry exists, but the current calculator has no complete layout model. Inspect and report; do not silently skip. |
 
 **Out of scope** (do not include in the receipt unless the page uses a data-driven sub-chart inside the layout):
 
@@ -66,7 +66,6 @@ For each page in the Step 1 list:
 4. **Read axis tick labels for every axis-based chart.** Locate the `<text>` elements along the value axis — X-axis labels for horizontal bars, Y-axis labels for vertical bars, and Y-axis labels for line-like charts. Extract the first and last tick values to determine the axis range (e.g. `0%` to `120%` → range `0,120`). Pass this range as `--value-range`, `--y-range`, or `--x-range` as appropriate. Radar uses `--max-value` instead of a range: read the outermost ring's tick value and pass it as `--max-value`. If the SVG has no explicit tick labels (data labels only, no grid), omit the range and let the calculator auto-normalize — but flag the receipt as `scale=auto (no ticks)`.
 
    **Local vs absolute coordinates.** Many chart templates wrap chart content in `<g transform="translate(cx, cy)">` or similar, so child `<circle>`/`<polygon>`/`<rect>` coords are relative to that origin (e.g. radar polygon at `0,-198`, donut paths starting from `0,0` inside a translated `<g>`, dumbbell circles at `cy="0"` inside a per-row translated `<g>`). The calculator outputs **absolute** SVG coordinates. Before comparing, either add the wrapping translate's offset to the SVG coords or subtract it from the calculator's output — pick one direction and apply it consistently.
-
 5. Run the matching calculator command:
 
    ```bash

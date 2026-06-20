@@ -126,6 +126,7 @@ import {
 } from "@/stores/session-store";
 import { useRecommendedProjectPaths, useWorkspaceFields } from "@/stores/session-store-hooks";
 import { buildAiCreationTitle } from "@/utils/ai-creation-display";
+import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
 import { normalizeHostPort } from "@/utils/daemon-endpoints";
 import { encodeImages } from "@/utils/encode-images";
 import {
@@ -1393,6 +1394,7 @@ export function AiCreationScreen({
   const openAccountLogin = useAccountLoginModalStore((state) => state.open);
   const accountSession = useAccountWorkspaceMetadata(serverId);
   const mergeWorkspaces = useSessionStore((state) => state.mergeWorkspaces);
+  const setAgents = useSessionStore((state) => state.setAgents);
   const setHasHydratedWorkspaces = useSessionStore((state) => state.setHasHydratedWorkspaces);
   const appendOptimisticUserMessageToAgentStream = useSessionStore(
     (state) => state.appendOptimisticUserMessageToAgentStream,
@@ -2105,6 +2107,11 @@ export function AiCreationScreen({
         agentId: result.id,
         workspace,
       });
+      setAgents(serverId, (previous) => {
+        const next = new Map(previous);
+        next.set(result.id, normalizeAgentSnapshot(result, serverId));
+        return next;
+      });
       const selectionImageForDisplay =
         mode === "edit" && hasSelectionGuide && submittedEditImage ? submittedEditImage : undefined;
       const hasSelectionReference = Boolean(selectionPreviewUri && selectionImageForDisplay);
@@ -2202,6 +2209,7 @@ export function AiCreationScreen({
     references,
     router,
     serverId,
+    setAgents,
     setHasHydratedWorkspaces,
     style,
     t,
@@ -3612,6 +3620,7 @@ async function appendAiCreationControlAgentBinding(input: {
       workspaceDir: input.workspace.cwd,
     },
   });
+  notifyControlSessionsChanged();
 }
 
 function findDirectHostRuntimeAuthToken(input: {
@@ -4048,7 +4057,7 @@ function buildSlidesPrompt(input: {
     "This is an AI creation surface. Keep user-facing progress minimal.",
     "Do not narrate skill reading, dependency installation, shell commands, file inspection, design reasoning, or implementation steps.",
     'Human-visible progress protocol: before the final reply, only send progress by emitting a `<doya-ui kind="ai_creation.slides.progress">` block.',
-    "Only mark information as human-visible when it helps the user follow PPT creation: preview readiness, deck outline, design direction, source processing, each slide becoming ready, export start, or PPTX readiness.",
+    "Only mark information as human-visible when it helps the user follow PPT creation: confirmation readiness, preview readiness, deck outline, design direction, source processing, each slide becoming ready, export start, or PPTX readiness.",
     "Do not expose implementation details in human-visible progress: no SVG, .svg filenames, shell commands, script names, dependency names, or internal file inspection.",
     "All human-visible progress titles and summaries must follow the response-language instruction above. Do not copy English titles such as `Slide 1 ready`, `Deck outline ready`, or `Preview ready` when the response language is Chinese.",
     "Use this protocol shape for progress:",
@@ -4061,13 +4070,21 @@ function buildSlidesPrompt(input: {
     "Read `.doya/skills/ppt-master/SKILL.md` and follow that workflow exactly.",
     "Begin the PPT Master workflow immediately. Do not wait for a target handshake, confirmation, or user reply before creating the project.",
     "Doya provides its own built-in slide preview service. Do not run PPT Master's `scripts/svg_editor/server.py`, do not start Flask, and do not open localhost preview ports yourself.",
-    `Streaming preview contract: after project initialization creates \`projects/<project>/\`, ensure \`projects/<project>/svg_output/\` exists even if it is still empty, then immediately send a human-visible progress block titled \`${previewReadyTitle}\` with a \`preview_path\` field set to \`projects/<project>/svg_output/\`.`,
+    "Doya also provides its own built-in Confirm UI. When PPT Master Step 4 asks you to run `scripts/confirm_ui/server.py`, do not run that local server, do not start Flask, and do not open localhost confirmation ports.",
+    "Instead, write `projects/<project>/confirm_ui/recommendations.json`, then send a human-visible progress block with a `confirm_path` field set to `projects/<project>/confirm_ui/`. Doya will render the inline confirmation card in chat and write `projects/<project>/confirm_ui/result.json` when the user confirms.",
+    "After sending the confirmation progress block, stop at the confirmation barrier. Until `projects/<project>/confirm_ui/result.json` exists or the user replies in chat with explicit choices, do not create the design spec, do not create `svg_output`, do not send a `preview_path`, do not generate slide SVGs, and do not continue to any later PPT Master step.",
+    "When the confirmation barrier resolves, read `result.json` if it exists, honor the confirmed values exactly, and only then continue the PPT Master workflow.",
+    `Streaming preview contract: after confirmation is resolved and project initialization creates \`projects/<project>/\`, ensure \`projects/<project>/svg_output/\` exists even if it is still empty, then immediately send a human-visible progress block titled \`${previewReadyTitle}\` with a \`preview_path\` field set to \`projects/<project>/svg_output/\`.`,
     "You must send the preview-ready progress block before generating or writing the first slide.",
     "After sending preview progress, continue the PPT Master workflow without waiting for the user.",
     "Write generated SVG pages into `projects/<project>/svg_output/` strictly one page at a time. Save `slide_01.svg` as soon as it is complete, then continue to `slide_02.svg`, and so on.",
     "Do not batch-generate all slide SVG files before writing them to disk. Do not wait until all slides are ready before exposing the preview directory.",
     `After each slide page is saved, send one human-visible progress block titled like \`${slideReadyTitle}\`, with a summary using the user-facing slide title, for example \`${coverReadySummary}\` Then continue with the next page.`,
     "Doya polls the preview directory and will show new slides as they appear.",
+    "Treat tasteful animation as part of a finished AI-generated presentation, not as a user-only advanced option. Independently choose whether each deck should have page transitions, per-element entrance animation, or no motion based on the content, audience, and visual style.",
+    "For most generated decks, export the final PPTX with subtle per-element animation enabled by passing `-a auto` to `svg_to_pptx.py`. Use `--animation-trigger after-previous` for click-free presentation flow unless the user explicitly asks for presenter-paced click reveals.",
+    'When a slide has clear semantic sections, make sure the SVG uses top-level `<g id="...">` groups so PPT Master can animate meaningful regions such as title, chart, cards, timeline steps, image hero, and takeaway instead of animating tiny atoms. Keep chrome/background/header/footer groups named as chrome so they do not animate.',
+    "If the deck is highly formal, print-oriented, compliance-heavy, or the user asks for no animation, keep element animation off and rely on the default page transition. If a specific reveal order matters, create and validate `animations.json` before export instead of relying only on `-a auto`.",
     "Only after the skill link exists, install Python requirements if needed: `pip install -r .doya/skills/ppt-master/requirements.txt`.",
     "",
     "User request:",

@@ -12,13 +12,13 @@ Swiss-grid / Bauhaus-adjacent visual discipline. Grid-locked geometry, generous 
 
 ## 2. Line, texture, depth
 
-| Aspect       | Treatment                                                                   |
-| ------------ | --------------------------------------------------------------------------- |
+| Aspect | Treatment |
+|---|---|
 | Line quality | Single uniform stroke weight; mathematically straight or perfectly circular |
-| Texture      | None — flat fills only                                                      |
-| Depth        | None — strictly 2D; no shadows, no perspective                              |
-| Material     | None — color is conceptual zone                                             |
-| Mood         | Rigorous, considered, austere, academic                                     |
+| Texture | None — flat fills only |
+| Depth | None — strictly 2D; no shadows, no perspective |
+| Material | None — color is conceptual zone |
+| Mood | Rigorous, considered, austere, academic |
 
 ## 3. Using the deck's HEX values
 

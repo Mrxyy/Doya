@@ -54,6 +54,7 @@ description: >
 | `${SKILL_DIR}/scripts/source_to_md/ppt_to_md.py`   | PowerPoint to Markdown                                                                                                                  |
 | `${SKILL_DIR}/scripts/source_to_md/web_to_md.py`   | Web page to Markdown (supports WeChat via `curl_cffi`)                                                                                  |
 | `${SKILL_DIR}/scripts/project_manager.py`          | Project init / validate / manage                                                                                                        |
+| `${SKILL_DIR}/scripts/icon_sync.py`                | Copy chosen library icons into `<project>/icons/` at selection time; missing names reported + non-zero (re-pick gate)                   |
 | `${SKILL_DIR}/scripts/analyze_images.py`           | Image analysis                                                                                                                          |
 | `${SKILL_DIR}/scripts/latex_render.py`             | LaTeX formula rendering (manifest-driven PNG assets)                                                                                    |
 | `${SKILL_DIR}/scripts/image_gen.py`                | AI image generation (multi-provider)                                                                                                    |
@@ -82,6 +83,7 @@ For complete tool documentation, see `${SKILL_DIR}/scripts/README.md`.
 | ---------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `topic-research`       | `workflows/topic-research.md`       | Pre-pipeline — gather web sources when the user supplies only a topic with no source files                                                                                                                           |
 | `template-fill`        | `workflows/template-fill-pptx.md`   | Give a native PPTX template deck plus source material; select fitting pages (a page may be reused for several output slides) and fill text back without SVG conversion                                               |
+| `beautify`             | `workflows/beautify-pptx.md`        | Re-layout an existing PPTX through the SVG pipeline — preserve its text verbatim, inherit its palette/fonts as truth, redo only layout; mirror of `template-fill`                                                    |
 | `create-template`      | `workflows/create-template.md`      | Standalone layout template creation workflow                                                                                                                                                                         |
 | `create-brand`         | `workflows/create-brand.md`         | Standalone brand-only template creation (identity preset; no SVG page roster)                                                                                                                                        |
 | `resume-execute`       | `workflows/resume-execute.md`       | Phase B entry — resume execution in a fresh chat after Phase A (Step 1–5) completed in another session (split mode)                                                                                                  |
@@ -198,18 +200,22 @@ The architecture has three independent reference bundles. Full schema in [`docs/
 
 #### Single-path dispatch
 
-| User path's `kind` | Step 3 action                                                                                                                                                                                                              |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `kind: brand`      | Copy `design_spec.md` + logo files + asset subdirs (`images/` / `illustrations/` / `icons/`) into `<project>/templates/`. Strategist locks identity segment as truth; structure stays free.                                |
-| `kind: layout`     | Copy `design_spec.md` + SVG roster + asset files into `<project>/templates/`. Strategist locks structure; identity decided in Eight Confirmations e–g.                                                                     |
-| `kind: deck`       | Copy everything (`design_spec.md` + SVGs + logos + assets) into `<project>/templates/`. Strategist locks all segments; Eight Confirmations narrows to deck-content fields (audience / page count / outline / tone tweaks). |
+| User path's `kind` | Step 3 action                                                                                                                                                                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `kind: brand`      | `design_spec.md` + non-image assets → `<project>/templates/`; logo / illustration / icon **bitmaps** → `<project>/images/`. Strategist locks identity segment as truth; structure stays free.                                                                |
+| `kind: layout`     | `design_spec.md` + SVG roster → `<project>/templates/`; any **bitmap** assets → `<project>/images/`. Strategist locks structure; identity decided in Eight Confirmations e–g.                                                                                |
+| `kind: deck`       | `design_spec.md` + template SVGs → `<project>/templates/`; logos / backgrounds / other **bitmaps** → `<project>/images/`. Strategist locks all segments; Eight Confirmations narrows to deck-content fields (audience / page count / outline / tone tweaks). |
 
 ```bash
 TEMPLATE_DIR=<user-supplied path>
+# Bitmaps join the project's single runtime image pool (images/, referenced as
+# ../images/); the spec + template SVGs + other non-image assets stay in
+# templates/ as design reference the Strategist/Executor read but never render.
 cp -r ${TEMPLATE_DIR}/* <project_path>/templates/
+find <project_path>/templates -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.bmp' \) -exec mv {} <project_path>/images/ \;
 ```
 
-The single-line copy suffices for all three kinds — the spec's `kind` field tells Strategist how to read it; downstream code doesn't distinguish.
+The same split applies to all three kinds — bitmaps always land in `images/`, the rest in `templates/`. The spec's `kind` field tells Strategist how to read the `templates/` side; downstream code doesn't distinguish. (Template SVGs in `templates/` are reference material only — the rendered pages live in `svg_output/` and reference images via `../images/`.)
 
 #### Multi-path fusion
 
@@ -294,6 +300,49 @@ Read references/strategist.md
 6. Icon usage approach
 7. Typography plan, including formula rendering policy
 8. Image usage approach
+9. Animation plan
+
+**Confirm UI Auto-Launch (Mandatory — default visual confirmation surface)**: by default the confirmations are presented through an interactive local page (color swatches, live font previews, candidate picks); the chat path is the always-valid fallback. Steps:
+
+1. Write the recommendations to `<project_path>/confirm_ui/recommendations.json` (full schema + field mapping: [`scripts/docs/confirm_ui.md`](scripts/docs/confirm_ui.md)). Two kinds of field: **enumerable** (canvas / mode / visual_style / icons / formula policy / animation / generation mode; plus image usage with a Custom path; plus AI source only when image usage may include `ai`) — the page lists common options from `confirm_ui/static/catalogs.json`, so you only name the recommended canonical `id` in a `recommend` block (canvas may be a catalog id like `ppt169` or a custom size/prose; style = `mode` + `visual_style`, two independent picks; icon ids are real libraries such as `tabler-outline`, or `emoji` for system emoji; image usage uses `ai` / `web` / `provided` / `placeholder` / `none`, or a custom prose plan when several sources must be combined; animation uses `subtle` / `presenter_reveal` / `showcase` / `page_only` / `none`; never write bare `"custom"` for image usage — write the actual mixed plan, e.g. "AI cover + user product assets + web industry images"; write `image_ai_path` only when recommending `image_usage: "ai"` or a custom plan that includes AI); **generative** (color, typography, generated-image style) — author **≥3 candidates** each (creative recommendations always offer real choice, never a single silent option — same rule as strategist h.5; fewer than 3 only on the honest-shortfall exception, with a stated reason) (color: user-facing core `palette` with background/secondary_bg/primary/accent/secondary_accent/body_text; typography: CJK + Latin for `heading` and `body` with `css` preview stacks, plus `body_size` as the body baseline px; when recommending generated images, `image_strategy.candidates` with rendering × palette combinations from strategist h.5). `page_count` / `audience` are plain values. Only open fields show a Custom box: `canvas`, `mode`, `visual_style`, `icons`, `image_usage`, and typography custom text. Closed fields (`image_ai_path`, `formula_policy`, `animation`, `generation_mode`, `refine_spec`) stay finite. Set `lang` to the page language; visible candidate text should match `lang`, or provide bilingual `name_zh` / `name_en` and `note_zh` / `note_en` fields. Reuse the same candidate thinking as strategist h.5.
+2. Launch the page **in the background and wait for the browser confirmation** (the child server runs detached; the parent command returns after `result.json` is freshly written). **Run this command with a long tool timeout — 600000 ms** — so the `--wait` (≈590 s budget) can complete:
+   ```bash
+   python3 ${SKILL_DIR}/scripts/confirm_ui/server.py <project_path> --daemon --wait
+   ```
+   Page opens at `http://localhost:5050` — the **same port as the Step 6 live preview** (they never run at once: this page shuts down at the end of Step 4, freeing the port). If another project already holds 5050, the launcher **auto-advances to the next free port** (5051, …) and serves this project there — read the actual URL from the launch log and report that. When the user clicks **Confirm**, the command exits 0 and Step 4 reads `result.json` immediately; do not require a second chat confirmation. **Launch or wait failure is non-fatal**: if it fails or times out (flask missing, port blocked, no GUI / remote / web host, browser never confirms in time), do **NOT** troubleshoot. The detached page stays open, so a slow user may confirm after the wait returns — therefore **on any non-zero exit, re-check `<project_path>/confirm_ui/result.json` once (a fresh `status: confirmed`) before** dropping to the chat-summary fallback below.
+3. **Always also print the eight recommendations as a short summary in chat, with the URL.** This keeps the chat fallback valid whether or not the browser opened. If the page never appears, the user simply confirms or edits in chat as before.
+4. This is the ⛔ BLOCKING wait. Preferred page path: the `--wait` command returns after the page writes a fresh `<project_path>/confirm_ui/result.json`; immediately read that file and use its values. On a non-zero exit, re-check `result.json` once (per step 2) — a fresh `status: confirmed` still wins. Chat fallback path: only if no fresh result exists (page didn't open, wait timed out with no confirmation, or the user replies in chat with edits) take the chat values directly. Either path converges. A confirmed `result.json` is an explicit user choice: `generation_mode: "split"` means split mode was chosen; `refine_spec: true` means the refine-spec workflow was chosen.
+5. **Close the confirm page (Mandatory cleanup — every path).** Once you have the confirmed values (page **or** chat), shut the confirm server down before leaving Step 4 so it cannot keep holding port 5050 (which Step 6 live preview reuses):
+   ```bash
+   python3 ${SKILL_DIR}/scripts/confirm_ui/server.py <project_path> --shutdown
+   ```
+   This is **idempotent and required regardless of whether Confirm was clicked**: clicking Confirm already shuts the page down (this is then a no-op), but the chat-fallback path leaves the page running — without this cleanup it would block the live preview launch. Run it after reading the confirmation and before proceeding to Step 5.
+
+**Honoring the confirmation (result.json is authoritative — Mandatory)**: the confirmed values **override your own recommendations** when you write `design_spec.md` / `spec_lock.md`. A user who changed any field changed it on purpose. In particular, map `image_usage` to §VIII `Acquire Via` (its value names differ from §h options — translate):
+
+| `result.json.image_usage`                | §VIII `Acquire Via`         | h.5 + Step 5 generation                              |
+| ---------------------------------------- | --------------------------- | ---------------------------------------------------- |
+| `ai` (or a custom plan that includes AI) | `ai` rows                   | Run h.5 (lock rendering + palette); Step 5 generates |
+| `web`                                    | `web` rows                  | None                                                 |
+| `provided`                               | **`user`** rows             | None — never generate                                |
+| `placeholder`                            | `placeholder` rows          | None                                                 |
+| `none`                                   | no image rows (§h option A) | None                                                 |
+
+Confirmed `result.json.animation` controls the Step 7.3 export command:
+
+| `result.json.animation` | Export behavior                                                            |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `subtle`                | Add `-a auto --animation-trigger after-previous`                           |
+| `presenter_reveal`      | Add `-a auto --animation-trigger on-click`                                 |
+| `showcase`              | Add `-a mixed --animation-trigger after-previous --animation-stagger 0.35` |
+| `page_only`             | Do not pass `-a`; keep the default page transition                         |
+| `none`                  | Add `-t none -a none`                                                      |
+
+When the confirmed `image_usage` is not `ai` (and the plan has no AI part), do **NOT** run h.5, do **NOT** write `ai` rows, and do **NOT** generate images in Step 5 — regardless of what you recommended. The same "confirmed value wins" rule applies to every field (color → §III, typography → §IV, etc.).
+
+**Opt-out**: if the user has said they don't want the page (e.g. "不要网页" / "just confirm in chat" / "纯聊天确认"), skip the launch entirely (step 2) and present the Eight Confirmations in chat as before — steps 1, 3, 4 still apply (recommendations summary in chat; wait; take chat values).
+
+The page is a **confirmation surface only** — Strategist still authors every recommendation; the page never generates content.
 
 **Mandatory — split-mode note** (not a ninth confirmation): after listing the eight confirmation details, you MUST append exactly one short line (rendered in the user's language, prefixed with 💡) about generation mode. Pick the variant by qualitative read of Phase A signals — recommended page count, source-material bulk, whether `topic-research` ran with substantial web-fetch accumulation:
 
@@ -302,7 +351,9 @@ Read references/strategist.md
 | Heavy (long page count / bulky sources / heavy web-fetch accumulation) | State estimated page count and large source size; recommend switching to [split mode](workflows/resume-execute.md) after Step 5 — stop this chat, open a fresh window and input `继续生成 projects/<project_name>` to enter Phase B (SVG generation + export); no response or "continue" = default continuous mode. |
 | Normal (default)                                                       | State scale is moderate, default continuous mode generates in one go; if mid-way window switch is desired, input `继续生成 projects/<project_name>` after Step 5 to switch to [split mode](workflows/resume-execute.md).                                                                                            |
 
-This line is required output every run — the user must always see the mode choice exists. Whether to act on it is the user's call.
+This line is required output every run — the user must always see the mode choice exists. Whether to act on it is the user's call. When the Confirm UI is used, this choice also appears as the in-page generation-mode toggle and is captured in `result.json` (`generation_mode`); the chat-summary fallback still prints this line.
+
+**Mandatory — spec-refinement note** (not a ninth confirmation): after the split-mode line, you MUST append one short opt-in line (rendered in the user's language, prefixed with 💡) telling the user they may **refine the spec first** — Strategist will produce the full design spec, then stop for review/revision of any part of it before any generation, via the [refine-spec](workflows/refine-spec.md) workflow. Default is OFF: no request → the spec is written in one go and the pipeline auto-proceeds as usual. Only when the user explicitly asks in chat (e.g. "refine the spec first") or confirms `refine_spec: true` through Confirm UI does the [refine-spec](workflows/refine-spec.md) workflow take over after the Eight Confirmations. This line, like the split-mode line, is required output every run — the user must see the choice exists; whether to act on it is theirs. When the Confirm UI is used, this choice also appears as the in-page refine-spec toggle and is captured in `result.json` (`refine_spec`); the chat-summary fallback still prints this line.
 
 **Formula rendering policy lives inside item 7 (Typography plan)**:
 
@@ -342,8 +393,9 @@ python3 ${SKILL_DIR}/scripts/analyze_images.py <project_path>/images
 ```markdown
 ## ✅ Strategist Phase Complete
 
-- [x] Eight Confirmations completed (user confirmed)
+- [x] Eight Confirmations completed (user confirmed via Confirm UI `result.json` or chat fallback)
 - [x] Split-mode note appended below the eight items (heavy or normal variant)
+- [x] Spec-refinement opt-in line appended (default OFF; only the user's explicit request enters the refine-spec workflow)
 - [x] Design Specification & Content Outline generated
 - [x] Execution lock (spec_lock.md) generated
 - [ ] **Next**: Auto-proceed to [Image_Generator / Executor] phase
@@ -375,6 +427,8 @@ A deck with only `ai` rows never loads `image-searcher.md`; a deck with only `we
 
 > ⚠️ **In-pipeline ai path MUST use manifest mode** — even when only 1 ai row exists. Write `images/image_prompts.json` first, then run `image_gen.py --manifest`, then `image_gen.py --render-md` to produce the `image_prompts.md` sidecar. The positional form (`image_gen.py "prompt" ...`) is reserved for **out-of-pipeline one-off testing / single-image fixups** — it skips manifest + sidecar, leaving no audit trail.
 
+> ⚠️ **Honor the confirmed image source**: the `ai` generation path (Path A = `image_gen.py` API / Path B = host-native tool / Offline Manual) is **not** auto-only — a confirmed choice other than `auto` wins, whether it came from chat (canonical) or, when the page was used, `result.json.image_ai_path`. `host-native` forces Path B even when `IMAGE_BACKEND` is configured; `api` forces Path A; `manual` forces offline. The `--manifest` command above is Path A. Full selection rule: [image-generator.md](references/image-generator.md) §7 Path Selection.
+
 Workflow:
 
 1. Extract all rows with `Status: Pending` and `Acquire Via ∈ {ai, web}` from the design spec
@@ -392,7 +446,7 @@ Workflow:
 - [x] Each row: status is `Generated` / `Sourced` / `Needs-Manual` (no `Pending` remaining)
 ```
 
-**Default — auto-proceed to Step 6.** Only when the user's Step 4 response explicitly opted into split mode (in reply to the optional hint), output the Phase A hand-off below and stop this conversation:
+**Default — auto-proceed to Step 6.** Only when the user's Step 4 response explicitly opted into split mode (in chat or via Confirm UI `result.json` with `generation_mode: "split"`), output the Phase A hand-off below and stop this conversation:
 
 ```markdown
 ## ✅ Phase A Complete
@@ -410,17 +464,16 @@ Workflow:
 
 🚧 **GATE**: Step 4 (and Step 5 if triggered) complete; all prerequisite deliverables are ready.
 
-Read the role definition based on the selected style:
+Read the execution references for this deck's locked `mode` + `visual_style` (from `spec_lock.md`):
 
 ```
-Read references/executor-base.md          # REQUIRED: common guidelines
-Read references/shared-standards.md       # REQUIRED: SVG/PPT technical constraints
-Read references/executor-general.md       # General flexible style
-Read references/executor-consultant.md    # Consulting style
-Read references/executor-consultant-top.md # Top consulting style (MBB level)
+Read references/executor-base.md                  # REQUIRED: common guidelines
+Read references/shared-standards.md               # REQUIRED: SVG/PPT technical constraints
+Read references/modes/<locked-mode>.md            # narrative skeleton (spec_lock.md `mode`)
+Read references/visual-styles/<locked-style>.md   # aesthetic (spec_lock.md `visual_style`)
 ```
 
-> Only read executor-base + shared-standards + one style file.
+> Read executor-base + shared-standards + the one locked mode file + the one locked visual-style file. For `mode: custom` or `visual_style: custom`, skip that preset file and follow `mode_behavior` / `visual_style_behavior` from `spec_lock.md` instead. Never glob `modes/` or `visual-styles/`.
 
 **Design Parameter Confirmation (Mandatory)**: before the first SVG, output key design parameters from the spec (canvas dimensions, color scheme, font plan, body font size). See executor-base.md §2.
 
@@ -430,7 +483,7 @@ Read references/executor-consultant-top.md # Top consulting style (MBB level)
 python3 ${SKILL_DIR}/scripts/svg_editor/server.py <project_path> --live
 ```
 
-- Start it immediately when Executor begins; `svg_output/` may be empty. Editor opens at `http://localhost:5050`; port conflict → `--port <other>` and report the actual URL.
+- Start it immediately when Executor begins; `svg_output/` may be empty. Editor opens at `http://localhost:5050`; if another project already holds it, the launcher **auto-advances to the next free port** — read the actual URL from the launch log and report that.
 - Run it as a long-running side process/session; do not wait for it to exit before generating SVG pages. Do not wait for user confirmation after startup.
 - **Service must keep running** until one of: (a) the user clicks **Exit preview** in the browser, or (b) the user explicitly asks in chat to stop it. Generation continues even if the user closes the editor.
 - **Do NOT read or apply submitted annotations during generation.** Users may annotate at any time, but Executor proceeds without touching them. The window to apply annotations opens only after Step 7 completes — see [`workflows/live-preview.md`](workflows/live-preview.md).
@@ -527,17 +580,17 @@ python3 ${SKILL_DIR}/scripts/svg_to_pptx.py <project_path>
 > layout-tight page must keep every dy-stacked line as its own text frame. The
 > merge detector is conservative; mixed-layout text falls back to per-line frames.
 
-**Optional animation flags** (the defaults already enable rich entrance animations — adjust only when the user asks for something different):
+**Optional animation flags** (page transitions are on by default; per-element entrance is off by default — turn it on only when the user asks for it):
 
 - `-t <effect>` — page transition. Default `fade`. Options: `fade` / `push` / `wipe` / `split` / `strips` / `cover` / `random` / `none`.
-- `-a <effect>` — per-element entrance animation. Default `auto` (map effect from group id: chart→wipe, card-/step-/pillar-→fly, title/takeaway→fade; image-like ids `hero` / `figure-` / `image` / `img-` / `kpi` cycle a richer pool — zoom / dissolve / circle / box / diamond / wheel — so multiple images vary across the deck). Pass `none` to disable, a specific effect like `fade`, or `mixed` for the legacy 16-effect cycle. Requires top-level `<g id="...">` groups (already required by Executor).
+- `-a <effect>` — per-element entrance animation. **Default `none`** — pages appear as a whole, no auto-firing element builds (the unsolicited cascade reads as the "AI deck" tell). Opt in with `auto` (map effect from group id: chart→wipe, card-/step-/pillar-→fly, title/takeaway→fade; image-like ids `hero` / `figure-` / `image` / `img-` / `kpi` cycle a richer pool — zoom / dissolve / circle / box / diamond / wheel — so multiple images vary across the deck), a specific effect like `fade`, or `mixed` for the legacy 16-effect cycle. Requires top-level `<g id="...">` groups (already required by Executor).
 - `--animation-trigger {on-click,with-previous,after-previous}` — Start mode (matches PowerPoint's animation-pane Start dropdown). Default `after-previous` (click-free cascade; pace via `--animation-stagger`). Use `on-click` for presenter-paced reveals, or `with-previous` for all-at-once.
 - `--animation-config <path>` — optional object-level sidecar. Default: `<project_path>/animations.json` when present.
 - `--auto-advance <seconds>` — kiosk-style auto-play.
 
 **Optional custom animations** (only when the user asks to tune animation order/effects/timing for specific objects):
 
-Run the standalone [`customize-animations`](workflows/customize-animations.md) workflow. Default export already has global entrance animation; do not create `animations.json` unless object-level customization was requested.
+Run the standalone [`customize-animations`](workflows/customize-animations.md) workflow. Default export applies page transitions but no per-element entrance animation; create `animations.json` (or pass `-a auto`) only when the user asks for element animation or object-level customization.
 
 **Optional recorded narration** (only when the user asks for narrated/video export):
 

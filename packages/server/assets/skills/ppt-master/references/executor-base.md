@@ -1,6 +1,6 @@
 # Executor Common Guidelines
 
-> Style-specific content is in the corresponding `executor-{style}.md`. Technical constraints are in shared-standards.md.
+> Narrative skeleton and visual aesthetic come from this deck's locked files under [`modes/`](./modes/_index.md) and [`visual-styles/`](./visual-styles/_index.md). Technical constraints are in shared-standards.md.
 
 ---
 
@@ -10,15 +10,14 @@
 
 **Hard rule**: Before the first SVG page, batch-read every template SVG this deck will reference. Read once up front, never re-read during generation.
 
-| Source list                                                                        | Read path                                    |
-| ---------------------------------------------------------------------------------- | -------------------------------------------- |
-| Chosen template's `design_spec.md` (read frontmatter to detect `replication_mode`) | `templates/<chosen_template>/design_spec.md` |
-| Every distinct `<basename>` in `spec_lock.md page_layouts`                         | `templates/<chosen_template>/<basename>.svg` |
-| Every distinct chart name in `spec_lock.md page_charts`                            | `templates/charts/<chart_name>.svg`          |
-| Chart types in `design_spec.md §VII` not covered above                             | `templates/charts/<chart_name>.svg`          |
+| Source list | Read path |
+|---|---|
+| Chosen template's `design_spec.md` (read frontmatter to detect `replication_mode`) | `templates/design_spec.md` |
+| Every distinct `<basename>` in `spec_lock.md page_layouts` | `templates/<basename>.svg` |
+| Every distinct chart name in `spec_lock.md page_charts` | `templates/charts/<chart_name>.svg` |
+| Chart types in `design_spec.md §VII` not covered above | `templates/charts/<chart_name>.svg` |
 
-**Forbidden — re-reading during generation**:
-
+**Default — read each template once; re-read only on the mid-deck exception below**:
 - Layout SVG already loaded in this batch
 - Chart SVG already loaded in this batch
 
@@ -33,24 +32,26 @@ Resolve the per-page template SVG via `spec_lock.md page_layouts` (authoritative
 **Resolution order (per page):**
 
 1. **Mirror-mode template** (template's `design_spec.md` frontmatter has `replication_mode: mirror`) → see §1.1 below. The page is consumed as a **visual reference**, not as a placeholder shell.
-2. `spec_lock.md page_layouts` has `P<NN>: <basename>` for this page → inherit the structure of `templates/<chosen_template>/<basename>.svg` (already in context from §1.0).
+2. `spec_lock.md page_layouts` has `P<NN>: <basename>` for this page → inherit the structure of `templates/<basename>.svg` (already in context from §1.0).
 3. `page_layouts` exists but **no entry** for this page → **free design**, no template inheritance.
 4. `page_layouts` section absent (legacy deck) **and** `templates/` directory exists → fall back to the page-type table below, matching by SVG filename keyword (cover/chapter/content/ending/toc). Read the matched file at first use if §1.0 batch did not cover it.
 5. No template at all → free design.
 
 > Note: `page_layouts` disambiguates the multiple content variants modern templates ship (e.g., `graduation_defense` has 8); the legacy table cannot.
 
+**Templates supply structure, not skin (non-mirror)**: a chart or layout template's gradients, drop-shadows, and palette are placeholder. Inherit its geometry, label / legend placement, and series-encoding logic; re-skin every fill / stroke to the deck's `visual_style` + `spec_lock.colors` — flat styles strip the gradients and shadows, gradient / glass styles repaint their own. Forbidden — shipping a template's default `<linearGradient>` / `cardShadow` / Tailwind fills unchanged. Mirror templates are the exception: §1.1 preserves their visuals verbatim.
+
 ### 1.1 Mirror-mode templates — reference-style consumption
 
 When the project's chosen template is a `mirror` template (`design_spec.md` frontmatter declares `replication_mode: mirror`), Executor switches to a **reference-style** consumption path that bypasses placeholder substitution:
 
 1. **Per-page reference selection** — Strategist selects one mirror page per project page via `spec_lock.md page_layouts` (e.g., `P04: 015_content`). The basename is the mirror filename without extension; Strategist made this choice by reading `design_spec.md §V Page Roster` descriptions, not by guessing.
-2. **Copy, don't fill** — open the referenced mirror SVG (already in context from §1.0). **Copy it as the starting point for the project page**, then edit text elements in place to express the project's content for `P<NN>`. Preserve every non-text element verbatim: backgrounds, decorative shapes, sprite-cropped images, charts, icon usage, color values, font families, geometry, sprite `<svg viewBox>` wrappers, `<image>` references.
+2. **Copy, don't fill** — open the referenced mirror SVG (already in context from §1.0). **Copy it as the starting point for the project page**, then edit text elements in place to express the project's content for `P<NN>`. Preserve every non-text element verbatim: backgrounds, decorative shapes, sprite-cropped images, charts, icon usage, color values, font families, geometry, sprite `<svg viewBox>` wrappers, and **which image** each `<image>` points at.
 3. **What you may edit** — the visible text content of `<text>` / `<tspan>` elements that express slide-specific content (title, body, captions, KPI labels, dates, page numbers). Replace the source deck's example text with the project's text for this page from `design_spec.md §IX` and `notes/<NN>_*.md`.
-4. **What you must not touch** — element positions, sizes, fonts, colors, fills, strokes, gradients, image hrefs, `<g>` grouping, sprite-sheet `<svg viewBox>` wrappers, decorative `<rect>` / `<path>` / `<circle>` / `<polygon>` shapes, `<use data-icon="...">` markers, embedded chart data structures. Mirror's value is preserving the source deck's visual identity — any geometric / decorative drift defeats the purpose.
+4. **What you must not touch** — element positions, sizes, fonts, colors, fills, strokes, gradients, **which image each `<image>` points at**, `<g>` grouping, sprite-sheet `<svg viewBox>` wrappers, decorative `<rect>` / `<path>` / `<circle>` / `<polygon>` shapes, `<use data-icon="...">` markers, embedded chart data structures. Mirror's value is preserving the source deck's visual identity — any geometric / decorative drift defeats the purpose. **The `href` path is not the image**: normalizing a bare `href="cover_bg.png"` to `href="../images/<name>"` (when Step 3 relocated the asset to `images/`) points at the *same* image and changes nothing visual — that is an allowed path fix, not a fidelity edit. Leaving the bare href as-is is also fine; the exporter and live preview resolve bare hrefs against `images/` either way.
 5. **Content fit** — the mirror page was chosen by Strategist because its layout matches the content slot. If the project's content for `P<NN>` legitimately needs more / fewer items than the mirror page provides (e.g. mirror shows 3 KPI cards, project has 4 metrics), keep the mirror page's visual rhythm and either drop one metric to fit or split across two pages — do **not** restructure the mirror page's grid. If neither works, surface a `warning: P<NN> content does not fit mirror reference <basename>; suggest different reference page` and proceed with the closest-fit edit.
 6. **No `{{}}` substitution** — mirror SVGs do not contain placeholder markers. Do not search for `{{TITLE}}` / `{{CONTENT_AREA}}` etc.; do not invent placeholders. The whole mirror contract is "verbatim source + in-place text edit".
-7. **Output filename** — follow the standard project SVG naming convention (`<NN>_<page_name>.svg` where `<NN>` matches the project page index, not the mirror source index). The mirror filename is the _reference_, not the _output_.
+7. **Output filename** — follow the standard project SVG naming convention (`<NN>_<page_name>.svg` where `<NN>` matches the project page index, not the mirror source index). The mirror filename is the *reference*, not the *output*.
 
 **Detecting mirror mode**: read the chosen template's `design_spec.md` frontmatter once during §1.0 batch read. If `replication_mode: mirror`, every page that hits `page_layouts` follows §1.1 above; pages without a `page_layouts` entry still fall through to free design (resolution rule 3 above).
 
@@ -58,20 +59,20 @@ When the project's chosen template is a `mirror` template (`design_spec.md` fron
 
 **Legacy fallback table** (used only when `page_layouts` is absent):
 
-| Page Type | Corresponding Template | Adherence Rules                                                                        |
-| --------- | ---------------------- | -------------------------------------------------------------------------------------- |
-| Cover     | `01_cover.svg`         | Inherit background, decorative elements, layout structure; replace placeholder content |
-| Chapter   | `02_chapter.svg`       | Inherit numbering style, title position, decorative elements                           |
-| Content   | `03_content.svg`       | Inherit header/footer styles; **content area may be freely laid out**                  |
-| Ending    | `04_ending.svg`        | Inherit background, thank-you message position, contact info layout                    |
-| TOC       | `02_toc.svg`           | **Optional**: Inherit TOC title, list styles                                           |
+| Page Type | Corresponding Template | Adherence Rules |
+|-----------|----------------------|-----------------|
+| Cover | `01_cover.svg` | Inherit background, decorative elements, layout structure; replace placeholder content |
+| Chapter | `02_chapter.svg` | Inherit numbering style, title position, decorative elements |
+| Content | `03_content.svg` | Inherit header/footer styles; **content area may be freely laid out** |
+| Ending | `04_ending.svg` | Inherit background, thank-you message position, contact info layout |
+| TOC | `02_toc.svg` | **Optional**: Inherit TOC title, list styles |
 
 ### Page-Template Mapping Declaration (Required Output)
 
 Before generating each page, output which template is used:
 
 ```
-📝 **Template mapping**: `templates/<chosen_template>/03a_content_image_text.svg` (or "None (free design)")
+📝 **Template mapping**: `templates/03a_content_image_text.svg` (or "None (free design)")
 🎯 **Adherence rules / layout strategy**: [specific description]
 ```
 
@@ -90,12 +91,13 @@ Before the first SVG page, output a confirmation listing: canvas dimensions, bod
 
 **Hard rule**: Before generating **each** SVG page, `read_file <project_path>/spec_lock.md`. Use only values from this file, not from memory. If context was auto-compacted, also `read_file <project_path>/design_spec.md` for the current page's §IX brief.
 
-**Per-block expression**: render each `design_spec.md §IX Content` block in its written texture — a full-sentence block as wrapped prose, a fragment/label block as bullets/keywords. **Never split a full-sentence block into a bullet list** — not because a bullet lays out easier, and not because an inherited template slot is shaped as a list. If a block carries no clear texture, infer the mode from its wording and the page layout.
+**Per-block expression**: render each `design_spec.md §IX Content` block in its written texture — a full-sentence block as wrapped prose, a fragment/label block as bullets/keywords. **Never split a full-sentence block into a bullet list** — splitting loses the information that the block was continuous reasoning, not a set of parallel points; not because a bullet lays out easier, and not because an inherited template slot is shaped as a list. If a block carries no clear texture, infer the mode from its wording and the page layout.
 
-- **Prose render recipe**: one `<text>` per paragraph; wrap lines with sibling `<tspan>` that reset `x` to the block's left edge and advance `dy` ≈ 1.4× the font size. Fit about width ÷ font-size CJK glyphs per line (Latin fits roughly twice that); the last line runs short. Use the body ramp size, not a new one.
+- **Prose render recipe**: one `<text>` per paragraph; wrap lines with sibling `<tspan>` that reset `x` to the block's left edge and advance `dy` by the font size × a line-height factor. **Default — line-height by density (may override per content fit)**: ~1.4–1.5× for dense / small-body blocks (CLReq comfortable minimum), 1.6–2.0× for large-type, sparse, or `breathing` blocks. Fit about width ÷ font-size CJK glyphs per line (Latin fits roughly twice that); the last line runs short. Use the body ramp size, not a new one.
 - **Template precedence**: when an inherited template slot is a bullet list but the §IX block is prose, the prose wins — widen or reflow the container to hold the paragraph, or drop that card; do not pour the sentence back into the list slot.
+- **Mode precedence**: the locked mode shapes voice / register, not §IX's authored titles or page order. When a `§IX` title is a user-authored topic label, keep it — do not upgrade it to an assertion just because the mode (e.g. `pyramid`) favors them; mode title-tendencies apply only to AI-drafted titles.
 
-> Note: block-level phrasing, applied _within_ the page's `page_rhythm` density (below), not against it.
+> Note: block-level phrasing, applied *within* the page's `page_rhythm` density (below), not against it.
 
 **If `spec_lock.md` is missing**: emit `warning: spec_lock.md missing — generating without execution lock` once, then proceed using `design_spec.md` values. Expected only for legacy projects; new projects MUST have it (see [strategist.md](strategist.md) §6 step 4).
 
@@ -114,17 +116,17 @@ If a page needs a value not in `spec_lock.md`, surface it — do not silently in
 
 Before drawing each page, look up its entry in `page_rhythm` (key format `P<NN>` matching the page index in §IX of `design_spec.md`) and apply the corresponding layout discipline:
 
-| Tag         | Layout discipline                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `anchor`    | Structural page (cover / chapter / TOC / ending). Follow the matching template verbatim.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `dense`     | Information-heavy. Card grids, multi-column layouts, KPI dashboards, tables, and charts are all permitted. This is the baseline behavior.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Tag | Layout discipline |
+|-----|-------------------|
+| `anchor` | Structural page (cover / chapter / TOC / ending). Follow the matching template verbatim. |
+| `dense` | Information-heavy. Card grids, multi-column layouts, KPI dashboards, tables, and charts are all permitted. This is the baseline behavior. |
 | `breathing` | Low-density impact page. Avoid **multi-card grid layouts** — do not organize content as multiple parallel rounded containers (3-card row, 4-card KPI grid, 2×2 matrix rendered as cards). Use naked text blocks, dividers, whitespace, or full-bleed imagery as the content structure. Single rounded visual elements (hero image corners, callouts, tags, one emphasis block) are fine — the rule is about grid structure, not about the `rx` attribute. Proportions follow information weight (not a preset ratio). Typical forms: hero quote, single large number with one-line interpretation, full-bleed image with floating caption, section transition. |
 
 > Without rhythm variation, every page defaults to card grids (the "AI-generated" look). `page_rhythm` is the only narrative lever that survives context compression.
 
 **Missing `page_rhythm` section** → emit `warning: spec_lock.md missing page_rhythm — defaulting all pages to dense` once, fall back to `dense` for all pages.
 
-**Tag not found for current page** → fall back to `dense` silently. Do not invent a tag.
+**Tag not found for current page** → emit `warning: spec_lock.md page_rhythm tag not found for P<NN> — falling back to dense` once per deck (aggregate; do not repeat per page), fall back to `dense`. Do not invent a tag.
 
 **Per-page template lookup — `page_layouts` section**:
 
@@ -162,7 +164,7 @@ Before drawing each page, look up its entry in `page_charts` to decide which cha
 
 > The [`verify-charts`](../workflows/verify-charts.md) workflow enumerates chart pages from `design_spec.md §VII`, then reads each page's plot-area marker to feed `svg_position_calculator.py`. Missing marker → verify-charts has to re-derive the plot area from axis lines, paying the cost on every run.
 
-Every SVG page that contains a data visualization chart MUST include a plot-area marker inside `<g id="chartArea">`, placed **after axis lines** and **before the first data element** (bar, line, area, point).
+**Hard rule**: every SVG page that contains a data visualization chart includes a plot-area marker inside `<g id="chartArea">`, placed **after axis lines** and **before the first data element** (bar, line, area, point).
 
 **Rectangular plot area** (bar / horizontal_bar / grouped_bar / stacked_bar / line / area / stacked_area / scatter / waterfall / pareto / butterfly):
 
@@ -180,14 +182,14 @@ Every SVG page that contains a data visualization chart MUST include a plot-area
 
 **How to determine coordinate values**:
 
-| Value    | Derivation                                                                 |
-| -------- | -------------------------------------------------------------------------- |
-| `x_min`  | X coordinate of the Y-axis line (leftmost data boundary)                   |
-| `y_min`  | Y coordinate of the topmost grid line (highest data boundary)              |
-| `x_max`  | X coordinate of the rightmost axis endpoint or grid line                   |
-| `y_max`  | Y coordinate of the X-axis baseline                                        |
+| Value | Derivation |
+|-------|------------|
+| `x_min` | X coordinate of the Y-axis line (leftmost data boundary) |
+| `y_min` | Y coordinate of the topmost grid line (highest data boundary) |
+| `x_max` | X coordinate of the rightmost axis endpoint or grid line |
+| `y_max` | Y coordinate of the X-axis baseline |
 | `cx, cy` | Center point of pie/donut/radar (accounting for `transform="translate()"`) |
-| `r`      | Outer radius of the chart                                                  |
+| `r` | Outer radius of the chart |
 
 **Per-page verification** — after writing each chart SVG, confirm the marker exists:
 
@@ -196,11 +198,10 @@ grep "chart-plot-area" <project_path>/svg_output/<current_page>.svg
 ```
 
 > All chart templates in `templates/charts/` include this marker as a reference. If you are drawing a chart and the marker is absent, you have a bug.
-
 - **Technical specs**: see [shared-standards.md](shared-standards.md) for SVG/PPT constraints
 - **Card containers — use the documented patterns**: when a content page needs section cards (4 quadrants, parallel aspects, capability blocks, info cards), use the patterns codified in [`templates/charts/CHART_STYLE_GUIDE.md`](../templates/charts/CHART_STYLE_GUIDE.md) §11 — half-rounded section tab (§11.1), nested card border without stroke (§11.2), card-grid skeletons (§11.3), diagonal dashed connector for cross-quadrant relationships (§11.5), ground-anchor ellipse as a non-filter depth marker (§11.6), bidirectional interaction arrows for paired protocols (§11.7). Do not reinvent the "tinted full-rounded rect + white cover-rect to hide the bottom corners" hack; it survives in older templates but breaks SVG→PPTX color editing. Reference templates: [`labeled_card.svg`](../templates/charts/labeled_card.svg), [`quadrant_text_bullets.svg`](../templates/charts/quadrant_text_bullets.svg), [`kpi_cards.svg`](../templates/charts/kpi_cards.svg), [`matrix_2x2.svg`](../templates/charts/matrix_2x2.svg), [`team_roster.svg`](../templates/charts/team_roster.svg), [`client_server_flow.svg`](../templates/charts/client_server_flow.svg).
-- **Semantic shapes over preset stacks**: when a slide needs to express "ascending / converging / breaking through / stacking" — i.e., a relationship that goes beyond a generic arrow — prefer a single custom `<polygon>` or `<path>` that encodes the semantics geometrically, rather than stacking multiple preset arrows. A converging-tip path or a podium polygon reads faster than three arrows pointing at a label. Examples of this technique appear in many imported corporate decks; see `projects/01_template_import/svg_output/slide_01.svg` shape-158 for a reference (gradient-filled inward-pointing arrow). Do not codify these as templates — they are page-specific; the rule is just "consider polygon before stacking presets."
-- **Visual depth — through restraint**: layered depth comes from rhythm (flat vs lifted, dense vs spacious), not from shadows everywhere. Apply shadow to at most 2-3 genuinely floating elements per page (cards on photos, primary CTA, overlays); keep peer-grid cards, dividers, body containers flat. Reach for typography weight, spacing, accent bars, subtle tints **before** shadow. Full rules in shared-standards.md §6.
+- **Reference — prefer semantic shapes over preset stacks (not a constraint)**: when a slide needs to express "ascending / converging / breaking through / stacking" — i.e., a relationship that goes beyond a generic arrow — prefer a single custom `<polygon>` or `<path>` that encodes the semantics geometrically, rather than stacking multiple preset arrows. A converging-tip path or a podium polygon reads faster than three arrows pointing at a label. Examples of this technique appear in many imported corporate decks; see `projects/01_template_import/svg_output/slide_01.svg` shape-158 for a reference (gradient-filled inward-pointing arrow). Do not codify these as templates — they are page-specific; the rule is just "consider polygon before stacking presets."
+- **Reference — visual depth through restraint (not a constraint)**: layered depth comes from rhythm (flat vs lifted, dense vs spacious), not from shadows everywhere. Shadow typically suits 2-3 genuinely floating elements per page (cards on photos, primary CTA, overlays); keep peer-grid cards, dividers, body containers flat. Reach for typography weight, spacing, accent bars, subtle tints **before** shadow. Full rules in shared-standards.md §6.
 
 ### SVG File Naming Convention
 
@@ -213,6 +214,8 @@ Examples: `01_封面.svg` / `02_目录.svg` / `03_核心优势.svg`; `01_cover.s
 ## 4. Icon Usage
 
 Strategist chooses the library and inventory; Executor only implements. Library details and one-library rule: [`../templates/icons/README.md`](../templates/icons/README.md). This section defines placeholder syntax.
+
+> **Resolution is project-first.** Strategist copied the chosen icons into `<project_path>/icons/<lib>/` (via `icon_sync.py`); `finalize_svg.py embed-icons` embeds from there, falling back to the global library per-icon. **Custom icons**: drop an `.svg` into `<project_path>/icons/<lib>/` (any `<lib>`, e.g. `custom/`) and reference it as `data-icon="<lib>/<name>"` — it embeds like any other. Reference only icons in the `spec_lock.md` inventory.
 
 **Built-in icons — Placeholder method (recommended)**:
 
@@ -244,7 +247,6 @@ Strategist chooses the library and inventory; Executor only implements. Library 
 > Icons are auto-embedded by `finalize_svg.py` — no need to run `embed_icons.py` manually.
 
 **Searching for icons** — use terminal, zero token cost:
-
 ```bash
 ls skills/ppt-master/templates/icons/chunk-filled/ | grep home
 ls skills/ppt-master/templates/icons/tabler-filled/ | grep home
@@ -255,28 +257,28 @@ ls skills/ppt-master/templates/icons/simple-icons/ | grep github
 
 **Abstract concept → icon name** (names for `chunk-filled`; tabler libraries use their own equivalents — verify with `ls | grep`):
 
-| Concept              | chunk-filled              | tabler-filled / tabler-outline |
-| -------------------- | ------------------------- | ------------------------------ |
-| Growth / Increase    | `arrow-trend-up`          | same                           |
-| Decline / Decrease   | `arrow-trend-down`        | same                           |
-| Success / Complete   | `circle-checkmark`        | `circle-check`                 |
-| Warning / Risk       | `triangle-exclamation`    | `alert-triangle`               |
-| Innovation / Idea    | `lightbulb`               | `bulb`                         |
-| Strategy / Goal      | `target`                  | same                           |
-| Efficiency / Speed   | `bolt`                    | same                           |
-| Collaboration / Team | `users`                   | same                           |
-| Settings / Config    | `cog`                     | `settings`                     |
-| Security / Trust     | `shield`                  | same                           |
-| Money / Finance      | `dollar`                  | `currency-dollar`              |
-| Time / Deadline      | `clock`                   | same                           |
-| Location / Region    | `map-pin`                 | same                           |
-| Communication        | `comment`                 | `message`                      |
-| Analysis / Data      | `chart-bar`               | same                           |
-| Process / Flow       | `arrows-rotate-clockwise` | `refresh`                      |
-| Global / World       | `globe`                   | `world`                        |
-| Excellence / Award   | `star`                    | same                           |
-| Expand / Scale       | `maximize`                | same                           |
-| Problem / Issue      | `bug`                     | same                           |
+| Concept | chunk-filled | tabler-filled / tabler-outline |
+|---------|-------|-------------------------------|
+| Growth / Increase | `arrow-trend-up` | same |
+| Decline / Decrease | `arrow-trend-down` | same |
+| Success / Complete | `circle-checkmark` | `circle-check` |
+| Warning / Risk | `triangle-exclamation` | `alert-triangle` |
+| Innovation / Idea | `lightbulb` | `bulb` |
+| Strategy / Goal | `target` | same |
+| Efficiency / Speed | `bolt` | same |
+| Collaboration / Team | `users` | same |
+| Settings / Config | `cog` | `settings` |
+| Security / Trust | `shield` | same |
+| Money / Finance | `dollar` | `currency-dollar` |
+| Time / Deadline | `clock` | same |
+| Location / Region | `map-pin` | same |
+| Communication | `comment` | `message` |
+| Analysis / Data | `chart-bar` | same |
+| Process / Flow | `arrows-rotate-clockwise` | `refresh` |
+| Global / World | `globe` | `world` |
+| Excellence / Award | `star` | same |
+| Expand / Scale | `maximize` | same |
+| Problem / Issue | `bug` | same |
 
 > For self-evident names (home, user, file, search, arrow, etc.) — just `grep chunk-filled/` directly without consulting the table.
 
@@ -291,7 +293,6 @@ Chart SVGs referenced in **VII. Visualization Reference List** are loaded once v
 **Hard rule**: adapt the loaded chart SVG; do not improvise from memory and do not replicate verbatim. Apply project colors, typography, content; preserve visualization type.
 
 **Adaptation rules**:
-
 - **Preserve**: visualization type (bar/line/pie/timeline/process/framework…) as specified
 - **Adapt**: data, labels, colors (project scheme), dimensions
 - **Freely adjust**: composition, axis ranges, grid, legend, spacing, decoration — as long as the chart stays accurate and readable
@@ -313,16 +314,18 @@ The executor's only obligation here is upstream: embed the `<!-- chart-plot-area
 
 Handle images by their status in the Design Spec's Image Resource List. Status enum and lifecycle: [`svg-image-embedding.md`](svg-image-embedding.md).
 
-| Status           | Source                                | Handling                                                                                                                |
-| ---------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| **Existing**     | User-provided                         | Reference images directly from `../images/` directory                                                                   |
-| **Generated**    | Generated by Image_Generator          | Reference images directly from `../images/` directory                                                                   |
-| **Sourced**      | Web-acquired by Image_Searcher        | Reference from `../images/`. **Read [`image_sources.json`](image-searcher.md) to decide attribution** — see §6.1 below. |
-| **Rendered**     | Deterministic formula PNG             | Reference from `../images/`; use `preserveAspectRatio="xMidYMid meet"`                                                  |
-| **Needs-Manual** | Acquisition failed and file is absent | Use dashed border placeholder unless the expected file exists                                                           |
-| **Placeholder**  | Not yet prepared                      | Use dashed border placeholder                                                                                           |
+| Status | Source | Handling |
+|--------|--------|----------|
+| **Existing** | User-provided | Reference images directly from `../images/` directory |
+| **Generated** | Generated by Image_Generator | Reference images directly from `../images/` directory |
+| **Sourced** | Web-acquired by Image_Searcher | Reference from `../images/`. **Read [`image_sources.json`](image-searcher.md) to decide attribution** — see §6.1 below. |
+| **Rendered** | Deterministic formula PNG | Reference from `../images/`; use `preserveAspectRatio="xMidYMid meet"` |
+| **Needs-Manual** | Acquisition failed and file is absent | Use dashed border placeholder unless the expected file exists |
+| **Placeholder** | Not yet prepared | Use dashed border placeholder |
 
 **Reference syntax**: see [`svg-image-embedding.md`](svg-image-embedding.md).
+
+**Template-bundled images**: when a template (deck / layout / brand) is applied, its bitmaps are copied into the project's `images/` alongside every other runtime image (SKILL.md Step 3). Reference them the same way — `../images/<name>` — and do **not** reproduce a template SVG's bare sibling href (e.g. `href="cover_bg.png"`): the template SVG is reference material, the rendered page lives in `svg_output/` and must point at `../images/`. Mirror templates (§1.1) are the one exception — they copy hrefs verbatim, and the exporter resolves those bare hrefs against `images/`.
 
 **Placeholder**: Dashed border `<rect stroke-dasharray="8,4" .../>` + description text
 
@@ -334,9 +337,9 @@ Handle images by their status in the Design Spec's Image Resource List. Status e
 
 Whenever the slide uses an image with `Status: Sourced`, look up the corresponding entry in `project/images/image_sources.json` and act on `license_tier`:
 
-| `license_tier`         | Action on this slide                                                                                                                            |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `no-attribution`       | Embed the `<image>` element only. **No credit element needed.**                                                                                 |
+| `license_tier` | Action on this slide |
+|---|---|
+| `no-attribution` | Embed the `<image>` element only. **No credit element needed.** |
 | `attribution-required` | Embed the `<image>` element **plus** a small inline `<text>` credit element per the visual spec in [image-searcher.md §7](./image-searcher.md). |
 
 The credit text is **not** rendered by post-processing or export — it must be present in the SVG you produce. The shape of the credit element (size, position, color, multi-image source line, hero gradient overlay) is specified in [image-searcher.md §7](./image-searcher.md). Do not invent a different style.
@@ -392,7 +395,6 @@ Having framed the industry backdrop, let's look at the actual market landscape. 
 **Number readability**: TTS reads digits and symbols literally. Prefer fully-spelled forms in the language being spoken when literal pronunciation would be awkward (e.g. Chinese "百分之六十八" reads better than "68%"; "1-2分钟" reads as "一减二分钟"). Plain integers and percentages in English are fine as-is.
 
 **Common mistakes to avoid**:
-
 - Leaving any bracketed stage marker (`[过渡]` / `[Transition]` / `[Pause]` / `[Data]` / `[Scan Room]` / `[Interactive]` / `[Benchmark]` etc.) in the text — they will be read aloud literally.
 - Adding `要点：① …` / `Key points: (1) …` / `时长：2分钟` / `Duration: 2 minutes` / `Flex: …` lines — TTS will speak "要点 一 …".
 - Mixing languages within one deck's notes.

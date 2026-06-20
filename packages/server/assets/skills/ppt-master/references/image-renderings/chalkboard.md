@@ -10,13 +10,13 @@ Chalk on a dark green or black board — classroom aesthetic. Used in teaching-f
 
 ## 2. Line, texture, depth
 
-| Aspect       | Treatment                                                        |
-| ------------ | ---------------------------------------------------------------- |
+| Aspect | Treatment |
+|---|---|
 | Line quality | Soft chalk strokes with slightly diffused edges, dry-medium look |
-| Texture      | Visible chalk-dust grain at 15-25% opacity across the board      |
-| Depth        | Flat                                                             |
-| Material     | Slate board (dark green or near-black) + chalk                   |
-| Mood         | Nostalgic, instructional, classroom-warm                         |
+| Texture | Visible chalk-dust grain at 15-25% opacity across the board |
+| Depth | Flat |
+| Material | Slate board (dark green or near-black) + chalk |
+| Mood | Nostalgic, instructional, classroom-warm |
 
 ## 3. Using the deck's HEX values
 

@@ -25,7 +25,7 @@ export interface NavigateToPreparedWorkspaceTabDeps extends PrepareWorkspaceTabD
   navigateToWorkspace: (
     serverId: string,
     workspaceId: string,
-    options: { currentPathname?: string | null },
+    options: { currentPathname?: string | null; focusAttentionAgent?: boolean },
   ) => void;
 }
 
@@ -63,6 +63,7 @@ export function navigateToPreparedWorkspaceTab(
   const route = prepareWorkspaceTab(input, deps);
   deps.navigateToWorkspace(input.serverId, input.workspaceId, {
     currentPathname: input.currentPathname,
+    focusAttentionAgent: false,
   });
   return route;
 }

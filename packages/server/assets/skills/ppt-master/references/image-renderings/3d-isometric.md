@@ -10,13 +10,13 @@ Isometric 3D forms with controlled depth — boxes, layers, devices, stacks rend
 
 ## 2. Line, texture, depth
 
-| Aspect       | Treatment                                                                                                                 |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| Line quality | Thin uniform edges, or no edges relying on color contrast                                                                 |
-| Texture      | None on surfaces — flat fills                                                                                             |
-| Depth        | True isometric projection (30°/30°/30°), tonal shading on shadowed faces, optional 8% drop shadow under floating elements |
-| Material     | Flat with tonal shading — not glossy, not photorealistic                                                                  |
-| Mood         | Technical, modular, contemporary                                                                                          |
+| Aspect | Treatment |
+|---|---|
+| Line quality | Thin uniform edges, or no edges relying on color contrast |
+| Texture | None on surfaces — flat fills |
+| Depth | True isometric projection (30°/30°/30°), tonal shading on shadowed faces, optional 8% drop shadow under floating elements |
+| Material | Flat with tonal shading — not glossy, not photorealistic |
+| Mood | Technical, modular, contemporary |
 
 ## 3. Using the deck's HEX values
 

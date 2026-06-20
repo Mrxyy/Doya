@@ -79,6 +79,10 @@ OPENAI_API_KEY=sk-xxx
 OPENAI_MODEL=gpt-image-2
 # Optional proxy
 # OPENAI_BASE_URL=http://127.0.0.1:3000/v1
+# OpenAI-compatible provider knobs:
+# OPENAI_SIZE_PRESET=auto
+# OPENAI_RESPONSE_FORMAT=auto
+# OPENAI_QUALITY=auto
 # Allowed values: png / jpeg / webp
 # OPENAI_OUTPUT_FORMAT=png
 # jpeg/webp only, 0-100
@@ -101,13 +105,25 @@ export OPENAI_OUTPUT_FORMAT=png
 Current process environment wins over `.env`.
 
 OpenAI backend notes:
-
 - `gpt-image-2` is the default OpenAI model.
 - Requests are sent with plain `requests.post()` to improve compatibility with
   OpenAI-compatible proxies that block the OpenAI SDK's `httpx` transport.
 - For `gpt-image-2`, `image_size=512px` means a low-quality draft preset, not a literal 512px edge. The model requires both edges to be multiples of 16px, a long:short ratio no greater than 3:1, and total pixels between 655,360 and 8,294,400.
 - `OPENAI_BACKGROUND=transparent` is not supported by `gpt-image-2`; use `auto` or `opaque`.
 - If `OPENAI_OUTPUT_FORMAT=jpeg` or `webp`, generated files use `.jpg` or `.webp` extensions instead of `.png`.
+- OpenAI-compatible providers that reject OpenAI-specific fields can use `OPENAI_RESPONSE_FORMAT=omit`, `OPENAI_QUALITY=omit`, and `OPENAI_SIZE_PRESET=<preset>`. Valid response formats are `auto`, `b64_json`, `url`, and `omit`; valid size presets are `auto`, `legacy`, `gpt-image`, `gpt-image-2`, and `dall-e-2`.
+
+Example `.env` for Agnes AI through the OpenAI-compatible backend:
+
+```env
+IMAGE_BACKEND=openai
+OPENAI_API_KEY=your-agnes-key
+OPENAI_MODEL=agnes-image-2.1-flash
+OPENAI_BASE_URL=https://apihub.agnes-ai.com/v1
+OPENAI_SIZE_PRESET=gpt-image-2
+OPENAI_RESPONSE_FORMAT=omit
+OPENAI_QUALITY=omit
+```
 
 Use provider-specific keys only (e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`). See `.env.example` in clone mode or `${SKILL_DIR}/.env.example` in skill-install mode for the full list per backend.
 
@@ -116,7 +132,6 @@ Use provider-specific keys only (e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`). See `
 If you keep multiple providers in one `.env` or environment, `IMAGE_BACKEND` must explicitly select the active provider.
 
 Recommendation:
-
 - Default to the Core tier for routine PPT work
 - Use Extended only when you need a specific model style
 - Treat Experimental backends as opt-in
@@ -154,12 +169,12 @@ python3 scripts/image_search.py "offshore wind farm" \
 
 Providers (Openverse and Wikimedia work with no key; configure Pexels / Pixabay for better stock-photo quality):
 
-| Provider    | Config                         | Strength                                                     |
-| ----------- | ------------------------------ | ------------------------------------------------------------ |
-| `openverse` | zero-config                    | fallback aggregator: Wikimedia + Flickr + museums + rawpixel |
-| `wikimedia` | zero-config                    | educational, scientific, geographic, historical              |
-| `pexels`    | recommended: `PEXELS_API_KEY`  | modern stock photography, people, workplace, lifestyle       |
-| `pixabay`   | recommended: `PIXABAY_API_KEY` | broad type coverage including photos and illustrations       |
+| Provider | Config | Strength |
+|---|---|---|
+| `openverse` | zero-config | fallback aggregator: Wikimedia + Flickr + museums + rawpixel |
+| `wikimedia` | zero-config | educational, scientific, geographic, historical |
+| `pexels` | recommended: `PEXELS_API_KEY` | modern stock photography, people, workplace, lifestyle |
+| `pixabay` | recommended: `PIXABAY_API_KEY` | broad type coverage including photos and illustrations |
 
 Default search chain (when `--provider` is unset): zero-config providers first, then keyed providers whose API key is set in the environment. Keyed providers without a key are silently skipped. For polished visual decks, configure at least one keyed provider.
 
@@ -167,11 +182,11 @@ Default search chain (when `--provider` is unset): zero-config providers first, 
 
 Query guidance:
 
-| Case                    | Pattern                                                                |
-| ----------------------- | ---------------------------------------------------------------------- |
-| Generic stock concept   | `boardroom meeting, professional editorial photography, natural light` |
-| China-specific landmark | Official Chinese place name + concrete scene                           |
-| Avoid                   | Negative prompt wording such as `not tourist snapshot`                 |
+| Case | Pattern |
+|---|---|
+| Generic stock concept | `boardroom meeting, professional editorial photography, natural light` |
+| China-specific landmark | Official Chinese place name + concrete scene |
+| Avoid | Negative prompt wording such as `not tourist snapshot` |
 
 License filter:
 
@@ -213,7 +228,6 @@ python3 scripts/gemini_watermark_remover.py <image_path> -q
 ```
 
 Notes:
-
 - Requires `scripts/assets/bg_48.png` and `scripts/assets/bg_96.png`
 - Best used after downloading “full size” Gemini images
 

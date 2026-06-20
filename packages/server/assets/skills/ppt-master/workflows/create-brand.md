@@ -12,12 +12,12 @@ This workflow edits the global brand library, not any specific `projects/<x>/`. 
 
 ## When to Run
 
-| User signal                                                                                                               | Action                                                          |
-| ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| "set up brand" / "extract brand from this logo" / 建立品牌 / 做品牌规范                                                   | Run this workflow                                               |
-| User provides a brand asset (logo / brand site URL / branded PPTX / brand PDF) and wants it locked across future projects | Run this workflow                                               |
-| User mentions brand color or font once for a single deck only                                                             | Skip — handle inline via Strategist h.5                         |
-| `templates/brands/<requested_id>/` already exists                                                                         | Ask: update / replace / use a new id — never silently overwrite |
+| User signal | Action |
+|---|---|
+| "set up brand" / "extract brand from this logo" / 建立品牌 / 做品牌规范 | Run this workflow |
+| User provides a brand asset (logo / brand site URL / branded PPTX / brand PDF) and wants it locked across future projects | Run this workflow |
+| User mentions brand color or font once for a single deck only | Skip — handle inline via Strategist h.5 |
+| `templates/brands/<requested_id>/` already exists | Ask: update / replace / use a new id — never silently overwrite |
 
 ⛔ Never auto-trigger. Brand creation is a user-invoked identity setup; an empty `templates/brands/` is not an invitation to create one.
 
@@ -25,11 +25,11 @@ This workflow edits the global brand library, not any specific `projects/<x>/`. 
 
 ## Step 1: Detect input type
 
-| Type              | User-supplied input                                            | Path                       |
-| ----------------- | -------------------------------------------------------------- | -------------------------- |
-| **A** Brand asset | Logo (SVG/PNG/JPG), brand site URL, branded PPTX, brand PDF    | Step 2A — Asset extraction |
-| **B** Verbal spec | User dictates HEX / font / tone directly in chat               | Step 2B — Verbal capture   |
-| **C** Nothing     | User wants to set up a brand but provides no asset and no spec | Step 2C — Empty skeleton   |
+| Type | User-supplied input | Path |
+|---|---|---|
+| **A** Brand asset | Logo (SVG/PNG/JPG), brand site URL, branded PPTX, brand PDF | Step 2A — Asset extraction |
+| **B** Verbal spec | User dictates HEX / font / tone directly in chat | Step 2B — Verbal capture |
+| **C** Nothing | User wants to set up a brand but provides no asset and no spec | Step 2C — Empty skeleton |
 
 ---
 
@@ -37,18 +37,17 @@ This workflow edits the global brand library, not any specific `projects/<x>/`. 
 
 Read assets directly using existing converters — no dedicated extraction script.
 
-| Asset format   | Read method                                                                                 | Extractable fields                                    |
-| -------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| SVG logo       | `Read` the SVG; grep `fill=` / `stroke=` for HEX                                            | colors (literal), logo file                           |
-| PNG/JPG logo   | `Read` (multimodal); AI vision identifies dominant colors                                   | colors (approximate HEX, label `[approx]`), logo file |
-| Brand site URL | `python3 skills/ppt-master/scripts/source_to_md/web_to_md.py <URL>`, then `Read` the result | color references, font references, voice/tone         |
-| Branded PPTX   | `python3 skills/ppt-master/scripts/source_to_md/ppt_to_md.py <file>`, then read theme XML   | colors, typography (literal)                          |
-| Brand PDF      | `python3 skills/ppt-master/scripts/source_to_md/pdf_to_md.py <file>`                        | voice/tone; sometimes color/font references           |
+| Asset format | Read method | Extractable fields |
+|---|---|---|
+| SVG logo | `Read` the SVG; grep `fill=` / `stroke=` for HEX | colors (literal), logo file |
+| PNG/JPG logo | `Read` (multimodal); AI vision identifies dominant colors | colors (approximate HEX, label `[approx]`), logo file |
+| Brand site URL | `python3 skills/ppt-master/scripts/source_to_md/web_to_md.py <URL>`, then `Read` the result | color references, font references, voice/tone |
+| Branded PPTX | `python3 skills/ppt-master/scripts/source_to_md/ppt_to_md.py <file>`, then read theme XML | colors, typography (literal) |
+| Brand PDF | `python3 skills/ppt-master/scripts/source_to_md/pdf_to_md.py <file>` | voice/tone; sometimes color/font references |
 
 Identify which of (colors / typography / logo / voice / icon style) the asset did NOT cover, then proceed to Step 3 for the rest. Most single assets cover 1–2 categories well.
 
 **Provenance labels** for each field in the draft `design_spec.md`:
-
 - `[fact]` — extracted directly (SVG fill HEX, PPTX theme XML)
 - `[approx]` — visual estimate (PNG/JPG color picking)
 - `[user]` — supplied via chat fill-in in Step 3
@@ -75,14 +74,14 @@ Write `templates/brands/<brand_id>/design_spec.md` with the full schema, every v
 
 For fields not covered by the asset, ask the user in a single bundled message. Skip fields irrelevant to the user's intent.
 
-| Field                            | When to ask                                    |
-| -------------------------------- | ---------------------------------------------- |
-| primary / secondary / accent HEX | always                                         |
-| text / bg HEX                    | only if dark-mode or inverted scheme mentioned |
-| title / body font                | when the asset gave no font reference          |
-| logo usage                       | when a logo file was provided                  |
-| voice & tone                     | when audience or formality was mentioned       |
-| icon style preference            | when icon consistency was mentioned            |
+| Field | When to ask |
+|---|---|
+| primary / secondary / accent HEX | always |
+| text / bg HEX | only if dark-mode or inverted scheme mentioned |
+| title / body font | when the asset gave no font reference |
+| logo usage | when a logo file was provided |
+| voice & tone | when audience or formality was mentioned |
+| icon style preference | when icon consistency was mentioned |
 
 ---
 
@@ -110,56 +109,48 @@ primary_color: "#XXXXXX"
 > Identity-only preset. No SVG page roster — pages are composed freely under these constraints.
 
 ## I. Brand Overview
-
-| Property   | Value                   |
-| ---------- | ----------------------- |
-| Brand Name | <display name>          |
-| Use Cases  | <summary>               |
-| Tone       | <one-line tone summary> |
+| Property | Value |
+|---|---|
+| Brand Name | <display name> |
+| Use Cases | <summary> |
+| Tone | <one-line tone summary> |
 
 ## II. Color Scheme
-
-| Role      | HEX     | Provenance                  |
-| --------- | ------- | --------------------------- |
-| primary   | #XXXXXX | fact \| approx \| user      |
-| secondary | #XXXXXX |                             |
-| accent    | #XXXXXX |                             |
-| text      | #XXXXXX | optional, default `#1A1A1A` |
-| bg        | #XXXXXX | optional, default `#FFFFFF` |
+| Role | HEX | Provenance |
+|---|---|---|
+| primary | #XXXXXX | fact \| approx \| user |
+| secondary | #XXXXXX | |
+| accent | #XXXXXX | |
+| text | #XXXXXX | optional, default `#1A1A1A` |
+| bg | #XXXXXX | optional, default `#FFFFFF` |
 
 ## III. Typography
-
-| Role  | Family   | Weight   |
-| ----- | -------- | -------- |
+| Role | Family | Weight |
+|---|---|---|
 | title | <family> | <weight> |
-| body  | <family> | <weight> |
-| mono  | <family> | optional |
+| body | <family> | <weight> |
+| mono | <family> | optional |
 
 ## IV. Logo
-
 - File: `./logo.<ext>` (relative to this design_spec.md)
 - Usage: cover-only \| every-page \| never
 
 ## V. Voice & Tone
-
 - Formality: formal \| neutral \| casual
 - Person: informal-you \| formal-you \| we \| none
 - Emoji: allowed \| forbidden
 - Abbreviations: spell-out-first \| common-abbrev-allowed
 
 ## VI. Icon Style
-
-- Preference: linear \| filled \| duotone # optional, drives icon library search
+- Preference: linear \| filled \| duotone   # optional, drives icon library search
 
 ## VII. Visual Assets (optional)
-
-- Images: `./images/` # branded photos, prioritised before AI image generation
+- Images: `./images/`               # branded photos, prioritised before AI image generation
 - Illustrations: `./illustrations/` # branded illustrations, prioritised before AI generation
-- Icons: `./icons/` # branded icon overrides; falls back to `templates/icons/`
+- Icons: `./icons/`                 # branded icon overrides; falls back to `templates/icons/`
 ```
 
 **Section scope rules**:
-
 - Layout / canvas / spacing / radius / shadow / page roster / signature design elements are OUT of brand scope. Those live in layout / deck templates (`templates/layouts/<id>/design_spec.md` or `templates/decks/<id>/design_spec.md`) or `shared-standards.md`. Do NOT add those sections here.
 - HEX must be `#RRGGBB`
 - Font names are free strings; not validated against locally installed fonts
@@ -197,14 +188,12 @@ Emit the confirmation card:
 
 ```markdown
 ## ✅ Brand Saved
-
 - Path: `skills/ppt-master/templates/brands/<brand_id>/`
 - Files: design_spec.md{, logo.<ext>}{, images/}{, illustrations/}{, icons/}
 - Fields locked: <list>
 - Provenance: <fact / approx / user counts>
 
 How to use in a project:
-
 - Include the brand directory path in your initial Step 3 input — e.g. "做一个 Q4 总结 PPT, 用 skills/ppt-master/templates/brands/<brand_id>/ 这个品牌"
 - Same explicit-path rule as layout templates: bare brand names never trigger
 - May be supplied together with a layout template path; Step 3 fuses both into a single `design_spec.md` (brand wins on identity tokens, layout wins on page structure) — see `SKILL.md` Step 3
@@ -218,10 +207,10 @@ How to use in a project:
 
 Brand application happens in [`SKILL.md` Step 3](../SKILL.md) under the **same explicit-path rule as layout templates**:
 
-| User input at SKILL.md Step 3                                             | Behavior                                                                                                                                                                                                                                                                   |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Explicit brand directory path supplied                                    | Step 3 copies the brand into `<project_path>/templates/` (same target as a layout template); Strategist locks color / typography / logo / voice as truth at Step 4                                                                                                         |
-| Bare brand name, brand mention without path, or silence                   | Skip — no auto-application based on directory count or any other implicit signal                                                                                                                                                                                           |
+| User input at SKILL.md Step 3 | Behavior |
+|---|---|
+| Explicit brand directory path supplied | Step 3 copies the brand into `<project_path>/templates/` (same target as a layout template); Strategist locks color / typography / logo / voice as truth at Step 4 |
+| Bare brand name, brand mention without path, or silence | Skip — no auto-application based on directory count or any other implicit signal |
 | Both a brand path and a layout template path supplied in the same message | Step 3 fuses both into a single `design_spec.md` inside `<project_path>/templates/` (brand wins on identity tokens, layout wins on page structure). See `SKILL.md` Step 3 for the field-precedence table and the two conflict gates that may surface a clarifying question |
 
 `brands_index.json` is discovery-only (mirrors `layouts_index.json` semantics); listing brands never advances the pipeline.

@@ -19,6 +19,7 @@ export type { ActiveWorkspaceSelection } from "@/stores/last-workspace-selection
 
 interface NavigateToWorkspaceOptions {
   currentPathname?: string | null;
+  focusAttentionAgent?: boolean;
 }
 
 const LAST_WORKSPACE_SELECTION_STORAGE_KEY = "doya:last-workspace-route-selection";
@@ -65,9 +66,11 @@ export function forgetLastWorkspaceSelection(selection: ActiveWorkspaceSelection
 export function navigateToWorkspace(
   serverId: string,
   workspaceId: string,
-  _options: NavigateToWorkspaceOptions = {},
+  options: NavigateToWorkspaceOptions = {},
 ) {
-  navigateToWorkspacePure(serverId, workspaceId, navigateDeps());
+  navigateToWorkspacePure(serverId, workspaceId, navigateDeps(), {
+    focusAttentionAgent: options.focusAttentionAgent,
+  });
 }
 
 export function navigateToLastWorkspace(): boolean {

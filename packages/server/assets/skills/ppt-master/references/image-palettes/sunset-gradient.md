@@ -6,17 +6,17 @@ Warm gradient flow — pink → orange → purple, atmospheric and energetic. Us
 
 ## 1. Compatible renderings
 
-| Rendering                                           | Notes                                                                                                                                                  |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ✓✓ flat                                             | Smooth gradient on flat geometry                                                                                                                       |
-| ✓✓ watercolor                                       | Gradient is watercolor's native language                                                                                                               |
-| ✓✓ warm-scene                                       | Sunset-grade cinematic atmosphere                                                                                                                      |
-| ✓ vector-illustration                               | Acceptable but requires the gradient exception (vector-illustration normally bans gradients — sunset-gradient explicitly overrides for the background) |
-| ✓ glassmorphism                                     | Soft cool gradient under glass panels (use a tame variant)                                                                                             |
-| ✓ 3d-isometric                                      | Gradient sky behind isometric forms                                                                                                                    |
-| ✗ minimalist-swiss / blueprint / mono-ink           | Wrong temperament                                                                                                                                      |
-| ✗ pixel-art / sketch-notes / ink-notes / chalkboard | Wrong material                                                                                                                                         |
-| ✗ corporate-photo                                   | Photography uses real grading, not painted gradient                                                                                                    |
+| Rendering | Notes |
+|---|---|
+| ✓✓ flat | Smooth gradient on flat geometry |
+| ✓✓ watercolor | Gradient is watercolor's native language |
+| ✓✓ warm-scene | Sunset-grade cinematic atmosphere |
+| ✓ vector-illustration | Acceptable but requires the gradient exception (vector-illustration normally bans gradients — sunset-gradient explicitly overrides for the background) |
+| ✓ glassmorphism | Soft cool gradient under glass panels (use a tame variant) |
+| ✓ 3d-isometric | Gradient sky behind isometric forms |
+| ✗ minimalist-swiss / blueprint / mono-ink | Wrong temperament |
+| ✗ pixel-art / sketch-notes / ink-notes / chalkboard | Wrong material |
+| ✗ corporate-photo | Photography uses real grading, not painted gradient |
 
 > **Override**: sunset-gradient is the palette that **forces a gradient** into the image. When the chosen rendering normally bans gradients (e.g. vector-illustration), the gradient applies to the **background field only**, while shapes on top remain flat per the rendering's rules.
 

@@ -2,7 +2,7 @@
 
 A central concept surrounded by related sub-concepts, or a multi-component system shown as a relational structure. Used when the image's job is to make a methodology, model, or architecture **legible at a glance**.
 
-> **What framework means inside a PPT block**: the image _itself_ is a small relational diagram — central hub + radiating satellites, or a labeled matrix, or a layered stack. The PPT page's slide layout (where this image sits, what text accompanies it) is a separate decision. This file only governs what's _inside_ the image rectangle.
+> **What framework means inside a PPT block**: the image *itself* is a small relational diagram — central hub + radiating satellites, or a labeled matrix, or a layered stack. The PPT page's slide layout (where this image sits, what text accompanies it) is a separate decision. This file only governs what's *inside* the image rectangle.
 
 ## 1. Composition skeleton
 

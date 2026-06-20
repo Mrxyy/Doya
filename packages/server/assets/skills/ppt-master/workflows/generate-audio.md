@@ -91,7 +91,6 @@ Send a single message to the user that asks all three questions at once and prov
 > **生成模式**：⭐ 推荐 `<edge|elevenlabs|minimax|qwen|cosyvoice>`（理由：<一句话，如"无需配置，稳定生成"或"用户要求高质量云端音色">）。
 >
 > **音色**：
->
 > - **[1] <ShortName>** — <性别·调性·适用场景> ⭐ **推荐**
 > - [2] <ShortName> — <性别·调性·适用场景>
 > - [3] <ShortName> — <性别·调性·适用场景>
@@ -106,7 +105,6 @@ Send a single message to the user that asks all three questions at once and prov
 > 直接回"好"用全部推荐值，或告诉我想改的部分（如"音色 2，语速 -5%"或"用 MiniMax 的 voice_id xxx"）。
 
 **Recommended-value rules**:
-
 - 生成模式：默认 `edge`；当用户明确追求高质量云端音色或提供 cloud voice ID 时，按用户指定选 `elevenlabs` / `minimax` / `qwen` / `cosyvoice`。
 - 音色：从 Step 2 候选里挑最贴合 deck 调性的那一个。
 - 语速：edge 默认 `+0%`；notes 字数密集（页均 >4 句长句）建议 `-5%`；notes 简短紧凑建议 `+5%`；超出此范围需说明理由。Cloud providers 默认用 provider defaults，除非用户明确要调速或改风格。

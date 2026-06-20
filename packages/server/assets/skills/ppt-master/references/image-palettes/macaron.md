@@ -6,18 +6,18 @@ Soft pastel, gentle, approachable. The signature palette for education, onboardi
 
 ## 1. Compatible renderings
 
-| Rendering                                | Notes                                                          |
-| ---------------------------------------- | -------------------------------------------------------------- |
-| ✓✓ sketch-notes                          | Direct alignment — macaron is the default sketch-notes palette |
-| ✓✓ flat                                  | Pastel flat blocks for friendly content                        |
-| ✓✓ vector-illustration                   | Pastel vector for educational warmth                           |
-| ✓✓ watercolor                            | Pastel washes pair naturally                                   |
-| ✓✓ fantasy-animation                     | Storybook pastels                                              |
-| ✓✓ chalkboard                            | Pastel chalk on dark slate                                     |
-| ✓ pixel-art                              | Pastel retro                                                   |
-| ✗ tech-neon / dark-cinematic / blueprint | Wrong temperament                                              |
-| ✗ corporate-photo                        | Photography wants natural color                                |
-| ✗ digital-dashboard                      | Dashboards want vivid not pastel                               |
+| Rendering | Notes |
+|---|---|
+| ✓✓ sketch-notes | Direct alignment — macaron is the default sketch-notes palette |
+| ✓✓ flat | Pastel flat blocks for friendly content |
+| ✓✓ vector-illustration | Pastel vector for educational warmth |
+| ✓✓ watercolor | Pastel washes pair naturally |
+| ✓✓ fantasy-animation | Storybook pastels |
+| ✓✓ chalkboard | Pastel chalk on dark slate |
+| ✓ pixel-art | Pastel retro |
+| ✗ tech-neon / dark-cinematic / blueprint | Wrong temperament |
+| ✗ corporate-photo | Photography wants natural color |
+| ✗ digital-dashboard | Dashboards want vivid not pastel |
 
 ---
 

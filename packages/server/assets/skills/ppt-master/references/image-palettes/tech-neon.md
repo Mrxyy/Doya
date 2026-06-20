@@ -6,16 +6,16 @@ Energetic, futuristic, high-contrast. The signature look for AI / SaaS / product
 
 ## 1. Compatible renderings
 
-| Rendering                                                | Notes                                     |
-| -------------------------------------------------------- | ----------------------------------------- |
-| ✓✓ 3d-isometric                                          | Tech architecture with glowing edges      |
-| ✓✓ digital-dashboard                                     | Product UI with neon highlights           |
-| ✓✓ flat                                                  | Bold flat blocks with neon accent         |
-| ✓ vector-illustration                                    | Works but feels more muted than expected  |
-| ✓✓ blueprint                                             | Technical schematic with luminance        |
-| ✓ pixel-art                                              | Retro neon gaming                         |
-| ✗ sketch-notes / watercolor / fantasy-animation / nature | Temperament conflict — warm vs cyber      |
-| ✗ corporate-photo                                        | Photography wants natural color, not neon |
+| Rendering | Notes |
+|---|---|
+| ✓✓ 3d-isometric | Tech architecture with glowing edges |
+| ✓✓ digital-dashboard | Product UI with neon highlights |
+| ✓✓ flat | Bold flat blocks with neon accent |
+| ✓ vector-illustration | Works but feels more muted than expected |
+| ✓✓ blueprint | Technical schematic with luminance |
+| ✓ pixel-art | Retro neon gaming |
+| ✗ sketch-notes / watercolor / fantasy-animation / nature | Temperament conflict — warm vs cyber |
+| ✗ corporate-photo | Photography wants natural color, not neon |
 
 ---
 

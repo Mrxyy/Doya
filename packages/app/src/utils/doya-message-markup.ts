@@ -103,12 +103,19 @@ export function escapeDoyaMarkupContent(value: string): string {
 }
 
 export function parseDoyaMessageCard(message: string): DoyaMessageCard | null {
+  return parseDoyaMessageCards(message)[0] ?? null;
+}
+
+export function parseDoyaMessageCards(message: string): DoyaMessageCard[] {
+  const cards: DoyaMessageCard[] = [];
   for (const block of findDoyaUiBlocks(message)) {
     const card = parseDoyaUiBlockCard(block);
-    if (card) return card;
+    if (card) {
+      cards.push(card);
+    }
   }
 
-  return null;
+  return cards;
 }
 
 export function parseDoyaMessageRenderParts(message: string): DoyaMessageRenderPart[] {

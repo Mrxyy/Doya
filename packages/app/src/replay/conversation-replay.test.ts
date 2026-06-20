@@ -150,6 +150,83 @@ describe("projectConversationReplay", () => {
     expect(replay.items[0]).toMatchObject({ kind: "assistant_message", text: "你好" });
   });
 
+  it("keeps confirm UI markup together when same assistant message chunks surround a tool call", () => {
+    const chunkEvents: ConversationRecordingEvent[] = [
+      {
+        seq: 1,
+        recordedAt: "2026-06-12T00:00:00.000Z",
+        offsetMs: 0,
+        kind: "agent_stream_raw",
+        payload: {
+          event: {
+            type: "timeline",
+            provider: "codex",
+            item: {
+              type: "assistant_message",
+              messageId: "assistant-confirm",
+              text: '<doya-ui version="1" kind="ai_creation.slides.progress"><doya-ui-content>',
+            },
+          },
+        },
+      },
+      {
+        seq: 2,
+        recordedAt: "2026-06-12T00:00:00.050Z",
+        offsetMs: 50,
+        kind: "agent_stream_raw",
+        payload: {
+          event: {
+            type: "timeline",
+            provider: "codex",
+            item: {
+              type: "tool_call",
+              callId: "shell-1",
+              name: "shell",
+              status: "completed",
+              detail: { type: "shell", command: "write recommendations.json" },
+            },
+          },
+        },
+      },
+      {
+        seq: 3,
+        recordedAt: "2026-06-12T00:00:00.100Z",
+        offsetMs: 100,
+        kind: "agent_stream_raw",
+        payload: {
+          event: {
+            type: "timeline",
+            provider: "codex",
+            item: {
+              type: "assistant_message",
+              messageId: "assistant-confirm",
+              text: '<doya-title>幻灯片确认</doya-title><doya-field name="confirm_path" label="确认">projects/b2b_saas_analytics_pitch_ppt169_20260621/confirm_ui/</doya-field></doya-ui-content></doya-ui>',
+            },
+          },
+        },
+      },
+    ];
+
+    const replay = projectConversationReplay({
+      events: chunkEvents,
+      edits: {},
+      positionMs: REPLAY_TEXT_BURST_MIN_INTERVAL_MS * 2,
+    });
+
+    expect(replay.items).toHaveLength(2);
+    expect(replay.items[0]).toMatchObject({
+      kind: "assistant_message",
+      text: expect.stringContaining("confirm_path"),
+    });
+    expect(replay.items[0]).toMatchObject({
+      kind: "assistant_message",
+      text: expect.stringContaining(
+        "projects/b2b_saas_analytics_pitch_ppt169_20260621/confirm_ui/",
+      ),
+    });
+    expect(replay.items[1]).toMatchObject({ kind: "tool_call" });
+  });
+
   it("groups streamed assistant chunks into one editable message clip", () => {
     const chunkEvents: ConversationRecordingEvent[] = [
       {
@@ -440,5 +517,109 @@ describe("projectConversationReplay", () => {
     });
 
     expect(replay.items.map((item) => item.id)).toEqual(["replay_user_1"]);
+  });
+
+  it("filters baseline duplicates for replayed assistant messages merged across tool calls", () => {
+    const responseText = "生成完成：projects/demo/exports/demo.pptx";
+    const recording: ConversationRecording = {
+      recordingId: "recording-1",
+      agentId: "agent-1",
+      provider: "codex",
+      cwd: "/tmp/project",
+      startedAt: "2026-06-12T00:00:00.000Z",
+      stoppedAt: "2026-06-12T00:00:05.000Z",
+      status: "stopped",
+      title: null,
+      events: [
+        {
+          seq: 1,
+          recordedAt: "2026-06-12T00:00:00.000Z",
+          offsetMs: 0,
+          kind: "user_input",
+          payload: { text: "生成 PPT" },
+        },
+        {
+          seq: 2,
+          recordedAt: "2026-06-12T00:00:01.000Z",
+          offsetMs: 1000,
+          kind: "agent_stream_raw",
+          payload: {
+            event: {
+              type: "timeline",
+              provider: "codex",
+              item: {
+                type: "assistant_message",
+                messageId: "assistant-final",
+                text: responseText.slice(0, 5),
+              },
+            },
+          },
+        },
+        {
+          seq: 3,
+          recordedAt: "2026-06-12T00:00:02.000Z",
+          offsetMs: 2000,
+          kind: "agent_stream_raw",
+          payload: {
+            event: {
+              type: "timeline",
+              provider: "codex",
+              item: {
+                type: "tool_call",
+                callId: "shell-1",
+                name: "shell",
+                status: "completed",
+                detail: { type: "shell", command: "export pptx" },
+              },
+            },
+          },
+        },
+        {
+          seq: 4,
+          recordedAt: "2026-06-12T00:00:03.000Z",
+          offsetMs: 3000,
+          kind: "agent_stream_raw",
+          payload: {
+            event: {
+              type: "timeline",
+              provider: "codex",
+              item: {
+                type: "assistant_message",
+                messageId: "assistant-final",
+                text: responseText.slice(5),
+              },
+            },
+          },
+        },
+      ],
+      edits: {},
+    };
+    const baselineItems: StreamItem[] = [
+      {
+        kind: "user_message",
+        id: "original-user",
+        text: "生成 PPT",
+        timestamp: new Date("2026-06-12T00:00:00.500Z"),
+      },
+      {
+        kind: "assistant_message",
+        id: "original-assistant",
+        text: responseText,
+        timestamp: new Date("2026-06-12T00:00:04.000Z"),
+      },
+    ];
+
+    const replay = projectConversationTimelineReplay({
+      baselineItems,
+      recording,
+      positionMs: Number.POSITIVE_INFINITY,
+    });
+
+    expect(replay.items.map((item) => item.id)).toEqual([
+      "replay_user_1",
+      "replay_assistant_2",
+      "replay_tool_shell-1_3",
+    ]);
+    expect(replay.items[1]).toMatchObject({ kind: "assistant_message", text: responseText });
   });
 });

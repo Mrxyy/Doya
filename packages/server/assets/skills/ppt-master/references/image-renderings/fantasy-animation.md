@@ -10,13 +10,13 @@ Ghibli/Disney-inspired hand-drawn animation warmth. Soft painterly forms, gentle
 
 ## 2. Line, texture, depth
 
-| Aspect       | Treatment                                                            |
-| ------------ | -------------------------------------------------------------------- |
+| Aspect | Treatment |
+|---|---|
 | Line quality | Soft hand-drawn outlines or no outlines, with painterly fills inside |
-| Texture      | Subtle painterly brush quality + atmospheric softness                |
-| Depth        | Strong atmospheric perspective — distant elements paler and softer   |
-| Material     | Hand-painted animation cel                                           |
-| Mood         | Dreamy, magical, comforting, storybook                               |
+| Texture | Subtle painterly brush quality + atmospheric softness |
+| Depth | Strong atmospheric perspective — distant elements paler and softer |
+| Material | Hand-painted animation cel |
+| Mood | Dreamy, magical, comforting, storybook |
 
 ## 3. Using the deck's HEX values
 

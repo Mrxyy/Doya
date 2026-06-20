@@ -6,17 +6,17 @@ Muted desaturated earth tones — dusty pink, sage green, faded terracotta, mute
 
 ## 1. Compatible renderings
 
-| Rendering                                                  | Notes                                                                             |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| ✓✓ watercolor                                              | Watercolor's muted material aligns naturally                                      |
-| ✓✓ editorial                                               | Magazine restraint pairs well with muted discipline                               |
-| ✓✓ corporate-photo                                         | Photography graded toward dusty / Morandi palette (lifestyle, interior, wellness) |
-| ✓✓ flat                                                    | Muted flat geometric blocks                                                       |
-| ✓✓ vector-illustration                                     | Dusty vector restraint                                                            |
-| ✓ paper-cut                                                | Muted paper craft                                                                 |
-| ✓ warm-scene                                               | Warm scene with dusted grading                                                    |
-| ✗ tech-neon / vivid-launch / pixel-art / digital-dashboard | Wrong temperament — those rely on saturation                                      |
-| ✗ chalkboard                                               | Wrong material                                                                    |
+| Rendering | Notes |
+|---|---|
+| ✓✓ watercolor | Watercolor's muted material aligns naturally |
+| ✓✓ editorial | Magazine restraint pairs well with muted discipline |
+| ✓✓ corporate-photo | Photography graded toward dusty / Morandi palette (lifestyle, interior, wellness) |
+| ✓✓ flat | Muted flat geometric blocks |
+| ✓✓ vector-illustration | Dusty vector restraint |
+| ✓ paper-cut | Muted paper craft |
+| ✓ warm-scene | Warm scene with dusted grading |
+| ✗ tech-neon / vivid-launch / pixel-art / digital-dashboard | Wrong temperament — those rely on saturation |
+| ✗ chalkboard | Wrong material |
 
 ---
 

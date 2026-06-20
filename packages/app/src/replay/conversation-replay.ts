@@ -352,6 +352,20 @@ function appendOrMergeAssistantMessage(input: {
   if (!input.text) {
     return;
   }
+  if (input.messageId) {
+    const existingIndex = findLastAssistantMessageIndex(input.tail, input.messageId);
+    if (existingIndex >= 0) {
+      const existing = input.tail[existingIndex];
+      if (existing?.kind === "assistant_message") {
+        input.tail[existingIndex] = {
+          ...existing,
+          text: `${existing.text}${input.text}`,
+          timestamp: input.timestamp,
+        };
+        return;
+      }
+    }
+  }
   const last = input.tail.at(-1);
   if (
     last?.kind === "assistant_message" &&
@@ -372,6 +386,16 @@ function appendOrMergeAssistantMessage(input: {
     text: input.text,
     timestamp: input.timestamp,
   });
+}
+
+function findLastAssistantMessageIndex(tail: StreamItem[], messageId: string): number {
+  for (let index = tail.length - 1; index >= 0; index -= 1) {
+    const item = tail[index];
+    if (item?.kind === "assistant_message" && item.messageId === messageId) {
+      return index;
+    }
+  }
+  return -1;
 }
 
 function appendOrMergeThought(input: {
@@ -536,6 +560,17 @@ export function projectConversationTimelineReplay(input: {
 
 function getRecordingItemSignatures(events: readonly ConversationRecordingEvent[]): Set<string> {
   const signatures = new Set<string>();
+  const projectedRecording = projectConversationReplay({
+    events,
+    edits: {},
+    positionMs: Number.POSITIVE_INFINITY,
+  });
+  for (const item of projectedRecording.items) {
+    const signature = getStreamItemTextSignature(item);
+    if (signature) {
+      signatures.add(signature);
+    }
+  }
   for (const event of events) {
     if (event.kind === "user_input") {
       signatures.add(getTextSignature("user_message", event.payload.text));

@@ -38,7 +38,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import { Check, ChevronDown, Download, Eye, X } from "lucide-react-native";
+import { Check, ChevronDown, Download, Eye, SlidersHorizontal, X } from "lucide-react-native";
 import { usePanelStore } from "@/stores/panel-store";
 import {
   AssistantMessage,
@@ -52,8 +52,9 @@ import {
   type AssistantTurnBillingUsage,
   type InlinePathTarget,
 } from "@/components/message";
+import { PptPreviewFrame } from "@/components/ppt-preview-frame";
 import { PlanCard } from "@/components/plan-card";
-import type { StreamItem } from "@/types/stream";
+import { buildOptimisticUserMessage, generateMessageId, type StreamItem } from "@/types/stream";
 import type { PendingPermission } from "@/types/shared";
 import type {
   AgentCapabilityFlags,
@@ -95,18 +96,20 @@ import { useStableEvent } from "@/hooks/use-stable-event";
 import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { recordRenderProfileReasons } from "@/utils/render-profiler";
-import { translateNow } from "@/i18n/i18n";
+import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import type { AttachmentMetadata } from "@/attachments/types";
 import { setAiCreationEditSource } from "@/stores/ai-creation-edit-source-store";
 import { buildHostAiCreationEditRoute } from "@/utils/host-routes";
+import { buildWorkspacePptConfirmUrl } from "@/workspace/ppt-confirm";
 import { createWorkspacePptPreviewTabTarget } from "@/workspace/ppt-preview";
 import { useDownloadStore } from "@/stores/download-store";
-import { useHosts } from "@/runtime/host-runtime";
+import { useHostRuntimeSnapshot, useHosts } from "@/runtime/host-runtime";
 import {
   AI_CREATION_PLACEHOLDER_ID,
   extractDocumentAnnotationResultDisplay,
   extractAiCreationFinalDocumentPath,
   extractAiCreationFinalPptxPath,
+  extractAiCreationPptConfirmPath,
   extractAiCreationPptPreviewPath,
   normalizeAiCreationStream,
 } from "./ai-creation";
@@ -118,6 +121,12 @@ import {
   isControlApiConfigured,
   type ControlUsageLogRecord,
 } from "@/control/control-api";
+import {
+  buildDoyaMessageMeta,
+  buildDoyaResponseLanguageInstruction,
+  escapeDoyaMarkupText,
+  parseDoyaMessageCards,
+} from "@/utils/doya-message-markup";
 
 interface LiveArtifactProgressGroup {
   isFirst: boolean;
@@ -125,6 +134,7 @@ interface LiveArtifactProgressGroup {
 }
 
 const EMPTY_AGENT_TURN_USAGE_BY_ID = new Map<string, AgentTurnUsageRecord>();
+const notifiedPptConfirmations = new Set<string>();
 
 function renderLiveAuxiliaryNode(input: {
   pendingPermissions: ReactNode;
@@ -150,7 +160,9 @@ function isLiveArtifactProgressCard(card: DoyaMessageCard | null): boolean {
 }
 
 function isPreviewDiscoveryCard(card: DoyaMessageCard | null): boolean {
-  return Boolean(card?.fields.some((field) => field.name === "preview_path"));
+  return Boolean(
+    card?.fields.some((field) => field.name === "preview_path" || field.name === "confirm_path"),
+  );
 }
 
 function isLiveArtifactProgressItem(
@@ -162,8 +174,12 @@ function isLiveArtifactProgressItem(
   if (extractAiCreationFinalPptxPath(item.text) || extractAiCreationFinalDocumentPath(item.text)) {
     return false;
   }
-  const card = parseDoyaMessageCard(item.text);
-  return isLiveArtifactProgressCard(card) || Boolean(extractAiCreationPptPreviewPath(item.text));
+  const cards = parseDoyaMessageCards(item.text);
+  return (
+    cards.some(isLiveArtifactProgressCard) ||
+    Boolean(extractAiCreationPptPreviewPath(item.text)) ||
+    Boolean(extractAiCreationPptConfirmPath(item.text))
+  );
 }
 
 function getLiveArtifactProgressGroup(
@@ -196,6 +212,12 @@ function getLiveArtifactProgressGroup(
         isLiveArtifactProgressItem(item),
       ),
   };
+}
+
+function useAgentStreamActiveConnection(
+  serverId: string,
+): { type: string; endpoint: string } | null {
+  return useHostRuntimeSnapshot(serverId)?.activeConnection ?? null;
 }
 
 function renderPendingPermissionsNode(input: {
@@ -347,6 +369,7 @@ export interface AgentStreamViewProps {
   pendingPermissions: Map<string, PendingPermission>;
   routeBottomAnchorRequest?: BottomAnchorRouteRequest | null;
   isAuthoritativeHistoryReady?: boolean;
+  isReplayMode?: boolean;
   toast?: ToastApi | null;
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
 }
@@ -396,6 +419,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       pendingPermissions,
       routeBottomAnchorRequest = null,
       isAuthoritativeHistoryReady = true,
+      isReplayMode,
       toast,
       onOpenWorkspaceFile,
     },
@@ -474,6 +498,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const resolvedServerId = serverId ?? agent.serverId ?? "";
 
     const client = useSessionStore((state) => state.sessions[resolvedServerId]?.client ?? null);
+    const activeConnection = useAgentStreamActiveConnection(resolvedServerId);
     const streamHead = useSessionStore((state) =>
       state.sessions[resolvedServerId]?.agentStreamHead?.get(agentId),
     );
@@ -728,13 +753,20 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           }
           return (
             <AiCreationLiveArtifactProgressGroup
+              activeConnection={activeConnection}
+              agentId={agentId}
               canOpenPreview={Boolean(workspaceId)}
+              client={client}
               items={liveArtifactGroup.items}
+              allowConfirmSideEffects={!isReplayMode}
               onOpenPreview={handleOpenPptPreview}
+              serverId={resolvedServerId}
+              toast={toast}
             />
           );
         }
         const pptxPath = extractAiCreationFinalPptxPath(item.text);
+        const pptConfirmPath = extractAiCreationPptConfirmPath(item.text);
         const pptPreviewPath = extractAiCreationPptPreviewPath(item.text);
         const documentAnnotationResult = extractDocumentAnnotationResultDisplay(item.text);
         const documentPath = extractAiCreationFinalDocumentPath(item.text);
@@ -764,6 +796,19 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               path={documentPath}
               onDownload={handleDownloadPptx}
               onOpen={handleToolCallOpenFile}
+            />
+          );
+        } else if (pptConfirmPath) {
+          messageContent = (
+            <AiCreationSlidesConfirmCard
+              activeConnection={activeConnection}
+              agentId={agentId}
+              canOpenConfirm={Boolean(workspaceId)}
+              client={client}
+              allowSideEffects={!isReplayMode}
+              path={pptConfirmPath}
+              serverId={resolvedServerId}
+              toast={toast}
             />
           );
         } else if (pptPreviewPath) {
@@ -800,6 +845,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         );
       },
       [
+        activeConnection,
+        agentId,
         client,
         handleEditAiCreationImage,
         handleToolCallOpenFile,
@@ -807,6 +854,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         handleDownloadPptx,
         handleOpenPptPreview,
         resolvedServerId,
+        isReplayMode,
         toast,
         workspaceId,
         workspaceRoot,
@@ -1871,23 +1919,55 @@ function AiCreationSlidesResultCard({
 }
 
 function AiCreationLiveArtifactProgressGroup({
+  activeConnection,
+  agentId,
+  allowConfirmSideEffects,
   canOpenPreview,
+  client,
   items,
   onOpenPreview,
+  serverId,
+  toast,
 }: {
+  activeConnection: { type: string; endpoint: string } | null;
+  agentId: string;
+  allowConfirmSideEffects: boolean;
   canOpenPreview: boolean;
+  client: DaemonClient | null;
   items: Extract<StreamItem, { kind: "assistant_message" }>[];
   onOpenPreview: (projectName: string) => void;
+  serverId: string;
+  toast: ToastApi;
 }) {
+  const confirmPath = items.map((item) => extractAiCreationPptConfirmPath(item.text)).find(Boolean);
   const previewPath = items.map((item) => extractAiCreationPptPreviewPath(item.text)).find(Boolean);
-  const progressCards = items
-    .map((item) => parseDoyaMessageCard(item.text))
-    .filter((card): card is DoyaMessageCard => isLiveArtifactProgressCard(card))
-    .filter((card) => !isPreviewDiscoveryCard(card));
+  const progressRows = items
+    .flatMap((item) =>
+      parseDoyaMessageCards(item.text).map((card, index) => ({
+        id: `${item.id}:${index}`,
+        card,
+      })),
+    )
+    .filter((row) => isLiveArtifactProgressCard(row.card))
+    .filter((row) => !isPreviewDiscoveryCard(row.card));
 
   return (
     <View style={stylesheet.liveArtifactProgressGroup}>
-      {previewPath ? (
+      {confirmPath ? (
+        <View style={stylesheet.liveArtifactProgressPreviewSlot}>
+          <AiCreationSlidesConfirmCard
+            activeConnection={activeConnection}
+            agentId={agentId}
+            allowSideEffects={allowConfirmSideEffects}
+            canOpenConfirm={canOpenPreview}
+            client={client}
+            path={confirmPath}
+            serverId={serverId}
+            toast={toast}
+          />
+        </View>
+      ) : null}
+      {previewPath && !confirmPath ? (
         <View style={stylesheet.liveArtifactProgressPreviewSlot}>
           <AiCreationSlidesPreviewCard
             canOpenPreview={canOpenPreview}
@@ -1896,31 +1976,47 @@ function AiCreationLiveArtifactProgressGroup({
           />
         </View>
       ) : null}
-      {progressCards.length > 0 ? (
+      {progressRows.length > 0 ? (
         <View style={stylesheet.liveArtifactProgressList}>
-          {progressCards.map((card, index) => (
-            <View
-              key={`${card.kind}:${card.title}:${index}`}
-              style={[
-                stylesheet.liveArtifactProgressRow,
-                index < progressCards.length - 1
-                  ? stylesheet.liveArtifactProgressRowWithDivider
-                  : null,
-              ]}
-            >
-              <View style={stylesheet.liveArtifactProgressCheck}>
-                <Check size={14} color="#b35a18" strokeWidth={2.4} />
-              </View>
-              <View style={stylesheet.liveArtifactProgressBody}>
-                <Text style={stylesheet.liveArtifactProgressTitle} numberOfLines={1}>
-                  {card.title}
-                </Text>
-                <Text style={stylesheet.liveArtifactProgressSummary}>{card.summary}</Text>
-              </View>
-            </View>
+          {progressRows.map((row, index) => (
+            <AiCreationLiveArtifactProgressRow
+              key={row.id}
+              card={row.card}
+              withDivider={index < progressRows.length - 1}
+            />
           ))}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function AiCreationLiveArtifactProgressRow({
+  card,
+  withDivider,
+}: {
+  card: DoyaMessageCard;
+  withDivider: boolean;
+}) {
+  const rowStyle = useMemo(
+    () =>
+      withDivider
+        ? [stylesheet.liveArtifactProgressRow, stylesheet.liveArtifactProgressRowWithDivider]
+        : stylesheet.liveArtifactProgressRow,
+    [withDivider],
+  );
+
+  return (
+    <View style={rowStyle}>
+      <View style={stylesheet.liveArtifactProgressCheck}>
+        <Check size={14} color="#b35a18" strokeWidth={2.4} />
+      </View>
+      <View style={stylesheet.liveArtifactProgressBody}>
+        <Text style={stylesheet.liveArtifactProgressTitle} numberOfLines={1}>
+          {card.title}
+        </Text>
+        <Text style={stylesheet.liveArtifactProgressSummary}>{card.summary}</Text>
+      </View>
     </View>
   );
 }
@@ -2015,9 +2111,301 @@ function AiCreationSlidesPreviewCard({
   );
 }
 
+interface PptConfirmRecommendations {
+  _already_confirmed?: unknown;
+  _confirmed_at?: unknown;
+}
+
+function AiCreationSlidesConfirmCard({
+  activeConnection,
+  agentId,
+  allowSideEffects,
+  canOpenConfirm,
+  client,
+  path,
+  serverId,
+  toast,
+}: {
+  activeConnection: { type: string; endpoint: string } | null;
+  agentId: string;
+  allowSideEffects: boolean;
+  canOpenConfirm: boolean;
+  client: DaemonClient | null;
+  path: string;
+  serverId: string;
+  toast: ToastApi;
+}) {
+  const { locale } = useI18n();
+  const projectName = extractPptConfirmProjectName(path);
+  const confirmBaseUrl = useMemo(() => {
+    if (!projectName) {
+      return null;
+    }
+    return buildWorkspacePptConfirmUrl({ activeConnection, agentId, projectName });
+  }, [activeConnection, agentId, projectName]);
+  const confirmUrl = useMemo(() => {
+    if (!confirmBaseUrl) {
+      return null;
+    }
+    const lang = locale === "zh" ? "zh" : "en";
+    return `${confirmBaseUrl}?embed=1&lang=${lang}`;
+  }, [confirmBaseUrl, locale]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error" | "confirmed">("loading");
+  const sawUnconfirmedStateRef = useRef(false);
+  const visual = getAiCreationFileVisual("preview.pptx");
+  const cardStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      stylesheet.aiCreationSlidesCard,
+      { backgroundColor: visual.cardBackground, borderColor: visual.borderColor },
+      stylesheet.aiCreationConfirmFrameCard,
+    ],
+    [visual.borderColor, visual.cardBackground],
+  );
+  const iconWrapStyle = useMemo(
+    () => [
+      stylesheet.aiCreationSlidesIconWrap,
+      { backgroundColor: visual.background, borderColor: visual.borderColor },
+    ],
+    [visual.background, visual.borderColor],
+  );
+  const typeBadgeStyle = useMemo(
+    () => [
+      stylesheet.aiCreationSlidesTypeBadge,
+      { backgroundColor: visual.badgeBackground, borderColor: visual.borderColor },
+    ],
+    [visual.badgeBackground, visual.borderColor],
+  );
+  const typeBadgeTextStyle = useMemo(
+    () => [stylesheet.aiCreationSlidesTypeBadgeText, { color: visual.accent }],
+    [visual.accent],
+  );
+
+  const notifyAgentConfirmed = useCallback(async (): Promise<void> => {
+    if (!allowSideEffects) {
+      return;
+    }
+    if (!projectName || !client) {
+      return;
+    }
+    const confirmationKey = `${serverId}:${agentId}:${projectName}`;
+    if (notifiedPptConfirmations.has(confirmationKey)) {
+      return;
+    }
+    notifiedPptConfirmations.add(confirmationKey);
+    const messageId = generateMessageId();
+    const prompt = buildPptConfirmContinueMessage({
+      defaultLocale: locale,
+      messageId,
+      projectName,
+      projectPath: `projects/${projectName}`,
+    });
+    useSessionStore.getState().appendOptimisticUserMessageToAgentStream(
+      serverId,
+      agentId,
+      buildOptimisticUserMessage({
+        id: messageId,
+        text: prompt,
+        timestamp: new Date(),
+      }),
+      { placement: "active-head", skipIfUserMessageExists: true },
+    );
+
+    try {
+      await client.sendAgentMessage(agentId, prompt, { messageId });
+      toast.show(translateNow("ui.slides.confirm.continue.sent"), { variant: "success" });
+    } catch (error) {
+      notifiedPptConfirmations.delete(confirmationKey);
+      toast.error(
+        error instanceof Error ? error.message : translateNow("ui.slides.confirm.continue.failed"),
+      );
+    }
+  }, [agentId, allowSideEffects, client, locale, projectName, serverId, toast]);
+
+  useEffect(() => {
+    if (!confirmBaseUrl || !canOpenConfirm) {
+      setStatus("error");
+      return;
+    }
+    let canceled = false;
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const recommendationsUrl = `${confirmBaseUrl.replace(/\/$/, "")}/api/recommendations`;
+
+    async function pollConfirmation(): Promise<void> {
+      try {
+        const response = await fetch(recommendationsUrl, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("recommendations not found");
+        }
+        const data = (await response.json()) as PptConfirmRecommendations;
+        if (canceled) {
+          return;
+        }
+        if (data._already_confirmed === true) {
+          setStatus("confirmed");
+          if (sawUnconfirmedStateRef.current) {
+            await notifyAgentConfirmed();
+          }
+        } else {
+          sawUnconfirmedStateRef.current = true;
+          setStatus("ready");
+        }
+      } catch {
+        if (!canceled) {
+          setStatus("error");
+        }
+      }
+      if (!canceled) {
+        timeout = setTimeout(() => {
+          void pollConfirmation();
+        }, 1000);
+      }
+    }
+
+    void pollConfirmation();
+    return () => {
+      canceled = true;
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [canOpenConfirm, confirmBaseUrl, notifyAgentConfirmed]);
+
+  return (
+    <View style={cardStyle}>
+      <AiCreationFileCardDecor visual={visual} />
+      <View style={stylesheet.aiCreationConfirmHeader}>
+        <View style={iconWrapStyle}>
+          <SlidersHorizontal size={24} color={visual.foreground} />
+        </View>
+        <View style={stylesheet.aiCreationConfirmHeaderBody}>
+          <View style={stylesheet.aiCreationSlidesMetaRow}>
+            <Text style={stylesheet.aiCreationSlidesFileName} numberOfLines={1}>
+              {translateNow("ui.slides.confirm")}
+            </Text>
+            <View style={typeBadgeStyle}>
+              <Text style={typeBadgeTextStyle}>CONFIRM</Text>
+            </View>
+          </View>
+          <Text style={stylesheet.aiCreationSlidesPath} numberOfLines={1}>
+            {path}
+          </Text>
+        </View>
+        {status === "loading" ? <ThemedActivityIndicator size="small" /> : null}
+        {status === "confirmed" ? (
+          <View style={stylesheet.aiCreationConfirmStatusPill}>
+            <Text style={stylesheet.aiCreationConfirmStatusPillText}>
+              {translateNow("ui.slides.confirm.confirmed")}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+      {confirmUrl && status !== "error" ? (
+        <View style={stylesheet.aiCreationConfirmFrameWrap}>
+          <PptPreviewFrame
+            applyAnnotationsCompletionToken={0}
+            onApplyAnnotations={noopConfirmFrameAction}
+            title={translateNow("ui.slides.confirm.title", { name: projectName ?? "" })}
+            url={confirmUrl}
+          />
+        </View>
+      ) : (
+        <Text style={stylesheet.aiCreationConfirmHint}>
+          {translateNow("ui.slides.confirm.loadFailed")}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function noopConfirmFrameAction(): void {}
+
 function extractPptProjectName(pptxPath: string): string | null {
   const normalized = pptxPath.replace(/\\/g, "/");
   const match = /(?:^|\/)projects\/([^/]+)\/exports\/[^/]+\.pptx$/i.exec(normalized);
+  return match?.[1] ?? null;
+}
+
+function buildPptConfirmContinueMessage(input: {
+  defaultLocale: Locale;
+  messageId: string;
+  projectName: string;
+  projectPath: string;
+}): string {
+  const escapedMessageId = escapeDoyaMarkupText(input.messageId);
+  const escapedProjectName = escapeDoyaMarkupText(input.projectName);
+  const escapedProjectPath = escapeDoyaMarkupText(input.projectPath);
+  const escapedPreviewReadyTitle = escapeDoyaMarkupText(
+    translateNow("aiCreation.progress.slidesPreviewReady"),
+  );
+  const escapedPreviewReadySummary = escapeDoyaMarkupText(
+    translateNow("aiCreation.progress.slidesPreviewSummary"),
+  );
+  const escapedPreviewPathLabel = escapeDoyaMarkupText(
+    translateNow("aiCreation.progress.slidesPreviewPath"),
+  );
+  const languageInstruction = buildDoyaResponseLanguageInstruction({
+    defaultLocale: input.defaultLocale,
+    userText: null,
+  });
+  return `${buildDoyaMessageMeta()}
+
+<doya-ui
+  version="1"
+  kind="ai_creation.slides.progress"
+  render="status"
+  visibility="summary"
+  id="${escapedMessageId}"
+  desc="Human-visible PPT confirmation progress."
+>
+  <doya-ui-content>
+    <doya-title>${translateNow("ui.slides.confirm.continue.title")}</doya-title>
+    <doya-summary>${translateNow("ui.slides.confirm.continue.summary", {
+      name: escapedProjectName,
+    })}</doya-summary>
+    <doya-field name="project" label="${translateNow("ui.slides.confirm.project")}">${escapedProjectName}</doya-field>
+  </doya-ui-content>
+
+  <doya-ai desc="Task instructions the AI must follow. Doya may hide this section from the chat UI.">
+${escapeDoyaMarkupText(languageInstruction)}
+
+The user confirmed the PPT settings inline in Doya.
+Read \`${escapedProjectPath}/confirm_ui/result.json\` now and continue the PPT Master workflow using the confirmed values exactly.
+Do not ask for confirmation again and do not regenerate recommendations.json.
+Do not run PPT Master's scripts/svg_editor/server.py.
+Do not start Flask or open localhost preview ports.
+Create or reuse \`${escapedProjectPath}/svg_output/\` only after reading the confirmed result.
+Immediately after \`${escapedProjectPath}/svg_output/\` exists, emit a Doya live-preview progress block with \`kind="ai_creation.slides.progress"\`, \`render="status"\`, and a \`doya-field name="preview_path"\` whose value is \`${escapedProjectPath}/svg_output/\`.
+Continue without waiting for another user reply.
+Write SVG pages one by one in preview order. After each previewable page is ready, emit another \`ai_creation.slides.progress\` status block with a user-visible title and summary. Keep user-visible progress to: preview ready, outline/style locked, each slide ready, export started, final PPTX ready.
+Do not use plain explanatory assistant paragraphs as the main progress UI. Do not mention shell commands, script names, internal filenames, or implementation reasoning in user-visible progress.
+  </doya-ai>
+
+  <doya-reply desc="Preferred response format for the assistant after continuing from confirmation.">
+Use Doya message markup for user-visible progress. Emit progress blocks like this, localized according to the response language instruction:
+
+<doya-ui
+  version="1"
+  kind="ai_creation.slides.progress"
+  render="status"
+  visibility="summary"
+  id="${escapedMessageId}"
+  desc="Human-visible PPT creation progress."
+>
+  <doya-ui-content desc="Visible progress content.">
+    <doya-title desc="Progress title.">${escapedPreviewReadyTitle}</doya-title>
+    <doya-summary desc="Progress summary.">${escapedPreviewReadySummary}</doya-summary>
+    <doya-field name="preview_path" label="${escapedPreviewPathLabel}" desc="Workspace-relative live preview directory.">${escapedProjectPath}/svg_output/</doya-field>
+  </doya-ui-content>
+</doya-ui>
+
+Then keep emitting \`ai_creation.slides.progress\` status blocks for meaningful milestones until the final PPTX is ready. Preserve the id "${escapedMessageId}" when it is useful to correlate this continuation.
+  </doya-reply>
+</doya-ui>`;
+}
+
+function extractPptConfirmProjectName(confirmPath: string): string | null {
+  const normalized = confirmPath.replace(/\\/g, "/");
+  const match = /(?:^|\/)projects\/([^/]+)\/confirm_ui\/?$/i.exec(normalized);
   return match?.[1] ?? null;
 }
 
@@ -2669,6 +3057,59 @@ const stylesheet = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     fontWeight: theme.fontWeight.medium,
+  },
+  aiCreationConfirmFrameCard: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 0,
+    padding: 0,
+    maxWidth: 900,
+    overflow: "hidden",
+    backgroundColor: "#fffdf9",
+    borderColor: "rgba(179, 90, 24, 0.16)",
+  },
+  aiCreationConfirmHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+    padding: theme.spacing[4],
+    paddingRight: theme.spacing[5],
+    zIndex: 1,
+  },
+  aiCreationConfirmHeaderBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  aiCreationConfirmFrameWrap: {
+    height: 640,
+    minHeight: 480,
+    borderTopWidth: theme.borderWidth[1],
+    borderTopColor: "rgba(179, 90, 24, 0.12)",
+    backgroundColor: "#fffdf9",
+    overflow: "hidden",
+    zIndex: 1,
+  },
+  aiCreationConfirmHint: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+    paddingHorizontal: theme.spacing[4],
+    paddingBottom: theme.spacing[4],
+    zIndex: 1,
+  },
+  aiCreationConfirmStatusPill: {
+    borderRadius: theme.borderRadius.full,
+    borderWidth: theme.borderWidth[1],
+    borderColor: "rgba(179, 90, 24, 0.24)",
+    backgroundColor: "rgba(179, 90, 24, 0.1)",
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: 3,
+  },
+  aiCreationConfirmStatusPillText: {
+    color: "#92400e",
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.semibold,
   },
   aiCreationFileCardDecor: {
     position: "absolute",

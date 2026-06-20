@@ -16,7 +16,6 @@ python3 scripts/project_manager.py info <project_path>
 ```
 
 Notes:
-
 - Files outside the repo are copied into `sources/` by default
 - With `--move`, files outside the repo are moved into `sources/`
 - Files already inside the repo are moved into `sources/` by default (with a stderr
@@ -25,7 +24,6 @@ Notes:
 - `--move` and `--copy` are mutually exclusive.
 
 Common formats:
-
 - `ppt169`
 - `ppt43`
 - `xiaohongshu`
@@ -96,7 +94,6 @@ python3 scripts/pptx_template_import.py <template.pptx> --inheritance-mode layer
 ```
 
 Notes:
-
 - Extracts reusable media assets from `ppt/media/`
 - Summarizes slide size, theme colors, font metadata, and per-master theme metadata
 - Resolves slide / layout / master relationships from OOXML relationships; every master and layout is included even when no sample slide currently references it
@@ -118,7 +115,6 @@ Notes:
 - Intended for template reference preparation, not for final 1:1 template delivery
 
 Implementation note:
-
 - Internal helpers for this workflow live under `scripts/template_import/`
 
 ## `error_helper.py`

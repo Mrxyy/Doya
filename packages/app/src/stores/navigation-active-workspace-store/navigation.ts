@@ -31,6 +31,10 @@ export interface NavigateToLastWorkspaceDeps extends NavigateToWorkspaceDeps {
   getLastWorkspaceSelection: () => ActiveWorkspaceSelection | null;
 }
 
+export interface NavigateToWorkspaceOptions {
+  focusAttentionAgent?: boolean;
+}
+
 function getParamValue(value: string | string[] | undefined): string {
   if (typeof value === "string") {
     return value.trim();
@@ -68,6 +72,7 @@ export function navigateToWorkspace(
   serverId: string,
   workspaceId: string,
   deps: NavigateToWorkspaceDeps,
+  options: NavigateToWorkspaceOptions = {},
 ): void {
   const workspaces = deps.getSessionWorkspaces(serverId);
   const resolvedWorkspaceId = resolveWorkspaceMapKeyByIdentity({
@@ -83,9 +88,11 @@ export function navigateToWorkspace(
           }) === resolvedWorkspaceId,
       )
     : [];
-  const attentionAgentId = pickAttentionAgent(workspaceAgents);
-  if (attentionAgentId && resolvedWorkspaceId) {
-    deps.openWorkspaceAgentTab(`${serverId}:${resolvedWorkspaceId}`, attentionAgentId);
+  if (options.focusAttentionAgent !== false) {
+    const attentionAgentId = pickAttentionAgent(workspaceAgents);
+    if (attentionAgentId && resolvedWorkspaceId) {
+      deps.openWorkspaceAgentTab(`${serverId}:${resolvedWorkspaceId}`, attentionAgentId);
+    }
   }
 
   deps.rememberLastWorkspace({ serverId, workspaceId });

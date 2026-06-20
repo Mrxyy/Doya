@@ -90,6 +90,27 @@ describe("workspace navigation", () => {
     expect(openedAgentTabs).toEqual([{ workspaceKey: "server-1:workspace-a", agentId: "agent-1" }]);
   });
 
+  it("does not focus an attention agent when focusAttentionAgent is false", () => {
+    const workspace = {
+      id: "workspace-a",
+      workspaceDirectory: "/repo/workspace-a",
+    } as WorkspaceDescriptor;
+    const agent = {
+      id: "agent-1",
+      cwd: "/repo/workspace-a",
+      requiresAttention: true,
+      attentionReason: "permission",
+    } as unknown as Agent;
+    const { deps, openedAgentTabs } = createFakeDeps({
+      getSessionWorkspaces: () => new Map([[workspace.id, workspace]]),
+      getSessionAgents: () => [agent],
+    });
+
+    navigateToWorkspace("server-1", "workspace-a", deps, { focusAttentionAgent: false });
+
+    expect(openedAgentTabs).toEqual([]);
+  });
+
   it("reads the active workspace from the current route", () => {
     const selection = parseActiveWorkspaceSelection({
       pathname: "/h/server-1/workspace/workspace-a",

@@ -515,11 +515,7 @@ function coerceWorkspaceTabTarget(raw: Record<string, unknown>): WorkspaceTabTar
   if (kind === "browser" && typeof raw.browserId === "string") {
     return normalizeWorkspaceTabTarget({ kind: "browser", browserId: raw.browserId });
   }
-  if (
-    kind === "pptPreview" &&
-    typeof raw.agentId === "string" &&
-    typeof raw.projectName === "string"
-  ) {
+  if (kind === "pptPreview" && typeof raw.agentId === "string" && typeof raw.projectName === "string") {
     return normalizeWorkspaceTabTarget({
       kind: "pptPreview",
       agentId: raw.agentId,

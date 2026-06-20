@@ -202,6 +202,29 @@ function createFilePaneUnavailablePreview(error: string): FilePanePreviewData {
   };
 }
 
+function getDocumentSourceUrl(input: {
+  client: DaemonClient;
+  documentKind: DocumentViewerKind | null;
+  readTarget: FilePaneReadTarget;
+}): string | null {
+  const { client, documentKind, readTarget } = input;
+  if (documentKind === "docx") {
+    return client.buildWorkspaceFileRawUrl({
+      cwd: readTarget.cwd,
+      path: readTarget.path,
+    });
+  }
+  if (documentKind === "xlsx") {
+    return withOnlyOfficeXlsxPreviewVersion(
+      client.buildWorkspaceFileOnlyOfficePreviewUrl({
+        cwd: readTarget.cwd,
+        path: readTarget.path,
+      }),
+    );
+  }
+  return null;
+}
+
 const ONLYOFFICE_XLSX_PREVIEW_VERSION = "4";
 
 function withOnlyOfficeXlsxPreviewVersion(sourceUrl: string): string {
@@ -223,15 +246,11 @@ async function readFilePanePreview(input: {
     const preview = await createFilePanePreview(file);
     return {
       ...preview,
-      documentSourceUrl:
-        preview.documentKind === "xlsx"
-          ? withOnlyOfficeXlsxPreviewVersion(
-              client.buildWorkspaceFileOnlyOfficePreviewUrl({
-                cwd: readTarget.cwd,
-                path: readTarget.path,
-              }),
-            )
-          : null,
+      documentSourceUrl: getDocumentSourceUrl({
+        client,
+        documentKind: preview.documentKind,
+        readTarget,
+      }),
       error: null,
     };
   } catch (error) {
@@ -802,6 +821,10 @@ function DocumentAnnotationPanel({
     ],
     [shouldGuideTargetSelection],
   );
+  const targetPulseStyle = useMemo(
+    () => [styles.annotationTargetGuidePulse, targetGuideStyle],
+    [targetGuideStyle],
+  );
 
   return (
     <View style={panelStyle} testID="document-annotation-panel">
@@ -819,10 +842,7 @@ function DocumentAnnotationPanel({
       <Text style={styles.annotationHint}>{annotationHint}</Text>
       <View style={targetBoxStyle}>
         {shouldGuideTargetSelection ? (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.annotationTargetGuidePulse, targetGuideStyle]}
-          />
+          <Animated.View pointerEvents="none" style={targetPulseStyle} />
         ) : null}
         <Text style={styles.annotationTargetLabel}>当前位置</Text>
         <Text

@@ -55,13 +55,25 @@ describe("buildWorkspacePptPreviewUrl", () => {
     ).toBe("/ppt-preview/agent%2F1/%E6%AD%A6%E6%B1%89%E6%97%A9%E9%A4%90");
   });
 
+  it("passes the app locale through to the preview shell", () => {
+    expect(
+      buildWorkspacePptPreviewUrl({
+        activeConnection: null,
+        agentId: "agent-1",
+        locale: "zh",
+        projectName: "deck",
+      }),
+    ).toBe("/ppt-preview/agent-1/deck?locale=zh");
+  });
+
   it("builds an absolute URL for direct TCP connections", () => {
     expect(
       buildWorkspacePptPreviewUrl({
         activeConnection: { type: "directTcp", endpoint: "127.0.0.1:6767" },
         agentId: "agent-1",
+        locale: "en",
         projectName: "deck",
       }),
-    ).toBe("http://127.0.0.1:6767/ppt-preview/agent-1/deck");
+    ).toBe("http://127.0.0.1:6767/ppt-preview/agent-1/deck?locale=en");
   });
 });

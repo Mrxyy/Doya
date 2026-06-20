@@ -2,6 +2,7 @@ import type { StreamItem } from "@/types/stream";
 import {
   parseDoyaExpectedTargets,
   parseDoyaMessageCard,
+  parseDoyaMessageCards,
   parseDoyaTargets,
   type DoyaExpectedTarget,
   type DoyaTarget,
@@ -16,6 +17,8 @@ const PPTX_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/exports\/[^"'`\s)）]+?\.pptx)(?:$|[\s"'`)）.,;，。])/gi;
 const PPT_PREVIEW_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/svg_output\/?)(?:$|[\s"'`)）.,;，。])/gi;
+const PPT_CONFIRM_PATH_PATTERN =
+  /(?:^|[\s"'`(（：:])((?:\.\/)?projects\/[^"'`\s)）]+?\/confirm_ui\/?)(?:$|[\s"'`)）.,;，。])/gi;
 const PPT_PROGRESS_KIND = "ai_creation.slides.progress";
 const DOCUMENT_PATH_PATTERN =
   /(?:^|[\s"'`(（：:])((?:\.\/)?(?:(?:[\w.@~+-]+[\\/])+)?[^"'`\s)）]+?\.(?:pdf|docx|xlsx?|csv))(?:$|[\s"'`)）.,;，。])/gi;
@@ -151,9 +154,9 @@ function normalizeAiCreationPptPreviewPathToken(source: string): string | null {
 
 function extractAiCreationPptPreviewSources(text: string): string[] {
   const sources: string[] = [];
-  const cardPreviewPath = parseDoyaMessageCard(text)?.fields.find(
-    (field) => field.name === "preview_path",
-  )?.value;
+  const cardPreviewPath = parseDoyaMessageCards(text)
+    .flatMap((card) => card.fields)
+    .find((field) => field.name === "preview_path")?.value;
   if (cardPreviewPath) {
     const source = normalizeAiCreationPptPreviewPathToken(cardPreviewPath);
     if (source) {
@@ -171,6 +174,31 @@ function extractAiCreationPptPreviewSources(text: string): string[] {
 
 export function extractAiCreationPptPreviewPath(text: string): string | null {
   const sources = [...new Set(extractAiCreationPptPreviewSources(text))];
+  return sources[sources.length - 1] ?? null;
+}
+
+function extractAiCreationPptConfirmSources(text: string): string[] {
+  const sources: string[] = [];
+  const cardConfirmPath = parseDoyaMessageCards(text)
+    .flatMap((card) => card.fields)
+    .find((field) => field.name === "confirm_path")?.value;
+  if (cardConfirmPath) {
+    const source = normalizeAiCreationPptPreviewPathToken(cardConfirmPath);
+    if (source) {
+      sources.push(source);
+    }
+  }
+  for (const match of text.matchAll(PPT_CONFIRM_PATH_PATTERN)) {
+    const source = normalizeAiCreationPptPreviewPathToken(match[1] ?? "");
+    if (source) {
+      sources.push(source);
+    }
+  }
+  return sources;
+}
+
+export function extractAiCreationPptConfirmPath(text: string): string | null {
+  const sources = [...new Set(extractAiCreationPptConfirmSources(text))];
   return sources[sources.length - 1] ?? null;
 }
 
@@ -308,7 +336,32 @@ export function normalizeAiCreationStream(params: {
       pushTaggedItem(normalized, tagged);
     }
   });
+  changed = dedupeAiCreationFinalResults(normalized) || changed;
   return changed ? normalized : { tail: params.tail, head: params.head };
+}
+
+function dedupeAiCreationFinalResults(target: { tail: StreamItem[]; head: StreamItem[] }): boolean {
+  const seenPptxPaths = new Set<string>();
+  let changed = false;
+  const dedupeItems = (items: StreamItem[]): StreamItem[] => {
+    const next: StreamItem[] = [];
+    for (const item of items) {
+      const pptxPath =
+        item.kind === "assistant_message" ? extractAiCreationFinalPptxPath(item.text) : null;
+      if (pptxPath) {
+        if (seenPptxPaths.has(pptxPath)) {
+          changed = true;
+          continue;
+        }
+        seenPptxPaths.add(pptxPath);
+      }
+      next.push(item);
+    }
+    return next;
+  };
+  target.tail = dedupeItems(target.tail);
+  target.head = dedupeItems(target.head);
+  return changed;
 }
 
 function normalizeHandshakeTurn(input: {
@@ -389,6 +442,7 @@ function getAiCreationGoalForKind(kind: string): string | null {
     case "ai_creation.image.edit":
       return "edit_image";
     case "ai_creation.slides.create":
+    case "ai_creation.slides.progress":
       return "create_pptx";
     case "ai_creation.document.pdf.create":
       return "create_pdf";
@@ -412,13 +466,15 @@ function findPptProgressItems(
     const item = tagged.item;
     return (
       item.kind === "assistant_message" &&
-      (extractAiCreationPptPreviewPath(item.text) || isPptProgressMessage(item.text))
+      (extractAiCreationPptPreviewPath(item.text) ||
+        extractAiCreationPptConfirmPath(item.text) ||
+        isPptProgressMessage(item.text))
     );
   });
 }
 
 function isPptProgressMessage(text: string): boolean {
-  return parseDoyaMessageCard(text)?.kind === PPT_PROGRESS_KIND;
+  return parseDoyaMessageCards(text).some((card) => card.kind === PPT_PROGRESS_KIND);
 }
 
 function findResponseStartTarget(items: TaggedStreamItem[]): DoyaTarget | null {

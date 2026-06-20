@@ -12,10 +12,10 @@ Role definition for the **web image acquisition path**: translate Strategist int
 
 Every accepted image is classified into one of two tiers. Anything else is rejected outright.
 
-| Tier                   | Licenses                                                    | On-slide attribution                |
-| ---------------------- | ----------------------------------------------------------- | ----------------------------------- |
-| `no-attribution`       | CC0, Public Domain, Pexels License, Pixabay Content License | None                                |
-| `attribution-required` | CC BY, CC BY-SA                                             | Inline credit `<text>` on the slide |
+| Tier | Licenses | On-slide attribution |
+|---|---|---|
+| `no-attribution` | CC0, Public Domain, Pexels License, Pixabay Content License | None |
+| `attribution-required` | CC BY, CC BY-SA | Inline credit `<text>` on the slide |
 
 **Forbidden — auto-rejected licenses**:
 
@@ -45,12 +45,12 @@ Strict:  provider chain, license filter = cc0,pdm,pexels,pixabay
 
 ## 3. Providers
 
-| Provider          | Config                                                                         | Strength                                                     |
-| ----------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| Openverse         | zero-config                                                                    | fallback aggregator: Wikimedia + Flickr + museums + rawpixel |
-| Wikimedia Commons | zero-config                                                                    | educational, scientific, geographic, historical              |
-| Pexels            | recommended: `PEXELS_API_KEY` (free, [signup](https://www.pexels.com/api/))    | modern stock photography, people, workplace, lifestyle       |
-| Pixabay           | recommended: `PIXABAY_API_KEY` (free, [signup](https://pixabay.com/api/docs/)) | broad type coverage including photos and illustrations       |
+| Provider | Config | Strength |
+|---|---|---|
+| Openverse | zero-config | fallback aggregator: Wikimedia + Flickr + museums + rawpixel |
+| Wikimedia Commons | zero-config | educational, scientific, geographic, historical |
+| Pexels | recommended: `PEXELS_API_KEY` (free, [signup](https://www.pexels.com/api/)) | modern stock photography, people, workplace, lifestyle |
+| Pixabay | recommended: `PIXABAY_API_KEY` (free, [signup](https://pixabay.com/api/docs/)) | broad type coverage including photos and illustrations |
 
 Default chain (when `--provider` is unset):
 
@@ -78,21 +78,21 @@ Then `build_query_progression` tries: original → simplified (4 words) → simp
 
 **Per-row web Reference grammar**:
 
-| Segment      | Rule                                                                                                                                                                                                                                                                                                                                          |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Subject      | Use 1-2 concrete nouns only: `offshore wind farm`, `Xiamen skyline`, `boardroom meeting`                                                                                                                                                                                                                                                      |
-| Quality cues | **DO NOT ADD QUALITY CUES** like `professional editorial photography` or `clean composition`. These APIs use exact keyword matching; adding long adjectives will result in 0 matches.                                                                                                                                                         |
-| Language     | For Chinese landmarks: use precise Chinese names (e.g., `磁器口古镇`) if specifically targeting `--provider wikimedia`. For general stock providers (Pexels/Pixabay), use simple English nouns (e.g., `Chongqing Jiefangbei`); do NOT use complex Chinese sentences or overly long English descriptive strings which fail on these platforms. |
+| Segment | Rule |
+|---|---|
+| Subject | Use 1-2 concrete nouns only: `offshore wind farm`, `Xiamen skyline`, `boardroom meeting` |
+| Quality cues | **DO NOT ADD QUALITY CUES** like `professional editorial photography` or `clean composition`. These APIs use exact keyword matching; adding long adjectives will result in 0 matches. |
+| Language | For Chinese landmarks: use precise Chinese names (e.g., `磁器口古镇`) if specifically targeting `--provider wikimedia`. For general stock providers (Pexels/Pixabay), use simple English nouns (e.g., `Chongqing Jiefangbei`); do NOT use complex Chinese sentences or overly long English descriptive strings which fail on these platforms. |
 
 **Forbidden — web negative prompts**: `not tourist snapshot`, `no amateur photo`, `avoid low quality`.
 
 > Note: Keyword APIs search negative words literally.
 
-| ✅ Good Reference (intent)                                                             | ❌ Avoid                                        |
-| -------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| "Offshore wind farm at dusk, aerial view, professional editorial photography"          | "professional editorial photography background" |
-| "Diverse engineering team collaborating around a laptop, modern office, natural light" | "use Openverse, search 'team'"                  |
-| "Sunlit forest path in autumn, clean composition, high-resolution photography"         | "Hero image, dramatic lighting"                 |
+| ✅ Good Reference (intent) | ❌ Avoid |
+|---|---|
+| "Offshore wind farm at dusk, aerial view, professional editorial photography" | "professional editorial photography background" |
+| "Diverse engineering team collaborating around a laptop, modern office, natural light" | "use Openverse, search 'team'" |
+| "Sunlit forest path in autumn, clean composition, high-resolution photography" | "Hero image, dramatic lighting" |
 
 ---
 
@@ -107,17 +107,17 @@ python3 scripts/image_search.py "<query>" \
   -o <project_path>/images
 ```
 
-| Parameter                 | Required | Default   | Description                                                                         |
-| ------------------------- | -------- | --------- | ----------------------------------------------------------------------------------- |
-| `query`                   | yes      | —         | Positional. Pre-simplification not necessary; CLI runs `simplify_query` internally. |
-| `--filename`              | yes      | —         | Output filename matching the resource list                                          |
-| `-o / --output`           | no       | `.`       | Output directory; manifest defaults to `<output>/image_sources.json`                |
-| `--slide`                 | no       | `""`      | Slide ID from resource list (recorded in manifest)                                  |
-| `--purpose`               | no       | `""`      | `background` / `hero` / `side` / `accent`                                           |
-| `--orientation`           | no       | `any`     | `any` / `landscape` / `portrait` / `square`                                         |
-| `--provider`              | no       | (chain)   | Pin one provider                                                                    |
-| `--strict-no-attribution` | no       | off       | Restrict to no-attribution licenses; refuse CC BY / CC BY-SA                        |
-| `--manifest`              | no       | (default) | Override manifest path                                                              |
+| Parameter | Required | Default | Description |
+|---|---|---|---|
+| `query` | yes | — | Positional. Pre-simplification not necessary; CLI runs `simplify_query` internally. |
+| `--filename` | yes | — | Output filename matching the resource list |
+| `-o / --output` | no | `.` | Output directory; manifest defaults to `<output>/image_sources.json` |
+| `--slide` | no | `""` | Slide ID from resource list (recorded in manifest) |
+| `--purpose` | no | `""` | `background` / `hero` / `side` / `accent` |
+| `--orientation` | no | `any` | `any` / `landscape` / `portrait` / `square` |
+| `--provider` | no | (chain) | Pin one provider |
+| `--strict-no-attribution` | no | off | Restrict to no-attribution licenses; refuse CC BY / CC BY-SA |
+| `--manifest` | no | (default) | Override manifest path |
 
 **Pacing (mandatory)**: one search at a time. Wikimedia/Openverse expect identifying User-Agent and reasonable rate (~1 req/sec). Default pacing is fine.
 
@@ -162,14 +162,14 @@ Every successful download appends or replaces one entry keyed on `filename`:
 }
 ```
 
-| Field                  | Notes                                                                                                          |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `width` / `height`     | Measured from the file actually saved to disk. Use these for layout.                                           |
-| `metadata_dimensions`  | Present only when upstream-claimed size differs from the saved file (preview vs original). Informational only. |
-| `license_tier`         | Drives Executor's attribution decision. Only `no-attribution` / `attribution-required`.                        |
-| `attribution_required` | Boolean alias of `license_tier == "attribution-required"`.                                                     |
-| `attribution_text`     | Pre-rendered canonical credit string. **Use as-is; do not regenerate.**                                        |
-| `stage`                | `all` by default, or `no-attribution-only` when strict mode is used.                                           |
+| Field | Notes |
+|---|---|
+| `width` / `height` | Measured from the file actually saved to disk. Use these for layout. |
+| `metadata_dimensions` | Present only when upstream-claimed size differs from the saved file (preview vs original). Informational only. |
+| `license_tier` | Drives Executor's attribution decision. Only `no-attribution` / `attribution-required`. |
+| `attribution_required` | Boolean alias of `license_tier == "attribution-required"`. |
+| `attribution_text` | Pre-rendered canonical credit string. **Use as-is; do not regenerate.** |
+| `stage` | `all` by default, or `no-attribution-only` when strict mode is used. |
 
 > Manifest is **idempotent on `filename`**. Rerunning the CLI replaces that entry; other entries are preserved.
 
@@ -210,9 +210,9 @@ Use single-letter labels (a/b/c) only when needed for disambiguation.
 
 Use `attribution_text` from the manifest as the **starting point**. Compress for the small-text constraint:
 
-| Manifest                                                                              | Slide credit                            |
-| ------------------------------------------------------------------------------------- | --------------------------------------- |
-| `team.jpg — "Untitled" via Openverse — license: CC0 (...)`                            | `via Openverse / CC0`                   |
+| Manifest | Slide credit |
+|---|---|
+| `team.jpg — "Untitled" via Openverse — license: CC0 (...)` | `via Openverse / CC0` |
 | `team.jpg — "Sunset" by Jane Doe via Wikimedia Commons — license: CC BY-SA 4.0 (...)` | `© Jane Doe / Wikimedia / CC BY-SA 4.0` |
 
 ---
@@ -221,12 +221,12 @@ Use `attribution_text` from the manifest as the **starting point**. Compress for
 
 Extends [`image-base.md`](./image-base.md) §6.
 
-| Situation                                         | Behavior                                                                                                          |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| No candidates from any provider in either stage   | Mark row `Needs-Manual`. Suggest: shorter query, drop `--strict-no-attribution`, or set keyed provider's API key. |
-| Single candidate fails to download (HTTP 403/404) | Dispatcher auto-falls through to the next ranked candidate. No user action.                                       |
-| All candidates from one provider fail             | Dispatcher moves to the next provider in the chain.                                                               |
-| Keyed provider has no API key                     | Silently skipped. Not an error.                                                                                   |
+| Situation | Behavior |
+|---|---|
+| No candidates from any provider in either stage | Mark row `Needs-Manual`. Suggest: shorter query, drop `--strict-no-attribution`, or set keyed provider's API key. |
+| Single candidate fails to download (HTTP 403/404) | Dispatcher auto-falls through to the next ranked candidate. No user action. |
+| All candidates from one provider fail | Dispatcher moves to the next provider in the chain. |
+| Keyed provider has no API key | Silently skipped. Not an error. |
 
 CLI exit: `0` on success, `1` only when no acceptable image was found across the entire dispatch matrix.
 
@@ -244,9 +244,9 @@ If the description is verbose, that's fine — `simplify_query` handles it.
 
 Executor reads `image_sources.json` per slide that uses a Sourced image. For each entry:
 
-| `license_tier`         | Slide-level action                                      |
-| ---------------------- | ------------------------------------------------------- |
-| `no-attribution`       | Embed `<image>` only                                    |
+| `license_tier` | Slide-level action |
+|---|---|
+| `no-attribution` | Embed `<image>` only |
 | `attribution-required` | Embed `<image>` **and** an inline credit element per §7 |
 
 Executor does not interpret raw license strings — `license_tier` is sufficient.

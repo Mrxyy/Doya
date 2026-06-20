@@ -19,7 +19,6 @@ python3 scripts/svg_to_pptx.py <project_path>
 Unified post-processing entry point. This is the preferred way to run SVG cleanup.
 
 It aggregates:
-
 - `embed_icons.py`
 - `crop_images.py`
 - `fix_image_aspect.py`
@@ -46,7 +45,6 @@ python3 scripts/svg_to_pptx.py <project_path> --recorded-narration audio
 ```
 
 Behavior:
-
 - Default output (default-flow mode, no `-o`):
   - `exports/<project_name>_<timestamp>.pptx` — native editable pptx (canonical output)
   - `backup/<timestamp>/svg_output/` — copy of Executor SVG source, always written so the pptx can be rebuilt via `finalize_svg → svg_to_pptx` without re-running the LLM
@@ -87,7 +85,6 @@ Behavior:
 - Optional object-level overrides live in `<project>/animations.json` or a path passed via `--animation-config`; build and validate them with `animation_config.py scaffold|validate`
 
 Performance (legacy `_svg.pptx` PNG fallback, only when `--svg-snapshot` or `--only legacy`):
-
 - SVG→PNG is pre-rendered in a process pool before the main loop. Default workers = `min(cpu, pages, 8)`; override with `--workers N` (set `1` for sequential, `0` is treated as sequential).
 - Results are cached at `<project>/.cache/svg_png/` keyed by SVG content hash + size + active renderer (`cairosvg` vs `svglib`). Switching renderers naturally invalidates the cache; nothing to clean by hand.
 - `--cache-dir <path>` relocates the cache; `--no-cache` forces re-render without writing/reading the cache (handy when debugging rendering).
@@ -110,7 +107,6 @@ python3 scripts/total_md_split.py <project_path> -q
 ```
 
 Requirements:
-
 - Each section begins with `# `
 - Heading text matches the SVG filename
 - Sections are separated by `---`
@@ -129,7 +125,6 @@ python3 scripts/svg_quality_checker.py examples/project --export
 ```
 
 Checks include:
-
 - `viewBox`
 - banned elements
 - width/height consistency
@@ -209,14 +204,13 @@ Replaces `<use data-icon="chunk-filled/name" .../>`, `<use data-icon="tabler-fil
 
 Use PowerPoint-safe transparency syntax:
 
-| Avoid                     | Use instead                      |
-| ------------------------- | -------------------------------- |
-| `fill=\"rgba(...)\"`      | `fill=\"#hex\"` + `fill-opacity` |
-| `<g opacity=\"...\">`     | Set opacity on each child        |
-| `<image opacity=\"...\">` | Overlay with a mask layer        |
+| Avoid | Use instead |
+|------|-------------|
+| `fill=\"rgba(...)\"` | `fill=\"#hex\"` + `fill-opacity` |
+| `<g opacity=\"...\">` | Set opacity on each child |
+| `<image opacity=\"...\">` | Overlay with a mask layer |
 
 PowerPoint also has trouble with:
-
 - marker-based arrows
 - unsupported filters
 - direct SVG features not mapped to DrawingML

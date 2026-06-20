@@ -12,13 +12,13 @@ Frosted-glass / soft-UI aesthetic — translucent layered panels, blurred backgr
 
 ## 2. Line, texture, depth
 
-| Aspect       | Treatment                                                                 |
-| ------------ | ------------------------------------------------------------------------- |
+| Aspect | Treatment |
+|---|---|
 | Line quality | Thin 1px highlight strokes on panel top/left edges (glass refraction cue) |
-| Texture      | Frosted blur on panels (gaussian blur ~10-15px over background)           |
-| Depth        | Real layered depth — large soft drop shadows, parallax-suggesting offsets |
-| Material     | Translucent polished glass on soft gradient background                    |
-| Mood         | Premium, polished, futuristic-friendly, optimistic                        |
+| Texture | Frosted blur on panels (gaussian blur ~10-15px over background) |
+| Depth | Real layered depth — large soft drop shadows, parallax-suggesting offsets |
+| Material | Translucent polished glass on soft gradient background |
+| Mood | Premium, polished, futuristic-friendly, optimistic |
 
 ## 3. Using the deck's HEX values
 

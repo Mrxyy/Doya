@@ -32,15 +32,11 @@ page_types: [cover, toc, chapter, content, ending]
 
 # [Template Name] - Design Specification
 
-## I. Template Overview # Use cases / Design intent
-
-## II. Canvas Specification # Format / Dimensions / viewBox / Margins
-
-## III. Page Structure # Layout grid / Decorative DNA / Navigation
-
-## IV. Page Types # Per-page role descriptions
-
-## V. SVG Page Roster # File list + per-file purpose
+## I. Template Overview         # Use cases / Design intent
+## II. Canvas Specification     # Format / Dimensions / viewBox / Margins
+## III. Page Structure          # Layout grid / Decorative DNA / Navigation
+## IV. Page Types               # Per-page role descriptions
+## V. SVG Page Roster           # File list + per-file purpose
 ```
 
 Layouts may include additional supporting sections (Layout Patterns, Spacing Guidelines, SVG Technical Constraints, Placeholder Specification, Usage Notes). Do **not** include Color Scheme or Typography sections — those are identity-segment fields owned by `templates/brands/` and `templates/decks/`.
@@ -49,14 +45,14 @@ Layouts may include additional supporting sections (Layout Patterns, Spacing Gui
 
 ## Standard file set per layout directory
 
-| Filename         | Required | Purpose                                               |
-| ---------------- | -------- | ----------------------------------------------------- |
-| `design_spec.md` | Yes      | Layout schema spec (frontmatter + structure sections) |
-| `01_cover.svg`   | Yes      | Cover page                                            |
-| `02_toc.svg`     | Optional | Table of contents                                     |
-| `02_chapter.svg` | Yes      | Chapter page                                          |
-| `03_content.svg` | Yes      | Content page                                          |
-| `04_ending.svg`  | Yes      | Ending page                                           |
+| Filename | Required | Purpose |
+|----------|----------|---------|
+| `design_spec.md` | Yes | Layout schema spec (frontmatter + structure sections) |
+| `01_cover.svg` | Yes | Cover page |
+| `02_toc.svg` | Optional | Table of contents |
+| `02_chapter.svg` | Yes | Chapter page |
+| `03_content.svg` | Yes | Content page |
+| `04_ending.svg` | Yes | Ending page |
 
 All SVGs use `viewBox="0 0 1280 720"` for ppt169.
 

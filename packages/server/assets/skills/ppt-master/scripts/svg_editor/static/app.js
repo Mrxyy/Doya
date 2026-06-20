@@ -10,8 +10,8 @@
     en: {
       page_title: "PPT Master - Live Preview",
       panel_slides: "Slides",
-      panel_annotations: "Annotations",
-      placeholder_select_slide: "Select a slide on the left to begin",
+      panel_annotations: "Edit",
+      placeholder_select_slide: "Select a slide to begin",
       label_selected_element: "Selected element",
       empty_selected_element: "Click an element on the slide to select it",
       btn_select_group: "Select parent group",
@@ -25,7 +25,6 @@
       placeholder_annotation: "Describe how the AI should modify this element...",
       placeholder_annotation_multi: "Describe how to modify all {count} elements...",
       btn_add_annotation: "Add annotation",
-      label_annotations_on_slide: "Annotations on this slide",
       btn_submit_annotations: "Apply changes",
       btn_exit_preview: "Apply annotations",
       modal_submit: "Submit",
@@ -36,6 +35,8 @@
       placeholder_slide_writing: "Slide is still being written. Waiting for the next refresh...",
       empty_annotations: "No annotations yet",
       tooltip_remove_annotation: "Remove annotation",
+      tooltip_annotations_show: "Show annotations on this slide",
+      tooltip_annotations_hide: "Hide annotations on this slide",
       multi_selected: "{count} elements selected",
       multi_mixed: "mixed",
       err_load_slides: "Failed to load slides: ",
@@ -48,8 +49,9 @@
       prop_multiline_hint: "Multi-line — select a single line (tspan) to edit text",
       edit_saved_hint: "Change staged. Click Apply changes to write it to svg_output.",
       btn_undo: "Undo",
-      undo_done: "Reverted last staged edit",
-      undo_empty: "No staged edit to undo",
+      undo_done: "Reverted last change",
+      undo_draft: "Cleared draft annotation",
+      undo_empty: "No change to undo",
       overlap_caption: "Overlapping here — pick one",
       err_empty_svg:
         "Slide loaded but the canvas is empty. The SVG may be malformed or missing a root <svg> element.",
@@ -73,12 +75,15 @@
       nav_last: "Last slide (End)",
       nav_counter: "{current} / {total}",
       nav_empty: "— / —",
+      slides_list_toggle: "Show slide list",
+      inspector_sidebar_expand: "Expand annotations",
+      inspector_sidebar_collapse: "Collapse annotations",
     },
     zh: {
       page_title: "PPT Master - 实时预览",
       panel_slides: "幻灯片",
-      panel_annotations: "标注",
-      placeholder_select_slide: "在左侧选择一张幻灯片开始",
+      panel_annotations: "编辑",
+      placeholder_select_slide: "选择一张幻灯片开始",
       label_selected_element: "已选元素",
       empty_selected_element: "点击幻灯片中的元素进行选择",
       btn_select_group: "选择父级组",
@@ -92,7 +97,6 @@
       placeholder_annotation: "描述希望 AI 如何修改该元素……",
       placeholder_annotation_multi: "描述希望如何修改所选 {count} 个元素……",
       btn_add_annotation: "添加标注",
-      label_annotations_on_slide: "本页标注",
       btn_submit_annotations: "应用修改",
       btn_exit_preview: "应用标注",
       modal_submit: "提交",
@@ -103,6 +107,8 @@
       placeholder_slide_writing: "幻灯片仍在写入,等待下次刷新……",
       empty_annotations: "暂无标注",
       tooltip_remove_annotation: "删除标注",
+      tooltip_annotations_show: "显示本页标注",
+      tooltip_annotations_hide: "隐藏本页标注",
       multi_selected: "已选 {count} 个元素",
       multi_mixed: "混合",
       err_load_slides: "加载幻灯片失败:",
@@ -115,8 +121,9 @@
       prop_multiline_hint: "多行文本——选中单行(tspan)编辑文字",
       edit_saved_hint: "修改已暂存。点击“应用修改”后写入 svg_output。",
       btn_undo: "撤销",
-      undo_done: "已撤销上一条暂存修改",
-      undo_empty: "没有可撤销的暂存修改",
+      undo_done: "已撤销上一条修改",
+      undo_draft: "已清空未添加的标注",
+      undo_empty: "没有可撤销的修改",
       overlap_caption: "此处重叠元素——点击选择",
       err_empty_svg: "幻灯片已加载但画布为空。SVG 可能损坏或缺少根 <svg> 元素。",
       warn_icon_inline: "{count} 个图标渲染失败:{names}",
@@ -137,10 +144,15 @@
       nav_last: "末页 (End)",
       nav_counter: "{current} / {total}",
       nav_empty: "— / —",
+      slides_list_toggle: "显示幻灯片列表",
+      inspector_sidebar_expand: "展开标注面板",
+      inspector_sidebar_collapse: "收起标注面板",
     },
   };
 
+  var EMBEDDED_LANG = readEmbeddedLang();
   var LANG = (function () {
+    if (EMBEDDED_LANG) return EMBEDDED_LANG;
     try {
       var stored = window.localStorage.getItem("ppt_lang");
       if (stored === "zh" || stored === "en") return stored;
@@ -150,6 +162,16 @@
     var nav = (navigator.language || navigator.userLanguage || "en").toLowerCase();
     return nav.indexOf("zh") === 0 ? "zh" : "en";
   })();
+
+  function readEmbeddedLang() {
+    try {
+      var params = new URLSearchParams(window.location.search || "");
+      var value = params.get("locale") || params.get("lang");
+      return value === "zh" || value === "en" ? value : null;
+    } catch (e) {
+      return null;
+    }
+  }
 
   function t(key, params) {
     var dict = MESSAGES[LANG] || MESSAGES.en;
@@ -182,10 +204,12 @@
   function setLang(lang) {
     if (lang !== "zh" && lang !== "en") return;
     LANG = lang;
-    try {
-      window.localStorage.setItem("ppt_lang", lang);
-    } catch (e) {
-      /* ignore */
+    if (!EMBEDDED_LANG) {
+      try {
+        window.localStorage.setItem("ppt_lang", lang);
+      } catch (e) {
+        /* ignore */
+      }
     }
     applyI18n();
     var toggleBtn = document.getElementById("btn-lang-toggle");
@@ -197,11 +221,17 @@
     updateSelectionPanel();
     updateAnnotationList();
     updateUndoButton();
+    updateAnnotationVisibilityToggle();
+    updateSlideListPopover();
+    updateInspectorSidebarToggle();
     loadSlides();
   }
 
   // ---- DOM refs ---------------------------------------------------
   var slideListEl = document.getElementById("slide-list");
+  var slideListToggle = document.getElementById("slide-list-toggle");
+  var slideListPopover = document.getElementById("slide-list-popover");
+  var inspectorSidebarToggle = document.getElementById("inspector-sidebar-toggle");
   var svgPlaceholder = document.getElementById("svg-placeholder");
   var svgContent = document.getElementById("svg-content");
   var selectedElementEl = document.getElementById("selected-element");
@@ -209,6 +239,11 @@
   var annotationText = document.getElementById("annotation-text");
   var btnAddAnnotation = document.getElementById("btn-add-annotation");
   var annotationsEl = document.getElementById("annotations");
+  var annotationVisibilityToggle = document.getElementById("annotation-visibility-toggle");
+  var annotationTipLayer = null;
+  var annotationTipRenderFrame = null;
+  var annotationTipResizeObserver = null;
+  var annotationTipTransitionFrame = null;
   var btnUndo = document.getElementById("btn-undo");
   var btnSave = document.getElementById("btn-save");
   var btnExitPreview = document.getElementById("btn-exit-preview");
@@ -236,10 +271,75 @@
   var slideMtimes = {}; // {name: mtime} — last-seen mtime for each slide
   var reloadBannerEl = null; // singleton banner element shown when currentSlide mtime drifts
   var editStackCount = {}; // {name: staged edit count} — mirrors backend PENDING_EDITS
+  var annotationUndoStack = []; // [{slide, entries:[{elementId, previous}]}]
   var savedHintShown = false; // show the "staged edit" hint once per session
   var annotationsDirty = false; // unsaved annotations added/removed this session
+  var areAnnotationsVisible = true;
   var staticVersion = null; // {index.html, style.css, app.js} mtimes for dev hot refresh
   var staticPollTimer = null;
+  var isSlideListPopoverOpen = false;
+  var isInspectorSidebarExpanded = false;
+
+  function updateSlideListPopover() {
+    document.body.classList.toggle("slide-list-popover-open", isSlideListPopoverOpen);
+    if (!slideListToggle) return;
+    slideListToggle.setAttribute("aria-expanded", isSlideListPopoverOpen ? "true" : "false");
+    slideListToggle.title = t("slides_list_toggle");
+  }
+
+  function setSlideListPopoverOpen(open) {
+    isSlideListPopoverOpen = open;
+    updateSlideListPopover();
+  }
+
+  function toggleSlideListPopover() {
+    setSlideListPopoverOpen(!isSlideListPopoverOpen);
+  }
+
+  function updateInspectorSidebarToggle() {
+    document.body.classList.toggle("inspector-sidebar-expanded", isInspectorSidebarExpanded);
+    if (!inspectorSidebarToggle) return;
+    inspectorSidebarToggle.setAttribute(
+      "aria-expanded",
+      isInspectorSidebarExpanded ? "true" : "false",
+    );
+    inspectorSidebarToggle.title = t(
+      isInspectorSidebarExpanded ? "inspector_sidebar_collapse" : "inspector_sidebar_expand",
+    );
+  }
+
+  function setInspectorSidebarExpanded(expanded) {
+    isInspectorSidebarExpanded = expanded;
+    updateInspectorSidebarToggle();
+    trackAnnotationTipTransition();
+  }
+
+  function toggleInspectorSidebar() {
+    if (selectedElementIds.size > 0) {
+      setInspectorSidebarExpanded(true);
+      return;
+    }
+    setInspectorSidebarExpanded(!isInspectorSidebarExpanded);
+  }
+
+  function updateAnnotationVisibilityToggle() {
+    document.body.classList.toggle("annotations-hidden", !areAnnotationsVisible);
+    if (!annotationVisibilityToggle) return;
+    var key = areAnnotationsVisible ? "tooltip_annotations_hide" : "tooltip_annotations_show";
+    annotationVisibilityToggle.setAttribute(
+      "aria-pressed",
+      areAnnotationsVisible ? "true" : "false",
+    );
+    annotationVisibilityToggle.title = t(key);
+    annotationVisibilityToggle.setAttribute("data-tooltip", t(key));
+    syncAnnotationElementTitles();
+    renderAnnotationTips();
+  }
+
+  function toggleAnnotationVisibility() {
+    areAnnotationsVisible = !areAnnotationsVisible;
+    updateAnnotationVisibilityToggle();
+  }
 
   // Staged edits live in server memory until "Apply changes"; the server can
   // still idle-timeout or be killed and drop them. Warn before the tab leaves
@@ -376,7 +476,7 @@
 
         var currentExists = false;
         var currentMtimeChanged = false;
-        slides.forEach(function (s) {
+        slides.forEach(function (s, index) {
           if (s.name === currentSlide) {
             currentExists = true;
             // Compare against the mtime we recorded when we last rendered this slide.
@@ -399,6 +499,11 @@
           }
           item.setAttribute("data-name", s.name);
 
+          var numberSpan = document.createElement("span");
+          numberSpan.className = "slide-number";
+          numberSpan.textContent = String(index + 1).padStart(2, "0");
+          item.appendChild(numberSpan);
+
           var nameSpan = document.createElement("span");
           nameSpan.className = "slide-name";
           nameSpan.textContent = formatSlideDisplayName(s.name);
@@ -413,6 +518,7 @@
 
           item.addEventListener("click", function () {
             selectSlide(s.name, item);
+            setSlideListPopoverOpen(false);
           });
           slideListEl.appendChild(item);
         });
@@ -443,6 +549,7 @@
     currentSlide = name;
     selectedElementIds.clear();
     slideAnnotations = {};
+    annotationUndoStack = [];
     updateNavLabel();
 
     // Reset right panel and rubber band
@@ -557,6 +664,7 @@
   function setupSvgInteraction() {
     var svg = svgContent.querySelector("svg");
     if (!svg) return;
+    observeAnnotationTipLayout(svg);
 
     // Visual class only — selectability is handled by the delegated handler below.
     // Skipping the per-element addEventListener brings listener-registration time
@@ -649,6 +757,7 @@
     var count = selectedElementIds.size;
 
     if (count === 0) {
+      setInspectorSidebarExpanded(false);
       selectedElementEl.classList.add("empty");
       selectedElementEl.textContent = t("empty_selected_element");
       annotationInput.style.display = "none";
@@ -658,6 +767,7 @@
       return;
     }
 
+    setInspectorSidebarExpanded(true);
     selectedElementEl.classList.remove("empty");
     propsEl.style.display = "block";
 
@@ -765,6 +875,7 @@
   }
 
   function applyElementAttrs(el, attrs) {
+    var shouldRefreshAnnotationTips = el.id && slideAnnotations[el.id];
     if (
       localName(el) === "g" &&
       el.hasAttribute("data-icon") &&
@@ -802,6 +913,9 @@
       if (attrs[k] === null || attrs[k] === undefined) el.removeAttribute(k);
       else el.setAttribute(k, attrs[k]);
     });
+    if (shouldRefreshAnnotationTips) {
+      scheduleAnnotationTipRender();
+    }
   }
 
   function localName(el) {
@@ -1407,9 +1521,17 @@
     var text = annotationText.value.trim();
     if (!text) return;
 
+    var slide = currentSlide;
     var ids = Array.from(selectedElementIds);
+    var undoEntries = ids.map(function (eid) {
+      return {
+        elementId: eid,
+        previous:
+          Object.prototype.hasOwnProperty.call(slideAnnotations, eid) ? slideAnnotations[eid] : null,
+      };
+    });
     var promises = ids.map(function (eid) {
-      return fetch("/api/slide/" + encodeURIComponent(currentSlide) + "/annotate", {
+      return fetch("/api/slide/" + encodeURIComponent(slide) + "/annotate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ element_id: eid, annotation: text }),
@@ -1421,10 +1543,12 @@
         ids.forEach(function (eid) {
           slideAnnotations[eid] = text;
         });
+        annotationUndoStack.push({ slide: slide, entries: undoEntries });
         annotationsDirty = true;
         refreshAnnotationVisuals();
         updateAnnotationList();
         annotationText.value = "";
+        updateUndoButton();
         loadSlides();
       })
       .catch(function (err) {
@@ -1433,15 +1557,24 @@
       });
   });
 
+  if (annotationText) {
+    annotationText.addEventListener("input", updateUndoButton);
+  }
+
   // ================================================================
   //  7.  removeAnnotation  -- DELETE /api/slide/{name}/annotate/{id}
   // ================================================================
   function removeAnnotation(elementId) {
     if (!currentSlide) return;
+    var slide = currentSlide;
+    var previous =
+      Object.prototype.hasOwnProperty.call(slideAnnotations, elementId)
+        ? slideAnnotations[elementId]
+        : null;
 
     fetch(
       "/api/slide/" +
-        encodeURIComponent(currentSlide) +
+        encodeURIComponent(slide) +
         "/annotate/" +
         encodeURIComponent(elementId),
       {
@@ -1453,9 +1586,14 @@
       })
       .then(function () {
         delete slideAnnotations[elementId];
+        annotationUndoStack.push({
+          slide: slide,
+          entries: [{ elementId: elementId, previous: previous }],
+        });
         annotationsDirty = true;
         refreshAnnotationVisuals();
         updateAnnotationList();
+        updateUndoButton();
         loadSlides();
       })
       .catch(function (err) {
@@ -1471,12 +1609,116 @@
     // Clear all annotated marks
     svgContent.querySelectorAll(".svg-annotated").forEach(function (el) {
       el.classList.remove("svg-annotated");
+      el.removeAttribute("data-annotation-text");
+      el.removeAttribute("title");
     });
     // Apply marks
     Object.keys(slideAnnotations).forEach(function (eid) {
       var el = svgContent.querySelector("#" + CSS.escape(eid));
-      if (el) el.classList.add("svg-annotated");
+      if (el) {
+        el.classList.add("svg-annotated");
+        el.setAttribute("data-annotation-text", slideAnnotations[eid]);
+        if (areAnnotationsVisible) {
+          el.setAttribute("title", slideAnnotations[eid]);
+        }
+      }
     });
+    syncAnnotationElementTitles();
+    renderAnnotationTips();
+  }
+
+  function syncAnnotationElementTitles() {
+    Object.keys(slideAnnotations).forEach(function (eid) {
+      var el = svgContent.querySelector("#" + CSS.escape(eid));
+      if (!el) return;
+      if (areAnnotationsVisible) {
+        el.setAttribute("title", slideAnnotations[eid]);
+      } else {
+        el.removeAttribute("title");
+      }
+    });
+  }
+
+  function ensureAnnotationTipLayer() {
+    if (annotationTipLayer) return annotationTipLayer;
+    annotationTipLayer = document.createElement("div");
+    annotationTipLayer.id = "annotation-tip-layer";
+    annotationTipLayer.setAttribute("aria-hidden", "true");
+    var svgContainer = document.getElementById("svg-container");
+    svgContainer.appendChild(annotationTipLayer);
+    return annotationTipLayer;
+  }
+
+  function renderAnnotationTips() {
+    annotationTipRenderFrame = null;
+    var layer = ensureAnnotationTipLayer();
+    layer.innerHTML = "";
+    if (!areAnnotationsVisible || !currentSlide) return;
+    var svgContainer = document.getElementById("svg-container");
+    var containerRect = svgContainer.getBoundingClientRect();
+    Object.keys(slideAnnotations).forEach(function (eid) {
+      var el = svgContent.querySelector("#" + CSS.escape(eid));
+      if (!el) return;
+      var rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return;
+      var tip = document.createElement("div");
+      tip.className = "annotation-tip";
+      tip.textContent = slideAnnotations[eid];
+      var left = rect.left - containerRect.left + rect.width / 2 + svgContainer.scrollLeft;
+      var top = rect.top - containerRect.top + svgContainer.scrollTop;
+      tip.style.left = left + "px";
+      tip.style.top = top + "px";
+      layer.appendChild(tip);
+      var minTop = svgContainer.scrollTop + tip.offsetHeight + 14;
+      if (top < minTop) {
+        tip.classList.add("annotation-tip-below");
+      }
+      var minLeft = svgContainer.scrollLeft + tip.offsetWidth / 2 + 8;
+      var maxLeft = svgContainer.scrollLeft + svgContainer.clientWidth - tip.offsetWidth / 2 - 8;
+      if (left < minLeft) tip.style.left = minLeft + "px";
+      if (left > maxLeft) tip.style.left = maxLeft + "px";
+    });
+  }
+
+  function scheduleAnnotationTipRender() {
+    if (annotationTipRenderFrame !== null) return;
+    annotationTipRenderFrame = window.requestAnimationFrame(renderAnnotationTips);
+  }
+
+  function observeAnnotationTipLayout(svg) {
+    if (typeof ResizeObserver !== "function") {
+      scheduleAnnotationTipRender();
+      return;
+    }
+    if (annotationTipResizeObserver) {
+      annotationTipResizeObserver.disconnect();
+    }
+    annotationTipResizeObserver = new ResizeObserver(scheduleAnnotationTipRender);
+    var svgContainer = document.getElementById("svg-container");
+    if (svgContainer) {
+      annotationTipResizeObserver.observe(svgContainer);
+    }
+    annotationTipResizeObserver.observe(svgContent);
+    if (svg) {
+      annotationTipResizeObserver.observe(svg);
+    }
+    scheduleAnnotationTipRender();
+  }
+
+  function trackAnnotationTipTransition() {
+    if (annotationTipTransitionFrame !== null) {
+      window.cancelAnimationFrame(annotationTipTransitionFrame);
+    }
+    var startedAt = performance.now();
+    function tick(now) {
+      renderAnnotationTips();
+      if (now - startedAt < 260) {
+        annotationTipTransitionFrame = window.requestAnimationFrame(tick);
+      } else {
+        annotationTipTransitionFrame = null;
+      }
+    }
+    annotationTipTransitionFrame = window.requestAnimationFrame(tick);
   }
 
   // ================================================================
@@ -1581,6 +1823,7 @@
           }
           modalMessage.textContent = t("modal_success_exit");
           editStackCount = {};
+          annotationUndoStack = [];
           savedHintShown = false;
           annotationsDirty = false;
           updateUndoButton();
@@ -1620,6 +1863,7 @@
         } else {
           modalMessage.textContent = t("modal_success_submit");
           editStackCount = {};
+          annotationUndoStack = [];
           savedHintShown = false;
           annotationsDirty = false;
           updateUndoButton();
@@ -1817,12 +2061,76 @@
   // ---- Direct-edit undo + save hint --------------------------------
   function updateUndoButton() {
     if (!btnUndo) return;
-    var n = (currentSlide && editStackCount[currentSlide]) || 0;
-    btnUndo.disabled = n === 0;
+    var directCount = (currentSlide && editStackCount[currentSlide]) || 0;
+    var annotationCount = annotationUndoStack.length;
+    var hasDraftAnnotation = annotationText && annotationText.value.trim().length > 0;
+    var n = directCount + annotationCount;
+    btnUndo.disabled = !hasDraftAnnotation && n === 0;
     btnUndo.textContent = n > 0 ? t("btn_undo") + " (" + n + ")" : t("btn_undo");
   }
 
+  function restoreAnnotationEntry(slide, entry) {
+    if (entry.previous === null) {
+      return fetch(
+        "/api/slide/" +
+          encodeURIComponent(slide) +
+          "/annotate/" +
+          encodeURIComponent(entry.elementId),
+        { method: "DELETE" },
+      ).then(jsonOrThrow);
+    }
+    return fetch("/api/slide/" + encodeURIComponent(slide) + "/annotate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ element_id: entry.elementId, annotation: entry.previous }),
+    }).then(jsonOrThrow);
+  }
+
+  function runAnnotationUndo() {
+    var action = annotationUndoStack.pop();
+    if (!action || !currentSlide || action.slide !== currentSlide) {
+      updateUndoButton();
+      showWarning(t("undo_empty"));
+      return;
+    }
+    Promise.all(
+      action.entries.map(function (entry) {
+        return restoreAnnotationEntry(action.slide, entry);
+      }),
+    )
+      .then(function () {
+        action.entries.forEach(function (entry) {
+          if (entry.previous === null) {
+            delete slideAnnotations[entry.elementId];
+          } else {
+            slideAnnotations[entry.elementId] = entry.previous;
+          }
+        });
+        annotationsDirty = true;
+        refreshAnnotationVisuals();
+        updateAnnotationList();
+        updateUndoButton();
+        loadSlides();
+        showWarning(t("undo_done"));
+      })
+      .catch(function (err) {
+        annotationUndoStack.push(action);
+        updateUndoButton();
+        showError(t("err_edit") + err.message);
+      });
+  }
+
   function runUndo() {
+    if (annotationText && annotationText.value.trim().length > 0) {
+      annotationText.value = "";
+      updateUndoButton();
+      showWarning(t("undo_draft"));
+      return;
+    }
+    if (annotationUndoStack.length > 0) {
+      runAnnotationUndo();
+      return;
+    }
     if (!currentSlide || !editStackCount[currentSlide]) return;
     fetch("/api/slide/" + encodeURIComponent(currentSlide) + "/undo", { method: "POST" })
       .then(jsonOrThrow)
@@ -2887,6 +3195,7 @@
       attrs[key] = value;
       return stageEditRequest(el.id, { attrs: attrs }).then(function () {
         el.setAttribute(key, value);
+        if (slideAnnotations[el.id]) scheduleAnnotationTipRender();
       });
     });
     Promise.all(jobs)
@@ -2904,12 +3213,46 @@
   applyI18n();
   var langToggleBtn = document.getElementById("btn-lang-toggle");
   if (langToggleBtn) {
-    langToggleBtn.textContent = LANG === "zh" ? "EN" : "中";
-    langToggleBtn.title = t("lang_toggle_title");
-    langToggleBtn.addEventListener("click", function () {
-      setLang(LANG === "zh" ? "en" : "zh");
+    if (EMBEDDED_LANG) {
+      langToggleBtn.style.display = "none";
+    } else {
+      langToggleBtn.textContent = LANG === "zh" ? "EN" : "中";
+      langToggleBtn.title = t("lang_toggle_title");
+      langToggleBtn.addEventListener("click", function () {
+        setLang(LANG === "zh" ? "en" : "zh");
+      });
+    }
+  }
+  updateSlideListPopover();
+  if (slideListToggle) {
+    slideListToggle.addEventListener("click", function (event) {
+      event.stopPropagation();
+      toggleSlideListPopover();
     });
   }
+  document.addEventListener("click", function (event) {
+    if (!isSlideListPopoverOpen) return;
+    if (slideListPopover?.contains(event.target) || slideListToggle?.contains(event.target)) return;
+    setSlideListPopoverOpen(false);
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && isSlideListPopoverOpen) {
+      setSlideListPopoverOpen(false);
+    }
+  });
+  updateInspectorSidebarToggle();
+  if (inspectorSidebarToggle) {
+    inspectorSidebarToggle.addEventListener("click", toggleInspectorSidebar);
+  }
+  updateAnnotationVisibilityToggle();
+  if (annotationVisibilityToggle) {
+    annotationVisibilityToggle.addEventListener("click", toggleAnnotationVisibility);
+  }
+  var svgContainerForTips = document.getElementById("svg-container");
+  if (svgContainerForTips) {
+    svgContainerForTips.addEventListener("scroll", renderAnnotationTips);
+  }
+  window.addEventListener("resize", renderAnnotationTips);
 
   loadConfig().then(function () {
     loadSlides();

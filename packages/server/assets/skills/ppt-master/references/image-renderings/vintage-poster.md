@@ -12,13 +12,13 @@ Mid-century modern (1950s–1970s) poster aesthetic. Limited color palette, half
 
 ## 2. Line, texture, depth
 
-| Aspect       | Treatment                                                               |
-| ------------ | ----------------------------------------------------------------------- |
+| Aspect | Treatment |
+|---|---|
 | Line quality | Confident thick lines with slight hand-aware character; rounded corners |
-| Texture      | Halftone dot pattern OR subtle paper grain at 10-15% opacity over fills |
-| Depth        | Flat — depth implied via overlapping shapes, never via shadow           |
-| Material     | Printed-paper aesthetic — slight ink misregistration adds authenticity  |
-| Mood         | Warm, confident, nostalgic, optimistic-retro                            |
+| Texture | Halftone dot pattern OR subtle paper grain at 10-15% opacity over fills |
+| Depth | Flat — depth implied via overlapping shapes, never via shadow |
+| Material | Printed-paper aesthetic — slight ink misregistration adds authenticity |
+| Mood | Warm, confident, nostalgic, optimistic-retro |
 
 ## 3. Using the deck's HEX values
 

@@ -10,13 +10,13 @@
 
 ## 2. Line, texture, depth
 
-| Aspect       | Treatment                                                                         |
-| ------------ | --------------------------------------------------------------------------------- |
-| Line quality | Pixel-stepped — outlines built from individual pixels, no smooth lines            |
-| Texture      | None beyond the pixel grid itself                                                 |
-| Depth        | Achieved through palette layering (lighter top pixels, darker bottom for shading) |
-| Material     | Pixel grid                                                                        |
-| Mood         | Nostalgic, retro-game, playful                                                    |
+| Aspect | Treatment |
+|---|---|
+| Line quality | Pixel-stepped — outlines built from individual pixels, no smooth lines |
+| Texture | None beyond the pixel grid itself |
+| Depth | Achieved through palette layering (lighter top pixels, darker bottom for shading) |
+| Material | Pixel grid |
+| Mood | Nostalgic, retro-game, playful |
 
 ## 3. Using the deck's HEX values
 

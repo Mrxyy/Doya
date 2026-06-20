@@ -20,6 +20,7 @@ interface RecordedNavigation {
   serverId: string;
   workspaceId: string;
   currentPathname?: string | null;
+  focusAttentionAgent?: boolean;
 }
 
 function createFakeLayout() {
@@ -45,9 +46,14 @@ function createFakeNavigator() {
     navigateToWorkspace: (
       serverId: string,
       workspaceId: string,
-      options: { currentPathname?: string | null },
+      options: { currentPathname?: string | null; focusAttentionAgent?: boolean },
     ) => {
-      navigations.push({ serverId, workspaceId, currentPathname: options.currentPathname });
+      navigations.push({
+        serverId,
+        workspaceId,
+        currentPathname: options.currentPathname,
+        focusAttentionAgent: options.focusAttentionAgent,
+      });
     },
   };
 }
@@ -90,7 +96,12 @@ describe("prepareWorkspaceTab", () => {
       { key: "server-1:/repo/worktree", target: { kind: "agent", agentId: AGENT_ID } },
     ]);
     expect(navigator.navigations).toEqual([
-      { serverId: SERVER_ID, workspaceId: WORKSPACE_ID, currentPathname: undefined },
+      {
+        serverId: SERVER_ID,
+        workspaceId: WORKSPACE_ID,
+        currentPathname: undefined,
+        focusAttentionAgent: false,
+      },
     ]);
   });
 });

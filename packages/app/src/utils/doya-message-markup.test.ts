@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getDoyaMessageVisibleText,
   parseDoyaMessageCard,
+  parseDoyaMessageCards,
   parseDoyaMessageRenderParts,
   parseDoyaTargets,
 } from "./doya-message-markup";
@@ -107,6 +108,24 @@ describe("doya message markup", () => {
             },
           ],
         },
+      },
+    ]);
+  });
+
+  it("parses every renderable card in a message", () => {
+    expect(
+      parseDoyaMessageCards(`<doya-ui version="1" kind="ai_creation.slides.progress">
+  <doya-ui-content><doya-title>继续生成</doya-title><doya-summary>收到确认。</doya-summary></doya-ui-content>
+</doya-ui>
+<doya-ui version="1" kind="ai_creation.slides.progress">
+  <doya-ui-content><doya-title>预览已就绪</doya-title><doya-summary>可打开预览。</doya-summary><doya-field name="preview_path" label="预览">projects/demo/svg_output/</doya-field></doya-ui-content>
+</doya-ui>`),
+    ).toMatchObject([
+      { kind: "ai_creation.slides.progress", title: "继续生成" },
+      {
+        kind: "ai_creation.slides.progress",
+        title: "预览已就绪",
+        fields: [{ name: "preview_path", value: "projects/demo/svg_output/" }],
       },
     ]);
   });

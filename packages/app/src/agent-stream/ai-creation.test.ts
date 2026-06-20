@@ -100,6 +100,48 @@ function pptProgressMessage(
   );
 }
 
+function pptConfirmContinueUserMessage(
+  id: string,
+  seed: number,
+  projectName = "b2b_saas_analytics_pitch_ppt169_20260620",
+): Extract<StreamItem, { kind: "user_message" }> {
+  return {
+    ...userMessage(id, seed),
+    text: `<doya-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" id="${id}" desc="Human-visible PPT confirmation progress.">
+  <doya-ui-content>
+    <doya-title>PPT 参数已确认</doya-title>
+    <doya-summary>继续项目 ${projectName}。</doya-summary>
+    <doya-field name="project" label="项目">${projectName}</doya-field>
+  </doya-ui-content>
+  <doya-ai>Continue the PPT workflow.</doya-ai>
+</doya-ui>`,
+  };
+}
+
+function pptMultiProgressMessage(
+  id: string,
+  seed: number,
+): Extract<StreamItem, { kind: "assistant_message" }> {
+  return assistantMessage(
+    id,
+    `<doya-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" id="u1" desc="Human-visible PPT creation progress.">
+  <doya-ui-content desc="Visible progress content.">
+    <doya-title desc="Progress title.">继续生成</doya-title>
+    <doya-summary desc="Progress summary.">已收到确认，将继续生成路演稿页面与可编辑 PPTX。</doya-summary>
+  </doya-ui-content>
+</doya-ui>
+
+<doya-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" id="u1" desc="Human-visible PPT creation progress.">
+  <doya-ui-content desc="Visible progress content.">
+    <doya-title desc="Progress title.">预览已就绪</doya-title>
+    <doya-summary desc="Progress summary.">幻灯片实时预览已准备好，后续页面会持续加入。</doya-summary>
+    <doya-field name="preview_path" label="预览目录" desc="Workspace-relative live preview directory.">projects/b2b_saas_analytics_pitch_ppt169_20260620/svg_output/</doya-field>
+  </doya-ui-content>
+</doya-ui>`,
+    seed,
+  );
+}
+
 function toolCall(id: string, seed: number): Extract<StreamItem, { kind: "tool_call" }> {
   return {
     kind: "tool_call",
@@ -276,6 +318,29 @@ describe("normalizeAiCreationStream", () => {
     ]);
   });
 
+  it("hides confirmation continuation internals and keeps multi-card PPT progress", () => {
+    const result = normalizeAiCreationStream({
+      agentStatus: "running",
+      tail: [
+        pptConfirmContinueUserMessage("u1", 1),
+        pptMultiProgressMessage("progress", 2),
+        toolCall("shell-1", 3),
+        toolCall("shell-2", 4),
+      ],
+      head: [assistantMessage("internal", "Reading PPT Master references.", 5)],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", "progress"]);
+    expect(result.head).toEqual([]);
+    expect(extractAiCreationPptPreviewPath(streamItemText(result.tail[1]))).toBe(
+      "projects/b2b_saas_analytics_pitch_ppt169_20260620/svg_output/",
+    );
+    expect(parseDoyaMessageRenderParts(streamItemText(result.tail[1]))).toMatchObject([
+      { kind: "card", card: { kind: "ai_creation.slides.progress", title: "继续生成" } },
+      { kind: "card", card: { kind: "ai_creation.slides.progress", title: "预览已就绪" } },
+    ]);
+  });
+
   it("shows the final slides result without requiring a target handshake", () => {
     const result = normalizeAiCreationStream({
       agentStatus: "idle",
@@ -309,6 +374,23 @@ describe("normalizeAiCreationStream", () => {
       kind: "assistant_message",
       text: "[projects/seasonal_best_cities/exports/seasonal-best-cities.pptx](projects/seasonal_best_cities/exports/seasonal-best-cities.pptx)",
     });
+  });
+
+  it("hides duplicate final slides results already present in the stream", () => {
+    const pptxPath =
+      "projects/b2b_saas_analytics_pitch_ppt169_20260621/exports/b2b_saas_analytics_pitch_20260621_014000.pptx";
+    const result = normalizeAiCreationStream({
+      agentStatus: "idle",
+      tail: [
+        assistantMessage("final-1", pptxPath, 1),
+        assistantMessage("final-2", `Done: ${pptxPath}`, 2),
+        userMessage("u1", 3),
+      ],
+      head: [],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["final-1", "u1"]);
+    expect(streamItemText(result.tail[0])).toBe(pptxPath);
   });
 
   it("preserves normal progress when the user message has no expected handshake", () => {

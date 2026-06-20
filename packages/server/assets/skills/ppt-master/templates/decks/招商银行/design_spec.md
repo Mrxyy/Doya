@@ -11,50 +11,50 @@ primary_color: "#C8152D"
 
 ## I. Template Overview
 
-| Property          | Description                                                         |
-| ----------------- | ------------------------------------------------------------------- |
-| **Template Name** | 招商银行                                                            |
-| **Display Name**  | China Merchants Bank Transaction Banking Template                   |
-| **Use Cases**     | 交易银行产品介绍、销售收款方案汇报、客户案例拆解、分行培训材料      |
-| **Design Tone**   | Brand-consistent, structured, product-focused, refined finance      |
-| **Theme Mode**    | Hybrid theme (brand-red cover/chapter/ending + light content pages) |
+| Property | Description |
+| --- | --- |
+| **Template Name** | 招商银行 |
+| **Display Name** | China Merchants Bank Transaction Banking Template |
+| **Use Cases** | 交易银行产品介绍、销售收款方案汇报、客户案例拆解、分行培训材料 |
+| **Design Tone** | Brand-consistent, structured, product-focused, refined finance |
+| **Theme Mode** | Hybrid theme (brand-red cover/chapter/ending + light content pages) |
 
 Reference slides read before generation: `1, 2, 3, 4, 6, 9, 11, 13, 16, 18`.
 
 ## II. Canvas Specification
 
-| Property                 | Value                                  |
-| ------------------------ | -------------------------------------- |
-| **Format**               | Standard 16:9                          |
-| **Dimensions**           | 1280 × 720 px                          |
-| **viewBox**              | `0 0 1280 720`                         |
-| **Safe Margins**         | 56px left/right, 48px top, 40px bottom |
-| **Primary Content Area** | x: 72-1216, y: 140-640                 |
+| Property | Value |
+| --- | --- |
+| **Format** | Standard 16:9 |
+| **Dimensions** | 1280 × 720 px |
+| **viewBox** | `0 0 1280 720` |
+| **Safe Margins** | 56px left/right, 48px top, 40px bottom |
+| **Primary Content Area** | x: 72-1216, y: 140-640 |
 
 ## III. Color Scheme
 
-| Role             | Color Value | Usage                                   |
-| ---------------- | ----------- | --------------------------------------- |
-| **Brand Red**    | `#C8152D`   | Header strips, emphasis, chapter anchor |
-| **Deep Red**     | `#8F0F1B`   | Dark-page overlay and structural depth  |
-| **Signal Red**   | `#E26A74`   | Fine divider accents on cover           |
-| **Finance Blue** | `#2175D9`   | Case-study secondary emphasis           |
-| **Dark Text**    | `#1F1F1F`   | Main titles and core copy               |
-| **Medium Gray**  | `#666666`   | Secondary copy                          |
-| **Light Gray**   | `#E9E9E9`   | Dividers and boundary hints             |
-| **White**        | `#FFFFFF`   | Background and reverse text             |
+| Role | Color Value | Usage |
+| --- | --- | --- |
+| **Brand Red** | `#C8152D` | Header strips, emphasis, chapter anchor |
+| **Deep Red** | `#8F0F1B` | Dark-page overlay and structural depth |
+| **Signal Red** | `#E26A74` | Fine divider accents on cover |
+| **Finance Blue** | `#2175D9` | Case-study secondary emphasis |
+| **Dark Text** | `#1F1F1F` | Main titles and core copy |
+| **Medium Gray** | `#666666` | Secondary copy |
+| **Light Gray** | `#E9E9E9` | Dividers and boundary hints |
+| **White** | `#FFFFFF` | Background and reverse text |
 
 ## IV. Typography System
 
-| Level              | Usage             | Size  | Weight  |
-| ------------------ | ----------------- | ----- | ------- |
-| **H1**             | Cover title       | 54px  | Bold    |
-| **H2**             | Chapter title     | 46px  | Bold    |
-| **H3**             | Content title     | 26px  | Bold    |
-| **H4**             | TOC / card title  | 20px  | Bold    |
-| **Body**           | Paragraph text    | 16px  | Regular |
-| **Caption**        | Metadata / footer | 12px  | Regular |
-| **Display Number** | Chapter numeral   | 220px | Bold    |
+| Level | Usage | Size | Weight |
+| --- | --- | --- | --- |
+| **H1** | Cover title | 54px | Bold |
+| **H2** | Chapter title | 46px | Bold |
+| **H3** | Content title | 26px | Bold |
+| **H4** | TOC / card title | 20px | Bold |
+| **Body** | Paragraph text | 16px | Regular |
+| **Caption** | Metadata / footer | 12px | Regular |
+| **Display Number** | Chapter numeral | 220px | Bold |
 
 **Font Stack**: `"Microsoft YaHei", "PingFang SC", Arial, sans-serif`
 
@@ -62,12 +62,12 @@ Reference slides read before generation: `1, 2, 3, 4, 6, 9, 11, 13, 16, 18`.
 
 ### Common Layout
 
-| Area             | Description                                    |
-| ---------------- | ---------------------------------------------- |
+| Area | Description |
+| --- | --- |
 | **Header Strip** | Red brand strip with logo, used on light pages |
-| **Title Zone**   | Left-aligned title and short key message       |
-| **Content Body** | Open layout with only light boundary hints     |
-| **Footer**       | Thin divider, section/source/page number       |
+| **Title Zone** | Left-aligned title and short key message |
+| **Content Body** | Open layout with only light boundary hints |
+| **Footer** | Thin divider, section/source/page number |
 
 ### Design DNA
 
@@ -112,31 +112,31 @@ Reference slides read before generation: `1, 2, 3, 4, 6, 9, 11, 13, 16, 18`.
 
 ## VII. SVG Page Roster
 
-| File             | Role    | Description                                         |
-| ---------------- | ------- | --------------------------------------------------- |
-| `01_cover.svg`   | cover   | Title slide; brand/project name + presenter + date  |
+| File | Role | Description |
+|------|------|-------------|
+| `01_cover.svg` | cover | Title slide; brand/project name + presenter + date |
 | `02_chapter.svg` | chapter | Chapter divider page (large number + chapter title) |
-| `02_toc.svg`     | toc     | Table of contents listing major sections            |
-| `03_content.svg` | content | Main content page; body of the deck                 |
-| `04_ending.svg`  | ending  | Closing/thank-you page                              |
+| `02_toc.svg` | toc | Table of contents listing major sections |
+| `03_content.svg` | content | Main content page; body of the deck |
+| `04_ending.svg` | ending | Closing/thank-you page |
 
 ## VIII. Layout Modes
 
-| Mode                    | Recommendation                                                  |
-| ----------------------- | --------------------------------------------------------------- |
-| **Process / Flow**      | Use full-width body area with 3-6 horizontal stages             |
-| **Case Study**          | Use split columns or a left-right evidence / solution structure |
-| **Product Feature**     | Use a short key message on top and modular cards below          |
-| **Agenda / Sectioning** | Use TOC or chapter page instead of improvising layout headers   |
+| Mode | Recommendation |
+| --- | --- |
+| **Process / Flow** | Use full-width body area with 3-6 horizontal stages |
+| **Case Study** | Use split columns or a left-right evidence / solution structure |
+| **Product Feature** | Use a short key message on top and modular cards below |
+| **Agenda / Sectioning** | Use TOC or chapter page instead of improvising layout headers |
 
 ## IX. Spacing Specification
 
-| Property          | Value            |
-| ----------------- | ---------------- |
-| **Base Unit**     | 8px              |
-| **Module Gap**    | 24px             |
-| **Card Gap**      | 20px             |
-| **Title to Body** | 44px             |
+| Property | Value |
+| --- | --- |
+| **Base Unit** | 8px |
+| **Module Gap** | 24px |
+| **Card Gap** | 20px |
+| **Title to Body** | 44px |
 | **Footer Offset** | 32px from bottom |
 
 ## X. SVG Technical Constraints
@@ -149,57 +149,57 @@ Reference slides read before generation: `1, 2, 3, 4, 6, 9, 11, 13, 16, 18`.
 
 ## XI. Placeholder Specification
 
-| Placeholder            | Description                               |
-| ---------------------- | ----------------------------------------- |
-| `{{TITLE}}`            | Cover main title                          |
-| `{{SUBTITLE}}`         | Cover subtitle                            |
-| `{{DATE}}`             | Cover date                                |
-| `{{AUTHOR}}`           | Cover presenter / organization            |
-| `{{TAGLINE}}`          | Cover tagline (e.g. product/service line) |
-| `{{BRAND_LINE}}`       | Cover bottom brand attribution line       |
-| `{{CHAPTER_NUM}}`      | Chapter number                            |
-| `{{CHAPTER_TITLE}}`    | Chapter title                             |
-| `{{CHAPTER_DESC}}`     | Chapter description                       |
-| `{{PAGE_TITLE}}`       | Content page title                        |
-| `{{KEY_MESSAGE}}`      | Content page key message                  |
-| `{{CONTENT_AREA}}`     | Content page body placeholder             |
-| `{{SECTION_NAME}}`     | Section label / footer section            |
-| `{{SOURCE}}`           | Source text                               |
-| `{{PAGE_NUM}}`         | Page number                               |
-| `{{TOC_ITEM_1_TITLE}}` | TOC item 1 title                          |
-| `{{TOC_ITEM_1_DESC}}`  | TOC item 1 description                    |
-| `{{TOC_ITEM_2_TITLE}}` | TOC item 2 title                          |
-| `{{TOC_ITEM_2_DESC}}`  | TOC item 2 description                    |
-| `{{TOC_ITEM_3_TITLE}}` | TOC item 3 title                          |
-| `{{TOC_ITEM_3_DESC}}`  | TOC item 3 description                    |
-| `{{TOC_ITEM_4_TITLE}}` | TOC item 4 title                          |
-| `{{TOC_ITEM_4_DESC}}`  | TOC item 4 description                    |
-| `{{TOC_FOOTER}}`       | TOC page footer description               |
-| `{{THANK_YOU}}`        | Ending main message                       |
-| `{{ENDING_SUBTITLE}}`  | Ending subtitle                           |
-| `{{CLOSING_MESSAGE}}`  | Ending supporting sentence                |
-| `{{CONTACT_NAME}}`     | Ending contact person name                |
-| `{{DEPARTMENT}}`       | Ending department name                    |
-| `{{CONTACT_EMAIL}}`    | Ending email address                      |
-| `{{CONTACT_PHONE}}`    | Ending phone number                       |
+| Placeholder | Description |
+| --- | --- |
+| `{{TITLE}}` | Cover main title |
+| `{{SUBTITLE}}` | Cover subtitle |
+| `{{DATE}}` | Cover date |
+| `{{AUTHOR}}` | Cover presenter / organization |
+| `{{TAGLINE}}` | Cover tagline (e.g. product/service line) |
+| `{{BRAND_LINE}}` | Cover bottom brand attribution line |
+| `{{CHAPTER_NUM}}` | Chapter number |
+| `{{CHAPTER_TITLE}}` | Chapter title |
+| `{{CHAPTER_DESC}}` | Chapter description |
+| `{{PAGE_TITLE}}` | Content page title |
+| `{{KEY_MESSAGE}}` | Content page key message |
+| `{{CONTENT_AREA}}` | Content page body placeholder |
+| `{{SECTION_NAME}}` | Section label / footer section |
+| `{{SOURCE}}` | Source text |
+| `{{PAGE_NUM}}` | Page number |
+| `{{TOC_ITEM_1_TITLE}}` | TOC item 1 title |
+| `{{TOC_ITEM_1_DESC}}` | TOC item 1 description |
+| `{{TOC_ITEM_2_TITLE}}` | TOC item 2 title |
+| `{{TOC_ITEM_2_DESC}}` | TOC item 2 description |
+| `{{TOC_ITEM_3_TITLE}}` | TOC item 3 title |
+| `{{TOC_ITEM_3_DESC}}` | TOC item 3 description |
+| `{{TOC_ITEM_4_TITLE}}` | TOC item 4 title |
+| `{{TOC_ITEM_4_DESC}}` | TOC item 4 description |
+| `{{TOC_FOOTER}}` | TOC page footer description |
+| `{{THANK_YOU}}` | Ending main message |
+| `{{ENDING_SUBTITLE}}` | Ending subtitle |
+| `{{CLOSING_MESSAGE}}` | Ending supporting sentence |
+| `{{CONTACT_NAME}}` | Ending contact person name |
+| `{{DEPARTMENT}}` | Ending department name |
+| `{{CONTACT_EMAIL}}` | Ending email address |
+| `{{CONTACT_PHONE}}` | Ending phone number |
 
 ## XII. Asset Specification
 
 ### Core Assets
 
-| Asset            | Purpose                                                  |
-| ---------------- | -------------------------------------------------------- |
-| `cover_bg.png`   | Cover / ending brand background (dark pages)             |
-| `logo_white.png` | White brand logo for red and dark pages                  |
-| `logo_dark.png`  | 「招商银行 \| 公司金融」dark logo for light page headers |
+| Asset | Purpose |
+| --- | --- |
+| `cover_bg.png` | Cover / ending brand background (dark pages) |
+| `logo_white.png` | White brand logo for red and dark pages |
+| `logo_dark.png` | 「招商银行 \| 公司金融」dark logo for light page headers |
 
 ### Optional Assets
 
-| Asset                 | Purpose                                                                               |
-| --------------------- | ------------------------------------------------------------------------------------- |
-| `page_header_bg.png`  | Full-page header background reference (red accent + logo)                             |
-| `logo_crm_banner.png` | 「招商银行 \| CRM 4.0」red banner (product-specific, use when applicable)             |
-| `ref_content_bg.png`  | Content page reference layout (with building illustration, for design reference only) |
+| Asset | Purpose |
+| --- | --- |
+| `page_header_bg.png` | Full-page header background reference (red accent + logo) |
+| `logo_crm_banner.png` | 「招商银行 \| CRM 4.0」red banner (product-specific, use when applicable) |
+| `ref_content_bg.png` | Content page reference layout (with building illustration, for design reference only) |
 
 ### Usage Rule
 
@@ -209,23 +209,23 @@ Core assets are wired into SVG templates. `logo_dark.png` is used on light pages
 
 ### Recommended Chart Dimensions
 
-| Chart Type       | Recommended Size             |
-| ---------------- | ---------------------------- |
-| Bar chart        | 500-700 × 400px              |
-| Pie chart        | 300-400px diameter           |
-| Data card        | 160 × 120px                  |
-| Process flow     | Full width, 100-140px height |
-| Comparison table | 1100 × 300-400px             |
+| Chart Type | Recommended Size |
+| --- | --- |
+| Bar chart | 500-700 × 400px |
+| Pie chart | 300-400px diameter |
+| Data card | 160 × 120px |
+| Process flow | Full width, 100-140px height |
+| Comparison table | 1100 × 300-400px |
 
 ### Chart Color Palette
 
-| Usage              | Colors                          |
-| ------------------ | ------------------------------- |
-| Primary series     | `#C8152D`, `#E26A74`, `#8F0F1B` |
-| Secondary series   | `#2175D9`, `#5A9FE6`            |
-| Positive indicator | `#27AE60`                       |
-| Negative indicator | `#E74C3C`                       |
-| Neutral            | `#666666`                       |
+| Usage | Colors |
+| --- | --- |
+| Primary series | `#C8152D`, `#E26A74`, `#8F0F1B` |
+| Secondary series | `#2175D9`, `#5A9FE6` |
+| Positive indicator | `#27AE60` |
+| Negative indicator | `#E74C3C` |
+| Neutral | `#666666` |
 
 ## XIV. Usage Instructions
 

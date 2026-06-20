@@ -8,40 +8,75 @@
   </head>
   <body>
     <div id="app">
-      <div id="panel-left">
-        <div class="panel-header" data-i18n="panel_slides">Slides</div>
-        <div id="slide-list"></div>
-      </div>
       <div id="panel-center">
         <div id="slide-nav">
-          <button id="nav-first" class="nav-btn" type="button" data-i18n-title="nav_first">
-            &laquo;
-          </button>
-          <button id="nav-prev" class="nav-btn" type="button" data-i18n-title="nav_prev">
-            &lsaquo;
-          </button>
-          <div id="nav-label">
-            <span id="nav-counter">— / —</span>
-            <span id="nav-name"></span>
+          <div class="slide-nav-side slide-nav-side-left">
+            <button
+              id="slide-list-toggle"
+              class="nav-btn slide-list-toggle"
+              type="button"
+              aria-expanded="false"
+              data-i18n-title="slides_list_toggle"
+            >
+              <span class="slide-list-toggle-icon" aria-hidden="true">☰</span>
+            </button>
           </div>
-          <button id="nav-next" class="nav-btn" type="button" data-i18n-title="nav_next">
-            &rsaquo;
-          </button>
-          <button id="nav-last" class="nav-btn" type="button" data-i18n-title="nav_last">
-            &raquo;
-          </button>
+          <div class="slide-nav-main">
+            <button id="nav-first" class="nav-btn" type="button" data-i18n-title="nav_first">
+              &laquo;
+            </button>
+            <button id="nav-prev" class="nav-btn" type="button" data-i18n-title="nav_prev">
+              &lsaquo;
+            </button>
+            <div id="nav-label">
+              <span id="nav-counter">— / —</span>
+              <span id="nav-name"></span>
+            </div>
+            <button id="nav-next" class="nav-btn" type="button" data-i18n-title="nav_next">
+              &rsaquo;
+            </button>
+            <button id="nav-last" class="nav-btn" type="button" data-i18n-title="nav_last">
+              &raquo;
+            </button>
+          </div>
+          <div class="slide-nav-side slide-nav-side-right">
+            <button
+              id="inspector-sidebar-toggle"
+              class="nav-btn inspector-sidebar-toggle"
+              type="button"
+              aria-expanded="false"
+              data-i18n-title="inspector_sidebar_expand"
+            >
+              <span class="inspector-sidebar-icon" aria-hidden="true">&#9998;</span>
+            </button>
+          </div>
+        </div>
+        <div id="slide-list-popover" class="slide-list-popover">
+          <div class="panel-header" data-i18n="panel_slides">Slides</div>
+          <div id="slide-list"></div>
         </div>
         <div id="svg-container">
           <div id="rubber-band-overlay"></div>
           <div id="svg-placeholder" data-i18n="placeholder_select_slide">
-            Select a slide on the left to begin
+            Select a slide to begin
           </div>
           <div id="svg-content" style="display: none"></div>
         </div>
       </div>
       <div id="panel-right">
         <button id="btn-lang-toggle" class="btn-lang-toggle" title="Switch language">中</button>
-        <div class="panel-header" data-i18n="panel_annotations">Annotations</div>
+        <div class="panel-header panel-header-with-action">
+          <span data-i18n="panel_annotations">Edit</span>
+          <button
+            id="annotation-visibility-toggle"
+            class="annotation-visibility-toggle"
+            type="button"
+            aria-pressed="true"
+            data-i18n-title="tooltip_annotations_hide"
+          >
+            <span class="annotation-visibility-icon" aria-hidden="true"></span>
+          </button>
+        </div>
         <div id="selection-info">
           <div class="section-label" data-i18n="label_selected_element">Selected element</div>
           <div id="selected-element" class="empty" data-i18n="empty_selected_element">
@@ -59,9 +94,6 @@
           <button id="btn-add-annotation" data-i18n="btn_add_annotation">Add annotation</button>
         </div>
         <div id="annotation-list">
-          <div class="section-label" data-i18n="label_annotations_on_slide">
-            Annotations on this slide
-          </div>
           <div id="annotations"></div>
         </div>
         <div id="preview-actions">

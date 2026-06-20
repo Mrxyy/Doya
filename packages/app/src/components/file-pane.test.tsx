@@ -72,6 +72,7 @@ const mockDocumentTargets: Record<DocumentViewerKind, DocumentAnnotationTarget> 
 const waitingPollLocation = { path: "reports/budget.xlsx" };
 const sourceAgentFileLocation = { path: "output/spreadsheets/report.xlsx" };
 const documentViewerMounts: string[] = [];
+const documentViewerSourceUrls: Array<string | null | undefined> = [];
 
 const theme = vi.hoisted(() => ({
   borderRadius: {
@@ -153,17 +154,20 @@ vi.mock("@/components/document-viewer", () => ({
     annotationMode,
     bytes,
     kind,
+    sourceUrl,
     onAnnotationTargetSelect,
   }: {
     annotationMode?: boolean;
     bytes?: Uint8Array;
     kind: DocumentViewerKind;
+    sourceUrl?: string | null;
     onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
   }) => {
     React.useEffect(() => {
       documentViewerMounts.push(`${kind}:${bytes?.[0] ?? "missing"}`);
+      documentViewerSourceUrls.push(sourceUrl);
       return undefined;
-    }, [bytes, kind]);
+    }, [bytes, kind, sourceUrl]);
 
     const handlePress = React.useCallback(() => {
       if (annotationMode) {
@@ -214,6 +218,7 @@ describe("FilePane document annotation flow", () => {
 
   beforeEach(() => {
     documentViewerMounts.length = 0;
+    documentViewerSourceUrls.length = 0;
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -340,6 +345,7 @@ describe("FilePane document annotation flow", () => {
       const sendAgentMessage = vi.fn().mockResolvedValue(undefined);
       const client = {
         buildWorkspaceFileOnlyOfficePreviewUrl: vi.fn(() => "http://localhost/preview.xlsx"),
+        buildWorkspaceFileRawUrl: vi.fn(() => "http://localhost/raw.docx"),
         readFile,
         sendAgentMessage,
       } as unknown as DaemonClient;
@@ -358,6 +364,9 @@ describe("FilePane document annotation flow", () => {
       );
 
       await screen.findByTestId("document-viewer-mock");
+      if (file.path.endsWith(".docx")) {
+        expect(documentViewerSourceUrls).toContain("http://localhost/raw.docx");
+      }
       fireEvent.click(screen.getByTestId("document-annotation-mode-button"));
       fireEvent.click(screen.getByTestId("document-viewer-mock"));
       fireEvent.change(screen.getByTestId("document-annotation-instruction-input"), {

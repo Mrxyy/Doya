@@ -4,15 +4,27 @@ This directory provides **11,600+ high-quality SVG icons** across five libraries
 
 ## Libraries
 
-| Library            | Style                                                                                          | Count | viewBox       | Prefix              |
-| ------------------ | ---------------------------------------------------------------------------------------------- | ----- | ------------- | ------------------- |
-| `chunk-filled`     | fill · straight-line geometry (sharp corners, rectilinear)                                     | 640   | `0 0 16 16`   | `chunk-filled/`     |
-| `tabler-filled`    | fill · bezier-curve forms (smooth, rounded contours)                                           | 1000+ | `0 0 24 24`   | `tabler-filled/`    |
-| `tabler-outline`   | stroke / line                                                                                  | 5000+ | `0 0 24 24`   | `tabler-outline/`   |
-| `phosphor-duotone` | duotone · single color + 0.2 opacity backplate (soft depth)                                    | 1200+ | `0 0 256 256` | `phosphor-duotone/` |
-| `simple-icons`     | **brand logos** (real company / product marks) — single-color silhouettes, color in via `fill` | 3400+ | `0 0 24 24`   | `simple-icons/`     |
+| Library | Style | Count | viewBox | Prefix |
+|---------|-------|-------|---------|--------|
+| `chunk-filled` | fill · straight-line geometry (sharp corners, rectilinear) | 640 | `0 0 16 16` | `chunk-filled/` |
+| `tabler-filled` | fill · bezier-curve forms (smooth, rounded contours) | 1000+ | `0 0 24 24` | `tabler-filled/` |
+| `tabler-outline` | stroke / line | 5000+ | `0 0 24 24` | `tabler-outline/` |
+| `phosphor-duotone` | duotone · single color + 0.2 opacity backplate (soft depth) | 1200+ | `0 0 256 256` | `phosphor-duotone/` |
+| `simple-icons` | **brand logos** (real company / product marks) — single-color silhouettes, color in via `fill` | 3400+ | `0 0 24 24` | `simple-icons/` |
 
 ---
+
+## Per-project icons folder
+
+This directory is the **global library**. At selection time the Strategist copies the chosen icons into the deck's own `<project>/icons/<lib>/` with `icon_sync.py`:
+
+```bash
+python3 skills/ppt-master/scripts/icon_sync.py <project_path> chunk-filled/home tabler-outline/bulb
+```
+
+A name the library does not have is reported and the command exits non-zero — re-pick a real one then, not at export. `finalize_svg.py embed-icons` embeds **project-first** (from `<project>/icons/`), falling back to this global library per-icon.
+
+**Custom icons**: drop your own `.svg` into `<project>/icons/<lib>/` (any `<lib>`, e.g. `custom/`) and reference it as `data-icon="<lib>/<name>"` — it embeds like any library icon.
 
 ## Usage
 
@@ -36,7 +48,6 @@ Use placeholder syntax **during SVG generation**:
 ```
 
 **Attributes**:
-
 - `data-icon` — `<library>/<icon-name>` (filename without `.svg`)
 - `x`, `y` — Position
 - `width`, `height` — Size (recommend 32–48px for legibility)
@@ -74,7 +85,6 @@ ls skills/ppt-master/templates/icons/simple-icons/ | grep github
 - **`phosphor-duotone`** — **duotone** style; main shape at full opacity plus a backplate of the same color at 20% opacity, producing a soft sense of depth. Visual weight: medium, layered, contemporary.
 
 > **Two axes to consider when choosing**:
->
 > 1. **Geometry**: straight lines (`chunk-filled`) vs. curves (`tabler-filled` / `phosphor-duotone`) vs. open strokes (`tabler-outline`)
 > 2. **Visual weight**: heavy solid (`chunk-filled`) → medium solid (`tabler-filled`) → medium layered (`phosphor-duotone`) → light stroke (`tabler-outline`)
 
@@ -82,10 +92,10 @@ ls skills/ppt-master/templates/icons/simple-icons/ | grep github
 
 **Brand-logo exception (`simple-icons`).** `simple-icons` is **not a stylistic library** and does not participate in the "one library" rule. Its job is brand recognition — Slack's purple, GitHub's cat, AWS's color — which is intentionally heterogeneous. Use it **alongside** the chosen stylistic library, but **only** for actual company / product / service brand marks. Do **not** reach for it as a substitute when the chosen stylistic library lacks a generic icon.
 
-| Use `simple-icons` for                                      | Do NOT use `simple-icons` for                                                |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Customer / partner / ecosystem logos on a "trusted by" page | Generic concepts (home, chart, settings, etc.)                               |
-| Tech stack icons on architecture / integration diagrams     | Replacing a missing icon in `chunk-filled` / `tabler-*` / `phosphor-duotone` |
-| Social media handles in a footer                            | Decorative / illustrative purposes                                           |
+| Use `simple-icons` for | Do NOT use `simple-icons` for |
+|------------------------|-------------------------------|
+| Customer / partner / ecosystem logos on a "trusted by" page | Generic concepts (home, chart, settings, etc.) |
+| Tech stack icons on architecture / integration diagrams | Replacing a missing icon in `chunk-filled` / `tabler-*` / `phosphor-duotone` |
+| Social media handles in a footer | Decorative / illustrative purposes |
 
 ⚠️ Do **not** mix icons from different **stylistic** libraries (`chunk-filled` / `tabler-filled` / `tabler-outline` / `phosphor-duotone`). `simple-icons` is the sole exception and may co-exist as a brand-logo inset — see the brand-logo exception above.

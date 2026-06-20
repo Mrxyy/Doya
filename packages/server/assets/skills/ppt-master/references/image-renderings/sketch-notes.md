@@ -10,13 +10,13 @@ Warm cream paper with black hand-drawn lines and soft pastel color blocks. The m
 
 ## 2. Line, texture, depth
 
-| Aspect       | Treatment                                                      |
-| ------------ | -------------------------------------------------------------- |
+| Aspect | Treatment |
+|---|---|
 | Line quality | Hand-drawn black ink with slight wobble; uniform medium weight |
-| Texture      | Subtle paper grain at 8-12% opacity over cream background      |
-| Depth        | Flat — sketchnote is intentionally 2D                          |
-| Material     | Paper + ink + pastel block (hand-painted overshoot)            |
-| Mood         | Warm, instructional, friendly                                  |
+| Texture | Subtle paper grain at 8-12% opacity over cream background |
+| Depth | Flat — sketchnote is intentionally 2D |
+| Material | Paper + ink + pastel block (hand-painted overshoot) |
+| Mood | Warm, instructional, friendly |
 
 ## 3. Using the deck's HEX values
 

@@ -15,24 +15,24 @@ page_types: [cover, toc, chapter, content, ending]
 
 ## I. Template Overview
 
-| Property          | Description                                                                 |
-| ----------------- | --------------------------------------------------------------------------- |
-| **Template Name** | pixel_retro (Pixel Retro Template)                                          |
-| **Use Cases**     | Tech talks, programming tutorials, game introductions, geek-style showcases |
-| **Design Tone**   | Retro gaming, neon cyberpunk, geek tech, 8-bit style                        |
-| **Theme Mode**    | Dark theme (deep space black background + neon accents)                     |
+| Property       | Description                                                |
+| -------------- | ---------------------------------------------------------- |
+| **Template Name** | pixel_retro (Pixel Retro Template)                      |
+| **Use Cases**  | Tech talks, programming tutorials, game introductions, geek-style showcases |
+| **Design Tone** | Retro gaming, neon cyberpunk, geek tech, 8-bit style      |
+| **Theme Mode** | Dark theme (deep space black background + neon accents)    |
 
 ---
 
 ## II. Canvas Specification
 
-| Property         | Value                                  |
-| ---------------- | -------------------------------------- |
-| **Format**       | Standard 16:9                          |
-| **Dimensions**   | 1280 × 720 px                          |
-| **viewBox**      | `0 0 1280 720`                         |
+| Property       | Value                         |
+| -------------- | ----------------------------- |
+| **Format**     | Standard 16:9                 |
+| **Dimensions** | 1280 × 720 px                |
+| **viewBox**    | `0 0 1280 720`                |
 | **Page Margins** | Left/Right 60px, Top 50px, Bottom 40px |
-| **Safe Area**    | x: 60-1220, y: 50-680                  |
+| **Safe Area**  | x: 60-1220, y: 50-680         |
 
 ---
 
@@ -40,12 +40,12 @@ page_types: [cover, toc, chapter, content, ending]
 
 ### General Layout
 
-| Area             | Position/Height | Description                                      |
-| ---------------- | --------------- | ------------------------------------------------ |
-| **Top**          | y=0, h=4-6px    | Neon green decoration line (dual-line effect)    |
-| **Title Area**   | y=50, h=70px    | Page title + English subtitle                    |
-| **Content Area** | y=130, h=510px  | Main content area                                |
-| **Footer**       | y=680, h=40px   | Page number, decoration line, progress indicator |
+| Area       | Position/Height | Description                            |
+| ---------- | --------------- | -------------------------------------- |
+| **Top**    | y=0, h=4-6px    | Neon green decoration line (dual-line effect) |
+| **Title Area** | y=50, h=70px | Page title + English subtitle         |
+| **Content Area** | y=130, h=510px | Main content area                  |
+| **Footer** | y=680, h=40px   | Page number, decoration line, progress indicator |
 
 ### Decorative Elements
 
@@ -109,37 +109,37 @@ page_types: [cover, toc, chapter, content, ending]
 
 ## V. SVG Page Roster
 
-| File             | Role    | Description                                         |
-| ---------------- | ------- | --------------------------------------------------- |
-| `01_cover.svg`   | cover   | Title slide; project name, presenter, date          |
+| File | Role | Description |
+|------|------|-------------|
+| `01_cover.svg` | cover | Title slide; project name, presenter, date |
 | `02_chapter.svg` | chapter | Chapter divider page (large number + chapter title) |
-| `02_toc.svg`     | toc     | Table of contents listing major sections            |
-| `03_content.svg` | content | Main content page; body of the deck                 |
-| `04_ending.svg`  | ending  | Closing/thank-you page                              |
+| `02_toc.svg` | toc | Table of contents listing major sections |
+| `03_content.svg` | content | Main content page; body of the deck |
+| `04_ending.svg` | ending | Closing/thank-you page |
 
 ## VI. Layout Modes
 
-| Mode                       | Use Cases                                 |
-| -------------------------- | ----------------------------------------- |
-| **Single Column Centered** | Cover, closing, key points                |
-| **Two Columns (5:5)**      | Comparative display (e.g., Git vs GitHub) |
-| **Dual-Column Cards**      | Feature lists, trait comparisons          |
-| **Three-Column Cards**     | Key takeaways, project lists              |
-| **Progress Bar Display**   | Data statistics, usage rates              |
-| **Timeline**               | History, processes, workflows             |
+| Mode               | Use Cases                      |
+| ------------------ | ------------------------------ |
+| **Single Column Centered** | Cover, closing, key points |
+| **Two Columns (5:5)** | Comparative display (e.g., Git vs GitHub) |
+| **Dual-Column Cards** | Feature lists, trait comparisons |
+| **Three-Column Cards** | Key takeaways, project lists |
+| **Progress Bar Display** | Data statistics, usage rates |
+| **Timeline**       | History, processes, workflows  |
 
 ---
 
 ## VII. Spacing Guidelines
 
-| Element               | Value                    |
-| --------------------- | ------------------------ |
-| Card spacing          | 20-30px                  |
-| Content block spacing | 30px                     |
-| Card padding          | 20-24px                  |
-| Card border radius    | 0px (blocky feel) or 4px |
-| Border width          | 2-3px                    |
-| Icon-to-text gap      | 12px                     |
+| Element          | Value  |
+| ---------------- | ------ |
+| Card spacing     | 20-30px |
+| Content block spacing | 30px |
+| Card padding     | 20-24px |
+| Card border radius | 0px (blocky feel) or 4px |
+| Border width     | 2-3px  |
+| Icon-to-text gap | 12px   |
 
 ---
 
@@ -216,21 +216,21 @@ Apply glow filters to key text/elements:
 
 Templates use `{{PLACEHOLDER}}` format placeholders. Common placeholders:
 
-| Placeholder            | Description           |
-| ---------------------- | --------------------- |
-| `{{TITLE}}`            | Main title            |
-| `{{SUBTITLE}}`         | Subtitle              |
-| `{{AUTHOR}}`           | Author/Organization   |
-| `{{PAGE_TITLE}}`       | Page title            |
-| `{{PAGE_TITLE_EN}}`    | Page title (English)  |
-| `{{CONTENT_AREA}}`     | Flexible content area |
-| `{{CHAPTER_NUM}}`      | Chapter number        |
-| `{{PAGE_NUM}}`         | Page number           |
-| `{{TOTAL_PAGES}}`      | Total page count      |
-| `{{VERSION}}`          | Version number        |
-| `{{TOC_ITEM_N_TITLE}}` | TOC item title        |
-| `{{THANK_YOU}}`        | Thank-you message     |
-| `{{CONTACT_INFO}}`     | Primary contact info  |
+| Placeholder        | Description        |
+| ------------------ | ------------------ |
+| `{{TITLE}}`        | Main title         |
+| `{{SUBTITLE}}`     | Subtitle           |
+| `{{AUTHOR}}`       | Author/Organization |
+| `{{PAGE_TITLE}}`   | Page title         |
+| `{{PAGE_TITLE_EN}}`| Page title (English) |
+| `{{CONTENT_AREA}}` | Flexible content area |
+| `{{CHAPTER_NUM}}`  | Chapter number     |
+| `{{PAGE_NUM}}`     | Page number        |
+| `{{TOTAL_PAGES}}`  | Total page count   |
+| `{{VERSION}}`      | Version number     |
+| `{{TOC_ITEM_N_TITLE}}` | TOC item title |
+| `{{THANK_YOU}}`    | Thank-you message  |
+| `{{CONTACT_INFO}}` | Primary contact info |
 
 ---
 

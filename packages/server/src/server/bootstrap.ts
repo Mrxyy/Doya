@@ -150,6 +150,7 @@ import {
   type SmsVerificationConfig,
 } from "./sms-verification-service.js";
 import { createPptPreviewRouter } from "./ai-creation/ppt-preview-service.js";
+import { createPptConfirmRouter } from "./ai-creation/ppt-confirm-service.js";
 import { getDownloadableFileInfo } from "./file-explorer/service.js";
 import { createOnlyOfficeXlsxPreviewBuffer } from "./onlyoffice-xlsx-preview.js";
 import { createRuntimeApiRouter } from "./runtime-api.js";
@@ -1338,6 +1339,7 @@ export async function createDoyaDaemon(
   });
 
   app.use("/ppt-preview", createPptPreviewRouter({ agentManager, logger }));
+  app.use("/ppt-confirm", createPptConfirmRouter({ agentManager, logger }));
 
   const detachAgentStoragePersistence = attachAgentStoragePersistence(
     logger,

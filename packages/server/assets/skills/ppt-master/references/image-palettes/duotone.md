@@ -6,18 +6,18 @@ Two-color limited, poster-like. The constrained palette — only two colors plus
 
 ## 1. Compatible renderings
 
-| Rendering                                                | Notes                                                  |
-| -------------------------------------------------------- | ------------------------------------------------------ |
-| ✓✓ screen-print                                          | Direct alignment — duotone is screen-print's signature |
-| ✓✓ flat                                                  | Bold two-color flat                                    |
-| ✓ vector-illustration                                    | Two-color vector                                       |
-| ✓ editorial                                              | Two-color editorial spread                             |
-| ✓ blueprint                                              | Two-color schematic                                    |
-| ✓ pixel-art                                              | Limited-color retro                                    |
-| ✓ chalkboard                                             | Pastel two-color chalk                                 |
-| ✗ corporate-photo                                        | Photography can't be duotone (unless duotone-graded)   |
-| ✗ sketch-notes / fantasy-animation / nature / watercolor | Wrong temperament                                      |
-| ✗ digital-dashboard / 3d-isometric                       | Need more chromatic depth                              |
+| Rendering | Notes |
+|---|---|
+| ✓✓ screen-print | Direct alignment — duotone is screen-print's signature |
+| ✓✓ flat | Bold two-color flat |
+| ✓ vector-illustration | Two-color vector |
+| ✓ editorial | Two-color editorial spread |
+| ✓ blueprint | Two-color schematic |
+| ✓ pixel-art | Limited-color retro |
+| ✓ chalkboard | Pastel two-color chalk |
+| ✗ corporate-photo | Photography can't be duotone (unless duotone-graded) |
+| ✗ sketch-notes / fantasy-animation / nature / watercolor | Wrong temperament |
+| ✗ digital-dashboard / 3d-isometric | Need more chromatic depth |
 
 ---
 

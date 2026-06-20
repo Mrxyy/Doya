@@ -6,16 +6,16 @@ Refined, magazine-style, balanced. The premium-restrained palette — used in fi
 
 ## 1. Compatible renderings
 
-| Rendering                                      | Notes                                         |
-| ---------------------------------------------- | --------------------------------------------- |
-| ✓✓ editorial                                   | Perfect alignment                             |
-| ✓✓ vector-illustration                         | Restrained vector with magazine pacing        |
-| ✓✓ ink-notes                                   | Editorial restraint + ink-notes formality     |
-| ✓✓ corporate-photo                             | Magazine photography                          |
-| ✓ flat                                         | Acceptable — flat is slightly more decorative |
-| ✓ blueprint                                    | Works for technical magazine content          |
-| ✓ screen-print                                 | Editorial poster style                        |
-| ✗ sketch-notes / fantasy-animation / pixel-art | Too playful for editorial restraint           |
+| Rendering | Notes |
+|---|---|
+| ✓✓ editorial | Perfect alignment |
+| ✓✓ vector-illustration | Restrained vector with magazine pacing |
+| ✓✓ ink-notes | Editorial restraint + ink-notes formality |
+| ✓✓ corporate-photo | Magazine photography |
+| ✓ flat | Acceptable — flat is slightly more decorative |
+| ✓ blueprint | Works for technical magazine content |
+| ✓ screen-print | Editorial poster style |
+| ✗ sketch-notes / fantasy-animation / pixel-art | Too playful for editorial restraint |
 
 ---
 

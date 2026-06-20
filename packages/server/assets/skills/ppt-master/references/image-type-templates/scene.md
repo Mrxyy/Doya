@@ -34,7 +34,6 @@ Scenes are visual narratives — most read better with text routed to SVG overla
 ### `text_policy: embedded` (decorative atmosphere or diegetic text)
 
 Two valid cases:
-
 - Decorative atmosphere lettering — a large stylized word in the bleed serving as visual mood ("WANDER", "QUIET"). Describe artistic treatment; spelling is not critical.
 - Diegetic text — a sign in the scene, a label on a book. Often fails to render correctly; only use when essential to the narrative.
 

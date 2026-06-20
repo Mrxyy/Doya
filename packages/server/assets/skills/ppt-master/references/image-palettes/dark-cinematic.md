@@ -12,17 +12,17 @@ dark-cinematic, like mono-ink, may **override `design_spec.colors.secondary`** i
 
 ## 2. Compatible renderings
 
-| Rendering                                                | Notes                          |
-| -------------------------------------------------------- | ------------------------------ |
-| ✓✓ 3d-isometric                                          | Premium dark-mode architecture |
-| ✓✓ digital-dashboard                                     | Dark-mode SaaS product         |
-| ✓✓ corporate-photo                                       | Low-light photography          |
-| ✓✓ warm-scene                                            | Evening / nightlight scenes    |
-| ✓✓ screen-print                                          | Cinematic poster               |
-| ✓ blueprint                                              | Dark-mode schematic            |
-| ✓ vector-illustration                                    | Acceptable                     |
-| ✗ sketch-notes / fantasy-animation / nature / chalkboard | Wrong temperament              |
-| ✗ macaron / warm-earth                                   | Wrong brightness identity      |
+| Rendering | Notes |
+|---|---|
+| ✓✓ 3d-isometric | Premium dark-mode architecture |
+| ✓✓ digital-dashboard | Dark-mode SaaS product |
+| ✓✓ corporate-photo | Low-light photography |
+| ✓✓ warm-scene | Evening / nightlight scenes |
+| ✓✓ screen-print | Cinematic poster |
+| ✓ blueprint | Dark-mode schematic |
+| ✓ vector-illustration | Acceptable |
+| ✗ sketch-notes / fantasy-animation / nature / chalkboard | Wrong temperament |
+| ✗ macaron / warm-earth | Wrong brightness identity |
 
 ---
 

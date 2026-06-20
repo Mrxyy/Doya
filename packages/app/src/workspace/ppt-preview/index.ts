@@ -36,10 +36,14 @@ export function buildWorkspacePptPreviewUrl(input: {
   activeConnection: { type: string; endpoint: string } | null;
   agentId: string;
   projectName: string;
+  locale?: "en" | "zh";
 }): string {
-  const previewPath = `/ppt-preview/${encodeURIComponent(input.agentId)}/${encodeURIComponent(
+  let previewPath = `/ppt-preview/${encodeURIComponent(input.agentId)}/${encodeURIComponent(
     input.projectName,
   )}`;
+  if (input.locale) {
+    previewPath = `${previewPath}?locale=${encodeURIComponent(input.locale)}`;
+  }
   if (input.activeConnection?.type !== "directTcp") {
     return previewPath;
   }

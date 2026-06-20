@@ -24,7 +24,6 @@ python3 -m http.server --directory <svg_output_path> 8000
 ## Speaker Notes Do Not Split
 
 Check `total.md`:
-
 - headings must start with `# `
 - heading text must match SVG filenames
 - sections must be separated by `---`
@@ -58,7 +57,6 @@ python3 scripts/svg_to_pptx.py <project_path> --recorded-narration audio
 ```
 
 `--recorded-narration` prepares PowerPoint recorded timings and narrations. If it fails, check:
-
 - every slide has a matching `m4a`, `mp3`, or `wav` file in `audio/`
 - `ffprobe` is installed and can read each audio duration
 - the deck is not using `--animation-trigger on-click`
@@ -74,7 +72,6 @@ pip install -r requirements.txt
 ```
 
 Important optional packages:
-
 - `python-pptx` for PPTX export
 - `edge-tts` for `notes_to_audio.py` recorded narration audio
 - `Pillow` for image utilities

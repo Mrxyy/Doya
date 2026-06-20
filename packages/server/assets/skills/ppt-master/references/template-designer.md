@@ -48,21 +48,21 @@ Input priority for PPTX-backed template creation:
 
 The output page set is determined by **replication mode**, declared in the finalized template brief:
 
-| Mode                 | When to use                                                                                                                                                               | Roster                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `standard` (default) | Most templates — clean, reusable, balanced coverage                                                                                                                       | `01_cover`, `02_chapter`, `03_content`, `04_ending`, optional `02_toc`             |
-| `fidelity`           | User explicitly wants strict replication of a source PPTX, but still wants the AI to clean / cluster / cap variants                                                       | Standard roster + one variant per distinct layout cluster found in `manifest.json` |
-| `mirror`             | User wants every source slide preserved 1:1 as a reference page (someone else's polished deck used as a library template). Verbatim copy, no abstraction, no placeholders | One SVG per source slide, named `<NNN>_<page_type>.svg` by source order            |
+| Mode | When to use | Roster |
+|------|-------------|--------|
+| `standard` (default) | Most templates — clean, reusable, balanced coverage | `01_cover`, `02_chapter`, `03_content`, `04_ending`, optional `02_toc` |
+| `fidelity` | User explicitly wants strict replication of a source PPTX, but still wants the AI to clean / cluster / cap variants | Standard roster + one variant per distinct layout cluster found in `manifest.json` |
+| `mirror` | User wants every source slide preserved 1:1 as a reference page (someone else's polished deck used as a library template). Verbatim copy, no abstraction, no placeholders | One SVG per source slide, named `<NNN>_<page_type>.svg` by source order |
 
 ### Standard mode
 
-| #   | Filename         | Purpose           | Description                                                                        |
-| --- | ---------------- | ----------------- | ---------------------------------------------------------------------------------- |
-| 01  | `01_cover.svg`   | Cover             | Fixed structure: title, subtitle, date, organization                               |
-| 02  | `02_chapter.svg` | Chapter page      | Fixed structure: chapter number, chapter title                                     |
-| 03  | `03_content.svg` | Content page      | Flexible structure: only defines header/footer; content area freely laid out by AI |
-| 04  | `04_ending.svg`  | Ending page       | Fixed structure: thank-you message, contact info                                   |
-| --  | `02_toc.svg`     | Table of contents | Optional: TOC title, chapter list (number + title)                                 |
+| # | Filename | Purpose | Description |
+|---|----------|---------|-------------|
+| 01 | `01_cover.svg` | Cover | Fixed structure: title, subtitle, date, organization |
+| 02 | `02_chapter.svg` | Chapter page | Fixed structure: chapter number, chapter title |
+| 03 | `03_content.svg` | Content page | Flexible structure: only defines header/footer; content area freely laid out by AI |
+| 04 | `04_ending.svg` | Ending page | Fixed structure: thank-you message, contact info |
+| -- | `02_toc.svg` | Table of contents | Optional: TOC title, chapter list (number + title) |
 
 **Design philosophy**: Templates define visual consistency and structural pages; content pages maintain maximum flexibility.
 
@@ -74,11 +74,11 @@ When the brief sets `Replication mode: fidelity`, derive the page roster from `m
 
 **Variant naming**: append a lowercase letter suffix to the parent type's index, preserving sort order:
 
-| Parent type | Example variants                                                                |
-| ----------- | ------------------------------------------------------------------------------- |
-| Chapter     | `02a_chapter_full.svg`, `02b_chapter_minimal.svg`                               |
-| Content     | `03a_content_two_col.svg`, `03b_content_data_card.svg`, `03c_content_quote.svg` |
-| Ending      | `04a_ending_thanks.svg`, `04b_ending_contact.svg`                               |
+| Parent type | Example variants |
+|-------------|------------------|
+| Chapter | `02a_chapter_full.svg`, `02b_chapter_minimal.svg` |
+| Content | `03a_content_two_col.svg`, `03b_content_data_card.svg`, `03c_content_quote.svg` |
+| Ending | `04a_ending_thanks.svg`, `04b_ending_contact.svg` |
 
 Extension page types beyond the canonical four (transition / appendix / disclaimer / divider) take the next free index: `05_section_break.svg`, `06_appendix.svg`, `07_disclaimer.svg`.
 
@@ -141,66 +141,57 @@ replication_mode: standard | fidelity | mirror
 # [Template Name] — Design Specification
 
 ## I. Template Overview
-
 - Use cases, design tone, theme mode (light / dark / mixed)
 - One paragraph: what visually identifies this template at a glance
 
 ## II. Color Scheme
-
 - HEX values with role labels (primary / accent / background / text / etc.)
 - Brand-specific application rules when present (e.g. "KPI cards rotate blue→green→red→yellow")
 
 ## III. Typography (omit when using the default `Arial, "Microsoft YaHei", sans-serif` stack)
-
 - Per-role font stacks ONLY when the template intentionally diverges (display serif title, brand typeface, etc.)
 - Font-install or embedding requirement when a non-preinstalled font leads any stack
 - Body baseline px (informational; `spec_lock.md` owns the actual values per project)
 
 ## IV. Signature Design Elements
-
 - Decorative motifs that ARE this template — top bar, gradient underline, logo treatment, brand emblem placement
 - Optional XML snippet for any reusable component unique to this template
 
 ## V. Page Roster
-
 One row per emitted SVG describing what this template's version of cover / chapter / content / ending looks like (background treatment, decorative anchors, layout rhythm). For `fidelity` mode, also note the cluster source and visual differentiator. For `mirror` mode the roster is the **load-bearing artifact** — Strategist picks mirror pages purely from these descriptions, so each row must include enough detail to distinguish it from siblings (column count, hero element, content density, what kind of content slot it fits — "three-column KPI grid with large numbers, suits quarterly summary"). Roster entries must match the actual SVG files on disk.
 
 ## VI. Assets (omit when none)
-
 Logos, cover backgrounds, brand textures bundled with the template package — file name, dimensions, intended usage.
 
 ## VII. Placeholder Overrides (omit when none)
-
 Reference the `placeholders:` frontmatter declaration and explain the rationale (e.g. "consulting decks lead with `{{KEY_MESSAGE}}` instead of `{{PAGE_TITLE}}`").
 ```
 
 Sections to **omit** from template `design_spec.md` (sourced elsewhere — listing them here is noise):
 
-| Don't write                                                           | Source                         |
-| --------------------------------------------------------------------- | ------------------------------ |
-| SVG technical constraints / Mandatory rules / Prohibited elements     | `shared-standards.md` §1       |
-| PPT compatibility rules (`<g opacity>`, inline-styles-only, etc.)     | `shared-standards.md`          |
-| Generic layout pattern library (centered card / 三栏 / timeline / …)  | `design_spec_reference.md` §V  |
-| Generic spacing bands (margin 40-60px, card gap 20-32px, etc.)        | `design_spec_reference.md` §V  |
+| Don't write | Source |
+|---|---|
+| SVG technical constraints / Mandatory rules / Prohibited elements | `shared-standards.md` §1 |
+| PPT compatibility rules (`<g opacity>`, inline-styles-only, etc.) | `shared-standards.md` |
+| Generic layout pattern library (centered card / 三栏 / timeline / …) | `design_spec_reference.md` §V |
+| Generic spacing bands (margin 40-60px, card gap 20-32px, etc.) | `design_spec_reference.md` §V |
 | Generic font-size hierarchy (cover 2.5-5x body, page title 1.5-2x, …) | `design_spec_reference.md` §IV |
-| Canonical placeholder table (`{{TITLE}}`, `{{PAGE_NUM}}`, …)          | §4 below                       |
-| Content methodology (pyramid / SCQA / MECE / 金字塔)                  | `strategist.md`                |
-| "Usage Instructions" boilerplate (copy template / select page / …)    | `create-template.md`           |
-| Created Date / Page Count rows                                        | not a library-level field      |
+| Canonical placeholder table (`{{TITLE}}`, `{{PAGE_NUM}}`, …) | §4 below |
+| Content methodology (pyramid / SCQA / MECE / 金字塔) | `strategist.md` |
+| "Usage Instructions" boilerplate (copy template / select page / …) | `create-template.md` |
+| Created Date / Page Count rows | not a library-level field |
 
 When rewriting an existing template that contains the omitted sections, delete them — do not leave a "see XXX" pointer behind. The pointer is what this scope rule replaces.
 
 ### 2. Inherit Design Specification
 
 Templates must strictly follow the finalized template brief and the generated `design_spec.md`:
-
 - **Canvas dimensions**: viewBox matches the design spec
 - **Color scheme**: Uses primary, secondary, and accent colors from the spec
 - **Font plan**: Uses the per-role font families declared in the spec
 - **Layout principles**: Margins and spacing conform to the spec
 
 If PPTX import output exists:
-
 - Prefer imported theme colors and fonts over visually guessed values
 - Reuse exported `assets/` images directly — `<image>` references in `svg/` already point at canonical files
 - Treat page-type candidates from `manifest.pageTypeCandidates` as hints, not guarantees
@@ -215,7 +206,6 @@ If PPTX import output exists:
 The imported PPTX is a **reference source**, not a direct conversion target.
 
 Do:
-
 - preserve brand assets, recurring backgrounds, and stable structural motifs
 - rebuild the layout into a clean SVG structure aligned with PPT Master constraints
 - simplify repeated decorative fragments into a smaller number of maintainable SVG elements
@@ -225,7 +215,6 @@ Do:
 - rename adopted assets to semantic names (`cover_bg.png`, `brand_emblem.png`) rather than carrying raw `image3.png` into the final template
 
 Do not:
-
 - attempt 1:1 translation of every PowerPoint shape, group, shadow, or decorative fragment
 - mirror PPT-specific complexity when it makes the resulting SVG brittle or hard to edit
 - introduce dense low-value vector detail that does not materially improve template reuse
@@ -259,29 +248,29 @@ This is the **default vocabulary** used across the library. Newly created templa
 placeholders:
   01_cover: ["{{TITLE}}", "{{SUBTITLE}}", "{{BRAND_LOGO}}"]
   03_content: ["{{KEY_MESSAGE}}", "{{CONTENT_AREA}}"]
-  03a_content_dual_col: [] # explicitly assert "no required placeholders"
+  03a_content_dual_col: []   # explicitly assert "no required placeholders"
 ```
 
-| Placeholder           | Purpose               | Applicable page                 | Convention role |
-| --------------------- | --------------------- | ------------------------------- | --------------- |
-| `{{TITLE}}`           | Main title            | Cover                           | Default         |
-| `{{SUBTITLE}}`        | Subtitle              | Cover                           | Default         |
-| `{{DATE}}`            | Date                  | Cover                           | Default         |
-| `{{AUTHOR}}`          | Author / Organization | Cover                           | Default         |
-| `{{CHAPTER_NUM}}`     | Chapter number        | Chapter page                    | Default         |
-| `{{CHAPTER_TITLE}}`   | Chapter title         | Chapter page                    | Default         |
-| `{{CHAPTER_DESC}}`    | Chapter description   | Chapter page                    | Optional        |
-| `{{PAGE_TITLE}}`      | Page title            | Content page                    | Default         |
-| `{{CONTENT_AREA}}`    | Content area          | Content page                    | Default         |
-| `{{PAGE_NUM}}`        | Page number           | Content page, ending page       | Default         |
-| `{{KEY_MESSAGE}}`     | Key takeaway          | Content page (consulting style) | Style-specific  |
-| `{{SECTION_NAME}}`    | Section name          | Content page footer             | Optional        |
-| `{{SOURCE}}`          | Data source           | Content page footer             | Optional        |
-| `{{THANK_YOU}}`       | Thank-you message     | Ending page                     | Default         |
-| `{{CONTACT_INFO}}`    | Contact info          | Ending page                     | Default         |
-| `{{ENDING_SUBTITLE}}` | Ending subtitle       | Ending page                     | Optional        |
-| `{{CLOSING_MESSAGE}}` | Closing message       | Ending page                     | Style-specific  |
-| `{{COPYRIGHT}}`       | Copyright             | Ending page                     | Optional        |
+| Placeholder | Purpose | Applicable page | Convention role |
+|------------|---------|-------------------|--------|
+| `{{TITLE}}` | Main title | Cover | Default |
+| `{{SUBTITLE}}` | Subtitle | Cover | Default |
+| `{{DATE}}` | Date | Cover | Default |
+| `{{AUTHOR}}` | Author / Organization | Cover | Default |
+| `{{CHAPTER_NUM}}` | Chapter number | Chapter page | Default |
+| `{{CHAPTER_TITLE}}` | Chapter title | Chapter page | Default |
+| `{{CHAPTER_DESC}}` | Chapter description | Chapter page | Optional |
+| `{{PAGE_TITLE}}` | Page title | Content page | Default |
+| `{{CONTENT_AREA}}` | Content area | Content page | Default |
+| `{{PAGE_NUM}}` | Page number | Content page, ending page | Default |
+| `{{KEY_MESSAGE}}` | Key takeaway | Content page (consulting style) | Style-specific |
+| `{{SECTION_NAME}}` | Section name | Content page footer | Optional |
+| `{{SOURCE}}` | Data source | Content page footer | Optional |
+| `{{THANK_YOU}}` | Thank-you message | Ending page | Default |
+| `{{CONTACT_INFO}}` | Contact info | Ending page | Default |
+| `{{ENDING_SUBTITLE}}` | Ending subtitle | Ending page | Optional |
+| `{{CLOSING_MESSAGE}}` | Closing message | Ending page | Style-specific |
+| `{{COPYRIGHT}}` | Copyright | Ending page | Optional |
 
 For TOC pages in **newly created library templates**, use indexed placeholders:
 
@@ -355,7 +344,6 @@ Filenames preserve the source slide order via the 3-digit prefix; `<page_type>` 
 After each template is generated, provide a brief summary table listing each template's status.
 
 If the template is based on PPTX import output, briefly note:
-
 - which extracted assets were reused directly
 - which complex original decorations were intentionally simplified
 - whether any page-type mapping required judgment beyond the import heuristic
@@ -366,7 +354,7 @@ If the template is based on PPTX import output, briefly note:
 
 If suitable template resources already exist, use them directly instead of generating new ones:
 
-1. **Copy template**: Copy template files to the project's `templates/` directory
+1. **Copy template**: copy the spec + template SVGs into the project's `templates/`, and any bundled bitmaps into the project's `images/` (the runtime image pool, referenced as `../images/`)
 2. **Adjust colors**: Modify colors per the project design spec
 3. **Customize**: Make project-specific adjustments
 

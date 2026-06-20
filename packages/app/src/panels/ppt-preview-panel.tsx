@@ -148,9 +148,10 @@ function PptPreviewPanel() {
       buildWorkspacePptPreviewUrl({
         activeConnection,
         agentId,
+        locale,
         projectName,
       }),
-    [activeConnection, agentId, projectName],
+    [activeConnection, agentId, locale, projectName],
   );
   const handleApplyAnnotations = useCallback(() => {
     const activeClient = client;

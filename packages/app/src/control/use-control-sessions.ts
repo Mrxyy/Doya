@@ -41,6 +41,13 @@ const bindingInflight = new Map<
   string,
   Promise<[string, ControlSessionAgentBindingSummary] | null>
 >();
+let bindingCacheVersion = 0;
+
+function invalidateBindingCache(): void {
+  bindingCacheVersion += 1;
+  bindingCache.clear();
+  bindingInflight.clear();
+}
 
 export function useControlSessions(): UseControlSessionsResult {
   const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null>(null);
@@ -105,6 +112,7 @@ export function useControlSessions(): UseControlSessionsResult {
     let disposed = false;
     const isDisposed = () => disposed;
     const scheduleReload = () => {
+      invalidateBindingCache();
       if (reloadTimerRef.current) {
         clearTimeout(reloadTimerRef.current);
       }
@@ -167,15 +175,18 @@ async function loadControlSessionAgentBinding(input: {
   if (inflight) {
     return await inflight;
   }
+  const requestVersion = bindingCacheVersion;
   const request = fetchControlSessionAgentBinding(input).finally(() => {
     bindingInflight.delete(cacheKey);
   });
   bindingInflight.set(cacheKey, request);
   const value = await request;
-  bindingCache.set(cacheKey, {
-    expiresAt: Date.now() + BINDING_CACHE_TTL_MS,
-    value,
-  });
+  if (requestVersion === bindingCacheVersion) {
+    bindingCache.set(cacheKey, {
+      expiresAt: Date.now() + BINDING_CACHE_TTL_MS,
+      value,
+    });
+  }
   return value;
 }
 
