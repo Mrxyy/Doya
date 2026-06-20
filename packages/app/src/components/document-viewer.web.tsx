@@ -10,7 +10,8 @@ import {
 } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { Asset } from "expo-asset";
+import * as XSpreadsheetBundle from "x-data-spreadsheet/dist/xspreadsheet.js";
+import "x-data-spreadsheet/dist/xspreadsheet.css";
 import * as XLSX from "xlsx";
 import { translateNow, useI18n, type Locale as DoyaLocale } from "@/i18n/i18n";
 import type {
@@ -30,7 +31,6 @@ import {
   SPREADSHEET_MAX_COLUMNS,
   SPREADSHEET_MAX_ROWS,
 } from "@/utils/spreadsheet-preview";
-import { reactDocxWasmAsset } from "@/components/react-docx-wasm-asset.web";
 import type { PluginRegistry } from "@embedpdf/react-pdf-viewer";
 import type {
   I18nCapability,
@@ -45,11 +45,6 @@ import type {
   TrackedAnnotation,
 } from "@embedpdf/plugin-annotation";
 import { getSidebarAnnotationsWithReplies } from "@embedpdf/plugin-annotation";
-import {
-  XlsxViewer,
-  useXlsxViewerController,
-  type XlsxViewerController,
-} from "@extend-ai/react-xlsx";
 
 export type DocumentViewerKind = "pdf" | "docx" | "pptx" | "csv" | "xlsx";
 
@@ -68,8 +63,6 @@ export interface DocumentViewerProps {
 }
 
 type RenderState = { status: "idle" | "loading" | "ready" } | { status: "error"; message: string };
-type ReactDocxModule = typeof import("@extend-ai/react-docx");
-type DocxEditor = ReturnType<ReactDocxModule["useDocxEditor"]>;
 type EmbedPdfViewerComponent = ComponentType<{
   config: {
     src: string;
@@ -86,6 +79,36 @@ type EmbedPdfViewerComponent = ComponentType<{
   style?: CSSProperties;
 }>;
 type PptxViewerInstance = InstanceType<typeof import("@aiden0z/pptx-renderer").PptxViewer>;
+type XSpreadsheetFactory = (
+  container: HTMLElement,
+  options?: XSpreadsheetOptions,
+) => XSpreadsheetInstance;
+interface XSpreadsheetInstance {
+  loadData(data: XSpreadsheetSheetData[]): XSpreadsheetInstance;
+  on(
+    eventName: "cell-selected",
+    callback: (
+      cell: XSpreadsheetCellData | undefined,
+      rowIndex: number,
+      columnIndex: number,
+    ) => void,
+  ): XSpreadsheetInstance;
+}
+type XSpreadsheetRenderState =
+  | { status: "loading" }
+  | { status: "ready" }
+  | { status: "error"; message: string };
+interface XSpreadsheetOptions {
+  mode: "edit" | "read";
+  showBottomBar: boolean;
+  showToolbar: boolean;
+  showContextmenu: boolean;
+  showGrid: boolean;
+  view: {
+    height: () => number;
+    width: () => number;
+  };
+}
 interface XSpreadsheetCellData {
   text: string;
   merge?: [number, number];
@@ -192,7 +215,7 @@ interface OnlyOfficeEditorConfig {
 declare global {
   interface Window {
     DocsAPI?: OnlyOfficeDocsApi;
-    x_spreadsheet?: (host: HTMLElement) => unknown;
+    x_spreadsheet?: XSpreadsheetFactory;
   }
   var Api: OnlyOfficeSpreadsheetApi;
 }
@@ -201,7 +224,6 @@ const LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL = "http://127.0.0.1:8082";
 const LOCAL_ONLYOFFICE_HOST_GATEWAY = "host.docker.internal";
 const ONLYOFFICE_SELECTION_PLUGIN_GUID = "asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}";
 const ONLYOFFICE_SELECTION_PLUGIN_VERSION = "20260614-1";
-let reactDocxWasmConfigurationPromise: Promise<void> | null = null;
 
 const PDF_SHAPES_ONLY_DISABLED_CATEGORIES = [
   "mode-view",
@@ -561,168 +583,56 @@ function normalizePdfReplyContents(replies: TrackedAnnotation[]): string {
 function DocxDocumentViewer({
   annotationMode,
   bytes,
-  fileName,
-  mimeType,
   onAnnotationRemove,
   onAnnotationTargetSelect,
   pendingAnnotationTargets,
   pendingAnnotationTips,
   selectedAnnotationTarget,
-  sourceUrl,
 }: Pick<
   DocumentViewerProps,
   | "annotationMode"
   | "bytes"
-  | "fileName"
-  | "mimeType"
   | "onAnnotationRemove"
   | "onAnnotationTargetSelect"
   | "pendingAnnotationTargets"
   | "pendingAnnotationTips"
   | "selectedAnnotationTarget"
-  | "sourceUrl"
 >) {
-  const [reactDocxModule, setReactDocxModule] = useState<ReactDocxModule | null>(null);
-  const [moduleLoadError, setModuleLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let canceled = false;
-    ensureUsableDocumentBaseUrl();
-
-    async function loadReactDocxModule() {
-      const module = await import("@extend-ai/react-docx");
-      await configureReactDocxWasm(module);
-      if (!canceled) {
-        setReactDocxModule(module);
-        setModuleLoadError(null);
-      }
-    }
-
-    void loadReactDocxModule().catch((error) => {
-      if (!canceled) {
-        setModuleLoadError(
-          error instanceof Error ? error.message : translateNow("ui.failed.to.render.docx"),
-        );
-      }
-    });
-    return () => {
-      canceled = true;
-    };
-  }, []);
-
-  if (!reactDocxModule) {
-    return (
-      <div data-testid="document-docx-editor" style={webStyles.docxEditorRoot}>
-        <DocumentLoadingOverlay label={translateNow("ui.loading.docx")} />
-        {moduleLoadError ? <DocumentErrorOverlay message={moduleLoadError} /> : null}
-      </div>
-    );
-  }
-
-  return (
-    <LoadedDocxDocumentViewer
-      bytes={bytes}
-      fileName={fileName}
-      mimeType={mimeType}
-      annotationMode={annotationMode}
-      onAnnotationRemove={onAnnotationRemove}
-      onAnnotationTargetSelect={onAnnotationTargetSelect}
-      pendingAnnotationTargets={pendingAnnotationTargets}
-      pendingAnnotationTips={pendingAnnotationTips}
-      reactDocxModule={reactDocxModule}
-      selectedAnnotationTarget={selectedAnnotationTarget}
-      sourceUrl={sourceUrl}
-    />
-  );
-}
-
-async function configureReactDocxWasm(module: ReactDocxModule): Promise<void> {
-  if (!reactDocxWasmConfigurationPromise) {
-    reactDocxWasmConfigurationPromise = loadReactDocxWasmBytes()
-      .then((bytes) => {
-        module.setWasmSource(bytes);
-        return undefined;
-      })
-      .catch((error) => {
-        reactDocxWasmConfigurationPromise = null;
-        throw error;
-      });
-  }
-  return reactDocxWasmConfigurationPromise;
-}
-
-async function loadReactDocxWasmBytes(): Promise<ArrayBuffer> {
-  const asset = Asset.fromModule(reactDocxWasmAsset);
-  await asset.downloadAsync();
-  const uri = asset.localUri ?? asset.uri;
-  const response = await fetch(uri);
-  if (!response.ok) {
-    throw new Error(`Failed to load DOCX WASM (${response.status})`);
-  }
-  return response.arrayBuffer();
-}
-
-function LoadedDocxDocumentViewer({
-  annotationMode,
-  bytes,
-  fileName,
-  mimeType,
-  onAnnotationRemove,
-  onAnnotationTargetSelect,
-  pendingAnnotationTargets,
-  pendingAnnotationTips,
-  reactDocxModule,
-  selectedAnnotationTarget,
-  sourceUrl,
-}: Pick<
-  DocumentViewerProps,
-  | "annotationMode"
-  | "bytes"
-  | "fileName"
-  | "mimeType"
-  | "onAnnotationRemove"
-  | "onAnnotationTargetSelect"
-  | "pendingAnnotationTargets"
-  | "pendingAnnotationTips"
-  | "selectedAnnotationTarget"
-  | "sourceUrl"
-> & {
-  reactDocxModule: ReactDocxModule;
-}) {
-  const { DocxEditorViewer, useDocxEditor } = reactDocxModule;
-  const editor = useDocxEditor({
-    initialFileName: fileName,
-    initialDocumentTheme: "light",
-  });
-  const { importDocxFile, isImporting } = editor;
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const renderVersionRef = useRef(0);
   const selectedSelectionKeyRef = useRef<string | null>(null);
   const [state, setState] = useState<RenderState>({ status: "idle" });
-  const importQueueRef = useRef<Promise<void>>(Promise.resolve());
-  const loadingState = useMemo(
-    () => <DocumentLoadingOverlay label={translateNow("ui.loading.docx")} />,
-    [],
-  );
 
   useEffect(() => {
-    let canceled = false;
-    setState({ status: "loading" });
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
+    const renderTarget = host;
 
-    async function loadDocx() {
-      if (canceled) {
-        return;
-      }
+    let canceled = false;
+    const renderVersion = renderVersionRef.current + 1;
+    renderVersionRef.current = renderVersion;
+    const renderHost = document.createElement("div");
+    setState({ status: "loading" });
+    renderTarget.replaceChildren();
+
+    async function renderDocx() {
       try {
-        const file = sourceUrl
-          ? await loadDocxFileFromUrl({ fileName, sourceUrl })
-          : createDocxFileFromBytes({ bytes, fileName, mimeType });
-        await importDocxFile(file);
-        if (canceled) {
+        const { renderAsync } = await import("docx-preview");
+        await renderAsync(getArrayBuffer(bytes), renderHost, undefined, {
+          className: "doya-docx",
+          inWrapper: true,
+          renderAltChunks: false,
+          useBase64URL: true,
+        });
+        if (canceled || renderVersionRef.current !== renderVersion) {
           return;
         }
+        renderTarget.replaceChildren(...Array.from(renderHost.childNodes));
         setState({ status: "ready" });
       } catch (error) {
-        if (canceled) {
+        if (canceled || renderVersionRef.current !== renderVersion) {
           return;
         }
         setState({
@@ -733,12 +643,13 @@ function LoadedDocxDocumentViewer({
       }
     }
 
-    importQueueRef.current = importQueueRef.current.then(loadDocx);
+    void renderDocx();
 
     return () => {
       canceled = true;
+      renderTarget.replaceChildren();
     };
-  }, [bytes, fileName, importDocxFile, mimeType, sourceUrl]);
+  }, [bytes]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -802,40 +713,19 @@ function LoadedDocxDocumentViewer({
   }, [annotationMode, selectCurrentDocxSelection, state.status]);
 
   return (
-    <div data-testid="document-docx-editor" style={webStyles.docxEditorRoot}>
-      {state.status === "idle" || state.status === "loading" || isImporting ? (
+    <div data-testid="document-docx-preview" style={webStyles.docxRoot}>
+      {state.status === "idle" || state.status === "loading" ? (
         <DocumentLoadingOverlay label={translateNow("ui.loading.docx")} />
       ) : null}
       {state.status === "error" ? <DocumentErrorOverlay message={state.message} /> : null}
-      <DocxEditorToolbar editor={editor} />
       <div
         aria-label={translateNow("ui.docx.preview.title")}
         data-testid="document-docx-host"
         ref={hostRef}
-        style={annotationMode ? webStyles.docxEditorCanvasAnnotatable : webStyles.docxEditorCanvas}
-      >
-        <DocxEditorViewer
-          editor={editor}
-          mode="edit"
-          pageBackgroundColor="#ffffff"
-          pageGapBackgroundColor="transparent"
-          loadingState={loadingState}
-          style={webStyles.docxEditorViewer}
-        />
-      </div>
+        style={annotationMode ? webStyles.docxHostAnnotatable : webStyles.docxHost}
+      />
     </div>
   );
-}
-
-async function loadDocxFileFromUrl(input: { fileName: string; sourceUrl: string }): Promise<File> {
-  const response = await fetch(input.sourceUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch DOCX (${response.status})`);
-  }
-  const blob = await response.blob();
-  return new File([blob], input.fileName, {
-    type: blob.type || "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  });
 }
 
 function createDocumentAnnotationTargetKey(target: DocumentAnnotationTarget): string {
@@ -880,115 +770,6 @@ function updateDocxAnnotationHighlights(input: {
       target: input.selectedAnnotationTarget,
     });
   }
-}
-
-function createDocxFileFromBytes(input: {
-  bytes: Uint8Array;
-  fileName: string;
-  mimeType: string;
-}): File {
-  return new File([getArrayBuffer(input.bytes)], input.fileName, {
-    type: input.mimeType,
-  });
-}
-
-function ensureUsableDocumentBaseUrl(): void {
-  if (!documentBaseUrlNeedsRepair()) {
-    return;
-  }
-  const fallbackHref = resolveDocumentBaseFallbackHref();
-  const existingBase = document.querySelector("base");
-  if (existingBase instanceof HTMLBaseElement) {
-    existingBase.href = fallbackHref;
-    return;
-  }
-  const base = document.createElement("base");
-  base.dataset.doyaDocxRuntimeBase = "true";
-  base.href = fallbackHref;
-  document.head.prepend(base);
-}
-
-function documentBaseUrlNeedsRepair(): boolean {
-  try {
-    const parsed = new URL("main.js", document.baseURI);
-    return parsed.href.length === 0;
-  } catch {
-    return true;
-  }
-}
-
-function resolveDocumentBaseFallbackHref(): string {
-  const candidates = [
-    window.location.href,
-    ...Array.from(document.scripts).map((script) => script.src),
-    `${window.location.origin}/`,
-  ];
-  for (const candidate of candidates) {
-    try {
-      return new URL(".", candidate).href;
-    } catch {
-      continue;
-    }
-  }
-  return "http://localhost/";
-}
-
-function DocxEditorToolbar({ editor }: { editor: DocxEditor }) {
-  return (
-    <div style={webStyles.editorToolbar}>
-      <button
-        aria-label={translateNow("ui.document.editor.undo")}
-        disabled={!editor.canUndo}
-        onClick={editor.undo}
-        style={webStyles.editorToolbarButton}
-        type="button"
-      >
-        {translateNow("ui.document.editor.undo")}
-      </button>
-      <button
-        aria-label={translateNow("ui.document.editor.redo")}
-        disabled={!editor.canRedo}
-        onClick={editor.redo}
-        style={webStyles.editorToolbarButton}
-        type="button"
-      >
-        {translateNow("ui.document.editor.redo")}
-      </button>
-      <button
-        aria-label={translateNow("ui.document.editor.bold")}
-        onClick={editor.toggleBold}
-        style={webStyles.editorToolbarButton}
-        type="button"
-      >
-        B
-      </button>
-      <button
-        aria-label={translateNow("ui.document.editor.italic")}
-        onClick={editor.toggleItalic}
-        style={webStyles.editorToolbarButton}
-        type="button"
-      >
-        I
-      </button>
-      <button
-        aria-label={translateNow("ui.document.editor.underline")}
-        onClick={editor.toggleUnderline}
-        style={webStyles.editorToolbarButton}
-        type="button"
-      >
-        U
-      </button>
-      <button
-        aria-label={translateNow("ui.document.editor.export")}
-        onClick={editor.exportDocx}
-        style={webStyles.editorToolbarButton}
-        type="button"
-      >
-        {translateNow("ui.document.editor.export")}
-      </button>
-      <span style={webStyles.editorToolbarStatus}>{editor.status}</span>
-    </div>
-  );
 }
 
 function applyDocxAnnotationTargetHighlight(
@@ -2393,90 +2174,95 @@ function DocumentErrorOverlay({ message }: { message: string }) {
   );
 }
 
-function XlsxDocumentEditor({ bytes, fileName }: Pick<DocumentViewerProps, "bytes" | "fileName">) {
-  const workbookBuffer = useMemo(() => getArrayBuffer(bytes), [bytes]);
-  const controller = useXlsxViewerController({
-    allowResizeInReadOnly: true,
-    file: workbookBuffer,
-    fileName,
-    readOnly: false,
-    readOnlyAboveBytes: 5 * 1024 * 1024,
-    useWorker: true,
-  });
-  const loadingState = useMemo(
-    () => <DocumentLoadingOverlay label={translateNow("ui.loading.xlsx")} />,
-    [],
-  );
-  const emptyState = useMemo(
-    () => <DocumentErrorOverlay message={translateNow("ui.document.xlsx.empty")} />,
-    [],
-  );
-  const errorState = useMemo(
-    () => <DocumentErrorOverlay message={translateNow("ui.failed.to.render.xlsx")} />,
-    [],
-  );
-  const fileTooLargeState = useMemo(
-    () => <DocumentErrorOverlay message={translateNow("ui.document.xlsx.fileTooLarge")} />,
-    [],
-  );
+function XSpreadsheetDocumentViewer({
+  bytes,
+  annotationMode,
+  onAnnotationTargetSelect,
+}: Pick<DocumentViewerProps, "annotationMode" | "bytes" | "onAnnotationTargetSelect">) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const onAnnotationTargetSelectRef = useRef(onAnnotationTargetSelect);
+  const [state, setState] = useState<XSpreadsheetRenderState>({ status: "loading" });
+
+  useEffect(() => {
+    onAnnotationTargetSelectRef.current = onAnnotationTargetSelect;
+  }, [onAnnotationTargetSelect]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
+    const renderHost = host;
+    let canceled = false;
+    setState({ status: "loading" });
+    renderHost.replaceChildren();
+
+    async function renderXlsx() {
+      try {
+        const spreadsheetData = createXSpreadsheetData(bytes);
+        void XSpreadsheetBundle;
+        const spreadsheetFactory = window.x_spreadsheet;
+        if (!spreadsheetFactory) {
+          throw new Error("x-spreadsheet is unavailable");
+        }
+        if (canceled) {
+          return;
+        }
+        const spreadsheet = spreadsheetFactory(renderHost, {
+          mode: "read",
+          showBottomBar: true,
+          showToolbar: false,
+          showContextmenu: false,
+          showGrid: true,
+          view: {
+            height: () => renderHost.clientHeight,
+            width: () => renderHost.clientWidth,
+          },
+        }).loadData(spreadsheetData);
+        spreadsheet.on("cell-selected", (_cell, rowIndex, columnIndex) => {
+          if (!annotationMode) {
+            return;
+          }
+          const sheetName = spreadsheetData[0]?.name ?? "Sheet1";
+          onAnnotationTargetSelectRef.current?.({
+            kind: "xlsx",
+            label: `${sheetName}!${columnNameFromIndex(columnIndex)}${rowIndex + 1}`,
+            locator: {
+              type: "cell",
+              sheet: sheetName,
+              cell: `${columnNameFromIndex(columnIndex)}${rowIndex + 1}`,
+              row: rowIndex + 1,
+              column: columnIndex + 1,
+            },
+          });
+        });
+        setState({ status: "ready" });
+      } catch (error) {
+        if (!canceled) {
+          setState({
+            status: "error",
+            message:
+              error instanceof Error ? error.message : translateNow("ui.failed.to.render.xlsx"),
+          });
+        }
+      }
+    }
+
+    void renderXlsx();
+
+    return () => {
+      canceled = true;
+      renderHost.replaceChildren();
+    };
+  }, [annotationMode, bytes]);
 
   return (
-    <div data-testid="document-xlsx-editor" style={webStyles.xlsxEditorRoot}>
-      <XlsxEditorToolbar controller={controller} />
-      <div style={webStyles.xlsxEditorCanvas}>
-        <XlsxViewer
-          controller={controller}
-          emptyState={emptyState}
-          errorState={errorState}
-          experimentalCanvas
-          fileTooLargeState={fileTooLargeState}
-          height="100%"
-          loadingState={loadingState}
-          readOnly={false}
-          rounded={false}
-          showDefaultToolbar={false}
-          showImages
-        />
-      </div>
-    </div>
-  );
-}
-
-function XlsxEditorToolbar({ controller }: { controller: XlsxViewerController }) {
-  return (
-    <div style={webStyles.editorToolbar}>
-      <button
-        aria-label={translateNow("ui.document.editor.undo")}
-        disabled={!controller.canUndo || controller.readOnly}
-        onClick={controller.undo}
-        style={webStyles.editorToolbarButton}
-        type="button"
-      >
-        {translateNow("ui.document.editor.undo")}
-      </button>
-      <button
-        aria-label={translateNow("ui.document.editor.redo")}
-        disabled={!controller.canRedo || controller.readOnly}
-        onClick={controller.redo}
-        style={webStyles.editorToolbarButton}
-        type="button"
-      >
-        {translateNow("ui.document.editor.redo")}
-      </button>
-      <button
-        aria-label={translateNow("ui.document.editor.export")}
-        disabled={!controller.canExport}
-        onClick={controller.exportXlsx}
-        style={webStyles.editorToolbarButton}
-        type="button"
-      >
-        {translateNow("ui.document.editor.export")}
-      </button>
-      <span style={webStyles.editorToolbarStatus}>
-        {controller.selectedRangeAddress ??
-          controller.activeCellAddress ??
-          controller.displayFileName}
-      </span>
+    <div data-testid="document-xlsx-xspreadsheet-preview" style={webStyles.xlsxSpreadsheetRoot}>
+      <div ref={hostRef} style={webStyles.xlsxSpreadsheetHost} />
+      {state.status === "loading" ? (
+        <DocumentLoadingOverlay label={translateNow("ui.loading.xlsx")} />
+      ) : null}
+      {state.status === "error" ? <DocumentErrorOverlay message={state.message} /> : null}
     </div>
   );
 }
@@ -2538,7 +2324,13 @@ export function DocumentViewer({
         />
       );
     }
-    return <XlsxDocumentEditor bytes={stableBytes} fileName={fileName} />;
+    return (
+      <XSpreadsheetDocumentViewer
+        annotationMode={annotationMode}
+        bytes={stableBytes}
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />
+    );
   }
   return (
     <SpreadsheetDocumentViewer
@@ -2564,31 +2356,28 @@ const webStyles = {
     minHeight: 0,
     cursor: "crosshair",
   },
-  docxEditorRoot: {
+  docxRoot: {
     position: "relative",
-    display: "flex",
-    flexDirection: "column",
     width: "100%",
     height: "100%",
     minHeight: 0,
     overflow: "hidden",
     background: "var(--doya-surface1, #f4f4f5)",
   },
-  docxEditorCanvas: {
-    flex: 1,
+  docxHost: {
+    width: "100%",
+    height: "100%",
     minHeight: 0,
     overflow: "auto",
     padding: "24px 0",
   },
-  docxEditorCanvasAnnotatable: {
-    flex: 1,
+  docxHostAnnotatable: {
+    width: "100%",
+    height: "100%",
     minHeight: 0,
     overflow: "auto",
     padding: "24px 0",
     cursor: "text",
-  },
-  docxEditorViewer: {
-    minHeight: "100%",
   },
   pptxFrame: {
     position: "relative",
@@ -2614,47 +2403,17 @@ const webStyles = {
     height: "100%",
     minHeight: 0,
   },
-  xlsxEditorRoot: {
-    display: "flex",
-    flexDirection: "column",
+  xlsxSpreadsheetRoot: {
+    position: "relative",
     width: "100%",
     height: "100%",
     minHeight: 0,
-    overflow: "hidden",
-    background: "var(--doya-surface0, #ffffff)",
+    background: "var(--doya-surface0, #fff)",
   },
-  xlsxEditorCanvas: {
-    flex: 1,
+  xlsxSpreadsheetHost: {
+    width: "100%",
+    height: "100%",
     minHeight: 0,
-    overflow: "hidden",
-  },
-  editorToolbar: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    minHeight: 44,
-    padding: "6px 10px",
-    borderBottom: "1px solid var(--doya-border, rgba(0, 0, 0, 0.08))",
-    background: "var(--doya-surface0, #ffffff)",
-  },
-  editorToolbarButton: {
-    minHeight: 30,
-    padding: "0 10px",
-    border: "1px solid var(--doya-border, rgba(0, 0, 0, 0.12))",
-    borderRadius: 6,
-    background: "var(--doya-surface2, #ffffff)",
-    color: "var(--doya-foreground, #18181b)",
-    font: "inherit",
-    fontSize: 12,
-  },
-  editorToolbarStatus: {
-    minWidth: 0,
-    flex: 1,
-    overflow: "hidden",
-    color: "var(--doya-foreground-muted, #71717a)",
-    fontSize: 12,
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
   },
   spreadsheetRoot: {
     width: "100%",

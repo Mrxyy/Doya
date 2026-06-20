@@ -38,10 +38,63 @@ const onlyOfficeMockState = vi.hoisted(() => ({
   configs: [] as unknown[],
 }));
 
-const docxMockState = vi.hoisted(() => ({
-  importDocxFile: vi.fn(() => Promise.resolve()),
-  setWasmSource: vi.fn(),
+interface XSpreadsheetMockInstance {
+  data: unknown;
+  loadData(data: unknown): XSpreadsheetMockInstance;
+  loadDataMock(data: unknown): XSpreadsheetMockInstance;
+  on(
+    eventName: "cell-selected",
+    callback: (
+      cell: { merge?: [number, number]; style?: number; text: string } | undefined,
+      rowIndex: number,
+      columnIndex: number,
+    ) => void,
+  ): XSpreadsheetMockInstance;
+  onMock(
+    eventName: "cell-selected",
+    callback: (
+      cell: { merge?: [number, number]; style?: number; text: string } | undefined,
+      rowIndex: number,
+      columnIndex: number,
+    ) => void,
+  ): XSpreadsheetMockInstance;
+}
+
+const xSpreadsheetMockState = vi.hoisted(() => ({
+  instances: [] as XSpreadsheetMockInstance[],
 }));
+
+vi.mock("x-data-spreadsheet/dist/xspreadsheet.css", () => ({}));
+
+vi.mock("x-data-spreadsheet/dist/xspreadsheet.js", () => {
+  window.x_spreadsheet = (host: HTMLElement) => {
+    const instance: XSpreadsheetMockInstance = {
+      data: null,
+      loadData(data: unknown) {
+        return instance.loadDataMock(data);
+      },
+      loadDataMock: vi.fn((data: unknown) => {
+        instance.data = data;
+        return instance;
+      }),
+      on(
+        eventName: "cell-selected",
+        callback: (
+          cell: { merge?: [number, number]; style?: number; text: string } | undefined,
+          rowIndex: number,
+          columnIndex: number,
+        ) => void,
+      ) {
+        return instance.onMock(eventName, callback);
+      },
+      onMock: vi.fn(() => instance),
+    };
+    host.textContent = "x-spreadsheet mounted";
+    xSpreadsheetMockState.instances.push(instance);
+    return instance;
+  };
+  return {};
+});
 
 vi.mock("@aiden0z/pptx-renderer", () => ({
   PptxViewer: class PptxViewer {
@@ -81,77 +134,16 @@ vi.mock("@embedpdf/react-pdf-viewer", async () => {
   };
 });
 
-vi.mock("@/components/react-docx-wasm-asset.web", () => ({
-  reactDocxWasmAsset: 1,
+vi.mock("docx-preview", () => ({
+  renderAsync: vi.fn((_buffer: ArrayBuffer, renderHost: HTMLElement) => {
+    renderHost.innerHTML = `
+      <section>
+        <p><strong data-testid="docx-click-target">Revenue target</strong></p>
+      </section>
+    `;
+    return Promise.resolve();
+  }),
 }));
-
-vi.mock("expo-asset", () => ({
-  Asset: {
-    fromModule: () => ({
-      downloadAsync: () => Promise.resolve(),
-      localUri: null,
-      uri: "http://localhost/docx_wasm_bg.wasm",
-    }),
-  },
-}));
-
-vi.mock("@extend-ai/react-docx", async () => {
-  const ReactModule = await import("react");
-  const editor = {
-    canRedo: false,
-    canUndo: false,
-    exportDocx: vi.fn(),
-    importDocxFile: docxMockState.importDocxFile,
-    isImporting: false,
-    status: "Ready",
-    toggleBold: vi.fn(),
-    toggleItalic: vi.fn(),
-    toggleUnderline: vi.fn(),
-    undo: vi.fn(),
-    redo: vi.fn(),
-  };
-  return {
-    useDocxEditor: () => editor,
-    DocxEditorViewer: () =>
-      ReactModule.createElement(
-        "div",
-        { "data-testid": "extend-docx-editor" },
-        ReactModule.createElement(
-          "section",
-          null,
-          ReactModule.createElement(
-            "p",
-            null,
-            ReactModule.createElement(
-              "strong",
-              { "data-testid": "docx-click-target" },
-              "Revenue target",
-            ),
-          ),
-        ),
-      ),
-    setWasmSource: docxMockState.setWasmSource,
-  };
-});
-
-vi.mock("@extend-ai/react-xlsx", async () => {
-  const ReactModule = await import("react");
-  return {
-    useXlsxViewerController: () => ({
-      activeCellAddress: null,
-      canExport: true,
-      canRedo: false,
-      canUndo: false,
-      displayFileName: "budget.xlsx",
-      exportXlsx: vi.fn(),
-      readOnly: false,
-      redo: vi.fn(),
-      selectedRangeAddress: null,
-      undo: vi.fn(),
-    }),
-    XlsxViewer: () => ReactModule.createElement("div", { "data-testid": "extend-xlsx-editor" }),
-  };
-});
 
 vi.mock("@/i18n/i18n", () => ({
   translateNow: (key: string, values?: Record<string, string>) =>
@@ -388,7 +380,8 @@ describe("DocumentViewer web annotation interactions", () => {
     ]);
   });
 
-  it("renders XLSX workbooks with the Extend editor", async () => {
+  it("renders XLSX workbooks with x-spreadsheet instead of the local grid", async () => {
+    delete window.DocsAPI;
     const { DocumentViewer } = await import("./document-viewer.web");
 
     render(
@@ -400,9 +393,15 @@ describe("DocumentViewer web annotation interactions", () => {
       />,
     );
 
-    expect(await screen.findByTestId("document-xlsx-editor")).toBeTruthy();
-    expect(screen.getByTestId("extend-xlsx-editor")).toBeTruthy();
+    expect(await screen.findByText("x-spreadsheet mounted")).toBeTruthy();
+    expect(screen.getByTestId("document-xlsx-xspreadsheet-preview")).toBeTruthy();
     expect(screen.queryByTestId("document-spreadsheet-preview")).toBeNull();
+    expect(xSpreadsheetMockState.instances).toHaveLength(1);
+
+    const [spreadsheet] = xSpreadsheetMockState.instances;
+    expect(spreadsheet.loadDataMock).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ name: "Budget" })]),
+    );
   });
 
   it("keeps XLSX source URLs on the default ONLYOFFICE path", async () => {
@@ -455,7 +454,7 @@ describe("DocumentViewer web annotation interactions", () => {
 
     expect(await screen.findByTestId("document-spreadsheet-preview")).toBeTruthy();
     expect(screen.getByTestId("document-spreadsheet-cell-Budget-C2")).toBeTruthy();
-    expect(screen.queryByTestId("document-xlsx-editor")).toBeNull();
+    expect(screen.queryByTestId("document-xlsx-xspreadsheet-preview")).toBeNull();
     appendChild.mockRestore();
   });
 
@@ -676,7 +675,7 @@ describe("DocumentViewer web annotation interactions", () => {
     );
   });
 
-  it("renders DOCX documents with the Extend editor", async () => {
+  it("renders DOCX documents with the built-in preview", async () => {
     const { DocumentViewer } = await import("./document-viewer.web");
 
     render(
@@ -688,54 +687,8 @@ describe("DocumentViewer web annotation interactions", () => {
       />,
     );
 
-    expect(await screen.findByTestId("document-docx-editor")).toBeTruthy();
-    expect(await screen.findByTestId("extend-docx-editor")).toBeTruthy();
-  });
-
-  it("loads DOCX documents from source URLs like the Extend viewer", async () => {
-    const fetchMock = vi.mocked(globalThis.fetch);
-    fetchMock.mockImplementation((async (input: RequestInfo | URL) => {
-      const url = String(input);
-      if (url.includes("docx_wasm_bg.wasm")) {
-        return {
-          arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
-          ok: true,
-          status: 200,
-        } as Response;
-      }
-      return {
-        blob: () =>
-          Promise.resolve(
-            new Blob([new Uint8Array([4, 5, 6])], {
-              type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            }),
-          ),
-        ok: true,
-        status: 200,
-      } as Response;
-    }) as typeof fetch);
-    const { DocumentViewer } = await import("./document-viewer.web");
-
-    render(
-      <DocumentViewer
-        kind="docx"
-        bytes={new Uint8Array([1, 2, 3])}
-        mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        fileName="prd.docx"
-        sourceUrl="http://localhost:6767/api/workspace-files/raw?cwd=/repo&path=prd.docx"
-      />,
-    );
-
-    expect(await screen.findByTestId("extend-docx-editor")).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:6767/api/workspace-files/raw?cwd=/repo&path=prd.docx",
-    );
-    expect(docxMockState.importDocxFile).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: "prd.docx",
-        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      }),
-    );
+    expect(await screen.findByTestId("document-docx-preview")).toBeTruthy();
+    expect(screen.getByText("Revenue target")).toBeTruthy();
   });
 
   it("does not select DOCX targets from preview clicks", async () => {
@@ -805,28 +758,6 @@ describe("DocumentViewer web annotation interactions", () => {
     expect((semanticTarget as HTMLElement).style.boxShadow).toBe("");
   });
 
-  it("repairs an invalid document base URL before loading DOCX runtime assets", async () => {
-    const invalidBase = document.createElement("base");
-    invalidBase.href = "about:blank";
-    document.head.prepend(invalidBase);
-    expect(() => new URL("main.js", document.baseURI)).toThrow();
-
-    const { DocumentViewer } = await import("./document-viewer.web");
-
-    render(
-      <DocumentViewer
-        kind="docx"
-        bytes={new Uint8Array([1, 2, 3])}
-        mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        fileName="prd.docx"
-      />,
-    );
-
-    expect(await screen.findByTestId("extend-docx-editor")).toBeTruthy();
-    expect(() => new URL("main.js", document.baseURI)).not.toThrow();
-    expect(docxMockState.importDocxFile).toHaveBeenCalled();
-  });
-
   it("updates the DOCX annotation target from text selection changes", async () => {
     const { DocumentViewer } = await import("./document-viewer.web");
     const onAnnotationTargetSelect = vi.fn();
@@ -853,7 +784,7 @@ describe("DocumentViewer web annotation interactions", () => {
         locator: {
           type: "selection",
           pageNumber: 1,
-          path: "div:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(1)",
+          path: "section:nth-of-type(1) > p:nth-of-type(1)",
         },
         context: "Revenue target",
       });
