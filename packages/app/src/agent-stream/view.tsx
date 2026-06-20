@@ -49,6 +49,7 @@ import {
   TodoListCard,
   CompactionMarker,
   MessageOuterSpacingProvider,
+  type AssistantTurnBillingUsage,
   type InlinePathTarget,
 } from "@/components/message";
 import { PlanCard } from "@/components/plan-card";
@@ -61,6 +62,7 @@ import type {
 } from "@getdoya/protocol/agent-types";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
 import { useSessionStore } from "@/stores/session-store";
+import type { AgentTurnUsageRecord } from "@/stores/session-store";
 import { useFileExplorerActions } from "@/hooks/use-file-explorer-actions";
 import { useLoadOlderAgentHistory } from "@/hooks/use-load-older-agent-history";
 import type { ToastApi } from "@/components/toast-host";
@@ -72,7 +74,7 @@ import { type AgentStreamRenderModel, buildAgentStreamRenderModel } from "./mode
 import { resolveStreamRenderStrategy } from "./strategy-resolver";
 import { type StreamSegmentRenderers, type StreamViewportHandle } from "./strategy";
 import { CompletedTurnFooterRow, TurnFooter, type TurnContentStrategy } from "./turn-footer";
-import { layoutStream, type StreamLayoutItem } from "./layout";
+import { layoutStream, type StreamLayoutItem, type TurnFooterHost } from "./layout";
 import {
   type BottomAnchorLocalRequest,
   type BottomAnchorRouteRequest,
@@ -110,11 +112,19 @@ import {
 } from "./ai-creation";
 import { buildAgentStreamWorkspaceFileOpenRequest } from "./open-file";
 import { parseDoyaMessageCard, type DoyaMessageCard } from "@/utils/doya-message-markup";
+import { loadAccountBootstrapSession } from "@/account/account-api";
+import {
+  getControlBillingSummary,
+  isControlApiConfigured,
+  type ControlUsageLogRecord,
+} from "@/control/control-api";
 
 interface LiveArtifactProgressGroup {
   isFirst: boolean;
   items: Extract<StreamItem, { kind: "assistant_message" }>[];
 }
+
+const EMPTY_AGENT_TURN_USAGE_BY_ID = new Map<string, AgentTurnUsageRecord>();
 
 function renderLiveAuxiliaryNode(input: {
   pendingPermissions: ReactNode;
@@ -208,6 +218,7 @@ function renderStreamItemWithTurnFooter(input: {
   content: ReactNode;
   layoutItem: StreamLayoutItem;
   strategy: TurnContentStrategy;
+  resolveBillingUsage?: (host: TurnFooterHost) => AssistantTurnBillingUsage | null;
 }): ReactNode {
   const footerHost = input.layoutItem.completedFooter;
   const footer = footerHost ? (
@@ -216,6 +227,7 @@ function renderStreamItemWithTurnFooter(input: {
       items={footerHost.items}
       timing={footerHost.timing}
       startIndex={footerHost.startIndex}
+      billingUsage={input.resolveBillingUsage?.(footerHost)}
     />
   ) : null;
   if (!input.content) {
@@ -241,6 +253,37 @@ function renderStreamItemWithTurnFooter(input: {
       {footer}
     </>
   );
+}
+
+function toAssistantTurnBillingUsage(log: ControlUsageLogRecord): AssistantTurnBillingUsage {
+  return {
+    inputTokens: log.inputTokens,
+    outputTokens: log.outputTokens,
+    cacheCreationTokens: log.cacheCreationTokens,
+    cacheReadTokens: log.cacheReadTokens,
+    actualCostCny: log.actualCostCny,
+  };
+}
+
+function toAssistantTurnBillingUsageFromStore(
+  usage: AgentTurnUsageRecord,
+): AssistantTurnBillingUsage {
+  return {
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    cacheCreationTokens: usage.cacheCreationTokens,
+    cacheReadTokens: usage.cacheReadTokens,
+    actualCostCny: usage.actualCostCny,
+  };
+}
+
+function getTurnFooterHostCandidateTurnIds(host: TurnFooterHost): string[] {
+  const item = host.items[host.startIndex];
+  if (!item || item.kind !== "assistant_message") {
+    return [host.itemId];
+  }
+  const values = [item.turnId, item.messageId, item.id, item.blockGroupId, host.itemId];
+  return values.filter((value): value is string => Boolean(value?.trim()));
 }
 
 function renderListEmptyComponent(input: {
@@ -368,6 +411,57 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           isMobileBreakpoint: isMobile,
         }),
       [isMobile],
+    );
+    const [billingUsageLogs, setBillingUsageLogs] = useState<ControlUsageLogRecord[]>([]);
+    const localTurnUsageById = useSessionStore((state) =>
+      serverId
+        ? (state.sessions[serverId]?.agentTurnUsageById.get(agent.id) ??
+          EMPTY_AGENT_TURN_USAGE_BY_ID)
+        : EMPTY_AGENT_TURN_USAGE_BY_ID,
+    );
+
+    useEffect(() => {
+      if (!isControlApiConfigured()) {
+        return;
+      }
+
+      let cancelled = false;
+      void (async () => {
+        const accountSession = await loadAccountBootstrapSession();
+        if (!accountSession) {
+          return;
+        }
+        const summary = await getControlBillingSummary({ accountSession });
+        if (!cancelled) {
+          setBillingUsageLogs(summary.recentUsageLogs.filter((log) => log.agentId === agent.id));
+        }
+      })().catch(() => {});
+
+      return () => {
+        cancelled = true;
+      };
+    }, [agent.id, agent.status]);
+
+    const billingUsageByTurnId = useMemo(() => {
+      const map = new Map<string, AssistantTurnBillingUsage>();
+      for (const [turnId, usage] of localTurnUsageById) {
+        map.set(turnId, toAssistantTurnBillingUsageFromStore(usage));
+      }
+      for (const log of billingUsageLogs) {
+        map.set(log.turnId, toAssistantTurnBillingUsage(log));
+      }
+      return map;
+    }, [billingUsageLogs, localTurnUsageById]);
+
+    const resolveBillingUsage = useCallback(
+      (host: TurnFooterHost): AssistantTurnBillingUsage | null => {
+        for (const turnId of getTurnFooterHostCandidateTurnIds(host)) {
+          const usage = billingUsageByTurnId.get(turnId);
+          if (usage) return usage;
+        }
+        return null;
+      },
+      [billingUsageByTurnId],
     );
     const [isNearBottom, setIsNearBottom] = useState(true);
     const [expandedInlineToolCallIds, setExpandedInlineToolCallIds] = useState<Set<string>>(
@@ -840,9 +934,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           content,
           layoutItem,
           strategy: streamRenderStrategy,
+          resolveBillingUsage,
         });
       },
-      [renderStreamItemContent, streamRenderStrategy],
+      [renderStreamItemContent, resolveBillingUsage, streamRenderStrategy],
     );
 
     const pendingPermissionItems = useMemo(
@@ -867,12 +962,14 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             inFlightTurnStartedAt={baseRenderModel.turnTiming.runningStartedAt}
             host={bottomTurnFooterHost}
             strategy={streamRenderStrategy}
+            billingUsage={bottomTurnFooterHost ? resolveBillingUsage(bottomTurnFooterHost) : null}
           />
         ) : null,
       [
         showRunningTurnFooter,
         baseRenderModel.turnTiming.runningStartedAt,
         bottomTurnFooterHost,
+        resolveBillingUsage,
         streamRenderStrategy,
       ],
     );
@@ -1140,7 +1237,9 @@ function AiCreationPlaceholder({ title }: { title: string }) {
               <Text style={badgeTextStyle}>{visual.badge}</Text>
             </View>
           </View>
-          <Text style={stylesheet.aiCreationPlaceholderSubtitle}>AI 创作任务</Text>
+          <Text style={stylesheet.aiCreationPlaceholderSubtitle}>
+            {translateNow("aiCreation.placeholder.subtitle")}
+          </Text>
         </View>
       </View>
       <View style={stylesheet.aiCreationDotField}>

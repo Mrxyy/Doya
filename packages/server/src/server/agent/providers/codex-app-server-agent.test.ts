@@ -709,15 +709,19 @@ describe("Codex app-server provider", () => {
         model_context_window: 200000,
         last: {
           total_tokens: 50000,
-          inputTokens: 30000,
-          cachedInputTokens: 5000,
-          outputTokens: 15000,
+          input_tokens: 30000,
+          cached_input_tokens: 5000,
+          output_tokens: 15000,
+          cache_creation_input_tokens: 2000,
+          cache_read_input_tokens: 5000,
         },
       }),
     ).toEqual({
       inputTokens: 30000,
       cachedInputTokens: 5000,
       outputTokens: 15000,
+      cacheCreationTokens: 2000,
+      cacheReadTokens: 5000,
       contextWindowMaxTokens: 200000,
       contextWindowUsedTokens: 50000,
     });
@@ -740,6 +744,86 @@ describe("Codex app-server provider", () => {
       outputTokens: 15000,
       contextWindowMaxTokens: 200000,
       contextWindowUsedTokens: 50000,
+    });
+  });
+
+  test("emits usage from turn completed token payloads", () => {
+    const session = createSession();
+    const events: AgentStreamEvent[] = [];
+    session.subscribe((event) => events.push(event));
+
+    asInternals(session).handleNotification("turn/completed", {
+      threadId: "test-thread",
+      turn: { status: "completed", error: null },
+      tokenUsage: {
+        last: {
+          input_tokens: 1200,
+          output_tokens: 80,
+          cache_read_input_tokens: 200,
+        },
+      },
+    });
+
+    expect(events.at(-1)).toEqual({
+      type: "turn_completed",
+      provider: "codex",
+      turnId: "test-turn",
+      usage: {
+        inputTokens: 1200,
+        cachedInputTokens: 200,
+        outputTokens: 80,
+        cacheReadTokens: 200,
+      },
+    });
+  });
+
+  test("emits per-turn usage deltas from cumulative Codex token payloads", () => {
+    const session = createSession();
+    const events: AgentStreamEvent[] = [];
+    session.subscribe((event) => events.push(event));
+
+    asInternals(session).handleNotification("thread/tokenUsage/updated", {
+      tokenUsage: {
+        model_context_window: 258400,
+        last: {
+          total_tokens: 59701,
+          input_tokens: 59048,
+          output_tokens: 2853,
+          cache_read_input_tokens: 18816,
+        },
+      },
+    });
+    events.length = 0;
+
+    asInternals(session).handleNotification("turn/started", {
+      turn: { id: "turn-next" },
+    });
+    asInternals(session).handleNotification("turn/completed", {
+      threadId: "test-thread",
+      turn: { status: "completed", error: null },
+      tokenUsage: {
+        model_context_window: 258400,
+        last: {
+          total_tokens: 59985,
+          input_tokens: 59977,
+          output_tokens: 2861,
+          cache_read_input_tokens: 18816,
+        },
+      },
+    });
+
+    expect(events.at(-1)).toEqual({
+      type: "turn_completed",
+      provider: "codex",
+      turnId: "test-turn",
+      usage: {
+        inputTokens: 929,
+        cachedInputTokens: 0,
+        outputTokens: 8,
+        cacheReadTokens: 0,
+        contextWindowMaxTokens: 258400,
+        contextWindowUsedTokens: 59985,
+      },
     });
   });
 

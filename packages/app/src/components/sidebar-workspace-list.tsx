@@ -757,7 +757,7 @@ function useControlSessionTabPresentation(input: {
       }
       const tabStates = agentIds
         .map((agentId) => session.agents.get(agentId) ?? session.agentDetails.get(agentId) ?? null)
-        .filter(Boolean)
+        .filter((agent): agent is NonNullable<typeof agent> => agent !== null)
         .map((agent) => ({
           provider: agent.provider,
           title: agent.title,

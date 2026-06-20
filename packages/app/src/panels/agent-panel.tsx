@@ -75,6 +75,11 @@ import { translateNow } from "@/i18n/i18n";
 import { extractAiCreationDisplayText } from "@/utils/ai-creation-display";
 import { ConversationReplayPanel } from "@/replay/conversation-replay-panel";
 import { ConversationReplayComposerControls } from "@/replay/conversation-replay-composer-controls";
+import { loadAccountBootstrapSession } from "@/account/account-api";
+import { getControlSessionIdFromLabels } from "@/control/control-agent-labels";
+import { preflightControlBilling } from "@/control/control-api";
+import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
+import { getBillingUpgradeReason, translateBillingError } from "@/utils/billing-errors";
 import {
   projectConversationReplay,
   projectConversationTimelineReplay,
@@ -940,6 +945,36 @@ function ChatAgentContent({
     streamViewRef.current?.scrollToBottom("message-sent");
   }, [agentId]);
 
+  const handleBeforeSendMessage = useCallback(async () => {
+    if (!agentId) {
+      return;
+    }
+    const currentAgent = resolveChatAgentFromSession(useSessionStore.getState(), serverId, agentId);
+    if (!currentAgent || !getControlSessionIdFromLabels(currentAgent.labels)) {
+      return;
+    }
+    const accountSession = await loadAccountBootstrapSession();
+    if (!accountSession || !accountSession.workspace.workspaceId.startsWith("control:")) {
+      throw new Error(translateNow("session.error.loginRequired"));
+    }
+    try {
+      await preflightControlBilling({
+        accountSession,
+        providerId: currentAgent.provider,
+        modelId: currentAgent.model,
+      });
+    } catch (error) {
+      const billingReason = getBillingUpgradeReason(error);
+      if (billingReason) {
+        useBillingUpgradeModalStore.getState().open(billingReason);
+      }
+      throw new Error(
+        translateBillingError(error) ?? (error instanceof Error ? error.message : String(error)),
+        { cause: error },
+      );
+    }
+  }, [agentId, serverId]);
+
   useEffect(() => {
     if (!agentId) {
       return;
@@ -1072,6 +1107,7 @@ function ChatAgentContent({
       handleAddImagesCallback={handleAddImagesCallback}
       handleComposerHeightChange={handleComposerHeightChange}
       handleMessageSent={handleMessageSent}
+      handleBeforeSendMessage={handleBeforeSendMessage}
       showHistorySyncOverlay={showHistorySyncOverlay}
       cwd={agentCwd}
       attentionController={attentionController}
@@ -1096,6 +1132,7 @@ function ChatAgentReadyContent({
   handleAddImagesCallback,
   handleComposerHeightChange,
   handleMessageSent,
+  handleBeforeSendMessage,
   showHistorySyncOverlay,
   cwd,
   attentionController,
@@ -1116,6 +1153,7 @@ function ChatAgentReadyContent({
   handleAddImagesCallback: (addImages: (images: ImageAttachment[]) => void) => void;
   handleComposerHeightChange: (height: number) => void;
   handleMessageSent: () => void;
+  handleBeforeSendMessage: () => Promise<void>;
   showHistorySyncOverlay: boolean;
   cwd: string;
   attentionController: ReturnType<typeof useAgentAttentionClear>;
@@ -1272,6 +1310,7 @@ function ChatAgentReadyContent({
         onAddImages={handleAddImagesCallback}
         onComposerHeightChange={handleComposerHeightChange}
         onMessageSent={handleMessageSent}
+        onBeforeSendMessage={handleBeforeSendMessage}
         conversationReplayControls={conversationReplayControls}
       />
     </RenderProfile>
@@ -1425,6 +1464,7 @@ function AgentComposerSection({
   onAddImages,
   onComposerHeightChange,
   onMessageSent,
+  onBeforeSendMessage,
   conversationReplayControls,
 }: {
   agentId?: string;
@@ -1440,6 +1480,7 @@ function AgentComposerSection({
   onAddImages: (addImages: (images: ImageAttachment[]) => void) => void;
   onComposerHeightChange: (height: number) => void;
   onMessageSent: () => void;
+  onBeforeSendMessage: () => Promise<void>;
   conversationReplayControls?: React.ReactNode;
 }) {
   if (!agentId) {
@@ -1465,6 +1506,7 @@ function AgentComposerSection({
       onAddImages={onAddImages}
       onComposerHeightChange={onComposerHeightChange}
       onMessageSent={onMessageSent}
+      onBeforeSendMessage={onBeforeSendMessage}
       conversationReplayControls={conversationReplayControls}
     />
   );
@@ -1482,6 +1524,7 @@ function ActiveAgentComposer({
   onAddImages,
   onComposerHeightChange,
   onMessageSent,
+  onBeforeSendMessage,
   conversationReplayControls,
 }: {
   agentId: string;
@@ -1495,6 +1538,7 @@ function ActiveAgentComposer({
   onAddImages: (addImages: (images: ImageAttachment[]) => void) => void;
   onComposerHeightChange: (height: number) => void;
   onMessageSent: () => void;
+  onBeforeSendMessage: () => Promise<void>;
   conversationReplayControls?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -1628,6 +1672,7 @@ function ActiveAgentComposer({
         onAddImages={onAddImages}
         onComposerHeightChange={onComposerHeightChange}
         onMessageSent={onMessageSent}
+        onBeforeSendMessage={onBeforeSendMessage}
         onClientSlashCommand={handleClientSlashCommand}
         footer={composerFooter}
         extraRightContent={conversationReplayControls}

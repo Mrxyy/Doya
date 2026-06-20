@@ -18,6 +18,14 @@ export function StatusBadge({ label, variant = "muted" }: StatusBadgeProps) {
     ],
     [variant],
   );
+  const dotStyle = useMemo(
+    () => [
+      styles.dot,
+      variant === "success" && styles.dotSuccess,
+      variant === "error" && styles.dotError,
+    ],
+    [variant],
+  );
   const textStyle = useMemo(
     () => [
       styles.pillText,
@@ -29,6 +37,7 @@ export function StatusBadge({ label, variant = "muted" }: StatusBadgeProps) {
 
   return (
     <View style={pillStyle}>
+      <View style={dotStyle} />
       <Text style={textStyle}>{label}</Text>
     </View>
   );
@@ -38,30 +47,43 @@ const styles = StyleSheet.create((theme) => ({
   pill: {
     flexDirection: "row",
     alignItems: "center",
+    gap: theme.spacing[1],
+    minHeight: 24,
     borderRadius: theme.borderRadius.full,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface3,
+    borderColor: "#dfe3e8",
+    backgroundColor: "#f6f7f9",
     paddingHorizontal: theme.spacing[2],
-    paddingVertical: 3,
   },
   pillSuccess: {
-    backgroundColor: theme.colors.palette.green[900],
-    borderColor: theme.colors.palette.green[800],
+    backgroundColor: "#edf9f2",
+    borderColor: "#bfe9d1",
   },
   pillError: {
-    backgroundColor: theme.colors.palette.red[900],
-    borderColor: theme.colors.palette.red[800],
+    backgroundColor: "#fff5f3",
+    borderColor: "#f1c7c3",
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 6,
+    backgroundColor: "#8a929f",
+  },
+  dotSuccess: {
+    backgroundColor: "#19a66a",
+  },
+  dotError: {
+    backgroundColor: "#d84f45",
   },
   pillText: {
     fontSize: theme.fontSize.xs,
-    fontWeight: theme.fontWeight.normal,
-    color: theme.colors.foregroundMuted,
+    fontWeight: theme.fontWeight.medium,
+    color: "#5f6875",
   },
   pillTextSuccess: {
-    color: theme.colors.palette.green[400],
+    color: "#167a4a",
   },
   pillTextError: {
-    color: theme.colors.palette.red[500],
+    color: "#b13b33",
   },
 }));

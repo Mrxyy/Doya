@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
@@ -90,6 +90,45 @@ describe("user workspace API", () => {
     ]);
     expect(deletePayload.failed).toEqual([]);
     await expect(stat(createPayload.workDir)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("scans daemon-local user workspace bytes without deleting files", async () => {
+    const ensureResponse = await fetch(`${testServer.baseUrl}/api/user-workspaces/ensure`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "usr_1" }),
+    });
+    const ensurePayload = (await ensureResponse.json()) as {
+      workspace: { workspaceDir: string };
+    };
+    await mkdir(path.join(ensurePayload.workspace.workspaceDir, "nested"), { recursive: true });
+    await writeFile(path.join(ensurePayload.workspace.workspaceDir, "a.txt"), "hello", "utf8");
+    await writeFile(
+      path.join(ensurePayload.workspace.workspaceDir, "nested", "b.txt"),
+      "world!",
+      "utf8",
+    );
+
+    const scanResponse = await fetch(`${testServer.baseUrl}/api/user-workspaces/scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: "usr_1" }),
+    });
+
+    expect(scanResponse.status).toBe(200);
+    const scanPayload = (await scanResponse.json()) as {
+      totalBytes: number;
+      fileCount: number;
+      scannedAt: string;
+    };
+    expect(scanPayload.totalBytes).toBe(11);
+    expect(scanPayload.fileCount).toBe(2);
+    expect(scanPayload.scannedAt).toEqual(expect.any(String));
+    await expect(
+      stat(path.join(ensurePayload.workspace.workspaceDir, "a.txt")),
+    ).resolves.toMatchObject({
+      isFile: expect.any(Function),
+    });
   });
 });
 

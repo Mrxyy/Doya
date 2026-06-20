@@ -60,6 +60,7 @@ function shouldSyncControlEvent(event: AgentStreamEvent): boolean {
     event.type === "timeline" ||
     event.type === "turn_started" ||
     event.type === "turn_completed" ||
+    event.type === "usage_updated" ||
     event.type === "turn_failed" ||
     event.type === "turn_canceled"
   );

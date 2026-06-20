@@ -181,6 +181,9 @@ export interface AgentUsage {
   inputTokens?: number;
   cachedInputTokens?: number;
   outputTokens?: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+  reasoningTokens?: number;
   totalCostUsd?: number;
   contextWindowMaxTokens?: number;
   contextWindowUsedTokens?: number;
@@ -344,7 +347,7 @@ export interface CompactionTimelineItem {
 
 export type AgentTimelineItem =
   | { type: "user_message"; text: string; messageId?: string }
-  | { type: "assistant_message"; text: string; messageId?: string }
+  | { type: "assistant_message"; text: string; messageId?: string; turnId?: string }
   | { type: "reasoning"; text: string }
   | ToolCallTimelineItem
   | { type: "todo"; items: { text: string; completed: boolean }[] }
@@ -374,9 +377,16 @@ export type AgentStreamEvent =
       error: string;
       code?: string;
       diagnostic?: string;
+      usage?: AgentUsage;
       turnId?: string;
     }
-  | { type: "turn_canceled"; provider: AgentProvider; reason: string; turnId?: string }
+  | {
+      type: "turn_canceled";
+      provider: AgentProvider;
+      reason: string;
+      usage?: AgentUsage;
+      turnId?: string;
+    }
   | {
       type: "timeline";
       item: AgentTimelineItem;

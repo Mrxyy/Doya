@@ -98,6 +98,7 @@ import {
   registerControlNode,
   upsertControlAgentBinding,
 } from "@/control/control-api";
+import { buildControlAgentLabels } from "@/control/control-agent-labels";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
 import { useToast } from "@/contexts/toast-context";
 import {
@@ -110,6 +111,7 @@ import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import { translate } from "@/i18n/translate";
 import type { TranslationKey } from "@/i18n/translations";
 import { usePanelStore } from "@/stores/panel-store";
+import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import {
   clearAiCreationEditSource,
@@ -131,6 +133,7 @@ import {
   buildDoyaResponseLanguageInstruction,
   escapeDoyaMarkupText,
 } from "@/utils/doya-message-markup";
+import { getBillingUpgradeReason } from "@/utils/billing-errors";
 import { buildHostAgentDetailRoute, buildHostHomeRoute } from "@/utils/host-routes";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 import { useImageAttachmentPicker } from "@/hooks/use-image-attachment-picker";
@@ -238,6 +241,7 @@ interface AiCreationWorkspace {
   cwd: string;
   workspaceId: string;
   controlSessionId?: string;
+  runtimeId?: string;
   nodeId?: string;
   userWorkspaceId?: string;
 }
@@ -1378,6 +1382,7 @@ export function AiCreationScreen({
   const { theme } = useUnistyles();
   const { locale, t } = useI18n();
   const toast = useToast();
+  const openBillingUpgrade = useBillingUpgradeModalStore((state) => state.open);
   const isCompact = useIsCompactFormFactor();
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
@@ -2167,6 +2172,10 @@ export function AiCreationScreen({
       setSelectionMode(false);
       router.push(buildHostAgentDetailRoute(serverId, result.id));
     } catch (error) {
+      const billingReason = getBillingUpgradeReason(error);
+      if (billingReason) {
+        openBillingUpgrade(billingReason);
+      }
       toast.error(error instanceof Error ? error.message : t("aiCreation.error.start"));
     } finally {
       setIsSubmitting(false);
@@ -2185,6 +2194,7 @@ export function AiCreationScreen({
     hosts,
     mergeWorkspaces,
     openAccountLogin,
+    openBillingUpgrade,
     prompt,
     ratio,
     recordConversation,
@@ -3562,15 +3572,14 @@ function getConversationEditTitle(image: AttachmentMetadata | undefined): string
 }
 
 function buildAiCreationControlLabels(workspace: AiCreationWorkspace): Record<string, string> {
-  if (!workspace.controlSessionId || !workspace.nodeId) {
+  if (!workspace.controlSessionId || !workspace.runtimeId || !workspace.nodeId) {
     return {};
   }
-  const apiBaseUrl = controlApiBaseUrl();
-  return {
-    "doya.control.sessionId": workspace.controlSessionId,
-    "doya.control.nodeId": workspace.nodeId,
-    ...(apiBaseUrl ? { "doya.control.apiBaseUrl": apiBaseUrl } : {}),
-  };
+  return buildControlAgentLabels({
+    sessionId: workspace.controlSessionId,
+    runtimeId: workspace.runtimeId,
+    nodeId: workspace.nodeId,
+  });
 }
 
 async function appendAiCreationControlAgentBinding(input: {
@@ -3687,6 +3696,7 @@ async function createAiCreationWorkspace(
       cwd,
       workspaceId: workspace.id,
       controlSessionId: controlSession.id,
+      runtimeId: sessionWorkDir.runtime.runtimeId,
       nodeId: input.serverId,
       userWorkspaceId: userWorkspace.id,
     };
@@ -3855,15 +3865,15 @@ function buildAiCreationMarkupPrompt(input: {
 />
 `;
   const fields = [
-    `<doya-field name="request" label="需求" desc="Original user creation request.">${escapedPrompt}</doya-field>`,
+    `<doya-field name="request" label="${escapeDoyaMarkupText(translateNow("aiCreation.markup.field.request"))}" desc="Original user creation request.">${escapedPrompt}</doya-field>`,
     input.ratio
-      ? `<doya-field name="ratio" label="比例" desc="Requested output aspect ratio.">${escapeDoyaMarkupText(input.ratio)}</doya-field>`
+      ? `<doya-field name="ratio" label="${escapeDoyaMarkupText(translateNow("aiCreation.markup.field.ratio"))}" desc="Requested output aspect ratio.">${escapeDoyaMarkupText(input.ratio)}</doya-field>`
       : null,
     input.style
-      ? `<doya-field name="style" label="风格" desc="Requested visual style.">${escapeDoyaMarkupText(input.style)}</doya-field>`
+      ? `<doya-field name="style" label="${escapeDoyaMarkupText(translateNow("aiCreation.markup.field.style"))}" desc="Requested visual style.">${escapeDoyaMarkupText(input.style)}</doya-field>`
       : null,
     typeof input.sourceCount === "number" && input.sourceCount > 0
-      ? `<doya-field name="source_count" label="素材数" desc="Number of attached source files or images.">${input.sourceCount}</doya-field>`
+      ? `<doya-field name="source_count" label="${escapeDoyaMarkupText(translateNow("aiCreation.markup.field.sourceCount"))}" desc="Number of attached source files or images.">${input.sourceCount}</doya-field>`
       : null,
   ].filter((field): field is string => Boolean(field));
 
@@ -3909,9 +3919,9 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
     return {
       kind: "ai_creation.image.edit",
       goal: "edit_image",
-      targetText: "编辑图片",
-      title: "编辑图片",
-      normalInstruction: "请根据用户需求编辑图片。",
+      targetText: translateNow("aiCreation.display.editPrefix"),
+      title: translateNow("aiCreation.display.editPrefix"),
+      normalInstruction: translateNow("aiCreation.markup.instruction.edit"),
       cardDesc: "A Doya-renderable task card for an AI image editing request.",
     };
   }
@@ -3919,9 +3929,9 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
     return {
       kind: "ai_creation.slides.create",
       goal: "create_pptx",
-      targetText: "创建 PPT",
-      title: "创建 PPT",
-      normalInstruction: "请根据用户需求创建可编辑 PPTX。",
+      targetText: translateNow("aiCreation.display.slidesPrefix"),
+      title: translateNow("aiCreation.display.slidesPrefix"),
+      normalInstruction: translateNow("aiCreation.markup.instruction.slides"),
       cardDesc: "A Doya-renderable task card for an AI slide deck creation request.",
     };
   }
@@ -3929,9 +3939,9 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
     return {
       kind: "ai_creation.document.pdf.create",
       goal: "create_pdf",
-      targetText: "创建 PDF",
-      title: "创建 PDF",
-      normalInstruction: "请根据用户需求创建 PDF 文档。",
+      targetText: translateNow("aiCreation.display.pdfPrefix"),
+      title: translateNow("aiCreation.display.pdfPrefix"),
+      normalInstruction: translateNow("aiCreation.markup.instruction.pdf"),
       cardDesc: "A Doya-renderable task card for an AI PDF creation request.",
     };
   }
@@ -3939,9 +3949,9 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
     return {
       kind: "ai_creation.document.word.create",
       goal: "create_docx",
-      targetText: "创建 Word",
-      title: "创建 Word",
-      normalInstruction: "请根据用户需求创建 Word 文档。",
+      targetText: translateNow("aiCreation.display.wordPrefix"),
+      title: translateNow("aiCreation.display.wordPrefix"),
+      normalInstruction: translateNow("aiCreation.markup.instruction.word"),
       cardDesc: "A Doya-renderable task card for an AI Word document creation request.",
     };
   }
@@ -3949,18 +3959,18 @@ function getAiCreationMarkupConfig(mode: CreationMode): {
     return {
       kind: "ai_creation.spreadsheet.create",
       goal: "create_spreadsheet",
-      targetText: "创建表格",
-      title: "创建表格",
-      normalInstruction: "请根据用户需求创建电子表格。",
+      targetText: translateNow("aiCreation.display.spreadsheetPrefix"),
+      title: translateNow("aiCreation.display.spreadsheetPrefix"),
+      normalInstruction: translateNow("aiCreation.markup.instruction.spreadsheet"),
       cardDesc: "A Doya-renderable task card for an AI spreadsheet creation request.",
     };
   }
   return {
     kind: "ai_creation.image.generate",
     goal: "generate_image",
-    targetText: "生成图片",
-    title: "生成图片",
-    normalInstruction: "请根据用户需求生成图片。",
+    targetText: translateNow("aiCreation.display.createPrefix"),
+    title: translateNow("aiCreation.display.createPrefix"),
+    normalInstruction: translateNow("aiCreation.markup.instruction.create"),
     cardDesc: "A Doya-renderable task card for an AI image generation request.",
   };
 }
@@ -4276,7 +4286,7 @@ function SelectionBrushToolbar({
             <Pressable
               key={swatch}
               accessibilityRole="button"
-              accessibilityLabel={`Brush color ${swatch}`}
+              accessibilityLabel={t("aiCreation.selection.brushColor", { color: swatch })}
               onPress={() => onChangeColor(swatch)}
               style={[styles.selectionColorSwatch, selected && styles.selectionColorSwatchSelected]}
             >
@@ -4948,7 +4958,7 @@ const styles = StyleSheet.create((theme) => ({
     ...(isWeb
       ? ({
           backgroundImage:
-            "linear-gradient(90deg, #111827 0%, #2563eb 24%, #7c3aed 50%, #ec4899 74%, #111827 100%)",
+            "linear-gradient(90deg, #15803D 0%, #FACC15 28%, #0EA5E9 56%, #F97316 82%, #15803D 100%)",
           backgroundSize: "260% 100%",
           backgroundClip: "text",
           WebkitBackgroundClip: "text",

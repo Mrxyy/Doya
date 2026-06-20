@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet as RNStyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { StyleSheet } from "react-native-unistyles";
-import { loadAccountBootstrapSession } from "@/account/account-api";
+import { loadAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
 import {
   getControlSession,
   listControlSessionArtifacts,

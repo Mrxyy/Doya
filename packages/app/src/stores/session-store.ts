@@ -101,6 +101,7 @@ export interface Agent {
   persistence: AgentPersistenceHandle | null;
   runtimeInfo?: AgentRuntimeInfo;
   lastUsage?: AgentUsage;
+  turnUsageByIdMap?: Map<string, AgentTurnUsageRecord>;
   lastError?: string | null;
   title: string | null;
   cwd: string;
@@ -251,6 +252,14 @@ export interface AgentTimelineCursorState {
   endSeq: number;
 }
 
+export interface AgentTurnUsageRecord {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  actualCostCny?: number;
+}
+
 // Per-session state
 export interface SessionState {
   serverId: string;
@@ -278,6 +287,7 @@ export interface SessionState {
   // Stream state (head/tail model)
   agentStreamTail: Map<string, StreamItem[]>;
   agentStreamHead: Map<string, StreamItem[]>;
+  agentTurnUsageById: Map<string, Map<string, AgentTurnUsageRecord>>;
   agentTimelineCursor: Map<string, AgentTimelineCursorState>;
   agentTimelineHasOlder: Map<string, boolean>;
   agentTimelineOlderFetchInFlight: Map<string, boolean>;
@@ -355,7 +365,11 @@ interface SessionStoreActions {
   setAgentStreamState: (
     serverId: string,
     agentId: string,
-    state: { tail?: StreamItem[]; head?: StreamItem[] },
+    state: {
+      tail?: StreamItem[];
+      head?: StreamItem[];
+      turnUsageById?: Map<string, AgentTurnUsageRecord>;
+    },
   ) => void;
   appendOptimisticUserMessageToAgentStream: (
     serverId: string,
@@ -472,6 +486,7 @@ function createInitialSessionState(serverId: string, client: DaemonClient): Sess
     currentAssistantMessage: "",
     agentStreamTail: new Map(),
     agentStreamHead: new Map(),
+    agentTurnUsageById: new Map(),
     agentTimelineCursor: new Map(),
     agentTimelineHasOlder: new Map(),
     agentTimelineOlderFetchInFlight: new Map(),
@@ -805,8 +820,10 @@ export const useSessionStore = create<SessionStore>()(
 
           let nextTail = session.agentStreamTail;
           let nextHead = session.agentStreamHead;
+          let nextTurnUsageById = session.agentTurnUsageById;
           let changedTail = false;
           let changedHead = false;
+          let changedTurnUsage = false;
 
           if (state.tail !== undefined) {
             const existingTail = session.agentStreamTail.get(agentId);
@@ -833,7 +850,16 @@ export const useSessionStore = create<SessionStore>()(
             }
           }
 
-          if (!changedTail && !changedHead) {
+          if (state.turnUsageById) {
+            const existingTurnUsage = session.agentTurnUsageById.get(agentId);
+            if (existingTurnUsage !== state.turnUsageById) {
+              nextTurnUsageById = new Map(session.agentTurnUsageById);
+              nextTurnUsageById.set(agentId, state.turnUsageById);
+              changedTurnUsage = true;
+            }
+          }
+
+          if (!changedTail && !changedHead && !changedTurnUsage) {
             return prev;
           }
 
@@ -845,6 +871,7 @@ export const useSessionStore = create<SessionStore>()(
                 ...session,
                 agentStreamTail: nextTail,
                 agentStreamHead: nextHead,
+                agentTurnUsageById: nextTurnUsageById,
               },
             },
           };

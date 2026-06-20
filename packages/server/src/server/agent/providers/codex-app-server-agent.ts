@@ -834,20 +834,98 @@ function filterCodexThreadsByCwd(
 export function toAgentUsage(tokenUsage: unknown): AgentUsage | undefined {
   const usage = toObjectRecord(tokenUsage);
   if (!usage) return undefined;
-  const last = toObjectRecord(usage.last);
+  const last = toObjectRecord(usage.last) ?? usage;
   const contextWindowMaxTokens = firstPositiveFiniteNumber(
     usage.model_context_window,
     usage.modelContextWindow,
   );
   const contextWindowUsedTokens = firstPositiveFiniteNumber(last?.total_tokens, last?.totalTokens);
-  return {
-    inputTokens: typeof last?.inputTokens === "number" ? last.inputTokens : undefined,
-    cachedInputTokens:
-      typeof last?.cachedInputTokens === "number" ? last.cachedInputTokens : undefined,
-    outputTokens: typeof last?.outputTokens === "number" ? last.outputTokens : undefined,
+  const inputTokens = firstFiniteNumber(last.inputTokens, last.input_tokens);
+  const cachedInputTokens = firstFiniteNumber(
+    last.cachedInputTokens,
+    last.cached_input_tokens,
+    last.cache_read_input_tokens,
+  );
+  const outputTokens = firstFiniteNumber(last.outputTokens, last.output_tokens);
+  const cacheCreationTokens = firstFiniteNumber(
+    last.cacheCreationTokens,
+    last.cache_creation_tokens,
+    last.cache_creation_input_tokens,
+  );
+  const cacheReadTokens = firstFiniteNumber(
+    last.cacheReadTokens,
+    last.cache_read_tokens,
+    last.cache_read_input_tokens,
+  );
+  const agentUsage: AgentUsage = {
+    ...(inputTokens !== undefined ? { inputTokens } : {}),
+    ...(cachedInputTokens !== undefined ? { cachedInputTokens } : {}),
+    ...(outputTokens !== undefined ? { outputTokens } : {}),
+    ...(cacheCreationTokens !== undefined ? { cacheCreationTokens } : {}),
+    ...(cacheReadTokens !== undefined ? { cacheReadTokens } : {}),
     ...(contextWindowMaxTokens !== undefined ? { contextWindowMaxTokens } : {}),
     ...(contextWindowUsedTokens !== undefined ? { contextWindowUsedTokens } : {}),
   };
+  return Object.keys(agentUsage).length > 0 ? agentUsage : undefined;
+}
+
+function usageDeltaNumber(
+  current: number | undefined,
+  baseline: number | undefined,
+): number | undefined {
+  if (current === undefined) {
+    return undefined;
+  }
+  if (baseline === undefined) {
+    return current;
+  }
+  return Math.max(0, current - baseline);
+}
+
+function codexTurnUsageFromCumulative(
+  current: AgentUsage | undefined,
+  baseline: AgentUsage | undefined,
+): AgentUsage | undefined {
+  if (!current) {
+    return undefined;
+  }
+  const usage: AgentUsage = {};
+  const inputTokens = usageDeltaNumber(current.inputTokens, baseline?.inputTokens);
+  const cachedInputTokens = usageDeltaNumber(
+    current.cachedInputTokens,
+    baseline?.cachedInputTokens,
+  );
+  const outputTokens = usageDeltaNumber(current.outputTokens, baseline?.outputTokens);
+  const cacheCreationTokens = usageDeltaNumber(
+    current.cacheCreationTokens,
+    baseline?.cacheCreationTokens,
+  );
+  const cacheReadTokens = usageDeltaNumber(current.cacheReadTokens, baseline?.cacheReadTokens);
+  const reasoningTokens = usageDeltaNumber(current.reasoningTokens, baseline?.reasoningTokens);
+  const totalCostUsd = usageDeltaNumber(current.totalCostUsd, baseline?.totalCostUsd);
+  if (inputTokens !== undefined) usage.inputTokens = inputTokens;
+  if (cachedInputTokens !== undefined) usage.cachedInputTokens = cachedInputTokens;
+  if (outputTokens !== undefined) usage.outputTokens = outputTokens;
+  if (cacheCreationTokens !== undefined) usage.cacheCreationTokens = cacheCreationTokens;
+  if (cacheReadTokens !== undefined) usage.cacheReadTokens = cacheReadTokens;
+  if (reasoningTokens !== undefined) usage.reasoningTokens = reasoningTokens;
+  if (totalCostUsd !== undefined) usage.totalCostUsd = totalCostUsd;
+  if (current.contextWindowMaxTokens !== undefined) {
+    usage.contextWindowMaxTokens = current.contextWindowMaxTokens;
+  }
+  if (current.contextWindowUsedTokens !== undefined) {
+    usage.contextWindowUsedTokens = current.contextWindowUsedTokens;
+  }
+  return Object.keys(usage).length > 0 ? usage : undefined;
+}
+
+function firstFiniteNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return undefined;
 }
 
 function extractUserText(content: unknown): string | null {
@@ -1851,6 +1929,12 @@ const TurnCompletedNotificationSchema = z
   })
   .passthrough();
 
+function readCodexTurnCompletedTokenUsage(params: unknown): unknown {
+  const record = toObjectRecord(params);
+  const turn = toObjectRecord(record?.turn);
+  return record?.tokenUsage ?? record?.token_usage ?? turn?.tokenUsage ?? turn?.token_usage;
+}
+
 const TurnPlanUpdatedNotificationSchema = z
   .object({
     plan: z.array(
@@ -2079,6 +2163,7 @@ type ParsedCodexNotification =
       status: string;
       errorMessage: string | null;
       threadId: string | null;
+      tokenUsage: unknown;
     }
   | { kind: "plan_updated"; plan: Array<{ step: string | null; status: string | null }> }
   | { kind: "diff_updated"; diff: string }
@@ -2209,6 +2294,7 @@ const CodexNotificationSchema = z.union([
         status: params.turn.status,
         errorMessage: params.turn.error?.message ?? null,
         threadId: params.threadId ?? null,
+        tokenUsage: readCodexTurnCompletedTokenUsage(params),
       }),
     ),
   z.object({ method: z.literal("turn/completed"), params: z.unknown() }).transform(
@@ -2614,6 +2700,7 @@ const CodexNotificationSchema = z.union([
         status: "interrupted",
         errorMessage: null,
         threadId: null,
+        tokenUsage: undefined,
       }),
     ),
   z.object({ method: z.literal("codex/event/turn_aborted"), params: z.unknown() }).transform(
@@ -2634,6 +2721,7 @@ const CodexNotificationSchema = z.union([
         status: "completed",
         errorMessage: null,
         threadId: null,
+        tokenUsage: undefined,
       }),
     ),
   z.object({ method: z.literal("codex/event/task_complete"), params: z.unknown() }).transform(
@@ -3000,6 +3088,7 @@ export class CodexAppServerAgentSession implements AgentSession {
   private warnedInvalidNotificationPayloads = new Set<string>();
   private warnedIncompleteEditToolCallIds = new Set<string>();
   private latestUsage: AgentUsage | undefined;
+  private turnUsageBaseline: AgentUsage | undefined;
   private latestPlanResult: { callId: string; text: string; turnId: string | null } | null = null;
   private readonly userMessageTurnIndexes = new Map<string, number>();
   private readonly userMessageTurnIds: string[] = [];
@@ -3606,6 +3695,7 @@ export class CodexAppServerAgentSession implements AgentSession {
 
     const turnId = this.createTurnId();
     this.activeForegroundTurnId = turnId;
+    this.turnUsageBaseline = this.latestUsage;
 
     try {
       this.logTurnStartSummary({
@@ -3620,6 +3710,7 @@ export class CodexAppServerAgentSession implements AgentSession {
       await this.client.request("turn/start", turnStart.params, TURN_START_TIMEOUT_MS);
     } catch (error) {
       this.activeForegroundTurnId = null;
+      this.turnUsageBaseline = undefined;
       throw error;
     }
 
@@ -4621,13 +4712,23 @@ export class CodexAppServerAgentSession implements AgentSession {
       return;
     }
     this.currentTurnId = parsed.turnId;
+    const turnUsageBaseline = this.turnUsageBaseline ?? this.latestUsage;
     this.resetTurnTrackingState();
+    this.turnUsageBaseline = turnUsageBaseline;
     this.emitEvent({ type: "turn_started", provider: CODEX_PROVIDER });
   }
 
   private handleTurnCompletedNotification(
     parsed: Extract<ParsedCodexNotification, { kind: "turn_completed" }>,
   ): void {
+    const cumulativeCompletedUsage = toAgentUsage(parsed.tokenUsage) ?? this.latestUsage;
+    if (cumulativeCompletedUsage) {
+      this.latestUsage = cumulativeCompletedUsage;
+    }
+    const completedUsage = codexTurnUsageFromCumulative(
+      cumulativeCompletedUsage,
+      this.turnUsageBaseline,
+    );
     const subAgentCallId = this.getSubAgentCallIdForThread(parsed.threadId);
     if (subAgentCallId) {
       let status: ToolCallTimelineItem["status"] = "completed";
@@ -4654,7 +4755,7 @@ export class CodexAppServerAgentSession implements AgentSession {
       this.emitEvent({
         type: "turn_completed",
         provider: CODEX_PROVIDER,
-        usage: this.latestUsage,
+        usage: completedUsage,
       });
     }
     this.activeForegroundTurnId = null;
@@ -4675,6 +4776,7 @@ export class CodexAppServerAgentSession implements AgentSession {
     this.warnedIncompleteEditToolCallIds.clear();
     this.unpairedCompactionNotificationCompletions = 0;
     this.unpairedCompactionItemCompletions = 0;
+    this.turnUsageBaseline = undefined;
   }
 
   private handlePlanUpdatedNotification(
@@ -4704,12 +4806,16 @@ export class CodexAppServerAgentSession implements AgentSession {
   private handleTokenUsageUpdatedNotification(
     parsed: Extract<ParsedCodexNotification, { kind: "token_usage_updated" }>,
   ): void {
-    this.latestUsage = toAgentUsage(parsed.tokenUsage);
-    if (this.latestUsage) {
+    const cumulativeUsage = toAgentUsage(parsed.tokenUsage);
+    if (cumulativeUsage) {
+      this.latestUsage = cumulativeUsage;
+    }
+    const turnUsage = codexTurnUsageFromCumulative(cumulativeUsage, this.turnUsageBaseline);
+    if (turnUsage) {
       this.notifySubscribers({
         type: "usage_updated",
         provider: CODEX_PROVIDER,
-        usage: this.latestUsage,
+        usage: turnUsage,
       });
     }
   }

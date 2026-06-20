@@ -3478,7 +3478,11 @@ export class Session {
           handle,
           buildConfigOverrides(record),
           agentId,
-          extractTimestamps(record),
+          {
+            ...extractTimestamps(record),
+            lastUsage: record.lastUsage,
+            turnUsageById: new Map(Object.entries(record.turnUsageById ?? {})),
+          },
         );
       }
       await this.agentManager.hydrateTimelineFromProvider(agentId);

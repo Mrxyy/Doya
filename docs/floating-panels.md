@@ -1,193 +1,104 @@
-# Floating Panels
+# 浮层
 
-Anchored popovers — tooltips, hover cards, dropdowns, autocompletes — that visually
-float above an anchor element on iOS, Android, and web. This doc captures the
-non-obvious traps. It is **not** a tutorial; it assumes you have seen the
-canonical files and are trying to add or change one.
+本文档记录锚定式浮层的坑：tooltip、hover card、dropdown、autocomplete 等在 iOS、Android 和 web 上视觉浮在 anchor 元素上方的面板。它不是教程；默认你已经看过标准文件，现在要新增或修改一个类似组件。
 
-## Canonical files
+## 标准文件
 
-| File                                     | Use case                                                          |
-| ---------------------------------------- | ----------------------------------------------------------------- |
-| `components/ui/combobox.tsx`             | Anchored picker with search; mobile falls back to bottom sheet    |
-| `components/ui/tooltip.tsx`              | Non-interactive hover/long-press tooltip                          |
-| `components/workspace-hover-card.tsx`    | Desktop-web hover card with measure + computePosition + Portal    |
-| `components/ui/autocomplete-popover.tsx` | Slash-command autocomplete anchored to the focused composer input |
+| 文件                                     | 使用场景                                                        |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| `components/ui/combobox.tsx`             | 带搜索的锚定 picker；移动端 fallback 到 bottom sheet            |
+| `components/ui/tooltip.tsx`              | 非交互 hover/long-press tooltip                                 |
+| `components/workspace-hover-card.tsx`    | desktop web hover card，使用 measure + computePosition + Portal |
+| `components/ui/autocomplete-popover.tsx` | 锚定到聚焦 composer input 的 slash-command autocomplete         |
 
-Each handles a different mix of concerns: combobox owns input focus, tooltip is
-non-interactive, hover-card is web-only desktop, autocomplete keeps the composer
-input focused while its scrollable list lives in a Portal. There is no shared
-"floating panel" primitive yet — when a fifth use case shows up we can revisit;
-until then prefer copying the closest file and trimming.
+这些文件分别处理不同关注点：combobox 管 input focus，tooltip 非交互，hover-card 只面向 web desktop，autocomplete 要在 scrollable list 位于 Portal 时仍保持 composer input 聚焦。当前还没有共享的 `floating panel` primitive；等第五种用例出现再重新评估。现在优先复制最接近的文件并裁剪。
 
-## Gotcha 1 — Android touch hit-test by parent bounds
+## 坑 1：Android touch hit-test 受父级边界限制
 
-On Android, a child View whose bounds fall outside its parent's bounds renders
-correctly (with `overflow: visible`, the default) but **does not receive touch
-events**. `ViewGroup.dispatchTouchEvent` filters touches by the parent's hit
-rect first, then iterates children. A touch in the overflowing region never
-reaches the parent, let alone the child. iOS and web do not share this rule —
-iOS hit-test descends into overflowing children, web uses standard CSS pointer
-events. This is the bug that put autocomplete on this path: the popover was
-positioned `bottom: 100%` of its parent and worked on iOS/web for months;
-Android touches sailed straight through to the chat scroll view behind it.
+Android 上，子 View 如果超出父 View 边界，即使能正常渲染（默认 `overflow: visible`），也**收不到 touch 事件**。`ViewGroup.dispatchTouchEvent` 先按父级 hit rect 过滤 touch，再遍历 children。落在 overflow 区域的 touch 到不了父级，更到不了子级。iOS 和 web 没有这个规则；iOS hit-test 会进入 overflow children，web 使用标准 CSS pointer events。
 
-Two escape hatches in the codebase:
+Autocomplete 当初就是因此改到这条路径：popover 放在 parent 的 `bottom: 100%`，在 iOS/web 工作了几个月，但 Android touch 会直接穿透到后面的 chat scroll view。
 
-- **`Modal`** (combobox, tooltip on native) — opens a new Android window, so
-  hit-testing starts fresh in that window. Side effect: a Modal opening on
-  Android can detach the IME from an underlying TextInput. Fine for combobox
-  (it has its own input) and tooltip (no input). **Not** fine for autocomplete
-  (the composer's input must stay focused so the user keeps typing).
-- **`<Portal>` from `@gorhom/portal`** (hover-card, autocomplete-popover) —
-  hoists the React subtree to a fixed mount point whose bounds cover the
-  screen. Same window, same IME, hit-test works because the new parent is
-  full-screen. This is the right default when you must keep IME attachment.
-  Choose the host by layer: app-global overlays use the root host; content
-  overlays can use the current `FloatingPanelPortalHost` so sliding sidebars
-  cover them.
+代码库里有两个逃生口：
 
-Choose Modal vs Portal by whether the underlying input can lose its keyboard.
+- **`Modal`**（combobox、native tooltip）：打开一个新的 Android window，hit-test 从新 window 开始。副作用是 Android 上 Modal 打开可能让底层 TextInput 失去 IME 绑定。对 combobox 可以，因为它有自己的 input；对 tooltip 可以，因为没有 input；对 autocomplete 不行，因为 composer input 必须保持聚焦。
+- **`@gorhom/portal` 的 `<Portal>`**（hover-card、autocomplete-popover）：把 React subtree 提升到覆盖全屏的 mount point。仍在同一个 window，IME 不变，hit-test 可用，因为新 parent 是全屏。需要保持键盘绑定时，这是默认选择。按层级选择 host：app-global overlay 用 root host；content overlay 可以用当前 `FloatingPanelPortalHost`，这样 sliding sidebar 能盖住它。
 
-## Gotcha 2 — Portal breaks lifecycle and coordinate-system inheritance
+是否能让底层 input 丢失键盘，决定使用 Modal 还是 Portal。
 
-A Portal escapes Android's hit-test, but it also escapes two things you were
-quietly relying on:
+## 坑 2：Portal 打破生命周期和坐标系继承
 
-- **Lifecycle.** The portal'd subtree mounts at the app root, not inside your
-  component's natural ancestor chain. When the user navigates away, your
-  component may stay mounted (offscreen, in a tab) — the popover stays with it.
-  Gate `visible` on a screen-focus signal. For panes inside `agent-panel`, the
-  `isPaneFocused` prop already exists and flips on pane switches; pass
-  `visible={isYourOwnVisible && isPaneFocused}`.
-- **Transforms.** The composer is wrapped in a Reanimated `Animated.View` with
-  `translateY: -keyboardShift` (see `use-keyboard-shift-style.ts`). The chat
-  content has the same transform applied (`agent-panel.tsx:939`). They move
-  together because they share the SharedValue. A portal'd popover is outside
-  the composer tree — it does not get that transform unless you apply it
-  yourself.
-- **Layering.** The default root host renders after app content, so it sits
-  above compact sidebars. Content overlays that must sit below sidebars should
-  use the current `FloatingPanelPortalHost`.
-- **Coordinate systems.** `measureInWindow` gives window coordinates. A Portal
-  renders inside its host, not necessarily at window origin. Position anchored
-  content relative to the host: `anchorRect - hostRect`. This is what
-  `measureFloatingPanelPortalHost()` is for.
+Portal 解决 Android hit-test，但也逃离了两个你可能默认依赖的东西：
 
-The fix for transforms is Gotcha 3.
+- **生命周期。** Portal subtree 挂在 app root，不在组件自然祖先链里。用户导航离开时，原组件可能仍 mounted（offscreen、tab 中），popover 也会留下。`visible` 必须叠加 screen-focus 信号。`agent-panel` 内 pane 已有 `isPaneFocused`，pane 切换时会变化；传 `visible={isYourOwnVisible && isPaneFocused}`。
+- **Transform。** Composer 被 Reanimated `Animated.View` 包裹，并有 `translateY: -keyboardShift`（见 `use-keyboard-shift-style.ts`）。Chat content 也应用同一个 transform（`agent-panel.tsx:939`）。它们能同步移动，是因为共享 SharedValue。Portal 出去的 popover 不在 composer tree 里，除非你自己应用同一个 transform。
+- **Layering。** 默认 root host 在 app content 后渲染，因此位于 compact sidebar 上方。必须低于 sidebar 的 content overlay 应使用当前 `FloatingPanelPortalHost`。
+- **坐标系。** `measureInWindow` 返回 window 坐标。Portal 渲染在 host 内，host 未必在 window 原点。锚定内容应相对 host 定位：`anchorRect - hostRect`。这就是 `measureFloatingPanelPortalHost()` 的用途。
 
-## Gotcha 3 — Reanimated transforms vs `measureInWindow`
+Transform 的修复见坑 3。
 
-`measureInWindow` returns the view's _current_ screen position. In theory that
-includes Reanimated-applied transforms (Reanimated updates native view
-properties, and Android's `getLocationInWindow` reads transformed coords). In
-practice it's racy — the measurement may snapshot mid-animation, and on Android
-with Reanimated worklets the result is not always stable.
+## 坑 3：Reanimated transform 与 `measureInWindow`
 
-If the panel cannot stay inside the transformed ancestor, do not try to track
-the keyboard by re-measuring on every frame. Instead,
-**slave the popover's transform to the same SharedValue the composer uses**:
+`measureInWindow` 返回 view 当前屏幕位置。理论上它包含 Reanimated transform，因为 Reanimated 更新 native view props，而 Android `getLocationInWindow` 读取 transformed coords。实际中它有竞态：measurement 可能截到动画中间帧，在 Android + Reanimated worklets 下结果并不总稳定。
 
-1. Snapshot `openShift = shift.value` at the moment you measure the anchor.
-2. Apply `useAnimatedStyle(() => ({ transform: [{ translateY: openShift.value - shift.value }] }))`
-   to the popover wrapper.
+如果 panel 不能留在 transformed ancestor 里，不要每帧重测来跟随键盘。正确做法是：**让 popover transform 从属于 composer 使用的同一个 SharedValue**。
 
-When `shift` equals `openShift`, the translate is 0 and the popover sits at
-the measured position. When the keyboard moves afterward, the delta translates
-the popover by exactly the amount the composer translates. They move in
-lockstep, no re-measurement needed.
+1. 测量 anchor 时记录 `openShift = shift.value`。
+2. 给 popover wrapper 应用 `useAnimatedStyle(() => ({ transform: [{ translateY: openShift.value - shift.value }] }))`。
 
-Re-measure on `Keyboard.addListener('keyboardDidShow'|'keyboardDidHide')` only
-to refresh the snapshot if the keyboard was mid-transition when the popover
-opened.
+当 `shift` 等于 `openShift` 时，translate 为 0，popover 位于测量位置。键盘之后移动时，delta 会让 popover 精确移动 composer 的同等距离。它们同步移动，无需重测。
 
-## Gotcha 4 — Host-relative positioning before platform offsets
+只在 `Keyboard.addListener('keyboardDidShow'|'keyboardDidHide')` 时重测，用于修正 popover 打开时键盘正处于过渡中的 snapshot。
 
-The generic anchored-overlay rule is:
+## 坑 4：平台 offset 之前先做 host-relative 定位
 
-1. Measure the anchor with `measureInWindow`.
-2. Measure the Portal host with `measureFloatingPanelPortalHost(hostName)`.
-3. Position with anchor coordinates relative to the host:
+通用锚定 overlay 规则：
+
+1. 用 `measureInWindow` 测量 anchor。
+2. 用 `measureFloatingPanelPortalHost(hostName)` 测量 Portal host。
+3. 使用相对 host 的 anchor 坐标定位：
 
 ```ts
 left = anchorRect.x - hostRect.x;
 bottom = hostRect.height - (anchorRect.y - hostRect.y) + offset;
 ```
 
-Do this before adding any platform offset. If anchor and host are both measured
-with `measureInWindow`, Android's status-bar coordinate behavior cancels out.
-Only add a status-bar offset when the render surface is not measured in the same
-coordinate system. See `tooltip.tsx` for that separate case.
+先做这一步，再添加平台 offset。如果 anchor 和 host 都由 `measureInWindow` 测量，Android status-bar 坐标行为会抵消。只有 render surface 没有在同一坐标系测量时，才添加 status-bar offset。`tooltip.tsx` 是独立案例。
 
-## Gotcha 5 — The two-measurement flash
+## 坑 5：两次测量导致闪一下
 
-If your popover needs `top` (or `left`) computed from both:
+如果 popover 的 `top` 或 `left` 同时依赖：
 
-- the anchor's screen position (`anchorRect` from `measureInWindow`), **and**
-- the popover's own size (`contentSize` from `onLayout`),
+- anchor 的屏幕位置（来自 `measureInWindow` 的 `anchorRect`），以及
+- popover 自身尺寸（来自 `onLayout` 的 `contentSize`），
 
-then a naïve implementation will flash through three positions on every open:
+天真实现会在每次打开时闪过三个位置：
 
-1. **Frame 1** — render with `top: -9999` (or any placeholder) while waiting
-   for either measurement. Wrapper has no `width`, so the inner content lays
-   out at its natural (often narrow) intrinsic width.
-2. **Frame 2** — `anchorRect` lands. Wrapper now has `width: anchorRect.width`.
-   But the stale `onLayout` from frame 1 has already set `contentSize` to the
-   narrow-width dimensions. `top = anchorRect.y - wrongHeight - gap` — visible
-   at the wrong spot.
-3. **Frame 3** — real `onLayout` fires with the correct width. `contentSize`
-   updates. Position snaps to the right place.
+1. **第 1 帧**：等待 measurement 时用 `top: -9999` 或其他占位值渲染。wrapper 没有 `width`，内部内容按自然宽度布局，通常偏窄。
+2. **第 2 帧**：`anchorRect` 到达。wrapper 有了 `anchorRect.width`。但第 1 帧的 stale `onLayout` 已经把窄宽度尺寸写入 `contentSize`。`top = anchorRect.y - wrongHeight - gap`，会在错误位置可见。
+3. **第 3 帧**：真实宽度的 `onLayout` 触发，`contentSize` 更新，位置跳回正确位置。
 
-The visible jump in frame 2 is the flash. Two pieces solve it, and you need
-both:
+第 2 帧的可见跳动就是闪烁。需要两个措施，缺一不可：
 
-- **Do not mount the floating content until `anchorRect` is set.** Return
-  `null` until then. This prevents the bad-width onLayout from happening at
-  all.
-- **Once `anchorRect` is set but `contentSize` isn't, render the wrapper with
-  the final width but `opacity: 0`.** The first visible paint is at the
-  correct position. This is the combobox pattern —
-  `shouldHideDesktopContent` at `combobox.tsx:481, 876`. **Do not** use
-  `top: -9999` as the placeholder; the layout work still happens at -9999 and
-  any subsequent state-flash is visible when you flip back.
+- **`anchorRect` 未就绪前不要 mount floating content。** 直接返回 `null`，避免错误宽度的 onLayout。
+- **`anchorRect` 已就绪但 `contentSize` 未就绪时，用最终 width 渲染 wrapper，但 `opacity: 0`。** 第一次可见绘制已经在正确位置。Combobox 使用这个模式：`combobox.tsx:481, 876` 的 `shouldHideDesktopContent`。不要用 `top: -9999` 作为占位；layout 仍会在 -9999 发生，后续 state flash 仍可能可见。
 
-The "render invisible to measure, then reveal" pattern is the canonical
-solution to chicken-and-egg positioning in this codebase. Reach for it before
-anything fancier.
+“先不可见地测量，再显示”是本代码库解决鸡生蛋定位问题的标准方案。先用它，再考虑更复杂方案。
 
-## Gotcha 6 — Bottom sheet refs are not lifecycle truth
+## 坑 6：Bottom sheet ref 不是生命周期真相
 
-`@gorhom/bottom-sheet` modals churn their imperative ref while presenting and
-dismissing. Do not treat `ref != null` as permission to call `present()`, and do
-not treat `ref == null` as the sheet being closed. The user-visible lifecycle is
-the desired `visible` prop plus the sheet callbacks (`onChange(-1)`,
-`onDismiss`).
+`@gorhom/bottom-sheet` modal 在 presenting/dismissing 期间会 churn imperative ref。不要把 `ref != null` 当成可以调用 `present()` 的许可，也不要把 `ref == null` 当成 sheet 已关闭。用户可见生命周期由期望的 `visible` prop 和 sheet callbacks（`onChange(-1)`、`onDismiss`）决定。
 
-If a user closes a sheet with the backdrop or a pan gesture, the sheet may detach
-and reattach before React state has acknowledged `visible=false`. Re-presenting
-on that attach races Gorhom's dismiss path and leaves the modal unable to reopen.
-Track an explicit phase (`closed` / `presenting` / `presented` / `dismissing`) and
-ignore ref churn while dismissing.
+如果用户通过 backdrop 或 pan gesture 关闭 sheet，React state 承认 `visible=false` 前，sheet 可能 detach 再 reattach。此时重新 present 会和 Gorhom dismiss path 竞态，导致 modal 无法再次打开。需要显式 phase：`closed` / `presenting` / `presented` / `dismissing`，并在 dismissing 时忽略 ref churn。
 
-## Recipe for a new anchored panel
+## 新增锚定 panel 的步骤
 
-Before you write a new one, ask:
+写新组件前先问：
 
-1. **Can the underlying input lose its keyboard?** If yes, use Modal (simpler).
-   If no, use Portal.
-2. **Does the panel need to dismiss on screen change?** Almost always yes —
-   gate `visible` on an upstream focus prop (`isPaneFocused` or similar).
-3. **Is the panel rendered in a Portal host?** Measure the host too. Never use
-   raw window coordinates as local Portal coordinates.
-4. **Does the panel sit above something that moves with the keyboard?** If
-   yes, slave a Reanimated transform to the same SharedValue (Gotcha 3).
-   If no, you can probably skip the transform entirely.
-5. **Will the panel's content height vary?** If yes, you need both
-   `anchorRect` and `contentSize` for positioning → apply Gotcha 5 (return
-   null until anchor, then opacity-0 until contentSize). If no — content has
-   a known fixed max height — you might be able to use bottom-anchored
-   positioning (`bottom: windowHeight - anchor.y + gap`) and skip the
-   `contentSize` round-trip entirely. **But only if the height is genuinely
-   bounded**. Verify before you commit.
+1. **底层 input 能不能失去键盘？** 可以就用 Modal，简单。不能就用 Portal。
+2. **屏幕切换时 panel 是否需要关闭？** 几乎总是需要。用上游 focus prop gate `visible`，例如 `isPaneFocused`。
+3. **panel 是否渲染在 Portal host 中？** 是的话也要测 host。不要把 raw window 坐标当作本地 Portal 坐标。
+4. **panel 是否位于会随键盘移动的内容上方？** 是的话，transform 从属于同一个 SharedValue（坑 3）。不是的话，通常可以跳过 transform。
+5. **panel 内容高度是否变化？** 是的话，positioning 同时需要 `anchorRect` 和 `contentSize`，应用坑 5：anchor 前 return null，contentSize 前 opacity 0。如果不是，且内容有已知固定 max height，可能可以用 bottom-anchored positioning（`bottom: windowHeight - anchor.y + gap`）跳过 `contentSize` 往返。但只有高度真的有界时才这么做。提交前验证。
 
-Then copy the closest canonical file and trim.
+然后复制最接近的标准文件并裁剪。

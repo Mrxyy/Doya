@@ -9,7 +9,12 @@ import {
   collectAssistantTurnContentForStreamRenderStrategy,
   type StreamStrategy,
 } from "./strategy";
-import { AssistantTurnFooter, LiveElapsed, STREAM_METADATA_FONT_SIZE } from "@/components/message";
+import {
+  AssistantTurnFooter,
+  LiveElapsed,
+  STREAM_METADATA_FONT_SIZE,
+  type AssistantTurnBillingUsage,
+} from "@/components/message";
 import type { TurnFooterHost } from "./layout";
 import { SyncedLoader } from "@/components/synced-loader";
 
@@ -28,11 +33,13 @@ export const TurnFooter = memo(function TurnFooter({
   inFlightTurnStartedAt,
   host,
   strategy,
+  billingUsage,
 }: {
   isRunning: boolean;
   inFlightTurnStartedAt: Date | null;
   host: TurnFooterHost | null;
   strategy: TurnContentStrategy;
+  billingUsage?: AssistantTurnBillingUsage | null;
 }) {
   if (isRunning) {
     return (
@@ -50,6 +57,7 @@ export const TurnFooter = memo(function TurnFooter({
       items={host.items}
       timing={host.timing}
       startIndex={host.startIndex}
+      billingUsage={billingUsage}
     />
   );
 });
@@ -59,11 +67,13 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
   items,
   timing,
   startIndex,
+  billingUsage,
 }: {
   strategy: TurnContentStrategy;
   items: StreamItem[];
   timing?: TurnTiming;
   startIndex: number;
+  billingUsage?: AssistantTurnBillingUsage | null;
 }) {
   return (
     <TurnFooterRow>
@@ -72,6 +82,7 @@ export const CompletedTurnFooterRow = memo(function CompletedTurnFooterRow({
         items={items}
         timing={timing}
         startIndex={startIndex}
+        billingUsage={billingUsage}
       />
     </TurnFooterRow>
   );
@@ -111,11 +122,13 @@ function CompletedTurnFooter({
   items,
   timing,
   startIndex,
+  billingUsage,
 }: {
   strategy: TurnContentStrategy;
   items: StreamItem[];
   timing?: TurnTiming;
   startIndex: number;
+  billingUsage?: AssistantTurnBillingUsage | null;
 }) {
   const getContent = useCallback(
     () =>
@@ -132,6 +145,7 @@ function CompletedTurnFooter({
         getContent={getContent}
         completedAt={timing?.completedAt}
         durationMs={timing?.durationMs}
+        billingUsage={billingUsage}
       />
     </View>
   );

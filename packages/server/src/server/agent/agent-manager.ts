@@ -265,6 +265,7 @@ interface ManagedAgentBase {
   historyPrimed: boolean;
   lastUserMessageAt: Date | null;
   lastUsage?: AgentUsage;
+  turnUsageById?: Map<string, AgentUsage>;
   lastError?: string;
   attention: AttentionState;
   foregroundTurnWaiters: Set<ForegroundTurnWaiter>;
@@ -378,6 +379,16 @@ function abortMessage(reason: unknown, fallbackMessage: string): string {
   if (typeof reason === "string") return reason;
   if (reason instanceof Error) return reason.message;
   return fallbackMessage;
+}
+
+function attachTurnIdToTimelineItem(
+  item: AgentTimelineItem,
+  turnId: string | undefined,
+): AgentTimelineItem {
+  if (!turnId || item.type !== "assistant_message") {
+    return item;
+  }
+  return { ...item, turnId };
 }
 
 function createAbortError(signal: AbortSignal | undefined, fallbackMessage: string): Error {
@@ -871,6 +882,8 @@ export class AgentManager {
       updatedAt?: Date;
       lastUserMessageAt?: Date | null;
       labels?: Record<string, string>;
+      lastUsage?: AgentUsage;
+      turnUsageById?: Map<string, AgentUsage>;
     },
   ): Promise<ManagedAgent> {
     const resolvedAgentId = validateAgentId(
@@ -939,6 +952,7 @@ export class AgentManager {
     const rehydrateFromDisk = options?.rehydrateFromDisk ?? false;
     const preservedHistoryPrimed = existing.historyPrimed;
     const preservedLastUsage = existing.lastUsage;
+    const preservedTurnUsageById = new Map(existing.turnUsageById);
     const preservedLastError = existing.lastError;
     const preservedAttention = existing.attention;
     const handle = existing.persistence;
@@ -984,6 +998,7 @@ export class AgentManager {
       lastUserMessageAt: existing.lastUserMessageAt,
       historyPrimed: rehydrateFromDisk ? false : preservedHistoryPrimed,
       lastUsage: preservedLastUsage,
+      turnUsageById: preservedTurnUsageById,
       lastError: preservedLastError,
       attention: preservedAttention,
     });
@@ -2291,6 +2306,7 @@ export class AgentManager {
       timelineNextSeq?: number;
       historyPrimed?: boolean;
       lastUsage?: AgentUsage;
+      turnUsageById?: Map<string, AgentUsage>;
       lastError?: string;
       attention?: AttentionState;
       initialTitle?: string | null;
@@ -2388,6 +2404,7 @@ export class AgentManager {
           labels?: Record<string, string>;
           historyPrimed?: boolean;
           lastUsage?: AgentUsage;
+          turnUsageById?: Map<string, AgentUsage>;
           lastError?: string;
           attention?: AttentionState;
         }
@@ -2419,6 +2436,7 @@ export class AgentManager {
       historyPrimed: options?.historyPrimed ?? durableTimelineHasRows,
       lastUserMessageAt: options?.lastUserMessageAt ?? null,
       lastUsage: options?.lastUsage,
+      turnUsageById: options?.turnUsageById ?? new Map(),
       lastError: options?.lastError,
       attention: resolveInitialAttention(options?.attention),
       internal: config.internal ?? false,
@@ -2902,6 +2920,7 @@ export class AgentManager {
         return undefined;
       case "usage_updated":
         agent.lastUsage = event.usage;
+        this.recordTurnUsage(agent, eventTurnId, event.usage);
         this.emitState(agent);
         return undefined;
       case "mode_changed":
@@ -3031,12 +3050,27 @@ export class AgentManager {
       "agent.manager.turn.completed",
     );
     agent.lastUsage = event.usage;
+    this.recordTurnUsage(agent, eventTurnId, event.usage);
     agent.lastError = undefined;
     if (!isForegroundEvent && agent.lifecycle !== "idle" && !agent.pendingReplacement) {
       (agent as ActiveManagedAgent).lifecycle = "idle";
       this.emitState(agent);
     }
     void this.refreshRuntimeInfo(agent);
+  }
+
+  private recordTurnUsage(
+    agent: ActiveManagedAgent,
+    turnId: string | undefined,
+    usage: AgentUsage | undefined,
+  ): void {
+    if (!turnId || !usage) {
+      return;
+    }
+    if (!agent.turnUsageById) {
+      agent.turnUsageById = new Map();
+    }
+    agent.turnUsageById.set(turnId, usage);
   }
 
   private async onStreamTurnFailed(params: {
@@ -3065,6 +3099,8 @@ export class AgentManager {
     if (!isForegroundEvent) {
       agent.lifecycle = "error";
     }
+    agent.lastUsage = event.usage;
+    this.recordTurnUsage(agent, eventTurnId, event.usage);
     agent.lastError = event.error;
     await this.appendSystemErrorTimelineMessage(
       agent,
@@ -3105,6 +3141,8 @@ export class AgentManager {
     if (!isForegroundEvent && !agent.pendingReplacement) {
       agent.lifecycle = "idle";
     }
+    agent.lastUsage = event.usage;
+    this.recordTurnUsage(agent, eventTurnId, event.usage);
     agent.lastError = undefined;
     this.resolvePendingPermissionsForAgent(agent, event.provider, options, "Interrupted");
     if (!isForegroundEvent) {
@@ -3188,10 +3226,11 @@ export class AgentManager {
     provider: AgentProvider,
     turnId?: string,
   ): AgentStreamEvent {
-    const row = this.recordTimeline(agentId, item);
+    const storedItem = attachTurnIdToTimelineItem(item, turnId);
+    const row = this.recordTimeline(agentId, storedItem);
     const event: AgentStreamEvent = {
       type: "timeline",
-      item,
+      item: storedItem,
       provider,
       ...(turnId !== undefined ? { turnId } : {}),
     };

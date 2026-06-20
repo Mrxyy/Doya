@@ -6,11 +6,17 @@ import {
   type AccountBootstrapSession,
 } from "@/account/account-api";
 import { selectAccountSessionForDirectHost } from "@/account/account-workspace-display";
+import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
+import { HostRuntimeStartupGate } from "@/components/host-runtime-startup-gate";
 import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 import { NewSessionDraftScreen } from "@/screens/new-session-draft-screen";
 
 export default function HostHomeRoute() {
-  return <HostHomeRouteContent />;
+  return (
+    <HostRouteBootstrapBoundary>
+      <HostHomeRouteContent />
+    </HostRouteBootstrapBoundary>
+  );
 }
 
 function HostHomeRouteContent() {
@@ -52,5 +58,9 @@ function HostHomeRouteContent() {
     return null;
   }
 
-  return <NewSessionDraftScreen serverId={serverId} accountSession={accountSession} />;
+  return (
+    <HostRuntimeStartupGate serverId={serverId}>
+      <NewSessionDraftScreen serverId={serverId} accountSession={accountSession} />
+    </HostRuntimeStartupGate>
+  );
 }

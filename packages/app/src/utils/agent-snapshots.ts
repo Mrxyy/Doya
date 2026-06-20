@@ -1,5 +1,6 @@
 import type { AgentSnapshotPayload } from "@getdoya/protocol/messages";
 import type { AgentPermissionRequest } from "@getdoya/protocol/agent-types";
+import { agentUsageToTurnUsageRecord } from "@/billing/turn-usage";
 import {
   LEGACY_PARENT_AGENT_ID_LABEL,
   PARENT_AGENT_ID_LABEL,
@@ -35,6 +36,17 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     typeof parentAgentLabel === "string" && parentAgentLabel.trim().length > 0
       ? parentAgentLabel.trim()
       : null;
+  const model = snapshot.runtimeInfo?.model ?? snapshot.model ?? null;
+  const turnUsageByIdMap = new Map(
+    Object.entries(snapshot.turnUsageById ?? {}).map(([turnId, usage]) => [
+      turnId,
+      agentUsageToTurnUsageRecord({
+        usage,
+        provider: snapshot.provider,
+        model,
+      }),
+    ]),
+  );
 
   return {
     serverId,
@@ -52,10 +64,11 @@ export function normalizeAgentSnapshot(snapshot: AgentSnapshotPayload, serverId:
     persistence: snapshot.persistence ?? null,
     runtimeInfo: snapshot.runtimeInfo,
     lastUsage: snapshot.lastUsage,
+    turnUsageByIdMap,
     lastError: snapshot.lastError ?? null,
     title: snapshot.title ?? null,
     cwd: snapshot.cwd,
-    model: snapshot.model ?? null,
+    model,
     features: snapshot.features,
     thinkingOptionId: snapshot.thinkingOptionId ?? null,
     requiresAttention: snapshot.requiresAttention ?? false,

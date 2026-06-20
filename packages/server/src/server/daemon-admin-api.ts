@@ -15,7 +15,7 @@ export interface DaemonAdminApiOptions {
 export function createDaemonAdminApiRouter(options: DaemonAdminApiOptions): express.Router {
   const router = express.Router();
 
-  router.get("/load", (req, res) => {
+  router.get("/load", (_req, res) => {
     void (async () => {
       const memoryTotalBytes = os.totalmem();
       const memoryFreeBytes = os.freemem();

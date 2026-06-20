@@ -148,3 +148,112 @@ export const createRuntimeAllocationBodySchema = z.object({
   workspaceDir: z.string().min(1),
   status: z.enum(["starting", "running", "stopped", "lost"]).optional(),
 });
+
+export const usageTokensBodySchema = z.object({
+  inputTokens: z.number().int().nonnegative().optional(),
+  outputTokens: z.number().int().nonnegative().optional(),
+  cacheCreationTokens: z.number().int().nonnegative().optional(),
+  cacheReadTokens: z.number().int().nonnegative().optional(),
+  cachedInputTokens: z.number().int().nonnegative().optional(),
+  reasoningTokens: z.number().int().nonnegative().optional(),
+  contextWindowUsedTokens: z.number().int().nonnegative().optional().nullable(),
+  contextWindowMaxTokens: z.number().int().nonnegative().optional().nullable(),
+});
+
+export const recordUsageTurnBodySchema = z.object({
+  sessionId: z.string().min(1),
+  runtimeId: z.string().min(1),
+  nodeId: z.string().min(1).optional().nullable(),
+  agentId: z.string().min(1),
+  providerId: z.string().min(1),
+  modelId: z.string().min(1),
+  turnId: z.string().min(1),
+  requestId: z.string().min(1).optional(),
+  requestFingerprint: z.string().min(1).optional(),
+  tokens: usageTokensBodySchema,
+});
+
+export const billingPreflightBodySchema = z.object({
+  providerId: z.string().min(1).optional().nullable(),
+  modelId: z.string().min(1).optional().nullable(),
+});
+
+export const bindReferralBodySchema = z.object({
+  code: z.string().min(1),
+  clientId: z.string().optional().nullable(),
+});
+
+export const createPaymentOrderBodySchema = z.object({
+  planId: z.literal("pro"),
+  billingPeriod: z.enum(["monthly", "yearly"]),
+  providerType: z.enum(["alipay", "wxpay"]),
+});
+
+export const upsertModelPricingBodySchema = z.object({
+  id: z.string().min(1).optional(),
+  providerId: z.string().min(1),
+  modelId: z.string().min(1),
+  displayName: z.string().min(1),
+  inputPriceUsdPerToken: z.number().nonnegative(),
+  outputPriceUsdPerToken: z.number().nonnegative(),
+  cacheCreationPriceUsdPerToken: z.number().nonnegative(),
+  cacheReadPriceUsdPerToken: z.number().nonnegative(),
+  supportsUsageAccounting: z.boolean().optional(),
+  enabled: z.boolean().optional(),
+  source: z.enum(["manual", "fallback", "provider_reported"]).optional(),
+});
+
+export const adminBillingQuerySchema = z.object({
+  userId: z.string().optional(),
+  sessionId: z.string().optional(),
+  providerId: z.string().optional(),
+  modelId: z.string().optional(),
+  planId: z.string().optional(),
+  startAt: z.string().optional(),
+  endAt: z.string().optional(),
+});
+
+export const updateBillingSettingsBodySchema = z.object({
+  usdToCnyRate: z.number().positive().optional(),
+  tokenMarkupMultiplier: z.number().positive().optional(),
+  freeMonthlyGrantCny: z.number().nonnegative().optional(),
+  proMonthlyGrantCny: z.number().nonnegative().optional(),
+  referralInviteeBonusCny: z.number().nonnegative().optional(),
+  referralInviterRewardCny: z.number().nonnegative().optional(),
+  referralMonthlyRewardLimit: z.number().int().nonnegative().optional(),
+  referralDailyRewardLimit: z.number().int().nonnegative().optional(),
+  referralRewardExpiresDays: z.number().int().positive().optional(),
+});
+
+export const adminAdjustmentBodySchema = z.object({
+  userId: z.string().min(1),
+  amountCny: z.number(),
+  note: z.string().optional().nullable(),
+});
+
+export const updateBillingPlanBodySchema = z.object({
+  userId: z.string().min(1),
+  planId: z.enum(["free", "pro"]),
+});
+
+export const updateBillingPlanDefinitionBodySchema = z.object({
+  planId: z.enum(["free", "pro"]),
+  priceCny: z.number().nonnegative(),
+  monthlyGrantCny: z.number().nonnegative(),
+  workspaceBytesLimit: z.number().int().nonnegative(),
+  singleUploadBytesLimit: z.number().int().nonnegative(),
+  enabled: z.boolean(),
+});
+
+export const updateStorageQuotaBodySchema = z.object({
+  userId: z.string().min(1),
+  uploadedBytesUsed: z.number().int().nonnegative().optional(),
+  generatedBytesUsed: z.number().int().nonnegative().optional(),
+  temporaryWorkspaceBytesLimit: z.number().int().nonnegative().optional().nullable(),
+  lastScannedAt: z.string().optional().nullable(),
+});
+
+export const updateReferralBodySchema = z.object({
+  status: z.enum(["created", "registered", "qualified", "rewarded", "rejected"]),
+  rejectReason: z.string().optional().nullable(),
+});

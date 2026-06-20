@@ -403,6 +403,7 @@ export const SETTINGS_SECTION_SLUGS = [
   "general",
   "appearance",
   "shortcuts",
+  "billing",
   "integrations",
   "permissions",
   "diagnostics",

@@ -722,6 +722,8 @@ interface ComposerProps {
   commandDraftConfig?: DraftCommandConfig;
   /** Called when a message is about to be sent (any path: keyboard, dictation, queued). */
   onMessageSent?: () => void;
+  /** Called before a message is accepted for sending. Throw to block the submit. */
+  onBeforeSendMessage?: () => Promise<void>;
   onComposerHeightChange?: (height: number) => void;
   onAttentionInputFocus?: () => void;
   onAttentionPromptSend?: () => void;
@@ -926,6 +928,7 @@ export function Composer({
   onFocusInput,
   commandDraftConfig,
   onMessageSent,
+  onBeforeSendMessage,
   onComposerHeightChange,
   onAttentionInputFocus,
   onAttentionPromptSend,
@@ -1121,6 +1124,7 @@ export function Composer({
 
   const submitMessage = useCallback(
     async (text: string, submitAttachments: ComposerAttachment[]) => {
+      await onBeforeSendMessage?.();
       onMessageSent?.();
       if (onSubmitMessageRef.current) {
         await onSubmitMessageRef.current({ text, attachments: submitAttachments, cwd });
@@ -1131,7 +1135,7 @@ export function Composer({
       }
       await sendAgentMessageRef.current(agentIdRef.current, text, submitAttachments);
     },
-    [cwd, onMessageSent],
+    [cwd, onBeforeSendMessage, onMessageSent],
   );
 
   useEffect(() => {

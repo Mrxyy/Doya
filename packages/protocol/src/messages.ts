@@ -257,6 +257,9 @@ const AgentUsageSchema: z.ZodType<AgentUsage> = z.object({
   inputTokens: z.number().optional(),
   cachedInputTokens: z.number().optional(),
   outputTokens: z.number().optional(),
+  cacheCreationTokens: z.number().optional(),
+  cacheReadTokens: z.number().optional(),
+  reasoningTokens: z.number().optional(),
   totalCostUsd: z.number().optional(),
   contextWindowMaxTokens: z.number().optional(),
   contextWindowUsedTokens: z.number().optional(),
@@ -532,6 +535,8 @@ export const AgentTimelineItemPayloadSchema: z.ZodType<AgentTimelineItem, z.ZodT
       type: z.literal("assistant_message"),
       text: z.string(),
       messageId: z.string().optional(),
+      // COMPAT(timelineAssistantTurnId): added in v0.1.X for usage footer restore.
+      turnId: z.string().optional(),
     }),
     z.object({
       type: z.literal("reasoning"),
@@ -568,11 +573,19 @@ export const AgentStreamEventPayloadSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("turn_started"),
     provider: AgentProviderSchema,
+    turnId: z.string().optional(),
   }),
   z.object({
     type: z.literal("turn_completed"),
     provider: AgentProviderSchema,
     usage: AgentUsageSchema.optional(),
+    turnId: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("usage_updated"),
+    provider: AgentProviderSchema,
+    usage: AgentUsageSchema,
+    turnId: z.string().optional(),
   }),
   z.object({
     type: z.literal("turn_failed"),
@@ -580,27 +593,34 @@ export const AgentStreamEventPayloadSchema = z.discriminatedUnion("type", [
     error: z.string(),
     code: z.string().optional(),
     diagnostic: z.string().optional(),
+    usage: AgentUsageSchema.optional(),
+    turnId: z.string().optional(),
   }),
   z.object({
     type: z.literal("turn_canceled"),
     provider: AgentProviderSchema,
     reason: z.string(),
+    usage: AgentUsageSchema.optional(),
+    turnId: z.string().optional(),
   }),
   z.object({
     type: z.literal("timeline"),
     provider: AgentProviderSchema,
     item: AgentTimelineItemPayloadSchema,
+    turnId: z.string().optional(),
   }),
   z.object({
     type: z.literal("permission_requested"),
     provider: AgentProviderSchema,
     request: AgentPermissionRequestPayloadSchema,
+    turnId: z.string().optional(),
   }),
   z.object({
     type: z.literal("permission_resolved"),
     provider: AgentProviderSchema,
     requestId: z.string(),
     resolution: AgentPermissionResponseSchema,
+    turnId: z.string().optional(),
   }),
   z.object({
     type: z.literal("attention_required"),
@@ -659,6 +679,8 @@ export const AgentSnapshotPayloadSchema = z.object({
   persistence: AgentPersistenceHandleSchema.nullable(),
   runtimeInfo: AgentRuntimeInfoSchema.optional(),
   lastUsage: AgentUsageSchema.optional(),
+  // COMPAT(turnUsageById): added in v0.1.X, old clients ignore it.
+  turnUsageById: z.record(AgentUsageSchema).optional(),
   lastError: z.string().optional(),
   title: z.string().nullable(),
   labels: z.record(z.string(), z.string()).default({}),

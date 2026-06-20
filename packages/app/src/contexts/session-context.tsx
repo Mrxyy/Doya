@@ -44,6 +44,7 @@ import {
   normalizeWorkspaceDescriptor,
 } from "@/stores/session-store";
 import { useDraftStore } from "@/stores/draft-store";
+import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
 import { useWorkspaceSetupStore } from "@/stores/workspace-setup-store";
 import { sendOsNotification } from "@/utils/os-notifications";
 import { getIsAppActivelyVisible } from "@/utils/app-visibility";
@@ -58,6 +59,7 @@ import { derivePendingPermissionKey, normalizeAgentSnapshot } from "@/utils/agen
 import { resolveProjectPlacement } from "@/utils/project-placement";
 import { buildDraftStoreKey } from "@/stores/draft-keys";
 import type { AttachmentMetadata } from "@/attachments/types";
+import { getBillingUpgradeReason } from "@/utils/billing-errors";
 import {
   materializeWorkspaceFileAttachments,
   materializeWorkspaceImageAttachmentsForSubmit,
@@ -449,6 +451,7 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
   const queryClient = useQueryClient();
   const isConnected = useHostRuntimeIsConnected(serverId);
   const toast = useToast();
+  const openBillingUpgrade = useBillingUpgradeModalStore((state) => state.open);
 
   // Zustand store actions
   const initializeSession = useSessionStore((state) => state.initializeSession);
@@ -596,6 +599,9 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
         next.set(agent.id, agent);
         return next;
       });
+      if (agent.turnUsageByIdMap && agent.turnUsageByIdMap.size > 0) {
+        setAgentStreamState(serverId, agent.id, { turnUsageById: agent.turnUsageByIdMap });
+      }
 
       if (agent.archivedAt) {
         clearArchiveAgentPending({
@@ -706,6 +712,7 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
       queryClient,
       serverId,
       setAgentLastActivity,
+      setAgentStreamState,
       setAgents,
       setPendingPermissions,
       setQueuedMessages,
@@ -1856,17 +1863,25 @@ function SessionProviderInternal({ children, serverId, client }: SessionProvider
       } catch (error) {
         console.error("[Session] Failed to prepare images for agent creation:", error);
       }
-      await client.createAgent({
-        config,
-        ...(trimmedPrompt ? { initialPrompt: trimmedPrompt } : {}),
-        ...(imagesData && imagesData.length > 0 ? { images: imagesData } : {}),
-        ...(attachments && attachments.length > 0 ? { attachments } : {}),
-        ...(git ? { git } : {}),
-        ...(worktreeName ? { worktreeName } : {}),
-        ...(requestId ? { requestId } : {}),
-      });
+      try {
+        await client.createAgent({
+          config,
+          ...(trimmedPrompt ? { initialPrompt: trimmedPrompt } : {}),
+          ...(imagesData && imagesData.length > 0 ? { images: imagesData } : {}),
+          ...(attachments && attachments.length > 0 ? { attachments } : {}),
+          ...(git ? { git } : {}),
+          ...(worktreeName ? { worktreeName } : {}),
+          ...(requestId ? { requestId } : {}),
+        });
+      } catch (error) {
+        const reason = getBillingUpgradeReason(error);
+        if (reason) {
+          openBillingUpgrade(reason);
+        }
+        throw error;
+      }
     },
-    [client],
+    [client, openBillingUpgrade],
   );
 
   const _setAgentMode = useCallback(

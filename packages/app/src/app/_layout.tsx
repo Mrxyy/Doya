@@ -21,7 +21,9 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { Extrapolation, interpolate, runOnJS, useSharedValue } from "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StyleSheet, UnistylesRuntime, useUnistyles } from "react-native-unistyles";
+import { loadAccountBootstrapSession } from "@/account/account-api";
 import { AccountLoginModalHost } from "@/components/account-login-modal";
+import { BillingUpgradeModalHost } from "@/components/billing-upgrade-modal";
 import { CommandCenter } from "@/components/command-center";
 import { WorktreeSetupCalloutSource } from "@/components/worktree-setup-callout-source";
 import { DownloadToast } from "@/components/download-toast";
@@ -77,6 +79,8 @@ import {
 import { getDaemonStartService } from "@/runtime/daemon-start-service";
 import { applyAppearance } from "@/screens/settings/appearance/apply-appearance";
 import { usePanelStore } from "@/stores/panel-store";
+import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
+import { bindControlReferralCode } from "@/control/control-api";
 import { THEME_TO_UNISTYLES } from "@/styles/theme";
 import type { HostProfile } from "@/types/host-connection";
 import { resolveActiveHost } from "@/utils/active-host";
@@ -869,6 +873,8 @@ function RootStack() {
         <Stack.Screen name="settings/[section]" />
         <Stack.Screen name="settings/projects/index" />
         <Stack.Screen name="settings/projects/[projectKey]" />
+        <Stack.Screen name="billing" />
+        <Stack.Screen name="admin/billing" />
         <Stack.Screen name="pair-scan" />
       </Stack.Protected>
       {/*
@@ -896,13 +902,53 @@ function AppShell() {
     <SidebarAnimationProvider>
       <HorizontalScrollProvider>
         <OpenProjectListener />
+        <InviteReferralListener />
         <AppWithSidebar>
           <RootStack />
         </AppWithSidebar>
         <AccountLoginModalHost />
+        <BillingUpgradeModalHost />
       </HorizontalScrollProvider>
     </SidebarAnimationProvider>
   );
+}
+
+function InviteReferralListener() {
+  const params = useGlobalSearchParams<{ invite?: string | string[] }>();
+  const hosts = useHosts();
+  const firstServerId = hosts[0]?.serverId ?? "invite";
+  const openAccountLogin = useAccountLoginModalStore((state) => state.open);
+  const lastHandledInviteRef = useRef<string | null>(null);
+
+  const inviteCode = useMemo(() => {
+    const rawInvite = Array.isArray(params.invite) ? params.invite[0] : params.invite;
+    return rawInvite?.trim().toUpperCase() ?? "";
+  }, [params.invite]);
+
+  useEffect(() => {
+    if (!inviteCode || lastHandledInviteRef.current === inviteCode) {
+      return;
+    }
+    lastHandledInviteRef.current = inviteCode;
+    void (async () => {
+      try {
+        const accountSession = await loadAccountBootstrapSession();
+        if (accountSession?.workspace.workspaceId.startsWith("control:")) {
+          await bindControlReferralCode({
+            accountSession,
+            code: inviteCode,
+            clientId: "invite-link",
+          });
+          return;
+        }
+        openAccountLogin(firstServerId, { referralCode: inviteCode });
+      } catch {
+        openAccountLogin(firstServerId, { referralCode: inviteCode });
+      }
+    })();
+  }, [firstServerId, inviteCode, openAccountLogin]);
+
+  return null;
 }
 
 function RuntimeProviders({ children }: { children: ReactNode }) {

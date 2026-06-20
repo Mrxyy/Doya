@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import express from "express";
 import { z } from "zod";
@@ -16,6 +16,10 @@ const allocateSessionWorkDirSchema = z.object({
 const deleteSessionWorkDirsSchema = z.object({
   userId: z.string().min(1),
   sessionIds: z.array(z.string().min(1)).min(1),
+});
+
+const scanUserWorkspaceSchema = z.object({
+  userId: z.string().min(1),
 });
 
 export interface UserWorkspaceApiOptions {
@@ -81,7 +85,49 @@ export function createUserWorkspaceApiRouter(options: UserWorkspaceApiOptions): 
     })();
   });
 
+  router.post("/scan", (req, res) => {
+    void (async () => {
+      const parsed = scanUserWorkspaceSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "Invalid user workspace scan request" });
+        return;
+      }
+      const workspace = resolveUserWorkspace(options.doyaHome, parsed.data.userId);
+      await mkdir(workspace.workspaceDir, { recursive: true });
+      const scan = await scanDirectory(workspace.workspaceDir);
+      res.json({
+        workspace,
+        ...scan,
+        scannedAt: new Date().toISOString(),
+      });
+    })();
+  });
+
   return router;
+}
+
+async function scanDirectory(
+  directory: string,
+): Promise<{ totalBytes: number; fileCount: number }> {
+  let totalBytes = 0;
+  let fileCount = 0;
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      const child = await scanDirectory(entryPath);
+      totalBytes += child.totalBytes;
+      fileCount += child.fileCount;
+      continue;
+    }
+    if (!entry.isFile()) {
+      continue;
+    }
+    const fileStat = await stat(entryPath);
+    totalBytes += fileStat.size;
+    fileCount += 1;
+  }
+  return { totalBytes, fileCount };
 }
 
 function resolveUserWorkspace(

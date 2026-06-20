@@ -1,24 +1,24 @@
-# Unistyles Gotchas
+# Unistyles 注意事项
 
-This app uses [`react-native-unistyles` v3](https://www.unistyl.es/) for theme-aware styles. Unistyles is fast because most style updates do not go through React renders: the [Babel plugin](https://www.unistyl.es/v3/other/babel-plugin) rewrites React Native component imports, attaches style metadata, and lets the native ShadowRegistry update tracked views when theme or runtime dependencies change.
+app 使用 [`react-native-unistyles` v3](https://www.unistyl.es/) 做主题感知样式。Unistyles 快，是因为大多数样式更新不经过 React render：Babel plugin 会重写 React Native component imports，附加 style metadata，并让 native ShadowRegistry 在 theme 或 runtime dependency 变化时更新被追踪的 view。
 
-That model is powerful, but it has sharp edges. Use this note when adding theme-dependent styles.
+这个模型很强，但边界很锋利。新增 theme-dependent styles 前先读这份文档。
 
-## STOP — `useUnistyles()` Is Banned
+## 停止：禁止使用 `useUnistyles()`
 
-**Do not call `useUnistyles()`. Anywhere. New code MUST NOT add a call; existing call sites are tolerated only because nobody has rewritten them yet and will be converted as they are touched.** The library authors themselves [strongly advise against it](https://www.unistyl.es/v3/references/use-unistyles):
+**不要调用 `useUnistyles()`。任何地方都不要。新代码绝不能新增调用；已有调用点只是因为还没人重写，碰到时要迁移。**
 
-> We strongly recommend **not using** this hook, as it will re-render your component on every change. This hook was created to simplify the migration process and should only be used when other methods fail.
+库作者也明确建议不要使用这个 hook。它会让组件在每次 runtime 变化时 re-render。这个 hook 本来是为了简化迁移，只应在其他方法都失败时使用。
 
-We have hit this gotcha repeatedly in Doya. The hook subscribes the component to **every** Unistyles runtime change (theme, breakpoint, insets, color scheme, scale) and returns a fresh object reference each call. That means a periodic lockstep re-render of warm subtrees (agent streams, panels, sidebars) even when nothing the user can see has changed — confirmed in profiling, with `theme` as the only changed input every cycle. It also breaks every downstream `useMemo`/`memo` boundary that includes a derived theme value.
+Doya 已经反复踩过这个坑。该 hook 会让组件订阅**所有** Unistyles runtime 变化（theme、breakpoint、insets、color scheme、scale），并且每次调用都返回新对象引用。这会导致温热子树（agent streams、panels、sidebars）周期性 lockstep re-render，即使用户看不到任何变化。profiling 已确认很多周期里唯一变化输入就是 `theme`。它也会破坏下游所有包含派生 theme 值的 `useMemo` / `memo` 边界。
 
-Reviewers MUST reject PRs that introduce a new `useUnistyles()` call. There is no last-resort carveout. If you cannot solve a case with the alternatives below, file an issue and stop — do not paper over it with the hook.
+Reviewer 必须拒绝引入新 `useUnistyles()` 调用的 PR。没有“最后手段”例外。如果下面替代方案都解决不了，开 issue 并停止，不要用 hook 糊过去。
 
-Use these alternatives in order:
+按顺序使用这些替代方案：
 
-### 1. `StyleSheet.create((theme) => ...)` — default
+### 1. `StyleSheet.create((theme) => ...)`：默认选择
 
-Most theme-aware styling needs nothing else. The Babel plugin tracks theme dependencies inside the factory and updates the native ShadowTree without any React re-render.
+大多数主题感知样式不需要别的东西。Babel plugin 会追踪 factory 内部的 theme dependency，并在不触发 React re-render 的情况下更新 native ShadowTree。
 
 ```tsx
 const styles = StyleSheet.create((theme) => ({
@@ -31,44 +31,44 @@ const styles = StyleSheet.create((theme) => ({
 <View style={styles.container} />;
 ```
 
-If you are reading a theme value just to feed it back into a `style` prop, you almost certainly want this and not the hook.
+如果你读取 theme 值只是为了传回 `style` prop，几乎一定应该用这个，而不是 hook。
 
-### 2. Hard-coded constants for genuinely static values
+### 2. 真正静态值使用硬编码常量
 
-If you only need a number that happens to live on the theme (e.g. a fixed spacing value used to compute a gap or animation distance), use a literal constant or import a static module. Static reads do not need a subscription. See the "Static Theme Imports" section below — importing `baseColors`, theme-name constants, or `type Theme` is fine when the value is intentionally static.
+如果只需要一个碰巧来自 theme 的数字，例如固定 spacing 用于计算 gap 或动画距离，使用字面量常量或静态模块。静态读取不需要订阅。见下方“静态 theme import”部分。导入 `baseColors`、theme-name constants 或 `type Theme` 是可以的，只要值确实是静态或仅类型。
 
-### 3. `withUnistyles(Component)` for third-party props
+### 3. 第三方 props 使用 `withUnistyles(Component)`
 
-When a third-party component takes a non-`style` prop that must be theme-reactive (e.g. `BlurView.tint`, `Image.tintColor`, navigator option props, bottom-sheet `backgroundStyle`), wrap that single component with `withUnistyles`. Only the wrapper re-renders, not the surrounding tree.
+当第三方组件接收一个非 `style` prop 且它必须响应 theme，例如 `BlurView.tint`、`Image.tintColor`、navigator option props、bottom-sheet `backgroundStyle`，用 `withUnistyles` 包住那一个组件。只有 wrapper re-render，不会带着周围树重渲染。
 
 ```tsx
 const ThemedBlur = withUnistyles(BlurView);
 <ThemedBlur tint={theme.colors.surface0} />;
 ```
 
-(Mind the `> *` child-selector leak documented further down.)
+注意下方记录的 `> *` 子选择器泄漏。
 
-### 4. There is no "last resort"
+### 4. 没有“最后手段”
 
-There is no escape hatch. If none of (1)–(3) fit, the problem is upstream — fix it there or file an issue. The hook is not on the table.
+不存在 escape hatch。如果 1 到 3 都不适合，问题在上游；修上游或开 issue。hook 不在选项里。
 
-## How Updates Propagate
+## 更新如何传播
 
-For standard React Native components, the [Unistyles Babel plugin](https://www.unistyl.es/v3/other/babel-plugin) rewrites imports such as `View`, `Text`, `Pressable`, and `ScrollView` to Unistyles-aware component factories. On native, those factories borrow the component ref and register the `style` prop with the ShadowRegistry. The upstream ["Why my view doesn't update?"](https://www.unistyl.es/v3/guides/why-my-view-doesnt-update) guide describes this as the ShadowTree update path that avoids unnecessary React re-renders.
+对标准 React Native components，Unistyles Babel plugin 会把 `View`、`Text`、`Pressable`、`ScrollView` 等 imports 重写成 Unistyles-aware component factories。Native 上这些 factories 会借用 component ref，把 `style` prop 注册到 ShadowRegistry。这个路径避免不必要的 React re-render。
 
-The important detail: the automatic native path tracks `props.style`. It does not generally track every prop that happens to carry style-like values.
+关键细节：自动 native 路径追踪 `props.style`。它通常不会追踪每一个“看起来像 style”的 prop。
 
-[`useUnistyles()`](https://www.unistyl.es/v3/references/use-unistyles) is different. It gives React access to the current theme/runtime and can make a component re-render when those values change. Use it for values that must be rendered through React props, such as icon colors or small escape hatches. Do not expect direct reads from `UnistylesRuntime` to re-render a component; [issue #817](https://github.com/jpudysz/react-native-unistyles/issues/817) is a useful reminder of that invariant.
+`useUnistyles()` 不同。它把当前 theme/runtime 暴露给 React，并让组件在这些值变化时 re-render。不要期待直接读取 `UnistylesRuntime` 会让组件 re-render；GitHub issue #817 是这个 invariant 的提醒。
 
-## Dynamic Pixel Styles On Web
+## Web 上的动态像素样式
 
-Avoid feeding changing pixel values such as `{ top, left }`, `{ maxHeight }`, or `{ minWidth }` into the `style` prop of Unistyles-managed React Native components on web. The web runtime hashes each distinct style object by value and appends a CSS rule to `#unistyles-web`; those rules are not reclaimed during the page lifetime, so pointer-driven positioning can turn into steady stylesheet growth.
+避免把高频变化的像素值，如 `{ top, left }`、`{ maxHeight }`、`{ minWidth }`，传给 web 上 Unistyles-managed React Native component 的 `style` prop。Web runtime 会按值 hash 每个 style object，并向 `#unistyles-web` 追加 CSS rule；这些 rule 在页面生命周期中不会回收。Pointer-driven positioning 会变成持续增长的 stylesheet。
 
-Use the inline style escape hatch below for high-churn values. Do not split a component into plain/web/native variants just to keep one measured value out of the CSS registry. Raw DOM wrappers are reserved for real DOM infrastructure, such as terminal hosts, virtualized web rows, or third-party drag wrappers.
+高频值使用下方 inline escape hatch。不要为了一个测量值拆成 plain/web/native 组件。Raw DOM wrapper 只用于真正的 DOM 基础设施，例如 terminal host、virtualized web row 或第三方 drag wrapper。
 
-## Inline Style Escape Hatch
+## 内联样式逃生口
 
-When a style value is high-churn and must bypass Unistyles' CSS registry, keep the component on the normal Unistyles path and mark only that style object with `inlineUnistylesStyle`.
+当某个 style 值高频变化并且必须绕过 Unistyles CSS registry 时，组件仍走正常 Unistyles 路径，只给具体 style object 标记 `inlineUnistylesStyle`。
 
 ```tsx
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
@@ -82,17 +82,17 @@ const styles = StyleSheet.create({
 <View style={[styles.thumb, inlineUnistylesStyle({ height, transform: [{ translateY }] })]} />;
 ```
 
-This uses Unistyles' own animated-style lane: ordinary styles still become Unistyles classes, while the marked style object stays in React Native's inline style array. Use it for measured geometry, scroll or drag transforms, and pressed/hovered/open state where generating CSS classes is the wrong ownership boundary.
+这使用 Unistyles 自己的 animated-style lane：普通样式仍变成 Unistyles class，被标记的 style object 留在 React Native inline style array。适用于测量几何、scroll/drag transform，以及 pressed/hovered/open state 等生成 CSS class 不是正确归属边界的情况。
 
-Do not split a component into plain and Unistyles variants just to handle one high-churn value. The component remains a normal Unistyles component; only the specific style object escapes.
+不要为了一个高频值把组件拆成 plain 和 Unistyles 变体。组件仍是正常 Unistyles 组件；只有具体 style object escape。
 
-When a reusable component has a prop whose whole job is dynamic geometry, make that prop the seam. For example, `FloatingSurface.frameStyle` and `FloatingScrollView.style` own their own escape hatch so menu, tooltip, hover-card, and combobox callers can stay declarative instead of knowing about Unistyles internals.
+可复用组件如果有专门承载 dynamic geometry 的 prop，就让这个 prop 成为 seam。例如 `FloatingSurface.frameStyle` 和 `FloatingScrollView.style` 自己拥有 escape hatch，让 menu、tooltip、hover-card、combobox 调用方保持声明式，而不是了解 Unistyles 内部。
 
-## Main Gotcha: `contentContainerStyle`
+## 主要陷阱：`contentContainerStyle`
 
-`ScrollView.contentContainerStyle` is the canonical trap. It looks like a style prop, but it is not the same prop that Unistyles' remapped native component registers by default. The upstream tutorial calls this out directly in its [ScrollView Background Issue](https://www.unistyl.es/v3/tutorial/settings-screen#scrollview-background-issue) section.
+`ScrollView.contentContainerStyle` 是标准陷阱。它看起来像 style prop，但不是 Unistyles remapped native component 默认注册的那个 `style` prop。
 
-Avoid this pattern when the style depends on the theme:
+Theme-dependent style 避免这样写：
 
 ```tsx
 <ScrollView contentContainerStyle={styles.container} />;
@@ -105,13 +105,13 @@ const styles = StyleSheet.create((theme) => ({
 }));
 ```
 
-On first mount this can paint with the current adaptive or initial theme. If app settings later load a persisted theme and call [`UnistylesRuntime.setTheme`](https://www.unistyl.es/v3/guides/theming#change-theme), the JS-side style proxy may report the new theme while the native content container keeps the old background. That is how the welcome screen ended up with a light background and dark foreground/buttons.
+首次 mount 时它可能用当前 adaptive 或 initial theme 绘制。如果 app settings 稍后加载 persisted theme 并调用 `UnistylesRuntime.setTheme`，JS 侧 style proxy 可能已经报告新 theme，但 native content container 仍保持旧背景。Welcome screen 曾经因此出现浅背景配暗前景/按钮。
 
-This applies broadly to non-`style` props that carry theme-dependent values, such as component props named `color`, `trackColor`, `tintColor`, `backgroundStyle`, `handleIndicatorStyle`, and other library-specific style props. The [3rd-party view decision algorithm](https://www.unistyl.es/v3/references/3rd-party-views) recommends explicit handling for these cases, and [issue #1030](https://github.com/jpudysz/react-native-unistyles/issues/1030) shows a related native-prop update edge case around `Image.tintColor`. Treat these values as React props unless wrapped with `withUnistyles`.
+这个问题也适用于其他携带 theme-dependent value 的非 `style` prop，例如 `color`、`trackColor`、`tintColor`、`backgroundStyle`、`handleIndicatorStyle` 以及库特定 style props。把这些值当作 React props，除非用 `withUnistyles` 包过。
 
-## Fix Patterns
+## 修复模式
 
-Preferred pattern: put themed backgrounds on a normal wrapper view, and keep `contentContainerStyle` theme-free.
+首选模式：把 themed background 放在普通 wrapper view 上，让 `contentContainerStyle` 不含 theme。
 
 ```tsx
 <View style={styles.container}>
@@ -130,31 +130,19 @@ const styles = StyleSheet.create((theme) => ({
 }));
 ```
 
-This is the pattern used by the settings screen: the screen background lives on a normal `View style={styles.container}`, while the scroll content container only carries layout.
+Settings screen 使用的就是这个模式：screen background 在普通 `View style={styles.container}` 上，scroll content container 只承载 layout。
 
-In practice the wrapper-`View` pattern is the one we use. Across the app, `withUnistyles` is now reserved for wrapping leaf components — mostly lucide icons (`ThemedActivityIndicator`, `ThemedChevronDown`, …) and small third-party components like `MarkdownWithStableRenderer` — so they pick up theme-reactive `color`/`tintColor` props without re-rendering their parent.
+实践中我们主要使用 wrapper-`View` 模式。`withUnistyles` 现在保留给 leaf components，例如 lucide icons（`ThemedActivityIndicator`、`ThemedChevronDown` 等）和小型第三方组件（如 `MarkdownWithStableRenderer`），让它们能响应 theme 的 `color` / `tintColor` props，同时不重渲染 parent。
 
-In principle, [`withUnistyles`](https://www.unistyl.es/v3/references/with-unistyles) can also wrap a `ScrollView` to make `contentContainerStyle` theme-reactive via its [auto-mapping behavior for `style` and `contentContainerStyle`](https://www.unistyl.es/v3/references/with-unistyles#auto-mapping-for-style-and-contentcontainerstyle-props). We previously did this on the welcome screen and hit the `> *` child-selector leak documented below; we have since moved the welcome screen to the wrapper-`View` pattern. If you find yourself reaching for `withUnistyles(ScrollView)`, treat it as a smell and check whether a wrapper view works first.
+理论上 `withUnistyles(ScrollView)` 也能通过 auto-mapping 让 `contentContainerStyle` 响应 theme。我们曾在 welcome screen 上这样做，并踩到下方 `> *` 子选择器泄漏。因此如果想用 `withUnistyles(ScrollView)`，先把它当作 smell，检查 wrapper view 是否可行。
 
-The smallest escape hatch is to use `useUnistyles()` and pass an inline value through React:
+## `withUnistyles` 和 `> *` 子选择器泄漏
 
-```tsx
-const { theme } = useUnistyles();
+Web 上，`withUnistyles` 包住带 theme-dependent `style` prop 的组件时，会外包一层 `<div style={{display: 'contents'}} className={hash}>`，并把样式作为 `.hash > *` 子选择器发出，让样式 cascade 到被包组件。这就是 web 上 `style` 和 `contentContainerStyle` auto-mapping 的实现方式。
 
-<ScrollView
-  contentContainerStyle={[styles.contentContainer, { backgroundColor: theme.colors.surface0 }]}
-/>;
-```
+锋利边界：Unistyles 按值 hash style。如果 `withUnistyles` 收到的 style 值和 app 其他地方 plain `View` 使用的 style 完全相同，两者得到同一个 hash；元素规则和 `> *` 子规则都会用同一个 class name。`> *` 规则就会泄漏到所有共享该 hash 的 `View` 的直接 children 上。
 
-Use this sparingly. It works because React re-renders the prop, but it gives up the main Unistyles native-update path for that value.
-
-## `withUnistyles` And The `> *` Child-Selector Leak
-
-`withUnistyles` on a component with a theme-dependent `style` prop works by wrapping the component in a `<div style={{display: 'contents'}} className={hash}>` and emitting the style under a `.hash > *` child selector so the styles cascade onto the wrapped component. This is how auto-mapping for `style` and `contentContainerStyle` works on web.
-
-The sharp edge: Unistyles hashes styles by value. If `withUnistyles` receives a style whose value is **identical** to a style used elsewhere in the app on a plain `View`, both usages get the same hash — and both CSS rules (the element rule and the `> *` child rule) are emitted under the same class name. The `> *` rule then leaks onto the direct children of every `View` that shares the hash.
-
-Concrete regression we hit: `welcome-screen.tsx` had `const ThemedScrollView = withUnistyles(ScrollView)` with `style={{ flex: 1, backgroundColor: theme.colors.surface0 }}`. `panels/agent-panel.tsx` had `root` and `container` styles with the exact same value. All three collided on class `unistyles_j2k2iilhfz`, so the browser stylesheet contained:
+真实回归：`welcome-screen.tsx` 中 `ThemedScrollView = withUnistyles(ScrollView)` 使用了 `style={{ flex: 1, backgroundColor: theme.colors.surface0 }}`。`panels/agent-panel.tsx` 的 `root` 和 `container` 有完全相同的值。三者 hash 碰撞到 `unistyles_j2k2iilhfz`，浏览器 stylesheet 中出现：
 
 ```css
 .unistyles_j2k2iilhfz {
@@ -167,15 +155,15 @@ Concrete regression we hit: `welcome-screen.tsx` had `const ThemedScrollView = w
 }
 ```
 
-The child-selector rule forced `flex:1` and `background-color: surface0` onto the Composer's outer `Animated.View` (a direct child of `container`), stretching it to fill remaining space and leaving a large empty gap between the composer UI and the bottom of the screen. It also painted a `surface0` band behind the scroll-to-bottom button. The bug only appeared in the browser — Electron skips `WelcomeScreen` after pairing, so the `> *` rule was never injected there.
+子选择器把 `flex:1` 和 `background-color: surface0` 强加给 Composer 外层 `Animated.View`，导致 composer UI 和屏幕底部之间出现大空隙，也在 scroll-to-bottom button 后面涂了一条 `surface0`。该 bug 只出现在浏览器；Electron 配对后跳过 `WelcomeScreen`，所以没有注入 `> *` 规则。
 
-Symptoms to watch for:
+排查症状：
 
-- A sibling of a themed panel-background `View` stretches unexpectedly on web only.
-- Random direct children of a `{ flex: 1, backgroundColor: surface0 }` `View` pick up an unexpected background.
-- DevTools shows a `.unistyles_xxx > *` rule you did not write.
+- themed panel-background `View` 的 sibling 只在 web 上异常拉伸。
+- `{ flex: 1, backgroundColor: surface0 }` 的 `View` 的直接子元素莫名拿到背景。
+- DevTools 中看到你没有写过的 `.unistyles_xxx > *` 规则。
 
-Quick confirmation in DevTools console:
+DevTools 快速确认：
 
 ```js
 [...document.styleSheets]
@@ -184,15 +172,15 @@ Quick confirmation in DevTools console:
   .filter((t) => t.includes("unistyles") && t.includes("> *"));
 ```
 
-Any match beyond benign `r-pointerEvents-* > *` rules from react-native-web is a leak.
+除了 react-native-web 的 benign `r-pointerEvents-* > *` 规则外，其他命中都要怀疑泄漏。
 
-Avoid the bug by preferring the wrapper-`View` pattern from the previous section whenever possible: put `{ flex: 1, backgroundColor: surface0 }` on a plain `View` and give the `ScrollView` a theme-free `style`/`contentContainerStyle`. That keeps `withUnistyles` off the hot path and avoids the hash collision. Only reach for `withUnistyles(ScrollView)` when a wrapper view is genuinely awkward, and when you do, give the wrapped style a distinctive shape (extra key, different layout) so it does not hash-collide with a common panel background used elsewhere.
+避免方式：优先使用 wrapper-`View` 模式，把 `{ flex: 1, backgroundColor: surface0 }` 放在 plain `View`，给 `ScrollView` theme-free 的 `style` / `contentContainerStyle`。只有 wrapper view 真不合适时才用 `withUnistyles(ScrollView)`；使用时给 wrapped style 一个不容易和常见 panel background hash-collide 的独特形状。
 
-## Hidden Sheet Content
+## 隐藏的 sheet content
 
-`@gorhom/bottom-sheet` can keep `BottomSheetModal` content mounted while the sheet is hidden. That matters during Doya's startup theme transition: a header node can be created under the initial adaptive theme, stay hidden, then appear later with stale native style values even though surrounding content has re-rendered correctly.
+`@gorhom/bottom-sheet` 可能在 sheet 隐藏时仍保持 `BottomSheetModal` content mounted。Doya startup theme transition 时这很重要：header node 可能在 initial adaptive theme 下创建，隐藏保持 mounted，稍后出现时 native style value 仍旧。
 
-We saw this in `AdaptiveModalSheet`: the body text and buttons were dark-theme-correct, but the shared sheet title opened with the initial light-theme text color on a dark sheet background. For tiny values in a reusable sheet header, prefer the inline escape hatch:
+我们在 `AdaptiveModalSheet` 遇到过：body text 和 buttons 已正确变成 dark theme，但 shared sheet title 仍以初始 light-theme text color 打开。对 reusable sheet header 中的小值，优先使用 inline escape hatch：
 
 ```tsx
 const { theme } = useUnistyles();
@@ -200,37 +188,37 @@ const { theme } = useUnistyles();
 <Text style={[styles.title, { color: theme.colors.foreground }]}>{title}</Text>;
 ```
 
-Keep layout and typography in `StyleSheet.create`; move only the stale theme-dependent value through React. If a larger subtree shows the same behavior, consider remounting the sheet on theme changes or moving the themed paint onto a wrapper that is mounted with the visible content.
+Layout 和 typography 留在 `StyleSheet.create`；只把 stale 的 theme-dependent value 通过 React 传递。如果更大 subtree 有同类问题，考虑在 theme 变化时 remount sheet，或把 themed paint 移到与可见内容一起 mounted 的 wrapper。
 
-The same rule applies to bottom-sheet component props such as `backgroundStyle` and `handleIndicatorStyle`: they are library props, not the direct React Native `style` prop Unistyles registers. Prefer a custom `backgroundComponent` that calls `useUnistyles()`, or pass a small inline object from the hook theme.
+Bottom-sheet 的 `backgroundStyle`、`handleIndicatorStyle` 等 props 也遵循同一规则：它们是 library props，不是 Unistyles 注册的 direct React Native `style` prop。优先用调用 `useUnistyles()` 的 custom `backgroundComponent`，或从 hook theme 传一个小 inline object。
 
-## Memoized Style Objects
+## 被 memo 的样式对象
 
-When a third-party library receives a plain style object, it is outside Unistyles' native tracking path. Make sure any memo that builds that style object depends on the actual theme values it reads.
+第三方库收到 plain style object 时，它不在 Unistyles native tracking path 内。构建该 object 的 memo 必须依赖它实际读取的 theme 值。
 
-Avoid indirect keys like this:
+避免间接 key：
 
 ```tsx
 const { theme, rt } = useUnistyles();
 const markdownStyles = useMemo(() => createMarkdownStyles(theme), [rt.themeName]);
 ```
 
-On adaptive system-theme changes, the hook can provide a light/dark theme update while an indirect runtime key is not the value that invalidates the memo. That leaves the library rendering stale colors. Assistant markdown hit this exact failure: the workspace shell switched to light, but assistant text and code spans kept the old dark-theme markdown style object.
+Adaptive system-theme 变化时，hook 可能提供 light/dark theme 更新，但间接 runtime key 不一定是让 memo 失效的值。这会让库渲染旧颜色。Assistant markdown 曾经正是这样：workspace shell 切到 light 后，assistant text 和 code span 仍保留旧 dark-theme markdown style object。
 
-Prefer the hook theme itself, or explicit theme tokens, as the dependency:
+优先依赖 hook theme 本身，或显式 theme token：
 
 ```tsx
 const { theme } = useUnistyles();
 const markdownStyles = useMemo(() => createMarkdownStyles(theme), [theme]);
 ```
 
-If a style factory is cheap, skipping `useMemo` entirely is also fine.
+如果 style factory 很便宜，完全跳过 `useMemo` 也可以。
 
-## Static Theme Imports
+## 静态 theme imports
 
-Do not import `theme` from `@/styles/theme` for live UI colors. That export is a dark-theme compatibility default, so using it in render code leaves icons, placeholders, or third-party props pinned to dark colors in light mode.
+不要从 `@/styles/theme` import `theme` 用于 live UI colors。这个 export 是 dark-theme 兼容默认值，在 render code 中使用会让 icons、placeholders 或第三方 props 在 light mode 下仍固定为 dark colors。
 
-Wrap the icon (or other leaf component) with `withUnistyles` instead, so only that node re-renders when the theme changes:
+改用 `withUnistyles` 包 icon 或其他 leaf component，让只有该节点在 theme 变化时 re-render：
 
 ```tsx
 import { ChevronDown } from "lucide-react-native";
@@ -245,13 +233,13 @@ const styles = StyleSheet.create((theme) => ({
 <ThemedChevronDown size={theme.iconSize.md} style={styles.icon} />;
 ```
 
-This is the dominant pattern in the app today (see `sidebar-workspace-list.tsx`, `message.tsx`, the workspace screens). Reserve `useUnistyles()` for the last-resort cases described at the top of this file. Importing `baseColors`, theme-name constants, or `type Theme` is fine when the value is intentionally static or type-only.
+这是当前 app 的主流模式，见 `sidebar-workspace-list.tsx`、`message.tsx` 和 workspace screens。`useUnistyles()` 只留给上文明确说明的极少数 escape hatch。导入 `baseColors`、theme-name constants 或 `type Theme` 在值确实静态或仅类型时是可以的。
 
-## Reanimated `Animated.View` + Dynamic Styles Crashes
+## Reanimated `Animated.View` 加动态样式会崩溃
 
-Do not apply `StyleSheet.create((theme) => ...)` styles to a Reanimated `Animated.View`. Unistyles wraps styled components in a `<UnistylesComponent>` and patches native view props from C++ via the ShadowRegistry. Reanimated also reaches into the same native node from its worklet runtime. When a theme change fires, both systems try to mutate the same node and the app crashes with `Unable to find node on an unmounted component.` This was a real iOS sidebar crash on theme toggle (commit `4896cfe9`).
+不要把 `StyleSheet.create((theme) => ...)` 样式应用到 Reanimated `Animated.View`。Unistyles 会用 `<UnistylesComponent>` 包 styled component，并通过 ShadowRegistry 从 C++ patch native view props。Reanimated 也会从 worklet runtime 修改同一个 native node。Theme change 触发时，两个系统同时 mutate 同一 node，app 会 crash：`Unable to find node on an unmounted component.` 这是一次真实 iOS sidebar theme toggle crash（commit `4896cfe9`）。
 
-Fix: keep static positioning on the `Animated.View` in plain React Native `StyleSheet`, and pass theme-dependent values (e.g. `backgroundColor`) as inline style from `useUnistyles()` — the inline path is acceptable here because no other escape works:
+修复：`Animated.View` 上的静态定位使用普通 React Native `StyleSheet`，theme-dependent value（如 `backgroundColor`）从 `useUnistyles()` 作为 inline style 传入。这里 inline path 可以接受，因为没有其他逃生口：
 
 ```tsx
 import { StyleSheet as RNStyleSheet } from "react-native";
@@ -272,41 +260,41 @@ function Sidebar() {
 }
 ```
 
-This is one of the rare places `useUnistyles()` is the right tool: there is no `withUnistyles(Animated.View)` equivalent, the affected component is small, and the alternative is a crash.
+这是少数 `useUnistyles()` 合理的地方：没有 `withUnistyles(Animated.View)` 等价物，受影响组件很小，替代方案是 crash。
 
-## Adaptive Themes And Persisted Settings
+## 自适应主题和持久化设置
 
-Unistyles [`initialTheme`](https://www.unistyl.es/v3/guides/theming#select-theme) and [`adaptiveThemes`](https://www.unistyl.es/v3/guides/theming#adaptive-themes) are mutually exclusive. `initialTheme` can be a string or a synchronous function, but it cannot wait on async storage.
+Unistyles 的 `initialTheme` 和 `adaptiveThemes` 互斥。`initialTheme` 可以是字符串或同步函数，但不能等待 async storage。
 
-Doya currently stores app settings in AsyncStorage and loads them through react-query. That means the app can mount under adaptive/system theme first, then switch after settings load:
+Doya 当前把 app settings 存在 AsyncStorage，并通过 react-query 加载。这意味着 app 可能先在 adaptive/system theme 下 mount，然后在 settings 加载后切换：
 
-1. Unistyles config starts with `adaptiveThemes: true`.
-2. The device may report system light.
-3. Settings load a persisted non-auto preference, such as dark.
-4. The app calls `setAdaptiveThemes(false)` and `setTheme("dark")`.
+1. Unistyles config 以 `adaptiveThemes: true` 启动。
+2. 设备可能报告 system light。
+3. Settings 加载到 persisted non-auto preference，例如 dark。
+4. App 调用 `setAdaptiveThemes(false)` 和 `setTheme("dark")`。
 
-That brief transition is expected with the current storage model. It makes tracking-compatible styles important: anything mounted during the initial adaptive theme must update correctly after the persisted preference applies. [Issue #550](https://github.com/jpudysz/react-native-unistyles/issues/550) was a separate ScrollView sticky-header bug, but it is still useful context for why ScrollView theme updates deserve extra suspicion.
+在当前存储模型下，这个短暂过渡是预期行为。它要求所有 tracking-compatible styles 在 initial adaptive theme 下 mounted 后，也能在 persisted preference 生效时正确更新。Issue #550 是另一个 ScrollView sticky-header bug，但也提醒我们 ScrollView theme updates 要格外怀疑。
 
-If we ever need to avoid the transition entirely, store at least the theme preference in synchronous storage and configure Unistyles with `initialTheme`.
+如果未来必须完全避免这个过渡，至少把 theme preference 存到同步 storage，并用 `initialTheme` 配置 Unistyles。
 
-## Runtime Theme Patching For User Preferences
+## 用户偏好的 runtime theme patching
 
-Appearance settings (UI/mono font family, font sizes, syntax-highlight theme) are applied by patching every registered theme at runtime with `UnistylesRuntime.updateTheme(name, updater)` — not by threading preference reads through components. `applyAppearance` in `packages/app/src/screens/settings/appearance/apply-appearance.ts` runs from a `ProvidersWrapper` effect on settings load/change and loops all six theme keys, returning `{ ...theme, fontFamily, fontSize, lineHeight, colors.syntax }`.
+Appearance settings（UI/mono font family、font sizes、syntax-highlight theme）通过 `UnistylesRuntime.updateTheme(name, updater)` 在 runtime patch 所有已注册 theme，而不是把 preference 一路传到组件。`packages/app/src/screens/settings/appearance/apply-appearance.ts` 中的 `applyAppearance` 会在 `ProvidersWrapper` effect 中随 settings load/change 运行，遍历六个 theme key，并返回 `{ ...theme, fontFamily, fontSize, lineHeight, colors.syntax }`。
 
-This works without `useUnistyles()` because every consumer already reads these tokens through `StyleSheet.create((theme) => …)` (or the `withUnistyles`/`uniProps` path for the markdown renderer), so patching the theme repaints tracked views through the native ShadowRegistry with no React re-render.
+这个方案不需要 `useUnistyles()`，因为所有 consumer 已通过 `StyleSheet.create((theme) => …)` 读取 token，或者通过 `withUnistyles` / `uniProps` 路径给 markdown renderer 使用。Patch theme 会让 ShadowRegistry repaint 被追踪的 view，不触发 React re-render。
 
-Gotchas:
+注意事项：
 
-- **Patch all themes, not just the active one.** The active theme can change and adaptive mode can flip light/dark; patching every key keeps the active key current and makes ordering vs `setTheme`/`setAdaptiveThemes` irrelevant. The effect depends on the settings values (not on `theme`), so it cannot loop.
-- **Narrow the discriminated union before spreading.** `updateTheme`'s updater returns the theme union; spreading the union widens `colorScheme` to `"light" | "dark"`, which is assignable to neither concrete member. Branch on `t.colorScheme` so each branch spreads a single narrowed theme type (no `as`).
-- **`lineHeight.diff` is the code/diff line-height axis** — it is coupled to the code-font-size control (≈ `codeFontSize * 1.5`). Do NOT use it for prose. Markdown body line-height scales with the UI ramp (`Math.round(theme.fontSize.base * 1.4)`); routing prose through `lineHeight.diff` clips text at small code sizes.
-- **High-churn draft values** (live-while-typing in the appearance preview) bypass the theme: apply them as inline styles marked with `inlineUnistylesStyle` so per-keystroke values don't grow the `#unistyles-web` CSS registry.
-- **Mounted parsed content uses `AppearanceStyleBoundary`.** Markdown, syntax-highlighted code, and tool-call detail bodies can contain memoized/custom renderer trees that do not naturally re-run when runtime-patched appearance tokens change. Wrap the parsed surface once with `packages/app/src/components/appearance-style-boundary.tsx`; do not add local "appearance key" props at each callsite.
-- **Dynamic font tokens stay widened.** `fontFamily`, `fontSize`, and `lineHeight` on `commonTheme` are annotated `string`/`number` (not narrowed by `as const`) so the updater's return assigns; the platform default stacks live in `DEFAULT_UI_FONT_STACK` / `DEFAULT_MONO_FONT_STACK`.
+- **Patch 所有 theme，不只 active theme。** Active theme 会切换，adaptive mode 也可能翻转 light/dark。Patch 每个 key 可以保证当前 active key 总是最新，并让 `setTheme` / `setAdaptiveThemes` 的顺序无关。Effect 依赖 settings values，而不是 `theme`，所以不会循环。
+- **Spread 前先缩小 discriminated union。** `updateTheme` updater 返回 theme union；直接 spread union 会把 `colorScheme` 扩宽成 `"light" | "dark"`，无法赋给任一具体成员。根据 `t.colorScheme` 分支，让每个分支 spread 单一 narrowed theme type，不要用 `as`。
+- **`lineHeight.diff` 是 code/diff line-height 轴。** 它与 code-font-size control 绑定（约 `codeFontSize * 1.5`）。不要用于 prose。Markdown body line-height 跟 UI ramp 缩放（`Math.round(theme.fontSize.base * 1.4)`）；把 prose 走 `lineHeight.diff` 会在小 code size 下裁切文本。
+- **高频 draft values**（appearance preview 输入时实时变化）绕过 theme：用 `inlineUnistylesStyle` 作为 inline style，避免每次击键都增长 `#unistyles-web` CSS registry。
+- **Mounted parsed content 使用 `AppearanceStyleBoundary`。** Markdown、syntax-highlighted code 和 tool-call detail body 可能包含 memoized/custom renderer trees，不会自然响应 runtime-patched appearance tokens。用 `packages/app/src/components/appearance-style-boundary.tsx` 在 parsed surface 外包一次；不要在每个 callsite 加本地 `appearance key` props。
+- **Dynamic font tokens 保持 widened。** `commonTheme` 上的 `fontFamily`、`fontSize` 和 `lineHeight` 标注为 `string` / `number`，不要被 `as const` narrow，这样 updater return 才能赋值；平台默认栈在 `DEFAULT_UI_FONT_STACK` / `DEFAULT_MONO_FONT_STACK`。
 
-## Debugging
+## 调试
 
-To inspect what the Babel plugin sees, temporarily enable [`debug: true`](https://www.unistyl.es/v3/other/babel-plugin#debug) in `packages/app/babel.config.js`:
+要查看 Babel plugin 识别到什么，可临时在 `packages/app/babel.config.js` 中开启 `debug: true`：
 
 ```js
 [
@@ -318,24 +306,24 @@ To inspect what the Babel plugin sees, temporarily enable [`debug: true`](https:
 ],
 ```
 
-Then rebuild the bundle and look for lines such as:
+然后重新构建 bundle，查找类似输出：
 
 ```text
 src/components/welcome-screen.tsx: styles.container: [Theme]
 ```
 
-This only confirms that the stylesheet dependency was detected. The upstream debugging guide makes the same distinction: dependency detection is only one failure mode. It does not prove the style prop is registered on the native view you care about.
+这只能确认 stylesheet dependency 被检测到。它不能证明你关心的 native view 上注册了 style prop。
 
-For paint-layer bugs, use high-contrast probes:
+Paint-layer bug 使用高对比探针：
 
-1. Paint each candidate layer a distinct color, such as root wrapper cyan, `ScrollView.style` yellow, and `contentContainerStyle` magenta.
-2. Cold-restart the app, not just Fast Refresh.
-3. Screenshot the simulator and sample pixels to see which color fills the area.
-4. Remove the probes before committing.
+1. 把每个候选层涂成不同颜色，例如 root wrapper cyan、`ScrollView.style` yellow、`contentContainerStyle` magenta。
+2. 冷启动 app，不只是 Fast Refresh。
+3. 截 simulator 图并采样像素，确认哪个颜色填充区域。
+4. 提交前删除探针。
 
-The welcome-screen investigation used this approach to prove the white layer was the `ScrollView` content container. Deep-dive evidence is in [welcome-theme-split-research.md](/Users/moboudra/.doya/notes/welcome-theme-split-research.md).
+Welcome-screen 排查就是用这个方法证明白色层来自 `ScrollView` content container。深入证据在 [welcome-theme-split-research.md](/Users/moboudra/.doya/notes/welcome-theme-split-research.md)。
 
-## References
+## 参考
 
 - [Unistyles v3 documentation](https://www.unistyl.es/)
 - [Theming: initial theme, adaptive themes, and runtime theme changes](https://www.unistyl.es/v3/guides/theming)

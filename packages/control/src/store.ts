@@ -3,12 +3,23 @@ import path from "node:path";
 import type {
   AccountSession,
   ArtifactRecord,
+  BillingAccountRecord,
+  BillingSettingsRecord,
+  BillingStatus,
+  CreditLedgerEntryRecord,
+  CreditLedgerKind,
   ControlSettingsRecord,
   DaemonNodeRecord,
   FileSnapshotFileRecord,
   FileSnapshotRecord,
   MessageRole,
+  ModelPricingRecord,
   NodeStatus,
+  PaymentOrderRecord,
+  PaymentProviderType,
+  PlanId,
+  PlanRecord,
+  ReferralRecord,
   RuntimeAllocationRecord,
   RuntimeStatus,
   SessionAgentBindingRecord,
@@ -16,10 +27,28 @@ import type {
   SessionMessageRecord,
   SessionRecord,
   SessionStatus,
+  StorageQuotaRecord,
+  UsageLogRecord,
   UserDaemonWorkspaceRecord,
   UserRecord,
   WorkingContext,
 } from "./domain.js";
+import {
+  aggregateUsageLogs,
+  buildUsageRequestFingerprint,
+  calculateUsageCost,
+  createPricingSnapshot,
+  DEFAULT_BILLING_SETTINGS,
+  DEFAULT_MODEL_PRICING,
+  DEFAULT_PLANS,
+  MIN_PAYMENT_AMOUNT_CNY,
+  getPlan,
+  normalizeUsageTokens,
+  resolveModelPricing,
+  type UsageAggregation,
+  type UsageAggregationFilters,
+  type UsageTokenInput,
+} from "./billing.js";
 import { createAccessToken, createId } from "./shared/ids.js";
 import { type Clock, systemClock } from "./shared/time.js";
 
@@ -38,6 +67,15 @@ interface ControlSnapshot {
   userDaemonWorkspaces: UserDaemonWorkspaceRecord[];
   runtimeAllocations: RuntimeAllocationRecord[];
   agentBindings: SessionAgentBindingRecord[];
+  billingSettings: BillingSettingsRecord;
+  plans: PlanRecord[];
+  modelPricing: ModelPricingRecord[];
+  billingAccounts: BillingAccountRecord[];
+  creditLedger: CreditLedgerEntryRecord[];
+  usageLogs: UsageLogRecord[];
+  storageQuotas: StorageQuotaRecord[];
+  referrals: ReferralRecord[];
+  paymentOrders: PaymentOrderRecord[];
 }
 
 const EMPTY_SNAPSHOT: ControlSnapshot = {
@@ -51,9 +89,84 @@ const EMPTY_SNAPSHOT: ControlSnapshot = {
   userDaemonWorkspaces: [],
   runtimeAllocations: [],
   agentBindings: [],
+  billingSettings: DEFAULT_BILLING_SETTINGS,
+  plans: DEFAULT_PLANS,
+  modelPricing: [],
+  billingAccounts: [],
+  creditLedger: [],
+  usageLogs: [],
+  storageQuotas: [],
+  referrals: [],
+  paymentOrders: [],
 };
 
 export class NotFoundError extends Error {}
+export class BillingPreflightError extends Error {}
+export class UsageBillingConflictError extends Error {}
+export class PricingUnavailableError extends Error {}
+export class StorageQuotaExceededError extends Error {}
+export class ReferralConflictError extends Error {}
+
+export interface BillingPreflightResult {
+  ok: true;
+  account: BillingAccountRecord;
+  storageQuota: StorageQuotaRecord;
+  pricing?: ModelPricingRecord;
+  balanceCny: number;
+}
+
+export interface RecordUsageTurnInput {
+  userId: string;
+  sessionId: string;
+  runtimeId: string;
+  nodeId?: string | null;
+  agentId: string;
+  providerId: string;
+  modelId: string;
+  turnId: string;
+  requestId?: string;
+  requestFingerprint?: string;
+  tokens: UsageTokenInput;
+}
+
+export interface RecordUsageTurnResult {
+  applied: boolean;
+  usageLog: UsageLogRecord;
+  ledgerEntry: CreditLedgerEntryRecord | null;
+  balanceCny: number;
+}
+
+export interface AdminBillingOverview {
+  settings: BillingSettingsRecord;
+  totals: {
+    totalRmbCost: number;
+    totalUsdCost: number;
+    totalTokens: number;
+    monthUsageChargeCny: number;
+    activePaidUserCount: number;
+    exhaustedUserCount: number;
+    storageExceededUserCount: number;
+    referralRewardTotalCny: number;
+  };
+}
+
+export interface AdminBillingState {
+  overview: AdminBillingOverview;
+  plans: PlanRecord[];
+  pricing: ModelPricingRecord[];
+  users: Array<{
+    user: UserRecord;
+    account: BillingAccountRecord;
+    balanceCny: number;
+    storageQuota: StorageQuotaRecord;
+  }>;
+  usageLogs: UsageLogRecord[];
+  ledger: CreditLedgerEntryRecord[];
+  storageQuotas: StorageQuotaRecord[];
+  referrals: ReferralRecord[];
+  usage: UsageAggregation;
+  usageFilters: UsageAggregationFilters;
+}
 
 export interface AdminDaemonNodeSummary {
   node: Omit<DaemonNodeRecord, "runtimeAuthToken">;
@@ -135,6 +248,7 @@ export class ControlStore {
       disabledAt: null,
     };
     this.snapshot.users = [...this.snapshot.users, user];
+    this.ensureBillingAccountForUser(user.id);
     await this.enqueuePersist();
     return { user: stripUserToken(user), accessToken: user.accessToken };
   }
@@ -155,6 +269,813 @@ export class ControlStore {
     return stripUserToken(await this.requireUser(input));
   }
 
+  async getBillingAccount(input: { userId: string }): Promise<BillingAccountRecord> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    return this.ensureBillingAccountForUser(input.userId);
+  }
+
+  async getBillingSummary(input: { userId: string }): Promise<{
+    account: BillingAccountRecord;
+    plan: PlanRecord;
+    plans: PlanRecord[];
+    balanceCny: number;
+    storageQuota: StorageQuotaRecord;
+    ledger: CreditLedgerEntryRecord[];
+    usage: UsageAggregation;
+    recentUsageLogs: UsageLogRecord[];
+    referrals: ReferralRecord[];
+    referralCode: string;
+    referralStats: {
+      registeredCount: number;
+      qualifiedCount: number;
+      rewardedCount: number;
+      rewardTotalCny: number;
+      monthlyRemainingRewardCount: number;
+    };
+  }> {
+    await this.load();
+    const account = this.ensureBillingAccountForUser(input.userId);
+    const plan = getPlan(this.snapshot.plans, account.planId);
+    const balanceCny = this.calculateUserBalanceCny(input.userId);
+    const storageQuota = this.ensureStorageQuotaForUser(input.userId);
+    return {
+      account: { ...account, balanceCachedCny: balanceCny },
+      plan,
+      plans: this.snapshot.plans,
+      balanceCny,
+      storageQuota,
+      ledger: this.snapshot.creditLedger
+        .filter((entry) => entry.userId === input.userId)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+      usage: this.aggregateUsage({ userId: input.userId }),
+      recentUsageLogs: this.snapshot.usageLogs
+        .filter((log) => log.userId === input.userId)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        .slice(0, 50),
+      referrals: this.snapshot.referrals
+        .filter(
+          (referral) =>
+            referral.inviterUserId === input.userId || referral.inviteeUserId === input.userId,
+        )
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+      referralCode: buildReferralCode(input.userId),
+      referralStats: this.getReferralStats(input.userId),
+    };
+  }
+
+  async preflightBilling(input: {
+    userId: string;
+    providerId?: string | null;
+    modelId?: string | null;
+  }): Promise<BillingPreflightResult> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    const account = this.ensureBillingAccountForUser(input.userId);
+    if (account.status === "disabled" || account.status === "past_due") {
+      throw new BillingPreflightError("Billing account is not active.");
+    }
+    const balanceCny = this.calculateUserBalanceCny(input.userId);
+    if (balanceCny <= 0) {
+      this.updateBillingAccountStatus(input.userId, "usage_exhausted");
+      throw new BillingPreflightError("AI usage balance is exhausted.");
+    }
+    const storageQuota = this.ensureStorageQuotaForUser(input.userId);
+    if (storageQuota.workspaceBytesUsed > storageQuota.workspaceBytesLimit) {
+      this.updateBillingAccountStatus(input.userId, "storage_exceeded");
+      throw new BillingPreflightError("Workspace storage limit is exceeded.");
+    }
+    if (!input.providerId || !input.modelId) {
+      return { ok: true, account, storageQuota, balanceCny };
+    }
+    const pricing = resolveModelPricing({
+      pricing: this.snapshot.modelPricing,
+      providerId: input.providerId,
+      modelId: input.modelId,
+    });
+    if (!pricing) {
+      throw new PricingUnavailableError("Enabled model pricing is required before billing.");
+    }
+    if (!pricing.supportsUsageAccounting) {
+      throw new BillingPreflightError("Provider/model does not support real usage accounting.");
+    }
+    return { ok: true, account, storageQuota, pricing, balanceCny };
+  }
+
+  async recordUsageTurn(input: RecordUsageTurnInput): Promise<RecordUsageTurnResult> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    await this.getSession({ sessionId: input.sessionId, userId: input.userId });
+    const requestId =
+      input.requestId?.trim() || `${input.runtimeId}:${input.agentId}:${input.turnId}`;
+    const existing = this.snapshot.usageLogs.find((log) => log.requestId === requestId);
+    const providedFingerprint = input.requestFingerprint?.trim();
+    if (existing && providedFingerprint) {
+      if (existing.requestFingerprint !== providedFingerprint) {
+        throw new UsageBillingConflictError("Usage billing request fingerprint conflict.");
+      }
+      return {
+        applied: false,
+        usageLog: existing,
+        ledgerEntry: null,
+        balanceCny: this.calculateUserBalanceCny(input.userId),
+      };
+    }
+    const pricing = resolveModelPricing({
+      pricing: this.snapshot.modelPricing,
+      providerId: input.providerId,
+      modelId: input.modelId,
+    });
+    if (!pricing) {
+      throw new PricingUnavailableError("Enabled model pricing is required before billing.");
+    }
+    if (!pricing.supportsUsageAccounting) {
+      throw new BillingPreflightError("Provider/model does not support real usage accounting.");
+    }
+    const pricingSnapshot = createPricingSnapshot(pricing);
+    const tokens = normalizeUsageTokens(input.tokens);
+    const cost = calculateUsageCost({
+      tokens,
+      pricing: pricingSnapshot,
+      settings: this.snapshot.billingSettings,
+    });
+    const requestFingerprint =
+      providedFingerprint ||
+      buildUsageRequestFingerprint({
+        userId: input.userId,
+        sessionId: input.sessionId,
+        runtimeId: input.runtimeId,
+        agentId: input.agentId,
+        providerId: input.providerId,
+        modelId: input.modelId,
+        turnId: input.turnId,
+        tokens,
+        cost,
+        pricingSnapshot,
+      });
+    if (existing) {
+      if (existing.requestFingerprint !== requestFingerprint) {
+        throw new UsageBillingConflictError("Usage billing request fingerprint conflict.");
+      }
+      return {
+        applied: false,
+        usageLog: existing,
+        ledgerEntry: null,
+        balanceCny: this.calculateUserBalanceCny(input.userId),
+      };
+    }
+    const timestamp = this.timestamp();
+    const usageLog: UsageLogRecord = {
+      id: createId("ulg"),
+      userId: input.userId,
+      sessionId: input.sessionId,
+      runtimeId: input.runtimeId,
+      nodeId: input.nodeId ?? null,
+      agentId: input.agentId,
+      providerId: input.providerId,
+      modelId: input.modelId,
+      turnId: input.turnId,
+      requestId,
+      requestFingerprint,
+      inputTokens: tokens.inputTokens,
+      outputTokens: tokens.outputTokens,
+      cacheCreationTokens: tokens.cacheCreationTokens,
+      cacheReadTokens: tokens.cacheReadTokens,
+      reasoningTokens: tokens.reasoningTokens,
+      contextWindowUsedTokens: tokens.contextWindowUsedTokens,
+      contextWindowMaxTokens: tokens.contextWindowMaxTokens,
+      ...cost,
+      usdToCnyRate: this.snapshot.billingSettings.usdToCnyRate,
+      tokenMarkupMultiplier: this.snapshot.billingSettings.tokenMarkupMultiplier,
+      pricingSnapshot,
+      status: "charged",
+      createdAt: timestamp,
+    };
+    this.snapshot.usageLogs = [...this.snapshot.usageLogs, usageLog];
+    const account = this.ensureBillingAccountForUser(input.userId);
+    const ledgerEntry: CreditLedgerEntryRecord = {
+      id: createId("led"),
+      userId: input.userId,
+      accountId: account.id,
+      kind: "usage_charge",
+      amountCny: -usageLog.actualCostCny,
+      expiresAt: null,
+      usageLogId: usageLog.id,
+      referralId: null,
+      note: null,
+      metadata: {
+        requestId,
+        providerId: input.providerId,
+        modelId: input.modelId,
+      },
+      createdAt: timestamp,
+    };
+    this.snapshot.creditLedger = [...this.snapshot.creditLedger, ledgerEntry];
+    const balanceCny = this.refreshBillingBalance(input.userId);
+    if (balanceCny <= 0) {
+      this.updateBillingAccountStatus(input.userId, "usage_exhausted");
+    }
+    this.qualifyReferralForUser(input.userId);
+    await this.enqueuePersist();
+    return { applied: true, usageLog, ledgerEntry, balanceCny };
+  }
+
+  async upsertModelPricing(input: {
+    id?: string;
+    providerId: string;
+    modelId: string;
+    displayName: string;
+    inputPriceUsdPerToken: number;
+    outputPriceUsdPerToken: number;
+    cacheCreationPriceUsdPerToken: number;
+    cacheReadPriceUsdPerToken: number;
+    supportsUsageAccounting?: boolean;
+    enabled?: boolean;
+    source?: ModelPricingRecord["source"];
+  }): Promise<ModelPricingRecord> {
+    await this.load();
+    const timestamp = this.timestamp();
+    const existing = input.id
+      ? this.snapshot.modelPricing.find((entry) => entry.id === input.id)
+      : this.snapshot.modelPricing.find(
+          (entry) => entry.providerId === input.providerId && entry.modelId === input.modelId,
+        );
+    const pricing: ModelPricingRecord = {
+      id: existing?.id ?? createId("mpr"),
+      providerId: input.providerId,
+      modelId: input.modelId,
+      displayName: input.displayName,
+      billingMode: "token",
+      inputPriceUsdPerToken: input.inputPriceUsdPerToken,
+      outputPriceUsdPerToken: input.outputPriceUsdPerToken,
+      cacheCreationPriceUsdPerToken: input.cacheCreationPriceUsdPerToken,
+      cacheReadPriceUsdPerToken: input.cacheReadPriceUsdPerToken,
+      supportsUsageAccounting:
+        input.supportsUsageAccounting ?? existing?.supportsUsageAccounting ?? true,
+      enabled: input.enabled ?? existing?.enabled ?? true,
+      source: input.source ?? existing?.source ?? "manual",
+      createdAt: existing?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+    this.snapshot.modelPricing = upsertById(
+      this.snapshot.modelPricing,
+      pricing,
+      (entry) => entry.id,
+    );
+    await this.enqueuePersist();
+    return pricing;
+  }
+
+  async listModelPricing(): Promise<ModelPricingRecord[]> {
+    await this.load();
+    this.snapshot.modelPricing = mergeDefaultModelPricing(this.snapshot.modelPricing);
+    return [...this.snapshot.modelPricing].sort((left, right) =>
+      `${left.providerId}:${left.modelId}`.localeCompare(`${right.providerId}:${right.modelId}`),
+    );
+  }
+
+  async getAdminBillingOverview(): Promise<AdminBillingOverview> {
+    await this.load();
+    const monthStart = startOfUtcMonth(this.now()).toISOString();
+    const usage = this.aggregateUsage({});
+    const monthUsageChargeCny = this.snapshot.creditLedger
+      .filter((entry) => entry.kind === "usage_charge" && entry.createdAt >= monthStart)
+      .reduce((total, entry) => total + Math.abs(entry.amountCny), 0);
+    return {
+      settings: this.snapshot.billingSettings,
+      totals: {
+        totalRmbCost: usage.actualCostCny,
+        totalUsdCost: usage.baseCostUsd,
+        totalTokens: usage.totalTokens,
+        monthUsageChargeCny,
+        activePaidUserCount: this.snapshot.billingAccounts.filter(
+          (account) => account.planId === "pro" && account.status === "active",
+        ).length,
+        exhaustedUserCount: this.snapshot.billingAccounts.filter(
+          (account) => account.status === "usage_exhausted",
+        ).length,
+        storageExceededUserCount: this.snapshot.billingAccounts.filter(
+          (account) => account.status === "storage_exceeded",
+        ).length,
+        referralRewardTotalCny: this.snapshot.creditLedger
+          .filter(
+            (entry) =>
+              entry.kind === "referral_inviter_reward" || entry.kind === "referral_invitee_bonus",
+          )
+          .reduce((total, entry) => total + entry.amountCny, 0),
+      },
+    };
+  }
+
+  async getAdminBillingState(filters: UsageAggregationFilters = {}): Promise<AdminBillingState> {
+    await this.load();
+    const overview = await this.getAdminBillingOverview();
+    const users = this.snapshot.users.map((user) => {
+      const publicUser = stripUserToken(user);
+      const account = this.ensureBillingAccountForUser(user.id);
+      const balanceCny = this.refreshBillingBalance(user.id);
+      return {
+        user: publicUser,
+        account: { ...account, balanceCachedCny: balanceCny },
+        balanceCny,
+        storageQuota: this.ensureStorageQuotaForUser(user.id),
+      };
+    });
+    return {
+      overview,
+      plans: this.snapshot.plans,
+      pricing: await this.listModelPricing(),
+      users,
+      usageLogs: this.getUsageLogs(filters),
+      ledger: [...this.snapshot.creditLedger].sort((left, right) =>
+        right.createdAt.localeCompare(left.createdAt),
+      ),
+      storageQuotas: [...this.snapshot.storageQuotas].sort((left, right) =>
+        right.updatedAt.localeCompare(left.updatedAt),
+      ),
+      referrals: [...this.snapshot.referrals].sort((left, right) =>
+        right.updatedAt.localeCompare(left.updatedAt),
+      ),
+      usage: this.aggregateUsage(filters),
+      usageFilters: filters,
+    };
+  }
+
+  async updateBillingSettings(
+    patch: Partial<
+      Pick<
+        BillingSettingsRecord,
+        | "usdToCnyRate"
+        | "tokenMarkupMultiplier"
+        | "freeMonthlyGrantCny"
+        | "proMonthlyGrantCny"
+        | "referralInviteeBonusCny"
+        | "referralInviterRewardCny"
+        | "referralMonthlyRewardLimit"
+        | "referralDailyRewardLimit"
+        | "referralRewardExpiresDays"
+      >
+    >,
+  ): Promise<BillingSettingsRecord> {
+    await this.load();
+    this.snapshot.billingSettings = normalizeBillingSettings({
+      ...this.snapshot.billingSettings,
+      ...patch,
+      updatedAt: this.timestamp(),
+    });
+    await this.enqueuePersist();
+    return this.snapshot.billingSettings;
+  }
+
+  async updateBillingPlanDefinition(input: {
+    planId: PlanId;
+    priceCny: number;
+    monthlyGrantCny: number;
+    workspaceBytesLimit: number;
+    singleUploadBytesLimit: number;
+    enabled: boolean;
+  }): Promise<PlanRecord> {
+    await this.load();
+    const currentPlan = getPlan(this.snapshot.plans, input.planId);
+    const plan: PlanRecord = {
+      ...currentPlan,
+      priceCny: input.priceCny,
+      monthlyGrantCny: input.monthlyGrantCny,
+      workspaceBytesLimit: input.workspaceBytesLimit,
+      singleUploadBytesLimit: input.singleUploadBytesLimit,
+      enabled: input.enabled,
+    };
+    const timestamp = this.timestamp();
+    this.snapshot.plans = upsertById(this.snapshot.plans, plan, (entry) => entry.id);
+    this.snapshot.billingSettings = normalizeBillingSettings({
+      ...this.snapshot.billingSettings,
+      freeMonthlyGrantCny:
+        plan.id === "free"
+          ? plan.monthlyGrantCny
+          : this.snapshot.billingSettings.freeMonthlyGrantCny,
+      proMonthlyGrantCny:
+        plan.id === "pro" ? plan.monthlyGrantCny : this.snapshot.billingSettings.proMonthlyGrantCny,
+      updatedAt: timestamp,
+    });
+    for (const account of this.snapshot.billingAccounts) {
+      if (account.planId !== plan.id) {
+        continue;
+      }
+      const quota = this.ensureStorageQuotaForUser(account.userId);
+      const workspaceBytesLimit = quota.temporaryWorkspaceBytesLimit ?? plan.workspaceBytesLimit;
+      this.snapshot.storageQuotas = upsertById(
+        this.snapshot.storageQuotas,
+        {
+          ...quota,
+          workspaceBytesLimit,
+          singleUploadBytesLimit: plan.singleUploadBytesLimit,
+          updatedAt: timestamp,
+        },
+        (entry) => entry.id,
+      );
+      const workspaceBytesUsed = quota.uploadedBytesUsed + quota.generatedBytesUsed;
+      if (workspaceBytesUsed > workspaceBytesLimit) {
+        this.updateBillingAccountStatus(account.userId, "storage_exceeded");
+      } else if (account.status === "storage_exceeded") {
+        this.updateBillingAccountStatus(
+          account.userId,
+          account.planId === "pro" ? "active" : "free",
+        );
+      }
+    }
+    await this.enqueuePersist();
+    return plan;
+  }
+
+  async createAdminAdjustment(input: {
+    userId: string;
+    amountCny: number;
+    note?: string | null;
+  }): Promise<{ ledgerEntry: CreditLedgerEntryRecord; balanceCny: number }> {
+    return await this.createManualCreditLedgerEntry({ ...input, kind: "admin_adjustment" });
+  }
+
+  async createAdminTopUp(input: {
+    userId: string;
+    amountCny: number;
+    note?: string | null;
+  }): Promise<{ ledgerEntry: CreditLedgerEntryRecord; balanceCny: number }> {
+    return await this.createManualCreditLedgerEntry({ ...input, kind: "top_up" });
+  }
+
+  private async createManualCreditLedgerEntry(input: {
+    userId: string;
+    amountCny: number;
+    kind: Extract<CreditLedgerKind, "admin_adjustment" | "top_up">;
+    note?: string | null;
+  }): Promise<{ ledgerEntry: CreditLedgerEntryRecord; balanceCny: number }> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    const account = this.ensureBillingAccountForUser(input.userId);
+    const ledgerEntry: CreditLedgerEntryRecord = {
+      id: createId("led"),
+      userId: input.userId,
+      accountId: account.id,
+      kind: input.kind,
+      amountCny: input.amountCny,
+      expiresAt: null,
+      usageLogId: null,
+      referralId: null,
+      note: input.note?.trim() || null,
+      metadata: null,
+      createdAt: this.timestamp(),
+    };
+    this.snapshot.creditLedger = [...this.snapshot.creditLedger, ledgerEntry];
+    const balanceCny = this.refreshBillingBalance(input.userId);
+    if (balanceCny > 0 && account.status === "usage_exhausted") {
+      this.updateBillingAccountStatus(input.userId, account.planId === "pro" ? "active" : "free");
+    }
+    await this.enqueuePersist();
+    return { ledgerEntry, balanceCny };
+  }
+
+  async updateBillingAccountPlan(input: {
+    userId: string;
+    planId: PlanId;
+    grantMonthlyAllowance?: boolean;
+  }): Promise<{
+    account: BillingAccountRecord;
+    ledgerEntry: CreditLedgerEntryRecord | null;
+    balanceCny: number;
+  }> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    const current = this.ensureBillingAccountForUser(input.userId);
+    const plan = getPlan(this.snapshot.plans, input.planId);
+    const timestamp = this.timestamp();
+    const account: BillingAccountRecord = {
+      ...current,
+      planId: plan.id,
+      status: plan.id === "pro" ? "active" : "free",
+      currentPeriodStart: startOfUtcMonth(this.now()).toISOString(),
+      currentPeriodEnd: startOfNextUtcMonth(this.now()).toISOString(),
+      updatedAt: timestamp,
+    };
+    this.snapshot.billingAccounts = upsertById(
+      this.snapshot.billingAccounts,
+      account,
+      (entry) => entry.id,
+    );
+    const ledgerEntry = input.grantMonthlyAllowance
+      ? this.createMonthlyGrantLedgerEntry({
+          userId: input.userId,
+          accountId: account.id,
+          plan,
+          timestamp,
+          expiresAt: account.currentPeriodEnd,
+        })
+      : null;
+    if (ledgerEntry) {
+      this.snapshot.creditLedger = [...this.snapshot.creditLedger, ledgerEntry];
+    }
+    const planQuotaAdjustment = input.grantMonthlyAllowance
+      ? null
+      : createPlanQuotaAdjustmentLedgerEntry({
+          userId: input.userId,
+          accountId: account.id,
+          amountCny: plan.monthlyGrantCny - this.calculateUserBalanceCny(input.userId),
+          timestamp,
+        });
+    if (planQuotaAdjustment) {
+      this.snapshot.creditLedger = [...this.snapshot.creditLedger, planQuotaAdjustment];
+    }
+    const storageQuota = this.ensureStorageQuotaForUser(input.userId);
+    this.snapshot.storageQuotas = upsertById(
+      this.snapshot.storageQuotas,
+      {
+        ...storageQuota,
+        workspaceBytesLimit: storageQuota.temporaryWorkspaceBytesLimit ?? plan.workspaceBytesLimit,
+        singleUploadBytesLimit: plan.singleUploadBytesLimit,
+        updatedAt: timestamp,
+      },
+      (entry) => entry.id,
+    );
+    const balanceCny = this.refreshBillingBalance(input.userId);
+    await this.enqueuePersist();
+    return {
+      account: { ...account, balanceCachedCny: balanceCny },
+      ledgerEntry: ledgerEntry ?? planQuotaAdjustment,
+      balanceCny,
+    };
+  }
+
+  async createPaymentOrder(input: {
+    userId: string;
+    planId: PlanId;
+    billingPeriod: "monthly" | "yearly";
+    providerType: PaymentProviderType;
+  }): Promise<PaymentOrderRecord> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    const plan = getPlan(this.snapshot.plans, input.planId);
+    const planAmountCny = input.billingPeriod === "yearly" ? plan.priceCny * 10 : plan.priceCny;
+    const amountCny = Math.max(planAmountCny, MIN_PAYMENT_AMOUNT_CNY);
+    if (amountCny <= 0) {
+      throw new BillingPreflightError("Paid order amount must be greater than zero.");
+    }
+    const timestamp = this.timestamp();
+    const order: PaymentOrderRecord = {
+      id: createId("pay"),
+      userId: input.userId,
+      planId: plan.id,
+      billingPeriod: input.billingPeriod,
+      providerType: input.providerType,
+      outTradeNo: `doya_${Date.now()}_${createId("ord")}`,
+      providerTradeNo: null,
+      amountCny,
+      status: "pending",
+      paymentUrl: null,
+      qrcode: null,
+      urlscheme: null,
+      rawGatewayResponse: null,
+      rawNotifyPayload: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      paidAt: null,
+    };
+    this.snapshot.paymentOrders = [...this.snapshot.paymentOrders, order];
+    await this.enqueuePersist();
+    return order;
+  }
+
+  async updatePaymentOrderGatewayResult(input: {
+    orderId: string;
+    providerTradeNo?: string | null;
+    paymentUrl?: string | null;
+    qrcode?: string | null;
+    urlscheme?: string | null;
+    rawGatewayResponse?: unknown;
+  }): Promise<PaymentOrderRecord> {
+    await this.load();
+    const order = this.snapshot.paymentOrders.find((entry) => entry.id === input.orderId);
+    if (!order) {
+      throw new NotFoundError("Payment order not found");
+    }
+    const next: PaymentOrderRecord = {
+      ...order,
+      providerTradeNo: input.providerTradeNo ?? order.providerTradeNo,
+      paymentUrl: input.paymentUrl ?? order.paymentUrl,
+      qrcode: input.qrcode ?? order.qrcode,
+      urlscheme: input.urlscheme ?? order.urlscheme,
+      rawGatewayResponse: input.rawGatewayResponse ?? order.rawGatewayResponse,
+      updatedAt: this.timestamp(),
+    };
+    this.snapshot.paymentOrders = upsertById(
+      this.snapshot.paymentOrders,
+      next,
+      (entry) => entry.id,
+    );
+    await this.enqueuePersist();
+    return next;
+  }
+
+  async confirmPaidPaymentOrder(input: {
+    outTradeNo: string;
+    providerTradeNo: string;
+    providerType: PaymentProviderType;
+    amountCny: number;
+    rawNotifyPayload: unknown;
+  }): Promise<{ order: PaymentOrderRecord }> {
+    await this.load();
+    const order = this.snapshot.paymentOrders.find(
+      (entry) => entry.outTradeNo === input.outTradeNo,
+    );
+    if (!order) {
+      throw new NotFoundError("Payment order not found");
+    }
+    if (order.providerType !== input.providerType) {
+      throw new BillingPreflightError("Payment provider does not match the order.");
+    }
+    if (Math.abs(order.amountCny - input.amountCny) > 0.001) {
+      throw new BillingPreflightError("Payment amount does not match the order.");
+    }
+    if (order.status === "paid") {
+      return { order };
+    }
+    const paidOrder: PaymentOrderRecord = {
+      ...order,
+      status: "paid",
+      providerTradeNo: input.providerTradeNo,
+      rawNotifyPayload: input.rawNotifyPayload,
+      paidAt: order.paidAt ?? this.timestamp(),
+      updatedAt: this.timestamp(),
+    };
+    this.snapshot.paymentOrders = upsertById(
+      this.snapshot.paymentOrders,
+      paidOrder,
+      (entry) => entry.id,
+    );
+    await this.enqueuePersist();
+    await this.updateBillingAccountPlan({
+      userId: paidOrder.userId,
+      planId: paidOrder.planId,
+      grantMonthlyAllowance: true,
+    });
+    return { order: paidOrder };
+  }
+
+  async updateStorageQuota(input: {
+    userId: string;
+    uploadedBytesUsed?: number;
+    generatedBytesUsed?: number;
+    temporaryWorkspaceBytesLimit?: number | null;
+    lastScannedAt?: string | null;
+  }): Promise<StorageQuotaRecord> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    const current = this.ensureStorageQuotaForUser(input.userId);
+    const uploadedBytesUsed = input.uploadedBytesUsed ?? current.uploadedBytesUsed;
+    const generatedBytesUsed = input.generatedBytesUsed ?? current.generatedBytesUsed;
+    const next: StorageQuotaRecord = {
+      ...current,
+      uploadedBytesUsed,
+      generatedBytesUsed,
+      workspaceBytesUsed: uploadedBytesUsed + generatedBytesUsed,
+      workspaceBytesLimit: input.temporaryWorkspaceBytesLimit ?? current.workspaceBytesLimit,
+      temporaryWorkspaceBytesLimit:
+        input.temporaryWorkspaceBytesLimit === undefined
+          ? current.temporaryWorkspaceBytesLimit
+          : input.temporaryWorkspaceBytesLimit,
+      lastScannedAt: input.lastScannedAt === undefined ? this.timestamp() : input.lastScannedAt,
+      updatedAt: this.timestamp(),
+    };
+    this.snapshot.storageQuotas = upsertById(
+      this.snapshot.storageQuotas,
+      next,
+      (entry) => entry.id,
+    );
+    if (next.workspaceBytesUsed > next.workspaceBytesLimit) {
+      this.updateBillingAccountStatus(input.userId, "storage_exceeded");
+    }
+    await this.enqueuePersist();
+    return next;
+  }
+
+  async updateReferral(input: {
+    referralId: string;
+    status: ReferralRecord["status"];
+    rejectReason?: string | null;
+  }): Promise<ReferralRecord> {
+    await this.load();
+    const referral = this.snapshot.referrals.find((entry) => entry.id === input.referralId);
+    if (!referral) {
+      throw new NotFoundError("Referral not found");
+    }
+    const timestamp = this.timestamp();
+    let next: ReferralRecord = {
+      ...referral,
+      status: input.status,
+      rejectReason: input.rejectReason?.trim() || null,
+      qualifiedAt:
+        input.status === "qualified" ? (referral.qualifiedAt ?? timestamp) : referral.qualifiedAt,
+      rewardedAt:
+        input.status === "rewarded" ? (referral.rewardedAt ?? timestamp) : referral.rewardedAt,
+      updatedAt: timestamp,
+    };
+    if (input.status === "rewarded" && !referral.inviterRewardLedgerId) {
+      const inviterAccount = this.ensureBillingAccountForUser(referral.inviterUserId);
+      const reward: CreditLedgerEntryRecord = {
+        id: createId("led"),
+        userId: referral.inviterUserId,
+        accountId: inviterAccount.id,
+        kind: "referral_inviter_reward",
+        amountCny: this.snapshot.billingSettings.referralInviterRewardCny,
+        expiresAt: addUtcDays(this.now(), this.snapshot.billingSettings.referralRewardExpiresDays),
+        usageLogId: null,
+        referralId: referral.id,
+        note: "Manual referral reward",
+        metadata: { inviteeUserId: referral.inviteeUserId, manual: true },
+        createdAt: timestamp,
+      };
+      this.snapshot.creditLedger = [...this.snapshot.creditLedger, reward];
+      next = {
+        ...next,
+        rewardedAt: timestamp,
+        inviterRewardLedgerId: reward.id,
+      };
+      this.refreshBillingBalance(referral.inviterUserId);
+    }
+    this.snapshot.referrals = upsertById(this.snapshot.referrals, next, (entry) => entry.id);
+    await this.enqueuePersist();
+    return next;
+  }
+
+  async bindReferralCode(input: {
+    inviteeUserId: string;
+    code: string;
+    sourceFingerprint?: string | null;
+  }): Promise<ReferralRecord> {
+    await this.load();
+    this.requireExistingUser(input.inviteeUserId);
+    const normalizedCode = normalizeReferralCode(input.code);
+    const inviter = this.snapshot.users.find(
+      (user) => buildReferralCode(user.id) === normalizedCode,
+    );
+    if (!inviter) {
+      throw new NotFoundError("Referral code not found");
+    }
+    if (inviter.id === input.inviteeUserId) {
+      throw new ReferralConflictError("Users cannot use their own referral code.");
+    }
+    const existing = this.snapshot.referrals.find(
+      (referral) => referral.inviteeUserId === input.inviteeUserId,
+    );
+    if (existing) {
+      if (existing.code !== normalizedCode || existing.inviterUserId !== inviter.id) {
+        throw new ReferralConflictError("User already has a referral binding.");
+      }
+      return existing;
+    }
+    const timestamp = this.timestamp();
+    const sourceFingerprint = normalizeOptionalString(input.sourceFingerprint);
+    const isSuspicious = sourceFingerprint
+      ? this.countRecentReferralBindingsForSource(sourceFingerprint, timestamp) >= 5
+      : false;
+    const referral: ReferralRecord = {
+      id: createId("ref"),
+      inviterUserId: inviter.id,
+      inviteeUserId: input.inviteeUserId,
+      code: normalizedCode,
+      status: isSuspicious ? "rejected" : "registered",
+      rejectReason: isSuspicious ? "High-frequency referral source" : null,
+      sourceFingerprint,
+      qualifiedAt: null,
+      rewardedAt: null,
+      inviteeBonusLedgerId: null,
+      inviterRewardLedgerId: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    const inviteeAccount = this.ensureBillingAccountForUser(input.inviteeUserId);
+    let nextReferral = referral;
+    if (!isSuspicious && this.snapshot.billingSettings.referralInviteeBonusCny > 0) {
+      const inviteeBonus: CreditLedgerEntryRecord = {
+        id: createId("led"),
+        userId: input.inviteeUserId,
+        accountId: inviteeAccount.id,
+        kind: "referral_invitee_bonus",
+        amountCny: this.snapshot.billingSettings.referralInviteeBonusCny,
+        expiresAt: null,
+        usageLogId: null,
+        referralId: referral.id,
+        note: null,
+        metadata: { inviterUserId: inviter.id },
+        createdAt: timestamp,
+      };
+      this.snapshot.creditLedger = [...this.snapshot.creditLedger, inviteeBonus];
+      nextReferral = { ...referral, inviteeBonusLedgerId: inviteeBonus.id };
+      this.refreshBillingBalance(input.inviteeUserId);
+    }
+    this.snapshot.referrals = [...this.snapshot.referrals, nextReferral];
+    await this.enqueuePersist();
+    return nextReferral;
+  }
+
   async listSessions(input: { userId: string; limit?: number }): Promise<SessionRecord[]> {
     await this.load();
     const sessions = this.snapshot.sessions
@@ -171,6 +1092,7 @@ export class ControlStore {
   }): Promise<SessionRecord> {
     await this.load();
     this.requireExistingUser(input.userId);
+    this.preflightSessionCreation(input.userId);
     const timestamp = this.timestamp();
     const session: SessionRecord = {
       id: createId("ses"),
@@ -184,6 +1106,7 @@ export class ControlStore {
       workDirDeletedAt: null,
     };
     this.snapshot.sessions = [...this.snapshot.sessions, session];
+    this.qualifyReferralForUser(input.userId);
     await this.enqueuePersist();
     return session;
   }
@@ -303,6 +1226,9 @@ export class ControlStore {
         )
       : null;
     if (existing) {
+      const storageDelta =
+        generatedArtifactByteLength(input.metadata) -
+        generatedArtifactByteLength(existing.metadata);
       const nextArtifact = {
         ...existing,
         type: input.type,
@@ -315,6 +1241,7 @@ export class ControlStore {
         nextArtifact,
         (entry) => entry.id,
       );
+      this.addGeneratedStorageUsage(input.userId, storageDelta);
       await this.touchSession(input.sessionId);
       await this.enqueuePersist();
       return nextArtifact;
@@ -330,6 +1257,7 @@ export class ControlStore {
       createdAt: this.timestamp(),
     };
     this.snapshot.artifacts = [...this.snapshot.artifacts, artifact];
+    this.addGeneratedStorageUsage(input.userId, generatedArtifactByteLength(input.metadata));
     await this.touchSession(input.sessionId);
     await this.enqueuePersist();
     return artifact;
@@ -344,6 +1272,18 @@ export class ControlStore {
     if (input.files.length === 0) {
       throw new Error("At least one file is required");
     }
+    const quota = this.ensureStorageQuotaForUser(input.userId);
+    const uploadedBytes = input.files.reduce((total, file) => {
+      const fileBytes = decodedBase64ByteLength(file.contentBase64);
+      if (fileBytes > quota.singleUploadBytesLimit) {
+        throw new StorageQuotaExceededError("Uploaded file exceeds the single file limit.");
+      }
+      return total + fileBytes;
+    }, 0);
+    if (quota.workspaceBytesUsed + uploadedBytes > quota.workspaceBytesLimit) {
+      this.updateBillingAccountStatus(input.userId, "storage_exceeded");
+      throw new StorageQuotaExceededError("Workspace storage limit is exceeded.");
+    }
     const snapshot: FileSnapshotRecord = {
       id: createId("snap"),
       userId: input.userId,
@@ -355,6 +1295,18 @@ export class ControlStore {
       createdAt: this.timestamp(),
     };
     this.snapshot.fileSnapshots = [...this.snapshot.fileSnapshots, snapshot];
+    const nextQuota: StorageQuotaRecord = {
+      ...quota,
+      uploadedBytesUsed: quota.uploadedBytesUsed + uploadedBytes,
+      workspaceBytesUsed: quota.workspaceBytesUsed + uploadedBytes,
+      lastScannedAt: this.timestamp(),
+      updatedAt: this.timestamp(),
+    };
+    this.snapshot.storageQuotas = upsertById(
+      this.snapshot.storageQuotas,
+      nextQuota,
+      (entry) => entry.id,
+    );
     await this.enqueuePersist();
     return snapshot;
   }
@@ -663,6 +1615,14 @@ export class ControlStore {
     );
   }
 
+  async listUserDaemonWorkspaces(input: { userId: string }): Promise<UserDaemonWorkspaceRecord[]> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    return this.snapshot.userDaemonWorkspaces
+      .filter((workspace) => workspace.userId === input.userId && workspace.status === "active")
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
   async upsertUserDaemonWorkspace(input: {
     userId: string;
     nodeId: string;
@@ -793,6 +1753,350 @@ export class ControlStore {
             allocation.sessionId === input.sessionId && activeStatuses.has(allocation.status),
         )
         .sort((left, right) => right.leasedAt.localeCompare(left.leasedAt))[0] ?? null
+    );
+  }
+
+  private ensureBillingAccountForUser(userId: string): BillingAccountRecord {
+    const existing = this.snapshot.billingAccounts.find((account) => account.userId === userId);
+    if (existing) {
+      if (existing.currentPeriodEnd <= this.timestamp()) {
+        return this.rolloverBillingAccountPeriod(existing);
+      }
+      return existing;
+    }
+    const timestamp = this.timestamp();
+    const plan = getPlan(this.snapshot.plans, "free");
+    const account: BillingAccountRecord = {
+      id: createId("bac"),
+      userId,
+      planId: "free",
+      status: "free",
+      currentPeriodStart: startOfUtcMonth(this.now()).toISOString(),
+      currentPeriodEnd: startOfNextUtcMonth(this.now()).toISOString(),
+      balanceCachedCny: 0,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    this.snapshot.billingAccounts = [...this.snapshot.billingAccounts, account];
+    this.snapshot.creditLedger = [
+      ...this.snapshot.creditLedger,
+      this.createMonthlyGrantLedgerEntry({
+        userId,
+        accountId: account.id,
+        plan,
+        timestamp,
+        expiresAt: account.currentPeriodEnd,
+      }),
+    ];
+    const balanceCny = this.refreshBillingBalance(userId);
+    return { ...account, balanceCachedCny: balanceCny };
+  }
+
+  private rolloverBillingAccountPeriod(account: BillingAccountRecord): BillingAccountRecord {
+    const timestamp = this.timestamp();
+    const plan = getPlan(this.snapshot.plans, account.planId);
+    const nextAccount: BillingAccountRecord = {
+      ...account,
+      status:
+        account.status === "disabled" || account.status === "past_due"
+          ? account.status
+          : plan.id === "pro"
+            ? "active"
+            : "free",
+      currentPeriodStart: startOfUtcMonth(this.now()).toISOString(),
+      currentPeriodEnd: startOfNextUtcMonth(this.now()).toISOString(),
+      updatedAt: timestamp,
+    };
+    this.snapshot.billingAccounts = upsertById(
+      this.snapshot.billingAccounts,
+      nextAccount,
+      (entry) => entry.id,
+    );
+    const hasGrantForPeriod = this.snapshot.creditLedger.some(
+      (entry) =>
+        entry.userId === account.userId &&
+        entry.kind === "monthly_grant" &&
+        entry.metadata &&
+        typeof entry.metadata === "object" &&
+        "periodStart" in entry.metadata &&
+        entry.metadata.periodStart === nextAccount.currentPeriodStart,
+    );
+    if (!hasGrantForPeriod) {
+      this.snapshot.creditLedger = [
+        ...this.snapshot.creditLedger,
+        this.createMonthlyGrantLedgerEntry({
+          userId: account.userId,
+          accountId: account.id,
+          plan,
+          timestamp,
+          expiresAt: nextAccount.currentPeriodEnd,
+        }),
+      ];
+    }
+    const balanceCny = this.refreshBillingBalance(account.userId);
+    return { ...nextAccount, balanceCachedCny: balanceCny };
+  }
+
+  private createMonthlyGrantLedgerEntry(input: {
+    userId: string;
+    accountId: string;
+    plan: PlanRecord;
+    timestamp: string;
+    expiresAt: string;
+  }): CreditLedgerEntryRecord {
+    return {
+      id: createId("led"),
+      userId: input.userId,
+      accountId: input.accountId,
+      kind: "monthly_grant",
+      amountCny: input.plan.monthlyGrantCny,
+      expiresAt: input.expiresAt,
+      usageLogId: null,
+      referralId: null,
+      note: null,
+      metadata: { planId: input.plan.id, periodStart: startOfUtcMonth(this.now()).toISOString() },
+      createdAt: input.timestamp,
+    };
+  }
+
+  private ensureStorageQuotaForUser(userId: string): StorageQuotaRecord {
+    const existing = this.snapshot.storageQuotas.find((quota) => quota.userId === userId);
+    if (existing) {
+      return existing;
+    }
+    const account = this.ensureBillingAccountForUser(userId);
+    const plan = getPlan(this.snapshot.plans, account.planId);
+    const timestamp = this.timestamp();
+    const quota: StorageQuotaRecord = {
+      id: createId("stq"),
+      userId,
+      uploadedBytesUsed: 0,
+      generatedBytesUsed: 0,
+      workspaceBytesUsed: 0,
+      workspaceBytesLimit: plan.workspaceBytesLimit,
+      singleUploadBytesLimit: plan.singleUploadBytesLimit,
+      temporaryWorkspaceBytesLimit: null,
+      lastScannedAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    this.snapshot.storageQuotas = [...this.snapshot.storageQuotas, quota];
+    return quota;
+  }
+
+  private calculateUserBalanceCny(userId: string): number {
+    const timestamp = this.timestamp();
+    return this.snapshot.creditLedger
+      .filter((entry) => entry.userId === userId)
+      .filter(
+        (entry) => !entry.expiresAt || entry.expiresAt > timestamp || entry.kind === "usage_charge",
+      )
+      .reduce((total, entry) => total + entry.amountCny, 0);
+  }
+
+  private refreshBillingBalance(userId: string): number {
+    const balanceCny = this.calculateUserBalanceCny(userId);
+    const account = this.snapshot.billingAccounts.find((entry) => entry.userId === userId);
+    if (account) {
+      this.snapshot.billingAccounts = upsertById(
+        this.snapshot.billingAccounts,
+        { ...account, balanceCachedCny: balanceCny, updatedAt: this.timestamp() },
+        (entry) => entry.id,
+      );
+    }
+    return balanceCny;
+  }
+
+  private updateBillingAccountStatus(userId: string, status: BillingStatus): void {
+    const account = this.snapshot.billingAccounts.find((entry) => entry.userId === userId);
+    if (!account || account.status === status) {
+      return;
+    }
+    this.snapshot.billingAccounts = upsertById(
+      this.snapshot.billingAccounts,
+      { ...account, status, updatedAt: this.timestamp() },
+      (entry) => entry.id,
+    );
+  }
+
+  private preflightSessionCreation(userId: string): void {
+    const account = this.ensureBillingAccountForUser(userId);
+    if (account.status === "disabled" || account.status === "past_due") {
+      throw new BillingPreflightError("Billing account is not active.");
+    }
+    const balanceCny = this.calculateUserBalanceCny(userId);
+    if (balanceCny <= 0) {
+      this.updateBillingAccountStatus(userId, "usage_exhausted");
+      throw new BillingPreflightError("AI usage balance is exhausted.");
+    }
+    const storageQuota = this.ensureStorageQuotaForUser(userId);
+    if (storageQuota.workspaceBytesUsed > storageQuota.workspaceBytesLimit) {
+      this.updateBillingAccountStatus(userId, "storage_exceeded");
+      throw new BillingPreflightError("Workspace storage limit is exceeded.");
+    }
+  }
+
+  private aggregateUsage(filters: UsageAggregationFilters): UsageAggregation {
+    return aggregateUsageLogs({
+      usageLogs: this.snapshot.usageLogs,
+      userPlanIds: new Map(
+        this.snapshot.billingAccounts.map((account) => [account.userId, account.planId]),
+      ),
+      filters,
+    });
+  }
+
+  private getUsageLogs(filters: UsageAggregationFilters): UsageLogRecord[] {
+    return this.snapshot.usageLogs
+      .filter(
+        (log) =>
+          aggregateUsageLogs({
+            usageLogs: [log],
+            userPlanIds: new Map(
+              this.snapshot.billingAccounts.map((account) => [account.userId, account.planId]),
+            ),
+            filters,
+          }).requestCount > 0,
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
+  private getReferralStats(userId: string): {
+    registeredCount: number;
+    qualifiedCount: number;
+    rewardedCount: number;
+    rewardTotalCny: number;
+    monthlyRemainingRewardCount: number;
+  } {
+    const inviterReferrals = this.snapshot.referrals.filter(
+      (referral) => referral.inviterUserId === userId,
+    );
+    const monthStart = startOfUtcMonth(this.now()).toISOString();
+    const monthlyRewardCount = this.snapshot.creditLedger.filter(
+      (entry) =>
+        entry.userId === userId &&
+        entry.kind === "referral_inviter_reward" &&
+        entry.createdAt >= monthStart,
+    ).length;
+    return {
+      registeredCount: inviterReferrals.filter((referral) => referral.inviteeUserId).length,
+      qualifiedCount: inviterReferrals.filter(
+        (referral) => referral.status === "qualified" || referral.status === "rewarded",
+      ).length,
+      rewardedCount: inviterReferrals.filter((referral) => referral.status === "rewarded").length,
+      rewardTotalCny: this.snapshot.creditLedger
+        .filter((entry) => entry.userId === userId && entry.kind === "referral_inviter_reward")
+        .reduce((total, entry) => total + entry.amountCny, 0),
+      monthlyRemainingRewardCount: Math.max(
+        0,
+        this.snapshot.billingSettings.referralMonthlyRewardLimit - monthlyRewardCount,
+      ),
+    };
+  }
+
+  private countRecentReferralBindingsForSource(
+    sourceFingerprint: string,
+    timestamp: string,
+  ): number {
+    const dayStart = startOfUtcDay(new Date(timestamp)).toISOString();
+    return this.snapshot.referrals.filter(
+      (referral) =>
+        referral.sourceFingerprint === sourceFingerprint && referral.createdAt >= dayStart,
+    ).length;
+  }
+
+  private addGeneratedStorageUsage(userId: string, generatedBytesDelta: number): void {
+    if (generatedBytesDelta === 0) {
+      return;
+    }
+    const quota = this.ensureStorageQuotaForUser(userId);
+    const generatedBytesUsed = Math.max(0, quota.generatedBytesUsed + generatedBytesDelta);
+    const nextQuota: StorageQuotaRecord = {
+      ...quota,
+      generatedBytesUsed,
+      workspaceBytesUsed: quota.uploadedBytesUsed + generatedBytesUsed,
+      lastScannedAt: this.timestamp(),
+      updatedAt: this.timestamp(),
+    };
+    this.snapshot.storageQuotas = upsertById(
+      this.snapshot.storageQuotas,
+      nextQuota,
+      (entry) => entry.id,
+    );
+    if (nextQuota.workspaceBytesUsed > nextQuota.workspaceBytesLimit) {
+      this.updateBillingAccountStatus(userId, "storage_exceeded");
+    }
+  }
+
+  private qualifyReferralForUser(userId: string): void {
+    const referral = this.snapshot.referrals.find(
+      (entry) =>
+        entry.inviteeUserId === userId &&
+        (entry.status === "registered" || entry.status === "qualified") &&
+        !entry.inviterRewardLedgerId,
+    );
+    if (!referral) {
+      return;
+    }
+    const timestamp = this.timestamp();
+    const qualifiedReferral: ReferralRecord = {
+      ...referral,
+      status: "qualified",
+      qualifiedAt: referral.qualifiedAt ?? timestamp,
+      updatedAt: timestamp,
+    };
+    if (!this.canRewardReferral(referral.inviterUserId)) {
+      this.snapshot.referrals = upsertById(
+        this.snapshot.referrals,
+        qualifiedReferral,
+        (entry) => entry.id,
+      );
+      return;
+    }
+    const inviterAccount = this.ensureBillingAccountForUser(referral.inviterUserId);
+    const reward: CreditLedgerEntryRecord = {
+      id: createId("led"),
+      userId: referral.inviterUserId,
+      accountId: inviterAccount.id,
+      kind: "referral_inviter_reward",
+      amountCny: this.snapshot.billingSettings.referralInviterRewardCny,
+      expiresAt: addUtcDays(this.now(), this.snapshot.billingSettings.referralRewardExpiresDays),
+      usageLogId: null,
+      referralId: referral.id,
+      note: null,
+      metadata: { inviteeUserId: userId },
+      createdAt: timestamp,
+    };
+    this.snapshot.creditLedger = [...this.snapshot.creditLedger, reward];
+    this.snapshot.referrals = upsertById(
+      this.snapshot.referrals,
+      {
+        ...qualifiedReferral,
+        status: "rewarded",
+        rewardedAt: timestamp,
+        inviterRewardLedgerId: reward.id,
+        updatedAt: timestamp,
+      },
+      (entry) => entry.id,
+    );
+    this.refreshBillingBalance(referral.inviterUserId);
+  }
+
+  private canRewardReferral(inviterUserId: string): boolean {
+    if (this.snapshot.billingSettings.referralInviterRewardCny <= 0) {
+      return false;
+    }
+    const timestamp = this.now();
+    const dayStart = startOfUtcDay(timestamp).toISOString();
+    const monthStart = startOfUtcMonth(timestamp).toISOString();
+    const rewards = this.snapshot.creditLedger.filter(
+      (entry) => entry.userId === inviterUserId && entry.kind === "referral_inviter_reward",
+    );
+    const dailyCount = rewards.filter((entry) => entry.createdAt >= dayStart).length;
+    const monthlyCount = rewards.filter((entry) => entry.createdAt >= monthStart).length;
+    return (
+      dailyCount < this.snapshot.billingSettings.referralDailyRewardLimit &&
+      monthlyCount < this.snapshot.billingSettings.referralMonthlyRewardLimit
     );
   }
 
@@ -927,7 +2231,7 @@ export class ControlStore {
       if (code !== "ENOENT") {
         throw error;
       }
-      this.snapshot = { ...EMPTY_SNAPSHOT };
+      this.snapshot = createEmptySnapshot();
     }
     this.loaded = true;
   }
@@ -998,6 +2302,32 @@ function normalizeOptionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function normalizeReferralCode(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+function buildReferralCode(userId: string): string {
+  return normalizeReferralCode(`DOYA-${userId.replace(/^usr_/, "").slice(0, 8)}`);
+}
+
+function decodedBase64ByteLength(value: string): number {
+  const normalized = value.includes(",") ? value.slice(value.indexOf(",") + 1) : value;
+  return Buffer.byteLength(normalized, "base64");
+}
+
+function generatedArtifactByteLength(metadata: unknown): number {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return 0;
+  }
+  const record = metadata as Record<string, unknown>;
+  if (typeof record.content !== "string") {
+    return 0;
+  }
+  return record.isBase64 === true
+    ? decodedBase64ByteLength(record.content)
+    : Buffer.byteLength(record.content, "utf8");
+}
+
 function stripUserToken(user: StoredUserRecord): UserRecord {
   const { accessToken: _accessToken, ...record } = user;
   return record;
@@ -1010,7 +2340,7 @@ function stripNodeToken(node: DaemonNodeRecord): Omit<DaemonNodeRecord, "runtime
 
 function normalizeSnapshot(value: unknown): ControlSnapshot {
   if (!value || typeof value !== "object") {
-    return { ...EMPTY_SNAPSHOT };
+    return createEmptySnapshot();
   }
   const record = value as Partial<ControlSnapshot>;
   const daemonNodes = Array.isArray(record.daemonNodes)
@@ -1028,6 +2358,8 @@ function normalizeSnapshot(value: unknown): ControlSnapshot {
     daemonNodes.some((node) => node.id === record.settings?.defaultDaemonNodeId)
       ? record.settings.defaultDaemonNodeId
       : null;
+  const billingSettings = normalizeBillingSettings(record.billingSettings);
+  const plans = normalizePlans(record.plans);
   return {
     settings: {
       defaultDaemonNodeId,
@@ -1068,7 +2400,194 @@ function normalizeSnapshot(value: unknown): ControlSnapshot {
           }),
         )
       : [],
+    billingSettings,
+    plans,
+    modelPricing: mergeDefaultModelPricing(
+      Array.isArray(record.modelPricing)
+        ? record.modelPricing.map(normalizeModelPricing).filter((entry) => entry !== null)
+        : [],
+    ),
+    billingAccounts: Array.isArray(record.billingAccounts)
+      ? record.billingAccounts.map((account) => ({
+          ...account,
+          planId: account.planId === "pro" ? "pro" : "free",
+          status: normalizeBillingStatus(account.status),
+          balanceCachedCny: numberOr(account.balanceCachedCny, 0),
+        }))
+      : [],
+    creditLedger: Array.isArray(record.creditLedger)
+      ? record.creditLedger.map((entry) => ({
+          ...entry,
+          expiresAt: typeof entry.expiresAt === "string" ? entry.expiresAt : null,
+          usageLogId: typeof entry.usageLogId === "string" ? entry.usageLogId : null,
+          referralId: typeof entry.referralId === "string" ? entry.referralId : null,
+          note: typeof entry.note === "string" ? entry.note : null,
+          metadata: entry.metadata ?? null,
+        }))
+      : [],
+    usageLogs: Array.isArray(record.usageLogs) ? record.usageLogs : [],
+    storageQuotas: Array.isArray(record.storageQuotas)
+      ? record.storageQuotas.map((quota) => ({
+          ...quota,
+          uploadedBytesUsed: numberOr(quota.uploadedBytesUsed, 0),
+          generatedBytesUsed: numberOr(quota.generatedBytesUsed, 0),
+          workspaceBytesUsed: numberOr(quota.workspaceBytesUsed, 0),
+          workspaceBytesLimit: numberOr(
+            quota.workspaceBytesLimit,
+            DEFAULT_PLANS[0].workspaceBytesLimit,
+          ),
+          singleUploadBytesLimit: numberOr(
+            quota.singleUploadBytesLimit,
+            DEFAULT_PLANS[0].singleUploadBytesLimit,
+          ),
+          temporaryWorkspaceBytesLimit:
+            typeof quota.temporaryWorkspaceBytesLimit === "number"
+              ? quota.temporaryWorkspaceBytesLimit
+              : null,
+          lastScannedAt: typeof quota.lastScannedAt === "string" ? quota.lastScannedAt : null,
+        }))
+      : [],
+    referrals: Array.isArray(record.referrals)
+      ? record.referrals.map((referral) => ({
+          ...referral,
+          inviteeUserId: typeof referral.inviteeUserId === "string" ? referral.inviteeUserId : null,
+          rejectReason: typeof referral.rejectReason === "string" ? referral.rejectReason : null,
+          sourceFingerprint:
+            typeof referral.sourceFingerprint === "string" ? referral.sourceFingerprint : null,
+          qualifiedAt: typeof referral.qualifiedAt === "string" ? referral.qualifiedAt : null,
+          rewardedAt: typeof referral.rewardedAt === "string" ? referral.rewardedAt : null,
+          inviteeBonusLedgerId:
+            typeof referral.inviteeBonusLedgerId === "string"
+              ? referral.inviteeBonusLedgerId
+              : null,
+          inviterRewardLedgerId:
+            typeof referral.inviterRewardLedgerId === "string"
+              ? referral.inviterRewardLedgerId
+              : null,
+        }))
+      : [],
+    paymentOrders: Array.isArray(record.paymentOrders)
+      ? record.paymentOrders.map((order) => ({
+          ...order,
+          providerTradeNo: typeof order.providerTradeNo === "string" ? order.providerTradeNo : null,
+          paymentUrl: typeof order.paymentUrl === "string" ? order.paymentUrl : null,
+          qrcode: typeof order.qrcode === "string" ? order.qrcode : null,
+          urlscheme: typeof order.urlscheme === "string" ? order.urlscheme : null,
+          rawGatewayResponse: order.rawGatewayResponse ?? null,
+          rawNotifyPayload: order.rawNotifyPayload ?? null,
+          paidAt: typeof order.paidAt === "string" ? order.paidAt : null,
+        }))
+      : [],
   };
+}
+
+function createEmptySnapshot(): ControlSnapshot {
+  return {
+    ...EMPTY_SNAPSHOT,
+    billingSettings: { ...DEFAULT_BILLING_SETTINGS },
+    plans: DEFAULT_PLANS.map((plan) => ({ ...plan })),
+    modelPricing: DEFAULT_MODEL_PRICING.map((entry) => ({ ...entry })),
+  };
+}
+
+function createPlanQuotaAdjustmentLedgerEntry(input: {
+  userId: string;
+  accountId: string;
+  amountCny: number;
+  timestamp: string;
+}): CreditLedgerEntryRecord | null {
+  const amountCny = Math.round(input.amountCny * 100) / 100;
+  if (Math.abs(amountCny) < 0.001) {
+    return null;
+  }
+  return {
+    id: createId("led"),
+    userId: input.userId,
+    accountId: input.accountId,
+    kind: "plan_quota_adjustment",
+    amountCny,
+    expiresAt: null,
+    usageLogId: null,
+    referralId: null,
+    note: null,
+    metadata: null,
+    createdAt: input.timestamp,
+  };
+}
+
+function normalizeBillingSettings(
+  settings: Partial<BillingSettingsRecord> | undefined,
+): BillingSettingsRecord {
+  return {
+    ...DEFAULT_BILLING_SETTINGS,
+    ...settings,
+    displayCurrency: "CNY",
+    usdToCnyRate: numberOr(settings?.usdToCnyRate, DEFAULT_BILLING_SETTINGS.usdToCnyRate),
+    tokenMarkupMultiplier: numberOr(
+      settings?.tokenMarkupMultiplier,
+      DEFAULT_BILLING_SETTINGS.tokenMarkupMultiplier,
+    ),
+    updatedAt: typeof settings?.updatedAt === "string" ? settings.updatedAt : null,
+  };
+}
+
+function normalizePlans(plans: PlanRecord[] | undefined): PlanRecord[] {
+  if (!Array.isArray(plans) || plans.length === 0) {
+    return DEFAULT_PLANS.map((plan) => ({ ...plan }));
+  }
+  const byId = new Map(DEFAULT_PLANS.map((plan) => [plan.id, { ...plan }]));
+  for (const plan of plans) {
+    if (plan.id === "free" || plan.id === "pro") {
+      byId.set(plan.id, { ...byId.get(plan.id), ...plan });
+    }
+  }
+  return [...byId.values()];
+}
+
+function normalizeModelPricing(entry: ModelPricingRecord): ModelPricingRecord | null {
+  if (!entry || typeof entry.providerId !== "string" || typeof entry.modelId !== "string") {
+    return null;
+  }
+  return {
+    ...entry,
+    billingMode: "token",
+    inputPriceUsdPerToken: numberOr(entry.inputPriceUsdPerToken, 0),
+    outputPriceUsdPerToken: numberOr(entry.outputPriceUsdPerToken, 0),
+    cacheCreationPriceUsdPerToken: numberOr(entry.cacheCreationPriceUsdPerToken, 0),
+    cacheReadPriceUsdPerToken: numberOr(entry.cacheReadPriceUsdPerToken, 0),
+    supportsUsageAccounting: entry.supportsUsageAccounting !== false,
+    enabled: entry.enabled !== false,
+    source:
+      entry.source === "fallback" || entry.source === "provider_reported" ? entry.source : "manual",
+  };
+}
+
+function mergeDefaultModelPricing(modelPricing: ModelPricingRecord[]): ModelPricingRecord[] {
+  const byKey = new Map<string, ModelPricingRecord>();
+  for (const entry of DEFAULT_MODEL_PRICING) {
+    byKey.set(modelPricingKey(entry), { ...entry });
+  }
+  for (const entry of modelPricing) {
+    byKey.set(modelPricingKey(entry), entry);
+  }
+  return [...byKey.values()];
+}
+
+function modelPricingKey(entry: Pick<ModelPricingRecord, "providerId" | "modelId">): string {
+  return `${entry.providerId.trim().toLowerCase()}:${entry.modelId.trim().toLowerCase()}`;
+}
+
+function normalizeBillingStatus(value: unknown): BillingStatus {
+  switch (value) {
+    case "active":
+    case "usage_exhausted":
+    case "storage_exceeded":
+    case "past_due":
+    case "disabled":
+      return value;
+    default:
+      return "free";
+  }
 }
 
 function createRuntimeStatusCounts(): Record<RuntimeStatus, number> {
@@ -1094,4 +2613,26 @@ function upsertById<TRecord>(
   getId: (record: TRecord) => string,
 ): TRecord[] {
   return [...records.filter((existing) => getId(existing) !== getId(record)), record];
+}
+
+function numberOr(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function startOfUtcMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+function startOfUtcDay(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0),
+  );
+}
+
+function startOfNextUtcMonth(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1, 0, 0, 0, 0));
+}
+
+function addUtcDays(date: Date, days: number): string {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 }

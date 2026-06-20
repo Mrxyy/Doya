@@ -65,6 +65,38 @@ When using `doya.json` service orchestration, the `control` service and app env
 are wired together by the service config. The daemon remains the runtime node;
 control owns account/session/history state.
 
+Paid plan upgrades are created by the control service. Configure the real
+gateway with a private `$DOYA_CONTROL_HOME/payment.json` file, or with
+environment variables for deploys. Never put the merchant key in app code.
+
+Private file:
+
+```json
+{
+  "merchantId": "1614",
+  "merchantKey": "...",
+  "publicBaseUrl": "https://control.example.com",
+  "baseUrl": "https://dl.qpzf.cn",
+  "notifyUrl": "https://control.example.com/api/billing/payments/notify",
+  "returnUrl": "https://app.example.com/billing"
+}
+```
+
+Environment override:
+
+```bash
+DOYA_PAYMENT_MERCHANT_ID=...
+DOYA_PAYMENT_MERCHANT_KEY=...
+DOYA_PAYMENT_PUBLIC_BASE_URL=https://control.example.com
+DOYA_PAYMENT_GATEWAY_BASE_URL=https://dl.qpzf.cn # optional
+DOYA_PAYMENT_NOTIFY_URL=https://control.example.com/api/billing/payments/notify # optional
+DOYA_PAYMENT_RETURN_URL=https://app.example.com/billing # optional
+DOYA_PAYMENT_CONFIG_FILE=/secure/path/payment.json # optional
+```
+
+`DOYA_PAYMENT_PUBLIC_BASE_URL` must be reachable by the payment provider because
+successful upgrades are applied only from the server-side notify callback.
+
 ### Host runtime lazy connections
 
 The app keeps saved host profiles in local state, but it must not open every

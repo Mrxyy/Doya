@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { router } from "expo-router";
+import { Image, Pressable, ScrollView, Text, View, type DimensionValue } from "react-native";
 import {
   Activity,
   Check,
+  CreditCard,
   Cpu,
   HardDrive,
   Power,
@@ -16,11 +16,11 @@ import {
 } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { loadAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
+import { BillingAdminPanel } from "@/app/admin/billing";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { AdminAccessGate } from "@/components/admin-access-gate";
 import { AddHostMethodModal } from "@/components/add-host-method-modal";
 import { AddHostModal } from "@/components/add-host-modal";
-import { BackHeader } from "@/components/headers/back-header";
 import { PairLinkModal } from "@/components/pair-link-modal";
 import { SettingsTextAreaCard } from "@/components/settings-textarea";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,9 @@ import { confirmDialog } from "@/utils/confirm-dialog";
 const RUNTIME_STATUSES: RuntimeStatus[] = ["starting", "running", "stopped", "lost"];
 const EMPTY_SELECTED_SESSION_IDS: string[] = [];
 type DaemonDetailTab = "overview" | "providers" | "workspaces";
+type AdminConsoleTab = "daemons" | "billing";
 type AdminIcon = ComponentType<{ size: number; color: string }>;
+const DAEMON_ADMIN_LOGO_SOURCE = require("../../../assets/images/daemon-admin-logo.png");
 
 export default function DaemonAdminScreen() {
   const { t } = useI18n();
@@ -72,14 +74,11 @@ export default function DaemonAdminScreen() {
   const [isDirectHostVisible, setIsDirectHostVisible] = useState(false);
   const [isPasteLinkVisible, setIsPasteLinkVisible] = useState(false);
   const [isAccessUnlocked, setIsAccessUnlocked] = useState(false);
+  const [selectedConsoleTab, setSelectedConsoleTab] = useState<AdminConsoleTab>("daemons");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedSessionIdsByNode, setSelectedSessionIdsByNode] = useState<
     Record<string, string[]>
   >({});
-
-  const handleBack = useCallback(() => {
-    router.replace("/");
-  }, []);
 
   const reload = useCallback(async () => {
     if (!isControlApiConfigured()) {
@@ -361,7 +360,9 @@ export default function DaemonAdminScreen() {
           );
           return;
         }
-        toast.show(t("admin.daemons.toast.workdirsCleaned", { workdirs: cleanedSessionIds.length }));
+        toast.show(
+          t("admin.daemons.toast.workdirsCleaned", { workdirs: cleanedSessionIds.length }),
+        );
       } catch (caught) {
         toast.error(caught instanceof Error ? caught.message : String(caught));
       } finally {
@@ -378,10 +379,20 @@ export default function DaemonAdminScreen() {
       null,
     [overview, selectedNodeId],
   );
-
   return (
     <View style={styles.container}>
-      <BackHeader title={t("admin.daemons.title")} onBack={handleBack} />
+      <View style={styles.header}>
+        <View style={styles.headerSurface}>
+          <View style={styles.headerBrand}>
+            <Image source={DAEMON_ADMIN_LOGO_SOURCE} style={styles.headerLogo} resizeMode="cover" />
+            <View style={styles.headerTitleBlock}>
+              <Text style={styles.headerTitle}>{t("admin.daemons.title")}</Text>
+            </View>
+          </View>
+          <View style={styles.headerDivider} />
+          <AdminConsoleNav value={selectedConsoleTab} onChange={setSelectedConsoleTab} />
+        </View>
+      </View>
       <AdminAccessGate onUnlock={handleAccessUnlock}>
         <View style={styles.content}>
           {isLoading ? (
@@ -398,67 +409,70 @@ export default function DaemonAdminScreen() {
               </Button>
             </View>
           ) : null}
-          {!isLoading && overview ? (
-            <>
-              {overview.daemonNodes.length === 0 ? (
-                <View style={styles.panel}>
-                  <Text style={styles.panelTitle}>{t("admin.daemons.empty.title")}</Text>
-                  <Text style={styles.muted}>{t("admin.daemons.empty.description")}</Text>
-                </View>
-              ) : (
-                <View style={styles.workspaceShell}>
-                  <View style={styles.daemonListPane}>
-                    <View style={styles.paneHeader}>
-                      <View style={styles.sourceListTitleBlock}>
-                        <Text style={styles.sourceListTitle}>
-                          {t("admin.daemons.metric.daemons")}
-                        </Text>
-                      </View>
-                      <Button
-                        variant="secondary"
-                        size="xs"
-                        style={styles.addDaemonButton}
-                        onPress={handleAddDaemon}
-                        disabled={isMutating}
-                      >
-                        {t("admin.daemons.action.add")}
-                      </Button>
+          {!isLoading && selectedConsoleTab === "billing" ? (
+            <View style={styles.billingPanel}>
+              <BillingAdminPanel />
+            </View>
+          ) : null}
+          {!isLoading && selectedConsoleTab === "daemons" && overview ? (
+            overview.daemonNodes.length === 0 ? (
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>{t("admin.daemons.empty.title")}</Text>
+                <Text style={styles.muted}>{t("admin.daemons.empty.description")}</Text>
+              </View>
+            ) : (
+              <View style={styles.workspaceShell}>
+                <View style={styles.daemonListPane}>
+                  <View style={styles.paneHeader}>
+                    <View style={styles.sourceListTitleBlock}>
+                      <Text style={styles.sourceListTitle}>
+                        {t("admin.daemons.metric.daemons")}
+                      </Text>
                     </View>
-                    <ScrollView
-                      style={styles.daemonList}
-                      contentContainerStyle={styles.daemonListContent}
+                    <Button
+                      variant="secondary"
+                      size="xs"
+                      style={styles.addDaemonButton}
+                      onPress={handleAddDaemon}
+                      disabled={isMutating}
                     >
-                      {overview.daemonNodes.map((summary) => (
-                        <DaemonListItem
-                          key={summary.node.id}
-                          summary={summary}
-                          selected={selectedSummary?.node.id === summary.node.id}
-                          onSelect={setSelectedNodeId}
-                        />
-                      ))}
-                    </ScrollView>
+                      {t("admin.daemons.action.add")}
+                    </Button>
                   </View>
-                  {selectedSummary ? (
-                    <DaemonCard
-                      accountSession={accountSession}
-                      summary={selectedSummary}
-                      selectedSessionIds={
-                        selectedSessionIdsByNode[selectedSummary.node.id] ??
-                        EMPTY_SELECTED_SESSION_IDS
-                      }
-                      isMutating={isMutating}
-                      onSetDefault={handleSetDefault}
-                      onUpdateStatus={handleUpdateStatus}
-                      onRestartDaemon={handleRestartDaemon}
-                      onRemoveDaemon={handleRemoveDaemon}
-                      onToggleSession={handleToggleSession}
-                      onSelectNodeSessions={handleSelectNodeSessions}
-                      onCleanupSessions={handleCleanupSessions}
-                    />
-                  ) : null}
+                  <ScrollView
+                    style={styles.daemonList}
+                    contentContainerStyle={styles.daemonListContent}
+                  >
+                    {overview.daemonNodes.map((summary) => (
+                      <DaemonListItem
+                        key={summary.node.id}
+                        summary={summary}
+                        selected={selectedSummary?.node.id === summary.node.id}
+                        onSelect={setSelectedNodeId}
+                      />
+                    ))}
+                  </ScrollView>
                 </View>
-              )}
-            </>
+                {selectedSummary ? (
+                  <DaemonCard
+                    accountSession={accountSession}
+                    summary={selectedSummary}
+                    selectedSessionIds={
+                      selectedSessionIdsByNode[selectedSummary.node.id] ??
+                      EMPTY_SELECTED_SESSION_IDS
+                    }
+                    isMutating={isMutating}
+                    onSetDefault={handleSetDefault}
+                    onUpdateStatus={handleUpdateStatus}
+                    onRestartDaemon={handleRestartDaemon}
+                    onRemoveDaemon={handleRemoveDaemon}
+                    onToggleSession={handleToggleSession}
+                    onSelectNodeSessions={handleSelectNodeSessions}
+                    onCleanupSessions={handleCleanupSessions}
+                  />
+                ) : null}
+              </View>
+            )
           ) : null}
         </View>
       </AdminAccessGate>
@@ -495,9 +509,77 @@ function StatusDot({ status }: { status: ControlDaemonNodeRecord["status"] }) {
   return <View style={styles.statusDotMuted} />;
 }
 
+function AdminConsoleNav({
+  value,
+  onChange,
+}: {
+  value: AdminConsoleTab;
+  onChange: (value: AdminConsoleTab) => void;
+}) {
+  const { t } = useI18n();
+  const items: Array<{
+    value: AdminConsoleTab;
+    label: string;
+    icon: AdminIcon;
+  }> = [
+    { value: "daemons", label: t("admin.daemons.tabs.daemons"), icon: Server },
+    { value: "billing", label: t("admin.daemons.tabs.billing"), icon: CreditCard },
+  ];
+  return (
+    <View style={styles.consoleNav}>
+      {items.map((item) => (
+        <AdminConsoleNavItem
+          key={item.value}
+          item={item}
+          selected={value === item.value}
+          onChange={onChange}
+        />
+      ))}
+    </View>
+  );
+}
+
+function AdminConsoleNavItem({
+  item,
+  selected,
+  onChange,
+}: {
+  item: { value: AdminConsoleTab; label: string; icon: AdminIcon };
+  selected: boolean;
+  onChange: (value: AdminConsoleTab) => void;
+}) {
+  const Icon = item.icon;
+  const handlePress = useCallback(() => {
+    onChange(item.value);
+  }, [item.value, onChange]);
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected }}
+      onPress={handlePress}
+      style={[styles.consoleNavItem, selected && styles.consoleNavItemSelected]}
+    >
+      <View style={[styles.consoleNavIcon, selected && styles.consoleNavIconSelected]}>
+        <Icon
+          size={18}
+          color={
+            selected ? styles.consoleNavIconSelectedColor.color : styles.consoleNavIconColor.color
+          }
+        />
+      </View>
+      <Text style={[styles.consoleNavText, selected && styles.consoleNavTextSelected]}>
+        {item.label}
+      </Text>
+    </Pressable>
+  );
+}
+
 function UsageBar({ value }: { value: number }) {
   const ratio = clamp01(value);
-  const fillStyle = useMemo(() => [{ width: `${Math.round(ratio * 100)}%` }], [ratio]);
+  const fillStyle = useMemo(
+    () => ({ width: `${Math.round(ratio * 100)}%` as DimensionValue }),
+    [ratio],
+  );
   return (
     <View style={styles.usageTrack}>
       <View
@@ -714,11 +796,10 @@ function DaemonCard({
   const canCleanupWorkDirs =
     selectedCount > 0 &&
     selectedSessionIds.every((sessionId) =>
-      summary.userWorkspaces.some(
-        (workspace) =>
-          workspace.sessions.some(
-            (session) => session.session.id === sessionId && session.session.deletedAt,
-          ),
+      summary.userWorkspaces.some((workspace) =>
+        workspace.sessions.some(
+          (session) => session.session.id === sessionId && session.session.deletedAt,
+        ),
       ),
     );
 
@@ -892,12 +973,7 @@ function DaemonCard({
               <StatusDot status={summary.node.status} />
               <Text style={styles.statusText}>{summary.node.status}</Text>
             </View>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isMutating}
-              onPress={handleRestartDaemon}
-            >
+            <Button variant="outline" size="sm" disabled={isMutating} onPress={handleRestartDaemon}>
               {t("admin.daemons.action.restart")}
             </Button>
           </View>
@@ -939,10 +1015,14 @@ function DaemonCard({
                   <View style={styles.resourceBars}>
                     <ResourceRow
                       icon={MemoryStick}
-                      label="Memory"
+                      label={t("admin.daemons.resource.memory")}
                       value={resourceStats.memoryRatio}
                     />
-                    <ResourceRow icon={HardDrive} label="Disk" value={resourceStats.diskRatio} />
+                    <ResourceRow
+                      icon={HardDrive}
+                      label={t("admin.daemons.resource.disk")}
+                      value={resourceStats.diskRatio}
+                    />
                   </View>
                 </View>
                 <View style={styles.visualPanel}>
@@ -1182,9 +1262,11 @@ function WorkspaceListItem({
   selectedSessionIds: string[];
   onSelect: (workspaceId: string) => void;
 }) {
+  const { t } = useI18n();
   const selectedCount = workspace.sessions.filter((session) =>
     selectedSessionIds.includes(session.session.id),
   ).length;
+  const workspaceTitle = getWorkspaceDisplayName(workspace, t);
   const handlePress = useCallback(() => {
     onSelect(workspace.workspace.id);
   }, [onSelect, workspace.workspace.id]);
@@ -1202,7 +1284,10 @@ function WorkspaceListItem({
           </View>
           <View style={styles.workspaceNameBlock}>
             <Text style={styles.workspaceTitle} numberOfLines={1}>
-              {workspace.user?.email ?? workspace.workspace.userId}
+              {workspaceTitle}
+            </Text>
+            <Text style={styles.workspaceSessionPath} numberOfLines={1}>
+              {formatPathTail(workspace.workspace.workspaceDir)}
             </Text>
           </View>
         </View>
@@ -1229,15 +1314,16 @@ function WorkspaceSessionPanel({
 }) {
   const { t } = useI18n();
   const userState = getWorkspaceUserState(workspace);
+  const workspaceTitle = getWorkspaceDisplayName(workspace, t);
   return (
     <View style={styles.workspaceSessionPanel}>
       <View style={styles.workspaceSessionHeader}>
         <View style={styles.workspaceSessionTitleGroup}>
           <Text style={styles.workspaceTitle} numberOfLines={1}>
-            {workspace.user?.email ?? workspace.workspace.userId}
+            {workspaceTitle}
           </Text>
           <Text style={styles.workspaceSessionPath} numberOfLines={1}>
-            {workspace.workspace.workspaceDir}
+            {formatPathTail(workspace.workspace.workspaceDir)}
           </Text>
         </View>
         <View style={styles.workspaceStatusGroup}>
@@ -1289,6 +1375,9 @@ function SessionRow({
 }) {
   const { t } = useI18n();
   const sessionTitle = getControlSessionDisplayTitle({ session: summary.session });
+  const sessionMeta = `${formatTimestamp(summary.session.updatedAt)} · ${formatShortId(
+    summary.session.id,
+  )}`;
   const handlePress = useCallback(() => {
     onToggleSession(nodeId, summary.session.id);
   }, [nodeId, onToggleSession, summary.session.id]);
@@ -1312,7 +1401,7 @@ function SessionRow({
           </Text>
         </View>
         <Text style={styles.sessionMeta} numberOfLines={1}>
-          {summary.session.id}
+          {sessionMeta}
         </Text>
       </View>
       <View style={styles.sessionPills}>
@@ -1408,6 +1497,36 @@ function formatTimestamp(value: string): string {
   return date.toLocaleString();
 }
 
+function formatShortId(value: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= 14) {
+    return trimmed;
+  }
+  const prefix = trimmed.includes("_") ? `${trimmed.split("_")[0]}_` : "";
+  return `${prefix}...${trimmed.slice(-8)}`;
+}
+
+function formatPathTail(value: string): string {
+  const parts = value.split("/").filter(Boolean);
+  if (parts.length === 0) {
+    return value;
+  }
+  return parts.slice(-2).join("/");
+}
+
+function getWorkspaceDisplayName(
+  workspace: ControlUserDaemonWorkspaceSummary,
+  t: ReturnType<typeof useI18n>["t"],
+): string {
+  if (workspace.user?.email) {
+    return workspace.user.email;
+  }
+  if (!workspace.user) {
+    return t("admin.daemons.userStatus.deleted");
+  }
+  return formatShortId(workspace.workspace.userId);
+}
+
 type WorkspaceUserState = "active" | "disabled" | "deleted";
 
 function getWorkspaceUserState(workspace: ControlUserDaemonWorkspaceSummary): WorkspaceUserState {
@@ -1420,7 +1539,12 @@ function getWorkspaceUserState(workspace: ControlUserDaemonWorkspaceSummary): Wo
   return "active";
 }
 
-function getWorkspaceUserStateTranslationKey(state: WorkspaceUserState): string {
+function getWorkspaceUserStateTranslationKey(
+  state: WorkspaceUserState,
+):
+  | "admin.daemons.userStatus.deleted"
+  | "admin.daemons.userStatus.disabled"
+  | "admin.daemons.userStatus.active" {
   if (state === "deleted") {
     return "admin.daemons.userStatus.deleted";
   }
@@ -1443,11 +1567,10 @@ function canCleanupSelectedWorkDirs(
     return false;
   }
   return sessionIds.every((sessionId) =>
-    node.userWorkspaces.some(
-      (workspace) =>
-        workspace.sessions.some(
-          (session) => session.session.id === sessionId && session.session.deletedAt,
-        ),
+    node.userWorkspaces.some((workspace) =>
+      workspace.sessions.some(
+        (session) => session.session.id === sessionId && session.session.deletedAt,
+      ),
     ),
   );
 }
@@ -1505,14 +1628,123 @@ const styles = StyleSheet.create((theme) => ({
     backgroundColor: "#f5f5f7",
     overflow: "hidden",
   },
+  header: {
+    minHeight: 86,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e8eaee",
+    backgroundColor: "#f7f8fa",
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[3],
+  },
+  headerSurface: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+    borderWidth: 1,
+    borderColor: "#e2e6eb",
+    borderRadius: 18,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: theme.spacing[1],
+    shadowColor: "#0f172a",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 18,
+  },
+  headerBrand: {
+    minWidth: 0,
+    flexShrink: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  headerLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e7ecef",
+  },
+  headerTitleBlock: {
+    minWidth: 0,
+    paddingRight: theme.spacing[1],
+  },
+  headerTitle: {
+    flexShrink: 1,
+    color: "#18181b",
+    fontSize: 20,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  headerDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: "#e6e8ec",
+  },
   content: {
     flex: 1,
     width: "100%",
     alignSelf: "center",
-    gap: theme.spacing[1],
+    gap: theme.spacing[3],
     padding: theme.spacing[3],
     minHeight: 0,
     overflow: "hidden",
+  },
+  consoleNav: {
+    flexDirection: "row",
+    flexShrink: 0,
+    alignItems: "center",
+    gap: 3,
+    borderRadius: 14,
+    backgroundColor: "#f4f6f8",
+    padding: 3,
+  },
+  consoleNavItem: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 11,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[1],
+  },
+  consoleNavItemSelected: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#bfe8cf",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+  },
+  consoleNavIcon: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 12,
+    backgroundColor: "transparent",
+  },
+  consoleNavIconSelected: {
+    backgroundColor: "#daf6e4",
+  },
+  consoleNavIconColor: {
+    color: theme.colors.foregroundMuted,
+  },
+  consoleNavIconSelectedColor: {
+    color: "#1f7a4d",
+  },
+  consoleNavText: {
+    color: "#6b7280",
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
+  },
+  consoleNavTextSelected: {
+    color: "#1f5135",
+    fontWeight: theme.fontWeight.semibold,
   },
   centered: {
     alignItems: "center",
@@ -1526,6 +1758,11 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.surface1,
     padding: theme.spacing[4],
+  },
+  billingPanel: {
+    flex: 1,
+    minHeight: 0,
+    gap: theme.spacing[3],
   },
   addDaemonButton: {
     alignSelf: "center",

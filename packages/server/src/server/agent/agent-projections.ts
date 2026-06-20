@@ -88,6 +88,8 @@ export function toStoredAgentRecord(
     runtimeInfo,
     features: normalizeFeatures(agent.features),
     persistence,
+    lastUsage: sanitizeUsage(agent.lastUsage),
+    turnUsageById: sanitizeTurnUsageById(agent.turnUsageById),
     lastError: agent.lastError ?? undefined,
     requiresAttention: agent.attention.requiresAttention,
     attentionReason: agent.attention.requiresAttention ? agent.attention.attentionReason : null,
@@ -134,6 +136,10 @@ export function toAgentPayload(
   const usage = sanitizeUsage(agent.lastUsage);
   if (usage !== undefined) {
     payload.lastUsage = usage;
+  }
+  const turnUsageById = sanitizeTurnUsageById(agent.turnUsageById);
+  if (turnUsageById !== undefined) {
+    payload.turnUsageById = turnUsageById;
   }
 
   if (agent.lastError !== undefined) {
@@ -209,7 +215,7 @@ export function buildStoredAgentPayload(
   const providerAvailable = isStoredAgentProviderAvailable(record, validProviders);
   const persistence = buildStoredPersistenceHandle(record, validProviders);
 
-  return {
+  const payload: AgentSnapshotPayload = {
     id: record.id,
     provider: record.provider,
     cwd: record.cwd,
@@ -237,6 +243,15 @@ export function buildStoredAgentPayload(
     labels: normalizeLabels(record.labels),
     ...(providerAvailable ? {} : { providerUnavailable: true }),
   };
+  const lastUsage = sanitizeUsage(record.lastUsage);
+  if (lastUsage !== undefined) {
+    payload.lastUsage = lastUsage;
+  }
+  const turnUsageById = sanitizeTurnUsageById(record.turnUsageById);
+  if (turnUsageById !== undefined) {
+    payload.turnUsageById = turnUsageById;
+  }
+  return payload;
 }
 
 export function toAgentListItemPayload(agent: AgentSnapshotPayload): AgentListItemPayload {
@@ -471,6 +486,9 @@ function sanitizeUsage(value: unknown): AgentUsage | undefined {
     "inputTokens",
     "cachedInputTokens",
     "outputTokens",
+    "cacheCreationTokens",
+    "cacheReadTokens",
+    "reasoningTokens",
     "totalCostUsd",
     "contextWindowMaxTokens",
     "contextWindowUsedTokens",
@@ -481,6 +499,24 @@ function sanitizeUsage(value: unknown): AgentUsage | undefined {
     }
   }
   return Object.keys(result).length ? result : undefined;
+}
+
+function sanitizeTurnUsageById(value: unknown): Record<string, AgentUsage> | undefined {
+  if (!(value instanceof Map) && (!value || typeof value !== "object" || Array.isArray(value))) {
+    return undefined;
+  }
+  const entries = value instanceof Map ? value.entries() : Object.entries(value);
+  const result: Record<string, AgentUsage> = {};
+  for (const [turnId, usage] of entries) {
+    if (typeof turnId !== "string" || !turnId.trim()) {
+      continue;
+    }
+    const sanitized = sanitizeUsage(usage);
+    if (sanitized) {
+      result[turnId] = sanitized;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 function sanitizeRuntimeInfo(

@@ -1,5 +1,15 @@
 import { router, usePathname } from "expo-router";
-import { LogOut, MessagesSquare, Settings, UserRound, X } from "lucide-react-native";
+import {
+  ChevronRight,
+  CreditCard,
+  LogOut,
+  MessagesSquare,
+  Palette,
+  Settings,
+  Sparkles,
+  UserRound,
+  X,
+} from "lucide-react-native";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
   Pressable,
@@ -20,6 +30,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { BillingPanel } from "@/app/billing";
+import { AdaptiveModalSheet } from "@/components/adaptive-modal-sheet";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { DoyaLogo } from "@/components/icons/doya-logo";
 import {
@@ -27,12 +39,19 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  useDropdownMenuClose,
 } from "@/components/ui/dropdown-menu";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { useSidebarAnimation } from "@/contexts/sidebar-animation-context";
+import { useToast } from "@/contexts/toast-context";
 import { clearAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
 import { useAccountWorkspaceMetadata } from "@/account/use-account-workspace-metadata";
+import {
+  getControlBillingSummary,
+  isControlApiConfigured,
+  type ControlPlanId,
+} from "@/control/control-api";
 import type { AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { useSidebarShortcutModel } from "@/hooks/use-sidebar-shortcut-model";
 import {
@@ -49,18 +68,19 @@ import {
 } from "@/stores/panel-store";
 import { resolveActiveHost } from "@/utils/active-host";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
-import {
-  buildHostAiCreationRoute,
-  buildHostHomeRoute,
-  buildSettingsRoute,
-} from "@/utils/host-routes";
+import { buildHostAiCreationRoute, buildHostHomeRoute } from "@/utils/host-routes";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
+import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
+import SettingsScreen from "@/screens/settings-screen";
+import type { SettingsView } from "@/screens/settings-screen";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
 
 const MIN_CHAT_WIDTH = 400;
+const BILLING_SHEET_SNAP_POINTS = ["90%"];
+type AccountSettingsSection = "general" | "appearance";
 
 type SidebarShortcutModel = ReturnType<typeof useSidebarShortcutModel>;
 type SidebarTheme = ReturnType<typeof useUnistyles>["theme"];
@@ -88,10 +108,12 @@ interface SidebarSharedProps {
   handleAiCreation: () => void;
   handleAccountLogin: () => void;
   handleAccountLogout: () => void;
+  handleAccountBilling: () => void;
+  handleAccountGeneralSettings: () => void;
+  handleAccountAppearanceSettings: () => void;
   addProjectLabel: string;
   aiCreationLabel: string;
   emptyProjectHint: string;
-  handleSettings: () => void;
 }
 
 interface MobileSidebarProps extends SidebarSharedProps {
@@ -122,6 +144,9 @@ export const LeftSidebar = memo(function LeftSidebar({
   );
   const showMobileAgent = usePanelStore((state) => state.showMobileAgent);
   const openAccountLogin = useAccountLoginModalStore((state) => state.open);
+  const [isBillingVisible, setIsBillingVisible] = useState(false);
+  const [selectedSettingsSection, setSelectedSettingsSection] =
+    useState<AccountSettingsSection | null>(null);
   const pathname = usePathname();
   const daemons = useHosts();
   const activeDaemon = useMemo(
@@ -179,15 +204,6 @@ export const LeftSidebar = memo(function LeftSidebar({
     router.push(buildHostAiCreationRoute(activeServerId));
   }, [activeServerId]);
 
-  const handleSettingsMobile = useCallback(() => {
-    showMobileAgent();
-    router.push(buildSettingsRoute());
-  }, [showMobileAgent]);
-
-  const handleSettingsDesktop = useCallback(() => {
-    router.push(buildSettingsRoute());
-  }, []);
-
   const handleAccountLoginMobile = useCallback(() => {
     if (!activeServerId) return;
     showMobileAgent();
@@ -215,6 +231,48 @@ export const LeftSidebar = memo(function LeftSidebar({
       router.push(buildHostHomeRoute(activeServerId));
     })();
   }, [activeServerId]);
+
+  const handleAccountBillingMobile = useCallback(() => {
+    setIsBillingVisible(true);
+  }, []);
+
+  const handleAccountBillingDesktop = useCallback(() => {
+    setIsBillingVisible(true);
+  }, []);
+
+  const handleCloseBilling = useCallback(() => {
+    setIsBillingVisible(false);
+  }, []);
+
+  const billingSheetHeader = useMemo(() => ({ title: t("billing.title") }), [t]);
+  const settingsSheetHeader = useMemo(
+    () => ({
+      title:
+        selectedSettingsSection === "appearance"
+          ? t("settings.section.appearance")
+          : t("settings.section.general"),
+    }),
+    [selectedSettingsSection, t],
+  );
+  const settingsSheetView = useMemo<SettingsView | null>(
+    () =>
+      selectedSettingsSection
+        ? {
+            kind: "section",
+            section: selectedSettingsSection,
+          }
+        : null,
+    [selectedSettingsSection],
+  );
+  const handleCloseSettingsSheet = useCallback(() => {
+    setSelectedSettingsSection(null);
+  }, []);
+  const handleAccountGeneralSettings = useCallback(() => {
+    setSelectedSettingsSection("general");
+  }, []);
+  const handleAccountAppearanceSettings = useCallback(() => {
+    setSelectedSettingsSection("appearance");
+  }, []);
 
   const handleViewMoreNavigate = useCallback(() => {
     if (!activeServerId) {
@@ -245,88 +303,150 @@ export const LeftSidebar = memo(function LeftSidebar({
 
   if (isCompactLayout) {
     return (
-      <MobileSidebar
-        {...sharedProps}
-        insetsTop={insets.top}
-        insetsBottom={insets.bottom}
-        isOpen={isOpen}
-        closeToAgent={showMobileAgent}
-        handleOpenProject={handleOpenProjectMobile}
-        handleAiCreation={handleAiCreationMobile}
-        handleSettings={handleSettingsMobile}
-        handleAccountLogin={handleAccountLoginMobile}
-        handleAccountLogout={handleAccountLogoutMobile}
-        handleViewMoreNavigate={handleViewMoreNavigate}
-      />
+      <>
+        <MobileSidebar
+          {...sharedProps}
+          insetsTop={insets.top}
+          insetsBottom={insets.bottom}
+          isOpen={isOpen}
+          closeToAgent={showMobileAgent}
+          handleOpenProject={handleOpenProjectMobile}
+          handleAiCreation={handleAiCreationMobile}
+          handleAccountLogin={handleAccountLoginMobile}
+          handleAccountLogout={handleAccountLogoutMobile}
+          handleAccountBilling={handleAccountBillingMobile}
+          handleAccountGeneralSettings={handleAccountGeneralSettings}
+          handleAccountAppearanceSettings={handleAccountAppearanceSettings}
+          handleViewMoreNavigate={handleViewMoreNavigate}
+        />
+        <AdaptiveModalSheet
+          header={billingSheetHeader}
+          visible={isBillingVisible}
+          onClose={handleCloseBilling}
+          desktopMaxWidth={920}
+          desktopHeight={760}
+          snapPoints={BILLING_SHEET_SNAP_POINTS}
+          scrollable={false}
+        >
+          <BillingPanel showHeader={false} />
+        </AdaptiveModalSheet>
+        {settingsSheetView ? (
+          <AdaptiveModalSheet
+            header={settingsSheetHeader}
+            visible={true}
+            onClose={handleCloseSettingsSheet}
+            desktopMaxWidth={920}
+            desktopHeight={760}
+            snapPoints={BILLING_SHEET_SNAP_POINTS}
+            scrollable={false}
+          >
+            <SettingsScreen view={settingsSheetView} embedded />
+          </AdaptiveModalSheet>
+        ) : null}
+      </>
     );
   }
 
   return (
-    <DesktopSidebar
-      {...sharedProps}
-      insetsTop={insets.top}
-      isOpen={isOpen}
-      handleOpenProject={handleOpenProjectDesktop}
-      handleAiCreation={handleAiCreationDesktop}
-      handleSettings={handleSettingsDesktop}
-      handleAccountLogin={handleAccountLoginDesktop}
-      handleAccountLogout={handleAccountLogoutDesktop}
-      handleViewMore={handleViewMoreNavigate}
-    />
+    <>
+      <DesktopSidebar
+        {...sharedProps}
+        insetsTop={insets.top}
+        isOpen={isOpen}
+        handleOpenProject={handleOpenProjectDesktop}
+        handleAiCreation={handleAiCreationDesktop}
+        handleAccountLogin={handleAccountLoginDesktop}
+        handleAccountLogout={handleAccountLogoutDesktop}
+        handleAccountBilling={handleAccountBillingDesktop}
+        handleAccountGeneralSettings={handleAccountGeneralSettings}
+        handleAccountAppearanceSettings={handleAccountAppearanceSettings}
+        handleViewMore={handleViewMoreNavigate}
+      />
+      <AdaptiveModalSheet
+        header={billingSheetHeader}
+        visible={isBillingVisible}
+        onClose={handleCloseBilling}
+        desktopMaxWidth={920}
+        desktopHeight={760}
+        snapPoints={BILLING_SHEET_SNAP_POINTS}
+        scrollable={false}
+      >
+        <BillingPanel showHeader={false} />
+      </AdaptiveModalSheet>
+      {settingsSheetView ? (
+        <AdaptiveModalSheet
+          header={settingsSheetHeader}
+          visible={true}
+          onClose={handleCloseSettingsSheet}
+          desktopMaxWidth={920}
+          desktopHeight={760}
+          snapPoints={BILLING_SHEET_SNAP_POINTS}
+          scrollable={false}
+        >
+          <SettingsScreen view={settingsSheetView} embedded />
+        </AdaptiveModalSheet>
+      ) : null}
+    </>
   );
 });
-
-function FooterIconButton({
-  onPress,
-  testID,
-  accessibilityLabel,
-  icon: Icon,
-  theme,
-}: {
-  onPress: () => void;
-  testID: string;
-  accessibilityLabel: string;
-  icon: typeof MessagesSquare;
-  theme: SidebarTheme;
-}) {
-  return (
-    <Pressable
-      style={styles.footerIconButton}
-      testID={testID}
-      nativeID={testID}
-      collapsable={false}
-      accessible
-      accessibilityLabel={accessibilityLabel}
-      accessibilityRole="button"
-      onPress={onPress}
-    >
-      {({ hovered }) => (
-        <Icon
-          size={theme.iconSize.md}
-          color={hovered ? theme.colors.foreground : theme.colors.foregroundMuted}
-        />
-      )}
-    </Pressable>
-  );
-}
 
 function AccountMenuTrigger({
   accountSession,
   onLogin,
   onLogout,
+  onBilling,
+  onGeneralSettings,
+  onAppearanceSettings,
 }: {
   accountSession: AccountBootstrapSession | null;
   onLogin: () => void;
   onLogout: () => void;
+  onBilling: () => void;
+  onGeneralSettings: () => void;
+  onAppearanceSettings: () => void;
 }) {
   const { theme } = useUnistyles();
   const { t } = useI18n();
+  const openUpgrade = useBillingUpgradeModalStore((state) => state.open);
+  const [planId, setPlanId] = useState<ControlPlanId | null>(null);
+  const [planName, setPlanName] = useState<string | null>(null);
   const label = accountSession?.user.email ?? t("common.login");
   const avatarLabel = accountSession?.user.email.trim().charAt(0).toUpperCase() || null;
+  const planBadgeStyle = useMemo(
+    () =>
+      RNStyleSheet.compose(
+        styles.accountPlanBadge,
+        planId === "pro" ? styles.accountPlanBadgePro : undefined,
+      ),
+    [planId],
+  );
+  const planBadgeTextStyle = useMemo(
+    () =>
+      RNStyleSheet.compose(
+        styles.accountPlanText,
+        planId === "pro" ? styles.accountPlanTextPro : undefined,
+      ),
+    [planId],
+  );
   const accountLogoutLeadingIcon = useMemo(
     () => <LogOut size={14} color={theme.colors.foregroundMuted} />,
     [theme.colors.foregroundMuted],
   );
+  const accountBillingLeadingIcon = useMemo(
+    () => <CreditCard size={14} color={theme.colors.foregroundMuted} />,
+    [theme.colors.foregroundMuted],
+  );
+  const accountGeneralLeadingIcon = useMemo(
+    () => <Settings size={14} color={theme.colors.foregroundMuted} />,
+    [theme.colors.foregroundMuted],
+  );
+  const accountAppearanceLeadingIcon = useMemo(
+    () => <Palette size={14} color={theme.colors.foregroundMuted} />,
+    [theme.colors.foregroundMuted],
+  );
+  const handleAccountUpgrade = useCallback(() => {
+    openUpgrade("account");
+  }, [openUpgrade]);
   const triggerStyle = useCallback(
     ({ hovered, open }: { hovered: boolean; open: boolean; pressed: boolean }) => [
       styles.accountTrigger,
@@ -342,6 +462,35 @@ function AccountMenuTrigger({
     ],
     [],
   );
+
+  useEffect(() => {
+    if (!accountSession || !isControlApiConfigured()) {
+      setPlanId(null);
+      setPlanName(null);
+      return;
+    }
+    let disposed = false;
+    void getControlBillingSummary({ accountSession })
+      .then((summary) => {
+        if (disposed) {
+          return undefined;
+        }
+        setPlanId(summary.plan.id);
+        setPlanName(summary.plan.name);
+        return undefined;
+      })
+      .catch(() => {
+        if (disposed) {
+          return undefined;
+        }
+        setPlanId(null);
+        setPlanName(null);
+        return undefined;
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [accountSession]);
 
   if (!accountSession) {
     return (
@@ -380,8 +529,37 @@ function AccountMenuTrigger({
         <Text style={styles.accountLabel} numberOfLines={1}>
           {label}
         </Text>
+        {planName ? (
+          <View style={planBadgeStyle}>
+            <Text style={planBadgeTextStyle} numberOfLines={1}>
+              {planName}
+            </Text>
+          </View>
+        ) : null}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" width={260}>
+      <DropdownMenuContent align="start" width={300}>
+        <AccountUpgradeMenuCard onUpgrade={handleAccountUpgrade} />
+        <DropdownMenuItem
+          testID="sidebar-account-billing"
+          leading={accountBillingLeadingIcon}
+          onSelect={onBilling}
+        >
+          {t("billing.title")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          testID="sidebar-account-general"
+          leading={accountGeneralLeadingIcon}
+          onSelect={onGeneralSettings}
+        >
+          {t("settings.section.general")}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          testID="sidebar-account-appearance"
+          leading={accountAppearanceLeadingIcon}
+          onSelect={onAppearanceSettings}
+        >
+          {t("settings.section.appearance")}
+        </DropdownMenuItem>
         <DropdownMenuItem
           testID="sidebar-account-logout"
           leading={accountLogoutLeadingIcon}
@@ -391,6 +569,58 @@ function AccountMenuTrigger({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function AccountUpgradeMenuCard({ onUpgrade }: { onUpgrade: () => void }) {
+  const { t } = useI18n();
+  const closeDropdown = useDropdownMenuClose();
+  const handlePress = useCallback(() => {
+    closeDropdown();
+    onUpgrade();
+  }, [closeDropdown, onUpgrade]);
+  const cardStyle = useCallback(
+    ({ pressed, hovered = false }: PressableStateCallbackType & { hovered?: boolean }) => [
+      styles.accountUpgradeCard,
+      hovered && styles.accountUpgradeCardHovered,
+      pressed && styles.accountUpgradeCardPressed,
+    ],
+    [],
+  );
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={handlePress}
+      style={cardStyle}
+      testID="sidebar-account-upgrade"
+    >
+      <View style={styles.accountUpgradeCopy}>
+        <View style={styles.accountUpgradeEyebrowRow}>
+          <View style={styles.accountUpgradeSparkIcon}>
+            <Sparkles size={14} color={styles.accountUpgradeSparkIconGlyph.color} />
+          </View>
+          <Text style={styles.accountUpgradeEyebrow}>{t("billing.accountMenu.upgradePro")}</Text>
+        </View>
+        <Text style={styles.accountUpgradeSubtitle} numberOfLines={1}>
+          {t("billing.accountMenu.upgradeSubtitle")}
+        </Text>
+      </View>
+      <View style={styles.accountUpgradeArt} pointerEvents="none">
+        <View style={styles.accountUpgradeArtHalo} />
+        <View style={styles.accountUpgradeArtCardBack} />
+        <View style={styles.accountUpgradeArtCardFront}>
+          <View style={styles.accountUpgradeArtLinePrimary} />
+          <View style={styles.accountUpgradeArtLineSecondary} />
+        </View>
+        <View style={styles.accountUpgradeArtCoin}>
+          <CreditCard size={12} color={styles.accountUpgradeArtCoinGlyph.color} />
+        </View>
+      </View>
+      <View style={styles.accountUpgradeChevron}>
+        <ChevronRight size={14} color={styles.accountUpgradeChevronGlyph.color} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -419,17 +649,19 @@ function ConversationBrandHeader({ onPress }: { onPress: () => void }) {
 }
 
 function SidebarFooter({
-  theme,
   accountSession,
   handleAccountLogin,
   handleAccountLogout,
-  handleSettings,
+  handleAccountBilling,
+  handleAccountGeneralSettings,
+  handleAccountAppearanceSettings,
 }: {
-  theme: SidebarTheme;
   accountSession: AccountBootstrapSession | null;
   handleAccountLogin: () => void;
   handleAccountLogout: () => void;
-  handleSettings: () => void;
+  handleAccountBilling: () => void;
+  handleAccountGeneralSettings: () => void;
+  handleAccountAppearanceSettings: () => void;
 }) {
   return (
     <View style={styles.sidebarFooter}>
@@ -438,19 +670,11 @@ function SidebarFooter({
           accountSession={accountSession}
           onLogin={handleAccountLogin}
           onLogout={handleAccountLogout}
+          onBilling={handleAccountBilling}
+          onGeneralSettings={handleAccountGeneralSettings}
+          onAppearanceSettings={handleAccountAppearanceSettings}
         />
       </View>
-      {accountSession ? (
-        <View style={styles.footerIconRow}>
-          <FooterIconButton
-            onPress={handleSettings}
-            testID="sidebar-settings"
-            accessibilityLabel={translateNow("ui.settings.osmo8z")}
-            icon={Settings}
-            theme={theme}
-          />
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -606,7 +830,9 @@ function MobileSidebar({
   isAgentHistoryInitialLoad,
   handleAccountLogin,
   handleAccountLogout,
-  handleSettings,
+  handleAccountBilling,
+  handleAccountGeneralSettings,
+  handleAccountAppearanceSettings,
   insetsTop,
   insetsBottom,
   isOpen,
@@ -842,11 +1068,12 @@ function MobileSidebar({
             {conversationListContent}
 
             <SidebarFooter
-              theme={theme}
               accountSession={accountSession}
               handleAccountLogin={handleAccountLogin}
               handleAccountLogout={handleAccountLogout}
-              handleSettings={handleSettings}
+              handleAccountBilling={handleAccountBilling}
+              handleAccountGeneralSettings={handleAccountGeneralSettings}
+              handleAccountAppearanceSettings={handleAccountAppearanceSettings}
             />
           </View>
         </Animated.View>
@@ -856,7 +1083,6 @@ function MobileSidebar({
 }
 
 function DesktopSidebar({
-  theme,
   activeServerId,
   accountSession,
   projects,
@@ -877,7 +1103,9 @@ function DesktopSidebar({
   isAgentHistoryInitialLoad,
   handleAccountLogin,
   handleAccountLogout,
-  handleSettings,
+  handleAccountBilling,
+  handleAccountGeneralSettings,
+  handleAccountAppearanceSettings,
   insetsTop,
   isOpen,
   handleViewMore,
@@ -995,11 +1223,12 @@ function DesktopSidebar({
         <SidebarCalloutSlot />
 
         <SidebarFooter
-          theme={theme}
           accountSession={accountSession}
           handleAccountLogin={handleAccountLogin}
           handleAccountLogout={handleAccountLogout}
-          handleSettings={handleSettings}
+          handleAccountBilling={handleAccountBilling}
+          handleAccountGeneralSettings={handleAccountGeneralSettings}
+          handleAccountAppearanceSettings={handleAccountAppearanceSettings}
         />
 
         {/* Resize handle - absolutely positioned over right border */}
@@ -1245,19 +1474,173 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
   },
-  footerIconRow: {
+  accountPlanBadge: {
+    flexShrink: 0,
+    borderRadius: theme.borderRadius.full,
+    paddingHorizontal: theme.spacing[1.5],
+    paddingVertical: 2,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface1,
+  },
+  accountPlanBadgePro: {
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.surface2,
+  },
+  accountPlanText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: 10,
+    fontWeight: "600",
+    lineHeight: 14,
+  },
+  accountPlanTextPro: {
+    color: theme.colors.accent,
+  },
+  accountUpgradeCard: {
+    minHeight: 74,
+    marginHorizontal: 6,
+    marginBottom: theme.spacing[1],
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.palette.green[200],
+    backgroundColor: theme.colors.surface0,
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingLeft: theme.spacing[3],
+    paddingRight: 34,
+    ...theme.shadow.sm,
+  },
+  accountUpgradeCardHovered: {
+    borderColor: theme.colors.palette.green[300],
+    backgroundColor: theme.colors.palette.green[100],
+  },
+  accountUpgradeCardPressed: {
+    opacity: 0.86,
+  },
+  accountUpgradeCopy: {
+    minWidth: 0,
+    flex: 1,
+    gap: 5,
+    zIndex: 2,
+  },
+  accountUpgradeEyebrowRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
-    flexShrink: 0,
   },
-  footerIconButton: {
-    width: 28,
-    height: 28,
+  accountUpgradeSparkIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: theme.borderRadius.md,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: theme.spacing[1],
-    paddingHorizontal: theme.spacing[1],
+    backgroundColor: theme.colors.surface0,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.palette.green[200],
+  },
+  accountUpgradeSparkIconGlyph: {
+    color: theme.colors.accent,
+  },
+  accountUpgradeEyebrow: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+  accountUpgradeSubtitle: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    lineHeight: 16,
+  },
+  accountUpgradeArt: {
+    position: "absolute",
+    top: 8,
+    right: 30,
+    width: 84,
+    height: 58,
+  },
+  accountUpgradeArtHalo: {
+    position: "absolute",
+    top: -28,
+    right: -24,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    backgroundColor: theme.colors.palette.blue[100],
+    opacity: 0.82,
+  },
+  accountUpgradeArtCardBack: {
+    position: "absolute",
+    top: 3,
+    right: 0,
+    width: 46,
+    height: 30,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.palette.blue[200],
+    backgroundColor: theme.colors.surface0,
+    opacity: 0.76,
+  },
+  accountUpgradeArtCardFront: {
+    position: "absolute",
+    top: 17,
+    right: 18,
+    width: 54,
+    height: 34,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+    justifyContent: "center",
+    paddingHorizontal: 9,
+    gap: 5,
+  },
+  accountUpgradeArtLinePrimary: {
+    width: 31,
+    height: 5,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.palette.blue[100],
+  },
+  accountUpgradeArtLineSecondary: {
+    width: 22,
+    height: 5,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.palette.yellow[400],
+    opacity: 0.24,
+  },
+  accountUpgradeArtCoin: {
+    position: "absolute",
+    right: 8,
+    bottom: 2,
+    width: 24,
+    height: 24,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.palette.yellow[400],
+    ...theme.shadow.sm,
+  },
+  accountUpgradeArtCoinGlyph: {
+    color: theme.colors.surface0,
+  },
+  accountUpgradeChevron: {
+    position: "absolute",
+    right: theme.spacing[3],
+    top: "50%",
+    marginTop: -12,
+    width: 24,
+    height: 24,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface0,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.palette.green[200],
+    zIndex: 3,
+  },
+  accountUpgradeChevronGlyph: {
+    color: theme.colors.accent,
   },
   tooltipRow: {
     flexDirection: "row",

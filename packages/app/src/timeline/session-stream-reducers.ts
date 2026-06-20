@@ -10,6 +10,7 @@ import {
   mergeAgentToolCallItem,
   reduceStreamUpdate,
 } from "@/types/stream";
+import { extractAgentTurnUsageFromEvents, mergeAgentTurnUsage } from "@/billing/turn-usage";
 
 const AGENT_STREAM_REDUCER_FLUSH_DELAY_MS = 16 * 3;
 
@@ -1176,10 +1177,20 @@ export function createSessionAgentStreamReducerQueue(
       };
     },
     commit: (agentId, result, events) => {
-      if (result.changedTail || result.changedHead) {
+      const turnUsageById = extractAgentTurnUsageFromEvents(events.map((event) => event.event));
+      const currentTurnUsageById = useSessionStore
+        .getState()
+        .sessions[serverId]?.agentTurnUsageById.get(agentId);
+      const nextTurnUsageById =
+        turnUsageById.size > 0
+          ? mergeAgentTurnUsage(currentTurnUsageById, turnUsageById)
+          : undefined;
+
+      if (result.changedTail || result.changedHead || nextTurnUsageById) {
         setAgentStreamState(serverId, agentId, {
           ...(result.changedTail ? { tail: result.tail } : {}),
           ...(result.changedHead ? { head: result.head } : {}),
+          ...(nextTurnUsageById ? { turnUsageById: nextTurnUsageById } : {}),
         });
       }
 

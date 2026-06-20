@@ -2078,6 +2078,15 @@ interface AssistantTurnFooterProps {
   getContent: () => string;
   completedAt?: Date;
   durationMs?: number;
+  billingUsage?: AssistantTurnBillingUsage | null;
+}
+
+export interface AssistantTurnBillingUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  actualCostCny?: number;
 }
 
 const assistantTurnFooterStylesheet = StyleSheet.create((theme) => ({
@@ -2108,9 +2117,38 @@ const assistantTurnFooterStylesheet = StyleSheet.create((theme) => ({
     color: theme.colors.foregroundMuted,
     fontSize: STREAM_METADATA_FONT_SIZE,
   },
+  billingLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: STREAM_METADATA_FONT_SIZE,
+  },
 }));
 
 const TIMESTAMP_REVEAL_MS = 3000;
+
+function formatBillingTokenCount(value: number): string {
+  return Math.max(0, Math.round(value)).toLocaleString();
+}
+
+function formatBillingCostCny(value: number): string {
+  return `¥${Math.max(0, value).toFixed(value >= 1 ? 2 : 4)}`;
+}
+
+function formatAssistantTurnBillingUsage(usage: AssistantTurnBillingUsage): string {
+  const cacheTokens = usage.cacheCreationTokens + usage.cacheReadTokens;
+  const values = {
+    input: formatBillingTokenCount(usage.inputTokens),
+    output: formatBillingTokenCount(usage.outputTokens),
+    cache: formatBillingTokenCount(cacheTokens),
+    cost:
+      typeof usage.actualCostCny === "number"
+        ? formatBillingCostCny(usage.actualCostCny)
+        : translateNow("message.footer.billingCostPending"),
+  };
+  if (cacheTokens > 0) {
+    return translateNow("message.footer.billingUsageWithCache", values);
+  }
+  return translateNow("message.footer.billingUsage", values);
+}
 
 /**
  * Footer rendered next to the copy button at the end of an assistant turn.
@@ -2122,6 +2160,7 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
   getContent,
   completedAt,
   durationMs,
+  billingUsage,
 }: AssistantTurnFooterProps) {
   const [hovered, setHovered] = useState(false);
   const [pressedReveal, setPressedReveal] = useState(false);
@@ -2152,6 +2191,11 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
 
   const canSwap = Boolean(timestampLabel);
   const showTimestamp = canSwap && (isWeb ? hovered : pressedReveal);
+  const billingUsageLabel = billingUsage
+    ? formatAssistantTurnBillingUsage(billingUsage)
+    : durationLabel
+      ? translateNow("message.footer.billingUsageUnavailable")
+      : "";
 
   const handleHoverIn = useCallback(() => setHovered(true), []);
   const handleHoverOut = useCallback(() => setHovered(false), []);
@@ -2192,6 +2236,9 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
             </Text>
           </View>
         </Pressable>
+      ) : null}
+      {billingUsageLabel ? (
+        <Text style={assistantTurnFooterStylesheet.billingLabel}>{billingUsageLabel}</Text>
       ) : null}
     </View>
   );

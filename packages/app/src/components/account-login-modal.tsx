@@ -7,7 +7,9 @@ import {
   registerAccountUser,
   saveAccountBootstrapSession,
   sendAccountSmsCode,
+  type AccountBootstrapSession,
 } from "@/account/account-api";
+import { bindControlReferralCode } from "@/control/control-api";
 import { AccountLoginCard, type AccountAuthMode } from "@/screens/open-project-screen";
 import { isDev, isWeb } from "@/constants/platform";
 import { useI18n } from "@/i18n/i18n";
@@ -17,6 +19,7 @@ import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 export function AccountLoginModalHost() {
   const { t } = useI18n();
   const serverId = useAccountLoginModalStore((state) => state.serverId);
+  const referralCode = useAccountLoginModalStore((state) => state.referralCode);
   const close = useAccountLoginModalStore((state) => state.close);
   const [accountEmail, setAccountEmail] = useState("");
   const [accountPhone, setAccountPhone] = useState("");
@@ -55,6 +58,20 @@ export function AccountLoginModalHost() {
     })();
   }, [accountPhone, t]);
 
+  const saveAccountAndBindReferral = useCallback(
+    async (session: AccountBootstrapSession) => {
+      await saveAccountBootstrapSession(session);
+      if (referralCode) {
+        await bindControlReferralCode({
+          accountSession: session,
+          code: referralCode,
+          clientId: "invite-link",
+        });
+      }
+    },
+    [referralCode],
+  );
+
   const handleLoginAccount = useCallback(() => {
     setAccountBusy(true);
     setAccountError(null);
@@ -65,7 +82,7 @@ export function AccountLoginModalHost() {
           code: accountSmsCode,
           displayName: accountWorkspaceName,
         });
-        await saveAccountBootstrapSession(session);
+        await saveAccountAndBindReferral(session);
         close();
       } catch (caught) {
         setAccountError(caught instanceof Error ? caught.message : t("openProject.error.login"));
@@ -73,7 +90,7 @@ export function AccountLoginModalHost() {
         setAccountBusy(false);
       }
     })();
-  }, [accountPhone, accountSmsCode, accountWorkspaceName, close, t]);
+  }, [accountPhone, accountSmsCode, accountWorkspaceName, close, saveAccountAndBindReferral, t]);
 
   const handleDevEmailLoginAccount = useCallback(() => {
     setAccountBusy(true);
@@ -84,7 +101,7 @@ export function AccountLoginModalHost() {
           email: accountEmail,
           displayName: accountWorkspaceName,
         });
-        await saveAccountBootstrapSession(session);
+        await saveAccountAndBindReferral(session);
         close();
       } catch (caught) {
         setAccountError(caught instanceof Error ? caught.message : t("openProject.error.login"));
@@ -92,7 +109,7 @@ export function AccountLoginModalHost() {
         setAccountBusy(false);
       }
     })();
-  }, [accountEmail, accountWorkspaceName, close, t]);
+  }, [accountEmail, accountWorkspaceName, close, saveAccountAndBindReferral, t]);
 
   const content = useMemo(
     () => (

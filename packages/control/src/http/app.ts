@@ -2,26 +2,53 @@ import path from "node:path";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { ZodError, type ZodType } from "zod";
 import type { DaemonNodeRecord } from "../domain.js";
-import { NotFoundError, type AdminSessionCleanupTarget, type ControlStore } from "../store.js";
 import {
+  createGatewayOrder,
+  getPaymentGatewayConfig,
+  verifyPaymentNotify,
+  type PaymentNotifyPayload,
+} from "../payment-gateway.js";
+import {
+  BillingPreflightError,
+  NotFoundError,
+  PricingUnavailableError,
+  ReferralConflictError,
+  StorageQuotaExceededError,
+  UsageBillingConflictError,
+  type AdminSessionCleanupTarget,
+  type ControlStore,
+} from "../store.js";
+import {
+  adminAdjustmentBodySchema,
+  adminBillingQuerySchema,
   allocateSessionWorkDirBodySchema,
   appendMessageBodySchema,
+  bindReferralBodySchema,
+  billingPreflightBodySchema,
   cleanupDaemonSessionsBodySchema,
   createArtifactBodySchema,
   createFileSnapshotBodySchema,
+  createPaymentOrderBodySchema,
   createRuntimeAllocationBodySchema,
   daemonConfigPatchBodySchema,
   createSessionBodySchema,
   loginBodySchema,
   registerBodySchema,
   registerNodeBodySchema,
+  recordUsageTurnBodySchema,
   runtimeSyncArtifactBodySchema,
   runtimeSyncEventBodySchema,
   setDefaultDaemonBodySchema,
+  updateBillingSettingsBodySchema,
+  updateBillingPlanDefinitionBodySchema,
+  updateBillingPlanBodySchema,
+  upsertModelPricingBodySchema,
   upsertAgentBindingBodySchema,
   upsertUserDaemonWorkspaceBodySchema,
   updateDaemonNodeBodySchema,
+  updateReferralBodySchema,
   updateSessionBodySchema,
+  updateStorageQuotaBodySchema,
 } from "./schemas.js";
 
 interface AuthContext {
@@ -66,6 +93,138 @@ export function createControlApp(store: ControlStore): express.Express {
       const auth = requireRequestAuth(req);
       const user = await store.getUserByToken(auth);
       res.json({ user, accessToken: auth.accessToken });
+    }),
+  );
+
+  app.get(
+    "/api/billing/summary",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      res.json(await store.getBillingSummary({ userId: requireUserId(req) }));
+    }),
+  );
+
+  app.get(
+    "/api/billing/pricing",
+    requireAuth(store),
+    asyncHandler(async (_req, res) => {
+      const pricing = (await store.listModelPricing()).filter((entry) => entry.enabled);
+      res.json({ pricing });
+    }),
+  );
+
+  app.post(
+    "/api/billing/payments",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const config = await getPaymentGatewayConfig();
+      if (!config) {
+        res.status(503).json({
+          error:
+            "Payment gateway is not configured. Add $DOYA_CONTROL_HOME/payment.json or set DOYA_PAYMENT_MERCHANT_ID, DOYA_PAYMENT_MERCHANT_KEY, and DOYA_PAYMENT_PUBLIC_BASE_URL.",
+        });
+        return;
+      }
+      const body = parseBody(createPaymentOrderBodySchema, req.body);
+      const order = await store.createPaymentOrder({
+        userId: requireUserId(req),
+        planId: body.planId,
+        billingPeriod: body.billingPeriod,
+        providerType: body.providerType,
+      });
+      const gatewayOrder = await createGatewayOrder(config, {
+        type: body.providerType,
+        outTradeNo: order.outTradeNo,
+        name: `Doya Pro ${body.billingPeriod}`,
+        money: order.amountCny.toFixed(2),
+        clientIp: getClientIp(req),
+        device: "jump",
+        param: order.id,
+      });
+      const updatedOrder = await store.updatePaymentOrderGatewayResult({
+        orderId: order.id,
+        providerTradeNo: gatewayOrder.tradeNo,
+        paymentUrl: gatewayOrder.payurl,
+        qrcode: gatewayOrder.qrcode,
+        urlscheme: gatewayOrder.urlscheme,
+        rawGatewayResponse: gatewayOrder.raw,
+      });
+      res.status(201).json({ order: updatedOrder });
+    }),
+  );
+
+  app.get(
+    "/api/billing/payments/notify",
+    asyncHandler(async (req, res) => {
+      const config = await getPaymentGatewayConfig();
+      if (!config) {
+        res.status(503).send("payment gateway not configured");
+        return;
+      }
+      const payload = toPaymentNotifyPayload(req.query);
+      if (!verifyPaymentNotify(config, payload)) {
+        res.status(400).send("invalid sign");
+        return;
+      }
+      if (payload.trade_status !== "TRADE_SUCCESS") {
+        res.status(200).send("success");
+        return;
+      }
+      await store.confirmPaidPaymentOrder({
+        outTradeNo: payload.out_trade_no,
+        providerTradeNo: payload.trade_no,
+        providerType: payload.type,
+        amountCny: Number(payload.money),
+        rawNotifyPayload: payload,
+      });
+      res.status(200).send("success");
+    }),
+  );
+
+  app.post(
+    "/api/billing/preflight",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(billingPreflightBodySchema, req.body);
+      res.json(await store.preflightBilling({ userId: requireUserId(req), ...body }));
+    }),
+  );
+
+  app.post(
+    "/api/billing/referrals/bind",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(bindReferralBodySchema, req.body);
+      res.status(201).json({
+        referral: await store.bindReferralCode({
+          inviteeUserId: requireUserId(req),
+          code: body.code,
+          sourceFingerprint: buildReferralSourceFingerprint(req, body.clientId),
+        }),
+      });
+    }),
+  );
+
+  app.post(
+    "/api/billing/usage-turns",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(recordUsageTurnBodySchema, req.body);
+      res.status(201).json(
+        await store.recordUsageTurn({
+          userId: requireUserId(req),
+          sessionId: body.sessionId,
+          runtimeId: body.runtimeId,
+          nodeId: body.nodeId,
+          agentId: body.agentId,
+          providerId: body.providerId,
+          modelId: body.modelId,
+          turnId: body.turnId,
+          requestId: body.requestId,
+          requestFingerprint: body.requestFingerprint,
+          tokens: body.tokens,
+        }),
+      );
     }),
   );
 
@@ -245,7 +404,10 @@ export function createControlApp(store: ControlStore): express.Express {
         userId: session.userId,
         sessionId: session.id,
         runtimeId: body.runtimeId,
+        nodeId: body.nodeId,
         agentId: body.agentId,
+        providerId: allocation.providerId,
+        modelId: allocation.modelId,
         event: body.event,
       });
       res.status(201).json({ synced });
@@ -308,6 +470,126 @@ export function createControlApp(store: ControlStore): express.Express {
             });
           }),
         ),
+      });
+    }),
+  );
+
+  app.get(
+    "/api/admin/billing/overview",
+    requireAuth(store),
+    asyncHandler(async (_req, res) => {
+      res.json(await store.getAdminBillingOverview());
+    }),
+  );
+
+  app.get(
+    "/api/admin/billing",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const query = parseBody(adminBillingQuerySchema, req.query);
+      res.json(await store.getAdminBillingState(normalizeUsageFilters(query)));
+    }),
+  );
+
+  app.patch(
+    "/api/admin/billing/settings",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(updateBillingSettingsBodySchema, req.body);
+      res.json({ settings: await store.updateBillingSettings(body) });
+    }),
+  );
+
+  app.patch(
+    "/api/admin/billing/plans",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(updateBillingPlanDefinitionBodySchema, req.body);
+      res.json({ plan: await store.updateBillingPlanDefinition(body) });
+    }),
+  );
+
+  app.get(
+    "/api/admin/billing/pricing",
+    requireAuth(store),
+    asyncHandler(async (_req, res) => {
+      res.json({ pricing: await store.listModelPricing() });
+    }),
+  );
+
+  app.post(
+    "/api/admin/billing/pricing",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(upsertModelPricingBodySchema, req.body);
+      res.status(201).json({ pricing: await store.upsertModelPricing(body) });
+    }),
+  );
+
+  app.post(
+    "/api/admin/billing/adjustments",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(adminAdjustmentBodySchema, req.body);
+      res.status(201).json(await store.createAdminAdjustment(body));
+    }),
+  );
+
+  app.post(
+    "/api/admin/billing/top-ups",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(adminAdjustmentBodySchema, req.body);
+      res.status(201).json(await store.createAdminTopUp(body));
+    }),
+  );
+
+  app.patch(
+    "/api/admin/billing/users/plan",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(updateBillingPlanBodySchema, req.body);
+      res.json(await store.updateBillingAccountPlan(body));
+    }),
+  );
+
+  app.patch(
+    "/api/admin/billing/storage",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(updateStorageQuotaBodySchema, req.body);
+      res.json({ storageQuota: await store.updateStorageQuota(body) });
+    }),
+  );
+
+  app.post(
+    "/api/admin/billing/storage/rescan",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(updateStorageQuotaBodySchema.pick({ userId: true }), req.body);
+      res.json({ storageQuota: await rescanUserStorage({ store, userId: body.userId }) });
+    }),
+  );
+
+  app.post(
+    "/api/billing/storage/rescan",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      res.json({ storageQuota: await rescanUserStorage({ store, userId: requireUserId(req) }) });
+    }),
+  );
+
+  app.patch(
+    "/api/admin/billing/referrals/:referralId",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(updateReferralBodySchema, req.body);
+      res.json({
+        referral: await store.updateReferral({
+          referralId: req.params.referralId,
+          status: body.status,
+          rejectReason: body.rejectReason,
+        }),
       });
     }),
   );
@@ -439,9 +721,10 @@ export function createControlApp(store: ControlStore): express.Express {
     "/api/sessions/:sessionId/agent-binding",
     requireAuth(store),
     asyncHandler(async (req, res) => {
+      const userId = requireUserId(req);
       const binding = await store.getActiveAgentBinding({
         sessionId: req.params.sessionId,
-        userId: requireUserId(req),
+        userId,
       });
       if (!binding) {
         res.json({ binding: null, node: null });
@@ -483,9 +766,11 @@ export function createControlApp(store: ControlStore): express.Express {
     requireAuth(store),
     asyncHandler(async (req, res) => {
       const body = parseBody(upsertAgentBindingBodySchema, req.body);
+      const userId = requireUserId(req);
+      await store.preflightBilling({ userId });
       const binding = await store.upsertAgentBinding({
         sessionId: req.params.sessionId,
-        userId: requireUserId(req),
+        userId,
         nodeId: body.nodeId,
         agentId: body.agentId,
         userWorkspaceId: body.userWorkspaceId,
@@ -511,6 +796,12 @@ export function createControlApp(store: ControlStore): express.Express {
       if (!userWorkspace) {
         throw new NotFoundError("User daemon workspace not found");
       }
+      await preflightRuntimeBilling({
+        store,
+        userId,
+        providerId: body.providerId,
+        modelId: body.modelId,
+      });
       const node = await store.getNode(body.nodeId);
       const allocation = await allocateDaemonSessionWorkDir({
         node,
@@ -538,9 +829,16 @@ export function createControlApp(store: ControlStore): express.Express {
     requireAuth(store),
     asyncHandler(async (req, res) => {
       const body = parseBody(createRuntimeAllocationBodySchema, req.body);
+      const userId = requireUserId(req);
+      await preflightRuntimeBilling({
+        store,
+        userId,
+        providerId: body.providerId,
+        modelId: body.modelId,
+      });
       const runtime = await store.createRuntimeAllocation({
         sessionId: req.params.sessionId,
-        userId: requireUserId(req),
+        userId,
         nodeId: body.nodeId,
         runtimeId: body.runtimeId,
         providerId: body.providerId,
@@ -587,6 +885,71 @@ function requireAuth(store: ControlStore) {
 
 function requireUserId(req: Request): string {
   return requireRequestAuth(req).userId;
+}
+
+function getClientIp(req: Request): string {
+  const forwardedFor = req.headers["x-forwarded-for"];
+  if (typeof forwardedFor === "string") {
+    return forwardedFor.split(",")[0]?.trim() || req.ip || "127.0.0.1";
+  }
+  return req.ip || req.socket.remoteAddress || "127.0.0.1";
+}
+
+function toPaymentNotifyPayload(query: Request["query"]): PaymentNotifyPayload {
+  const payload: Record<string, string> = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (typeof value === "string") {
+      payload[key] = value;
+    }
+  }
+  return payload as unknown as PaymentNotifyPayload;
+}
+
+function normalizeUsageFilters(input: {
+  userId?: string;
+  sessionId?: string;
+  providerId?: string;
+  modelId?: string;
+  planId?: string;
+  startAt?: string;
+  endAt?: string;
+}) {
+  return {
+    userId: normalizeQueryString(input.userId),
+    sessionId: normalizeQueryString(input.sessionId),
+    providerId: normalizeQueryString(input.providerId),
+    modelId: normalizeQueryString(input.modelId),
+    planId: normalizeQueryString(input.planId),
+    startAt: normalizeQueryString(input.startAt),
+    endAt: normalizeQueryString(input.endAt),
+  };
+}
+
+function normalizeQueryString(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
+}
+
+function buildReferralSourceFingerprint(req: Request, clientId: string | null | undefined): string {
+  const clientPart = clientId?.trim() || readHeader(req, "x-doya-client-id") || "client:unknown";
+  const ipPart = req.ip || req.socket.remoteAddress || "ip:unknown";
+  return `${clientPart}:${ipPart}`;
+}
+
+async function preflightRuntimeBilling(input: {
+  store: ControlStore;
+  userId: string;
+  providerId?: string | null;
+  modelId?: string | null;
+}): Promise<void> {
+  if (!input.providerId || !input.modelId) {
+    return;
+  }
+  await input.store.preflightBilling({
+    userId: input.userId,
+    providerId: input.providerId,
+    modelId: input.modelId,
+  });
 }
 
 function requireRequestAuth(req: Request): AuthContext {
@@ -642,6 +1005,18 @@ function errorHandler(error: unknown, _req: Request, res: Response, _next: NextF
   }
   if (error instanceof NotFoundError) {
     res.status(404).json({ error: error.message });
+    return;
+  }
+  if (
+    error instanceof BillingPreflightError ||
+    error instanceof PricingUnavailableError ||
+    error instanceof StorageQuotaExceededError
+  ) {
+    res.status(402).json({ error: error.message });
+    return;
+  }
+  if (error instanceof UsageBillingConflictError || error instanceof ReferralConflictError) {
+    res.status(409).json({ error: error.message });
     return;
   }
   const message = error instanceof Error ? error.message : "Request failed";
@@ -776,6 +1151,42 @@ async function deleteDaemonSessionWorkDirs(input: {
   return { deleted, failed };
 }
 
+async function rescanUserStorage(input: { store: ControlStore; userId: string }) {
+  const workspaces = await input.store.listUserDaemonWorkspaces({ userId: input.userId });
+  if (workspaces.length === 0) {
+    return await input.store.updateStorageQuota({
+      userId: input.userId,
+      generatedBytesUsed: 0,
+      lastScannedAt: new Date().toISOString(),
+    });
+  }
+  let totalBytes = 0;
+  let scannedAt: string | null = null;
+  for (const workspace of workspaces) {
+    const node = await input.store.getNode(workspace.nodeId);
+    const scan = await scanDaemonUserWorkspace({ node, userId: input.userId });
+    totalBytes += scan.totalBytes;
+    scannedAt = scan.scannedAt;
+  }
+  const current = await input.store.getBillingSummary({ userId: input.userId });
+  return await input.store.updateStorageQuota({
+    userId: input.userId,
+    generatedBytesUsed: Math.max(0, totalBytes - current.storageQuota.uploadedBytesUsed),
+    lastScannedAt: scannedAt,
+  });
+}
+
+async function scanDaemonUserWorkspace(input: {
+  node: DaemonNodeRecord;
+  userId: string;
+}): Promise<DaemonUserWorkspaceScanResult> {
+  return await postDaemonJson<DaemonUserWorkspaceScanResult>(
+    input.node,
+    "/api/user-workspaces/scan",
+    { userId: input.userId },
+  );
+}
+
 async function postDaemonJson<TResponse extends object>(
   node: DaemonNodeRecord,
   endpointPath: string,
@@ -880,6 +1291,15 @@ interface DaemonSessionWorkDirCleanupResult {
   failed: DaemonFailedSessionWorkDir[];
 }
 
+interface DaemonUserWorkspaceScanResult {
+  workspace: {
+    workspaceDir: string;
+  };
+  totalBytes: number;
+  fileCount: number;
+  scannedAt: string;
+}
+
 class DaemonApiResponseError extends Error {
   constructor(
     message: string,
@@ -919,16 +1339,37 @@ async function appendRuntimeSyncEvent(input: {
   userId: string;
   sessionId: string;
   runtimeId: string;
+  nodeId: string;
   agentId: string;
+  providerId: string | null;
+  modelId: string | null;
   event: unknown;
 }): Promise<boolean> {
   const status = readRuntimeSessionStatus(input.event);
   if (status) {
+    const usage = readRuntimeBillingUsage(input.event);
+    if (usage) {
+      if (input.providerId && input.modelId) {
+        await input.store.recordUsageTurn({
+          userId: input.userId,
+          sessionId: input.sessionId,
+          runtimeId: input.runtimeId,
+          nodeId: input.nodeId,
+          agentId: input.agentId,
+          providerId: input.providerId,
+          modelId: input.modelId,
+          turnId: usage.turnId,
+          requestId: `${input.runtimeId}:${input.agentId}:${usage.turnId}`,
+          tokens: usage.tokens,
+        });
+      }
+    }
     await input.store.updateSession({
       sessionId: input.sessionId,
       userId: input.userId,
       status,
     });
+    scheduleStorageRescanAfterTurn({ store: input.store, userId: input.userId });
     return true;
   }
 
@@ -967,6 +1408,65 @@ async function appendRuntimeSyncEvent(input: {
     content: timeline.content,
   });
   return true;
+}
+
+function scheduleStorageRescanAfterTurn(input: { store: ControlStore; userId: string }): void {
+  void rescanUserStorage(input).catch(() => undefined);
+}
+
+function readRuntimeBillingUsage(event: unknown): {
+  turnId: string;
+  tokens: {
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+    cachedInputTokens?: number;
+    reasoningTokens?: number;
+    contextWindowUsedTokens?: number | null;
+    contextWindowMaxTokens?: number | null;
+  };
+} | null {
+  if (!event || typeof event !== "object" || Array.isArray(event)) {
+    return null;
+  }
+  const eventRecord = event as Record<string, unknown>;
+  if (
+    eventRecord.type !== "turn_completed" &&
+    eventRecord.type !== "turn_failed" &&
+    eventRecord.type !== "turn_canceled"
+  ) {
+    return null;
+  }
+  const usage = eventRecord.usage;
+  if (!usage || typeof usage !== "object" || Array.isArray(usage)) {
+    return null;
+  }
+  const turnId =
+    typeof eventRecord.turnId === "string" && eventRecord.turnId.trim()
+      ? eventRecord.turnId.trim()
+      : null;
+  if (!turnId) {
+    return null;
+  }
+  const usageRecord = usage as Record<string, unknown>;
+  return {
+    turnId,
+    tokens: {
+      inputTokens: readUsageNumber(usageRecord.inputTokens),
+      outputTokens: readUsageNumber(usageRecord.outputTokens),
+      cacheCreationTokens: readUsageNumber(usageRecord.cacheCreationTokens),
+      cacheReadTokens: readUsageNumber(usageRecord.cacheReadTokens),
+      cachedInputTokens: readUsageNumber(usageRecord.cachedInputTokens),
+      reasoningTokens: readUsageNumber(usageRecord.reasoningTokens),
+      contextWindowUsedTokens: readUsageNumber(usageRecord.contextWindowUsedTokens) ?? null,
+      contextWindowMaxTokens: readUsageNumber(usageRecord.contextWindowMaxTokens) ?? null,
+    },
+  };
+}
+
+function readUsageNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function readRuntimeSessionStatus(event: unknown): "idle" | "running" | "done" | "error" | null {

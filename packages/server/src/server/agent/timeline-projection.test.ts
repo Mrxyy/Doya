@@ -64,6 +64,30 @@ describe("projectTimelineRows", () => {
     });
   });
 
+  test("preserves assistant turn id when chunks merge in projected mode", () => {
+    const rows: AgentTimelineRow[] = [
+      {
+        seq: 1,
+        timestamp: "2026-02-13T00:00:00.000Z",
+        item: { type: "assistant_message", text: "Hel", messageId: "msg-1", turnId: "turn-1" },
+      },
+      {
+        seq: 2,
+        timestamp: "2026-02-13T00:00:00.100Z",
+        item: { type: "assistant_message", text: "lo", messageId: "msg-1", turnId: "turn-1" },
+      },
+    ];
+
+    const projected = projectTimelineRows({ rows, mode: "projected" });
+
+    expect(projected[0]?.item).toEqual({
+      type: "assistant_message",
+      text: "Hello",
+      messageId: "msg-1",
+      turnId: "turn-1",
+    });
+  });
+
   test("keeps adjacent assistant chunks with different message ids separate in projected mode", () => {
     const rows: AgentTimelineRow[] = [
       {

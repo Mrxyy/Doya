@@ -1,12 +1,14 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Text, TextInput, View } from "react-native";
 import { KeyRound } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
+import { isWeb } from "@/constants/platform";
 import { useI18n } from "@/i18n/i18n";
 
 const DEFAULT_ADMIN_PASSWORD = "123789xyy";
+const ADMIN_SESSION_UNLOCKED_KEY = "doya.admin.unlocked";
 
 export function AdminAccessGate({
   children,
@@ -20,8 +22,17 @@ export function AdminAccessGate({
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  useEffect(() => {
+    if (!readAdminSessionUnlocked()) {
+      return;
+    }
+    setIsUnlocked(true);
+    onUnlock?.();
+  }, [onUnlock]);
+
   const handleUnlock = useCallback(() => {
     if (password === DEFAULT_ADMIN_PASSWORD) {
+      writeAdminSessionUnlocked();
       setIsUnlocked(true);
       setHasError(false);
       onUnlock?.();
@@ -62,6 +73,20 @@ export function AdminAccessGate({
       </View>
     </View>
   );
+}
+
+function readAdminSessionUnlocked(): boolean {
+  if (!isWeb || typeof window === "undefined") {
+    return false;
+  }
+  return window.sessionStorage.getItem(ADMIN_SESSION_UNLOCKED_KEY) === "1";
+}
+
+function writeAdminSessionUnlocked() {
+  if (!isWeb || typeof window === "undefined") {
+    return;
+  }
+  window.sessionStorage.setItem(ADMIN_SESSION_UNLOCKED_KEY, "1");
 }
 
 const styles = StyleSheet.create((theme) => ({

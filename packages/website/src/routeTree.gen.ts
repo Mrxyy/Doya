@@ -57,6 +57,7 @@ import { Route as AgentsRouteImport } from "./routes/agents";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as DocsIndexRouteImport } from "./routes/docs/index";
 import { Route as BlogIndexRouteImport } from "./routes/blog/index";
+import { Route as InviteCodeRouteImport } from "./routes/invite/$code";
 import { Route as DocsSplatRouteImport } from "./routes/docs/$";
 import { Route as BlogSplatRouteImport } from "./routes/blog/$";
 
@@ -300,6 +301,11 @@ const BlogIndexRoute = BlogIndexRouteImport.update({
   path: "/",
   getParentRoute: () => BlogRoute,
 } as any);
+const InviteCodeRoute = InviteCodeRouteImport.update({
+  id: "/invite/$code",
+  path: "/invite/$code",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const DocsSplatRoute = DocsSplatRouteImport.update({
   id: "/$",
   path: "/$",
@@ -360,6 +366,7 @@ export interface FileRoutesByFullPath {
   "/vtcode": typeof VtcodeRoute;
   "/blog/$": typeof BlogSplatRoute;
   "/docs/$": typeof DocsSplatRoute;
+  "/invite/$code": typeof InviteCodeRoute;
   "/blog/": typeof BlogIndexRoute;
   "/docs/": typeof DocsIndexRoute;
 }
@@ -410,6 +417,7 @@ export interface FileRoutesByTo {
   "/vtcode": typeof VtcodeRoute;
   "/blog/$": typeof BlogSplatRoute;
   "/docs/$": typeof DocsSplatRoute;
+  "/invite/$code": typeof InviteCodeRoute;
   "/blog": typeof BlogIndexRoute;
   "/docs": typeof DocsIndexRoute;
 }
@@ -463,6 +471,7 @@ export interface FileRoutesById {
   "/vtcode": typeof VtcodeRoute;
   "/blog/$": typeof BlogSplatRoute;
   "/docs/$": typeof DocsSplatRoute;
+  "/invite/$code": typeof InviteCodeRoute;
   "/blog/": typeof BlogIndexRoute;
   "/docs/": typeof DocsIndexRoute;
 }
@@ -517,6 +526,7 @@ export interface FileRouteTypes {
     | "/vtcode"
     | "/blog/$"
     | "/docs/$"
+    | "/invite/$code"
     | "/blog/"
     | "/docs/";
   fileRoutesByTo: FileRoutesByTo;
@@ -567,6 +577,7 @@ export interface FileRouteTypes {
     | "/vtcode"
     | "/blog/$"
     | "/docs/$"
+    | "/invite/$code"
     | "/blog"
     | "/docs";
   id:
@@ -619,6 +630,7 @@ export interface FileRouteTypes {
     | "/vtcode"
     | "/blog/$"
     | "/docs/$"
+    | "/invite/$code"
     | "/blog/"
     | "/docs/";
   fileRoutesById: FileRoutesById;
@@ -670,6 +682,7 @@ export interface RootRouteChildren {
   SigitRoute: typeof SigitRoute;
   StakpakRoute: typeof StakpakRoute;
   VtcodeRoute: typeof VtcodeRoute;
+  InviteCodeRoute: typeof InviteCodeRoute;
 }
 
 declare module "@tanstack/react-router" {
@@ -1010,6 +1023,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof BlogIndexRouteImport;
       parentRoute: typeof BlogRoute;
     };
+    "/invite/$code": {
+      id: "/invite/$code";
+      path: "/invite/$code";
+      fullPath: "/invite/$code";
+      preLoaderRoute: typeof InviteCodeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/docs/$": {
       id: "/docs/$";
       path: "/$";
@@ -1098,6 +1118,7 @@ const rootRouteChildren: RootRouteChildren = {
   SigitRoute: SigitRoute,
   StakpakRoute: StakpakRoute,
   VtcodeRoute: VtcodeRoute,
+  InviteCodeRoute: InviteCodeRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

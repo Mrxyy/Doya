@@ -32,6 +32,18 @@ const PERSISTENCE_HANDLE_SCHEMA = z
   .nullable()
   .optional();
 
+const AGENT_USAGE_SCHEMA = z.object({
+  inputTokens: z.number().optional(),
+  cachedInputTokens: z.number().optional(),
+  outputTokens: z.number().optional(),
+  cacheCreationTokens: z.number().optional(),
+  cacheReadTokens: z.number().optional(),
+  reasoningTokens: z.number().optional(),
+  totalCostUsd: z.number().optional(),
+  contextWindowMaxTokens: z.number().optional(),
+  contextWindowUsedTokens: z.number().optional(),
+});
+
 const STORED_AGENT_SCHEMA = z.object({
   id: z.string(),
   provider: z.string(),
@@ -57,6 +69,9 @@ const STORED_AGENT_SCHEMA = z.object({
     .optional(),
   features: z.array(AgentFeatureSchema).optional(),
   persistence: PERSISTENCE_HANDLE_SCHEMA,
+  lastUsage: AGENT_USAGE_SCHEMA.optional(),
+  // COMPAT(turnUsageById): added in v0.1.X, old records read as no per-turn usage.
+  turnUsageById: z.record(AGENT_USAGE_SCHEMA).optional(),
   lastError: z.string().nullable().optional(),
   requiresAttention: z.boolean().optional(),
   attentionReason: z.enum(["finished", "error", "permission"]).nullable().optional(),

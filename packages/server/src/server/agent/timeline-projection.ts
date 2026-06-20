@@ -240,6 +240,9 @@ function mergeAssistantChunks(entries: readonly WorkingEntry[]): WorkingEntry[] 
         type: "assistant_message",
         text: `${previousAssistant.text}${entryAssistant.text}`,
         ...(previousAssistant.messageId ? { messageId: previousAssistant.messageId } : {}),
+        ...((previousAssistant.turnId ?? entryAssistant.turnId)
+          ? { turnId: previousAssistant.turnId ?? entryAssistant.turnId }
+          : {}),
       },
       timestamp: entry.timestamp,
       seqEnd: entry.seqEnd,

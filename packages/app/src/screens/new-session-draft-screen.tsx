@@ -37,7 +37,7 @@ import {
 } from "@/constants/layout";
 import { isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
-import { useI18n, type Locale } from "@/i18n/i18n";
+import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import { translate } from "@/i18n/translate";
 import type { TranslationKey, TranslationParams } from "@/i18n/translations";
 import {
@@ -61,6 +61,8 @@ import {
 } from "@/utils/doya-message-markup";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
+import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
+import { getBillingUpgradeReason } from "@/utils/billing-errors";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
@@ -71,13 +73,16 @@ import {
   controlApiBaseUrl,
   createControlFileSnapshot,
   createControlSession,
+  deleteControlSession,
   ensureControlUserDaemonWorkspace,
   getControlAdminOverview,
   isControlApiConfigured,
+  preflightControlBilling,
   registerControlNode,
   upsertControlAgentBinding,
   type WorkingContext,
 } from "@/control/control-api";
+import { buildControlAgentLabels as buildBaseControlAgentLabels } from "@/control/control-agent-labels";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
 
 const MAX_SESSION_TITLE_LENGTH = 60;
@@ -272,16 +277,11 @@ function buildControlAgentConfig(input: {
 function buildControlAgentLabels(input: {
   sessionId: string;
   nodeId: string;
+  runtimeId: string;
   aiCreationContext?: HomeAiCreationSubmitContext;
 }): Record<string, string> {
   const aiCreationLabels = buildHomeAiCreationLabels(input.aiCreationContext).labels ?? {};
-  const apiBaseUrl = controlApiBaseUrl();
-  return {
-    ...aiCreationLabels,
-    "doya.control.sessionId": input.sessionId,
-    "doya.control.nodeId": input.nodeId,
-    ...(apiBaseUrl ? { "doya.control.apiBaseUrl": apiBaseUrl } : {}),
-  };
+  return buildBaseControlAgentLabels({ ...input, baseLabels: aiCreationLabels });
 }
 
 async function createWorkingContextFromAttachments(input: {
@@ -410,6 +410,7 @@ export function NewSessionDraftScreen({
 }) {
   const { locale, t } = useI18n();
   const toast = useToast();
+  const openBillingUpgrade = useBillingUpgradeModalStore((state) => state.open);
   const isCompact = useIsCompactFormFactor();
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
@@ -511,6 +512,7 @@ export function NewSessionDraftScreen({
         return;
       }
       setIsSubmitting(true);
+      let pendingControlSessionId: string | null = null;
       try {
         const sessionTitle = buildNewSessionTitle({
           text: submitText.displayText,
@@ -522,6 +524,20 @@ export function NewSessionDraftScreen({
           isControlApiConfigured() &&
           accountSession.workspace.workspaceId.startsWith("control:")
         ) {
+          const controlAgentConfig = buildControlAgentConfig({
+            provider: provider as AgentProvider,
+            ...(composerState.modeOptions.length > 0 && composerState.selectedMode
+              ? { modeId: composerState.selectedMode }
+              : {}),
+            model: composerState.effectiveModelId || undefined,
+            thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
+            featureValues: composerState.featureValues,
+          });
+          await preflightControlBilling({
+            accountSession,
+            providerId: controlAgentConfig.provider,
+            modelId: controlAgentConfig.model ?? null,
+          });
           const preferredNodeEndpoint =
             runtimeSnapshot?.activeConnection?.type === "directTcp"
               ? normalizeHostPort(runtimeSnapshot.activeConnection.endpoint)
@@ -555,16 +571,8 @@ export function NewSessionDraftScreen({
             title: sessionTitle,
             workingContext,
           });
+          pendingControlSessionId = controlSession.id;
           notifyControlSessionsChanged();
-          const controlAgentConfig = buildControlAgentConfig({
-            provider: provider as AgentProvider,
-            ...(composerState.modeOptions.length > 0 && composerState.selectedMode
-              ? { modeId: composerState.selectedMode }
-              : {}),
-            model: composerState.effectiveModelId || undefined,
-            thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
-            featureValues: composerState.featureValues,
-          });
           await appendControlSessionMessage({
             accountSession,
             sessionId: controlSession.id,
@@ -628,6 +636,7 @@ export function NewSessionDraftScreen({
             labels: buildControlAgentLabels({
               sessionId: controlSession.id,
               nodeId: runtimeServerId,
+              runtimeId: sessionWorkDir.runtime.runtimeId,
               aiCreationContext: effectiveAiCreationContext,
             }),
             ...(images && images.length > 0 ? { images } : {}),
@@ -642,6 +651,7 @@ export function NewSessionDraftScreen({
             workspaceId: workspace.id,
             cwd: workspace.workspaceDirectory,
           });
+          pendingControlSessionId = null;
           await appendControlSessionMessage({
             accountSession,
             sessionId: controlSession.id,
@@ -777,6 +787,17 @@ export function NewSessionDraftScreen({
         draft.clear("sent");
         router.replace(buildHostAgentDetailRoute(runtimeServerId, agent.id));
       } catch (error) {
+        if (pendingControlSessionId) {
+          await deleteControlSession({
+            accountSession,
+            sessionId: pendingControlSessionId,
+          }).catch(() => undefined);
+          notifyControlSessionsChanged();
+        }
+        const billingReason = getBillingUpgradeReason(error);
+        if (billingReason) {
+          openBillingUpgrade(billingReason);
+        }
         toast.error(error instanceof Error ? error.message : t("openProject.error.createProject"));
       } finally {
         setIsSubmitting(false);
@@ -792,6 +813,7 @@ export function NewSessionDraftScreen({
       isConnected,
       locale,
       mergeWorkspaces,
+      openBillingUpgrade,
       openAccountLogin,
       recordConversation,
       serverId,
@@ -1719,15 +1741,15 @@ function buildHomeAiCreationMarkupPrompt(input: {
 />
 `;
   const fields = [
-    `<doya-field name="request" label="需求" desc="Original user creation request.">${escapedPrompt}</doya-field>`,
+    `<doya-field name="request" label="${escapeDoyaMarkupText(translateNow("aiCreation.markup.field.request"))}" desc="Original user creation request.">${escapedPrompt}</doya-field>`,
     input.ratio
-      ? `<doya-field name="ratio" label="比例" desc="Requested output aspect ratio.">${escapeDoyaMarkupText(input.ratio)}</doya-field>`
+      ? `<doya-field name="ratio" label="${escapeDoyaMarkupText(translateNow("aiCreation.markup.field.ratio"))}" desc="Requested output aspect ratio.">${escapeDoyaMarkupText(input.ratio)}</doya-field>`
       : null,
     input.style
-      ? `<doya-field name="style" label="风格" desc="Requested visual style.">${escapeDoyaMarkupText(input.style)}</doya-field>`
+      ? `<doya-field name="style" label="${escapeDoyaMarkupText(translateNow("aiCreation.markup.field.style"))}" desc="Requested visual style.">${escapeDoyaMarkupText(input.style)}</doya-field>`
       : null,
     typeof input.sourceCount === "number" && input.sourceCount > 0
-      ? `<doya-field name="source_count" label="素材数" desc="Number of attached source files or images.">${input.sourceCount}</doya-field>`
+      ? `<doya-field name="source_count" label="${escapeDoyaMarkupText(translateNow("aiCreation.markup.field.sourceCount"))}" desc="Number of attached source files or images.">${input.sourceCount}</doya-field>`
       : null,
   ].filter((field): field is string => Boolean(field));
 
@@ -1773,9 +1795,9 @@ function getHomeAiCreationMarkupConfig(mode: HomeAiCreationMode): {
     return {
       kind: "ai_creation.slides.create",
       goal: "create_pptx",
-      targetText: "创建 PPT",
-      title: "创建 PPT",
-      normalInstruction: "请根据用户需求创建可编辑 PPTX。",
+      targetText: translateNow("aiCreation.display.slidesPrefix"),
+      title: translateNow("aiCreation.display.slidesPrefix"),
+      normalInstruction: translateNow("aiCreation.markup.instruction.slides"),
       cardDesc: "A Doya-renderable task card for an AI slide deck creation request.",
     };
   }
@@ -1783,9 +1805,9 @@ function getHomeAiCreationMarkupConfig(mode: HomeAiCreationMode): {
     return {
       kind: "ai_creation.document.pdf.create",
       goal: "create_pdf",
-      targetText: "创建 PDF",
-      title: "创建 PDF",
-      normalInstruction: "请根据用户需求创建 PDF 文档。",
+      targetText: translateNow("aiCreation.display.pdfPrefix"),
+      title: translateNow("aiCreation.display.pdfPrefix"),
+      normalInstruction: translateNow("aiCreation.markup.instruction.pdf"),
       cardDesc: "A Doya-renderable task card for an AI PDF creation request.",
     };
   }
@@ -1793,9 +1815,9 @@ function getHomeAiCreationMarkupConfig(mode: HomeAiCreationMode): {
     return {
       kind: "ai_creation.document.word.create",
       goal: "create_docx",
-      targetText: "创建 Word",
-      title: "创建 Word",
-      normalInstruction: "请根据用户需求创建 Word 文档。",
+      targetText: translateNow("aiCreation.display.wordPrefix"),
+      title: translateNow("aiCreation.display.wordPrefix"),
+      normalInstruction: translateNow("aiCreation.markup.instruction.word"),
       cardDesc: "A Doya-renderable task card for an AI Word document creation request.",
     };
   }
@@ -1803,18 +1825,18 @@ function getHomeAiCreationMarkupConfig(mode: HomeAiCreationMode): {
     return {
       kind: "ai_creation.spreadsheet.create",
       goal: "create_spreadsheet",
-      targetText: "创建表格",
-      title: "创建表格",
-      normalInstruction: "请根据用户需求创建电子表格。",
+      targetText: translateNow("aiCreation.display.spreadsheetPrefix"),
+      title: translateNow("aiCreation.display.spreadsheetPrefix"),
+      normalInstruction: translateNow("aiCreation.markup.instruction.spreadsheet"),
       cardDesc: "A Doya-renderable task card for an AI spreadsheet creation request.",
     };
   }
   return {
     kind: "ai_creation.image.generate",
     goal: "generate_image",
-    targetText: "生成图片",
-    title: "生成图片",
-    normalInstruction: "请根据用户需求生成图片。",
+    targetText: translateNow("aiCreation.display.createPrefix"),
+    title: translateNow("aiCreation.display.createPrefix"),
+    normalInstruction: translateNow("aiCreation.markup.instruction.create"),
     cardDesc: "A Doya-renderable task card for an AI image generation request.",
   };
 }
@@ -2242,7 +2264,7 @@ const styles = StyleSheet.create((theme) => ({
     ...(isWeb
       ? ({
           backgroundImage:
-            "linear-gradient(90deg, #2563eb 0%, #7c3aed 32%, #db2777 66%, #0891b2 100%)",
+            "linear-gradient(90deg, #15803D 0%, #FACC15 32%, #0EA5E9 68%, #F97316 100%)",
           backgroundSize: "240% 100%",
           backgroundClip: "text",
           WebkitBackgroundClip: "text",

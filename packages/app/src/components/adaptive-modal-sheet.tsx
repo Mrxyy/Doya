@@ -202,6 +202,9 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[SHEET_HORIZONTAL_PADDING_SCALE],
     gap: theme.spacing[4],
   },
+  desktopStaticContentFixed: {
+    flex: 1,
+  },
   footer: {
     paddingHorizontal: theme.spacing[SHEET_HORIZONTAL_PADDING_SCALE],
     paddingVertical: theme.spacing[3],
@@ -444,6 +447,8 @@ export interface AdaptiveModalSheetProps {
   testID?: string;
   /** Override the max width of the desktop card. */
   desktopMaxWidth?: number;
+  /** Fix the desktop card height so internal panels can own scrolling. */
+  desktopHeight?: number;
   /** When provided, wraps the card content in a FileDropZone. */
   onFilesDropped?: (files: ImageAttachment[]) => void;
   scrollable?: boolean;
@@ -458,6 +463,7 @@ export function AdaptiveModalSheet({
   snapPoints,
   testID,
   desktopMaxWidth,
+  desktopHeight,
   onFilesDropped,
   scrollable = true,
 }: AdaptiveModalSheetProps) {
@@ -482,8 +488,16 @@ export function AdaptiveModalSheet({
   );
 
   const desktopCardStyle = useMemo(
-    () => [styles.desktopCard, desktopMaxWidth != null && { maxWidth: desktopMaxWidth }],
-    [desktopMaxWidth],
+    () => [
+      styles.desktopCard,
+      desktopMaxWidth != null && { maxWidth: desktopMaxWidth },
+      desktopHeight != null && { height: desktopHeight },
+    ],
+    [desktopHeight, desktopMaxWidth],
+  );
+  const desktopStaticContentStyle = useMemo(
+    () => [styles.desktopStaticContent, desktopHeight != null && styles.desktopStaticContentFixed],
+    [desktopHeight],
   );
 
   useEffect(() => {
@@ -537,7 +551,7 @@ export function AdaptiveModalSheet({
           {children}
         </ScrollView>
       ) : (
-        <View style={styles.desktopStaticContent}>{children}</View>
+        <View style={desktopStaticContentStyle}>{children}</View>
       )}
       {footer ? <View style={styles.footer}>{footer}</View> : null}
     </>

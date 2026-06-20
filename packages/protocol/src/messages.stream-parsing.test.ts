@@ -160,6 +160,33 @@ describe("shared messages stream parsing", () => {
     }
   });
 
+  it("parses agent_stream usage update events with turn id", () => {
+    const parsed = AgentStreamMessageSchema.parse({
+      type: "agent_stream",
+      payload: {
+        agentId: "agent_live",
+        timestamp: "2026-02-08T20:10:00.000Z",
+        event: {
+          type: "usage_updated",
+          provider: "codex",
+          turnId: "turn_live",
+          usage: {
+            inputTokens: 1200,
+            cachedInputTokens: 200,
+            outputTokens: 80,
+          },
+        },
+      },
+    });
+
+    expect(parsed.payload.event.type).toBe("usage_updated");
+    if (parsed.payload.event.type === "usage_updated") {
+      expect(parsed.payload.event.turnId).toBe("turn_live");
+      expect(parsed.payload.event.usage.inputTokens).toBe(1200);
+      expect(parsed.payload.event.usage.outputTokens).toBe(80);
+    }
+  });
+
   it("parses representative sub_agent tool_call event", () => {
     const parsed = AgentStreamMessageSchema.parse({
       type: "agent_stream",

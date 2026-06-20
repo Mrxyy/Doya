@@ -1,6 +1,8 @@
 import type { AccountBootstrapSession } from "@/account/account-api";
 import { isDev } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
+import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
+import { getBillingUpgradeReason, translateBillingError } from "@/utils/billing-errors";
 import type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@getdoya/protocol/messages";
 
 export type SessionStatus = "idle" | "running" | "needs_input" | "done" | "error";
@@ -124,6 +126,274 @@ export interface ControlDaemonNodeRecord {
 
 export interface ControlSettingsRecord {
   defaultDaemonNodeId: string | null;
+}
+
+export type ControlPlanId = "free" | "pro";
+export type ControlBillingPeriod = "monthly" | "yearly";
+export type ControlPaymentProviderType = "alipay" | "wxpay";
+export type ControlBillingStatus =
+  | "free"
+  | "active"
+  | "usage_exhausted"
+  | "storage_exceeded"
+  | "past_due"
+  | "disabled";
+export type ControlLedgerKind =
+  | "monthly_grant"
+  | "top_up"
+  | "usage_charge"
+  | "referral_inviter_reward"
+  | "referral_invitee_bonus"
+  | "plan_quota_adjustment"
+  | "admin_adjustment";
+export type ControlReferralStatus =
+  | "created"
+  | "registered"
+  | "qualified"
+  | "rewarded"
+  | "rejected";
+
+export interface ControlBillingSettingsRecord {
+  displayCurrency: "CNY";
+  usdToCnyRate: number;
+  tokenMarkupMultiplier: number;
+  freeMonthlyGrantCny: number;
+  proMonthlyGrantCny: number;
+  referralInviteeBonusCny: number;
+  referralInviterRewardCny: number;
+  referralMonthlyRewardLimit: number;
+  referralDailyRewardLimit: number;
+  referralRewardExpiresDays: number;
+  updatedAt: string | null;
+}
+
+export interface ControlPlanRecord {
+  id: ControlPlanId;
+  name: string;
+  priceCny: number;
+  monthlyGrantCny: number;
+  workspaceBytesLimit: number;
+  singleUploadBytesLimit: number;
+  enabled: boolean;
+}
+
+export interface ControlPaymentOrderRecord {
+  id: string;
+  userId: string;
+  planId: ControlPlanId;
+  billingPeriod: ControlBillingPeriod;
+  providerType: ControlPaymentProviderType;
+  outTradeNo: string;
+  providerTradeNo: string | null;
+  amountCny: number;
+  status: "pending" | "paid" | "failed";
+  paymentUrl: string | null;
+  qrcode: string | null;
+  urlscheme: string | null;
+  createdAt: string;
+  updatedAt: string;
+  paidAt: string | null;
+}
+
+export interface ControlModelPricingRecord {
+  id: string;
+  providerId: string;
+  modelId: string;
+  displayName: string;
+  billingMode: "token";
+  inputPriceUsdPerToken: number;
+  outputPriceUsdPerToken: number;
+  cacheCreationPriceUsdPerToken: number;
+  cacheReadPriceUsdPerToken: number;
+  supportsUsageAccounting: boolean;
+  enabled: boolean;
+  source: "manual" | "fallback" | "provider_reported";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ControlModelPricingSnapshot {
+  pricingId: string;
+  providerId: string;
+  modelId: string;
+  displayName: string;
+  billingMode: "token";
+  inputPriceUsdPerToken: number;
+  outputPriceUsdPerToken: number;
+  cacheCreationPriceUsdPerToken: number;
+  cacheReadPriceUsdPerToken: number;
+  supportsUsageAccounting: boolean;
+  source: "manual" | "fallback" | "provider_reported";
+}
+
+export interface ControlBillingAccountRecord {
+  id: string;
+  userId: string;
+  planId: ControlPlanId;
+  status: ControlBillingStatus;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  balanceCachedCny: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ControlLedgerEntryRecord {
+  id: string;
+  userId: string;
+  accountId: string;
+  kind: ControlLedgerKind;
+  amountCny: number;
+  expiresAt: string | null;
+  usageLogId: string | null;
+  referralId: string | null;
+  note: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+
+export interface ControlUsageLogRecord {
+  id: string;
+  userId: string;
+  sessionId: string;
+  runtimeId: string;
+  nodeId: string | null;
+  agentId: string;
+  providerId: string;
+  modelId: string;
+  turnId: string;
+  requestId: string;
+  requestFingerprint: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  reasoningTokens: number;
+  contextWindowUsedTokens: number | null;
+  contextWindowMaxTokens: number | null;
+  inputCostUsd: number;
+  outputCostUsd: number;
+  cacheCreationCostUsd: number;
+  cacheReadCostUsd: number;
+  baseCostUsd: number;
+  markedCostUsd: number;
+  actualCostCny: number;
+  usdToCnyRate: number;
+  tokenMarkupMultiplier: number;
+  pricingSnapshot: ControlModelPricingSnapshot;
+  status: "charged";
+  createdAt: string;
+}
+
+export interface ControlStorageQuotaRecord {
+  id: string;
+  userId: string;
+  uploadedBytesUsed: number;
+  generatedBytesUsed: number;
+  workspaceBytesUsed: number;
+  workspaceBytesLimit: number;
+  singleUploadBytesLimit: number;
+  temporaryWorkspaceBytesLimit: number | null;
+  lastScannedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ControlReferralRecord {
+  id: string;
+  inviterUserId: string;
+  inviteeUserId: string | null;
+  code: string;
+  status: ControlReferralStatus;
+  rejectReason: string | null;
+  sourceFingerprint: string | null;
+  qualifiedAt: string | null;
+  rewardedAt: string | null;
+  inviteeBonusLedgerId: string | null;
+  inviterRewardLedgerId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ControlUsageAggregation {
+  requestCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  totalTokens: number;
+  baseCostUsd: number;
+  markedCostUsd: number;
+  actualCostCny: number;
+  averageCostCny: number;
+}
+
+export interface ControlAdminBillingState {
+  overview: {
+    settings: ControlBillingSettingsRecord;
+    totals: {
+      totalRmbCost: number;
+      totalUsdCost: number;
+      totalTokens: number;
+      monthUsageChargeCny: number;
+      activePaidUserCount: number;
+      exhaustedUserCount: number;
+      storageExceededUserCount: number;
+      referralRewardTotalCny: number;
+    };
+  };
+  plans: ControlPlanRecord[];
+  pricing: ControlModelPricingRecord[];
+  users: Array<{
+    user: ControlUserRecord;
+    account: ControlBillingAccountRecord;
+    balanceCny: number;
+    storageQuota: ControlStorageQuotaRecord;
+  }>;
+  usageLogs: ControlUsageLogRecord[];
+  ledger: ControlLedgerEntryRecord[];
+  storageQuotas: ControlStorageQuotaRecord[];
+  referrals: ControlReferralRecord[];
+  usage: ControlUsageAggregation;
+  usageFilters: ControlUsageFilters;
+}
+
+export interface ControlUsageFilters {
+  userId?: string;
+  sessionId?: string;
+  providerId?: string;
+  modelId?: string;
+  planId?: string;
+  startAt?: string;
+  endAt?: string;
+}
+
+export interface ControlBillingSummary {
+  account: ControlBillingAccountRecord;
+  plan: ControlPlanRecord;
+  plans: ControlPlanRecord[];
+  balanceCny: number;
+  storageQuota: ControlStorageQuotaRecord;
+  ledger: ControlLedgerEntryRecord[];
+  usage: ControlUsageAggregation;
+  recentUsageLogs: ControlUsageLogRecord[];
+  referrals: ControlReferralRecord[];
+  referralCode: string;
+  referralStats: {
+    registeredCount: number;
+    qualifiedCount: number;
+    rewardedCount: number;
+    rewardTotalCny: number;
+    monthlyRemainingRewardCount: number;
+  };
+}
+
+export interface ControlBillingPreflightResult {
+  ok: true;
+  account: ControlBillingAccountRecord;
+  storageQuota: ControlStorageQuotaRecord;
+  pricing?: ControlModelPricingRecord;
+  balanceCny: number;
 }
 
 export interface ControlDaemonNodeSummary {
@@ -299,6 +569,21 @@ export async function createControlSession(input: {
     input.accountSession,
   );
   return payload.session;
+}
+
+export async function preflightControlBilling(input: {
+  accountSession: AccountBootstrapSession;
+  providerId?: string | null;
+  modelId?: string | null;
+}): Promise<ControlBillingPreflightResult> {
+  return await postControlApi<ControlBillingPreflightResult>(
+    "/api/billing/preflight",
+    {
+      providerId: input.providerId || undefined,
+      modelId: input.modelId || undefined,
+    },
+    input.accountSession,
+  );
 }
 
 export async function getControlSession(input: {
@@ -701,6 +986,260 @@ export async function upsertControlAgentBinding(input: {
   );
 }
 
+export async function getControlAdminBillingState(input: {
+  accountSession: AccountBootstrapSession;
+  filters?: ControlUsageFilters;
+}): Promise<ControlAdminBillingState> {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(input.filters ?? {})) {
+    if (typeof value === "string" && value.trim()) {
+      search.set(key, value.trim());
+    }
+  }
+  const query = search.toString();
+  return await getControlApi<ControlAdminBillingState>(
+    query ? `/api/admin/billing?${query}` : "/api/admin/billing",
+    input.accountSession,
+  );
+}
+
+export async function getControlBillingSummary(input: {
+  accountSession: AccountBootstrapSession;
+}): Promise<ControlBillingSummary> {
+  return await getControlApi<ControlBillingSummary>("/api/billing/summary", input.accountSession);
+}
+
+export async function getControlBillingPricing(input: {
+  accountSession: AccountBootstrapSession;
+}): Promise<ControlModelPricingRecord[]> {
+  const payload = await getControlApi<{ pricing: ControlModelPricingRecord[] }>(
+    "/api/billing/pricing",
+    input.accountSession,
+  );
+  return payload.pricing;
+}
+
+export async function createControlBillingPayment(input: {
+  accountSession: AccountBootstrapSession;
+  planId: "pro";
+  billingPeriod: ControlBillingPeriod;
+  providerType: ControlPaymentProviderType;
+}): Promise<ControlPaymentOrderRecord> {
+  const payload = await postControlApi<{ order: ControlPaymentOrderRecord }>(
+    "/api/billing/payments",
+    {
+      planId: input.planId,
+      billingPeriod: input.billingPeriod,
+      providerType: input.providerType,
+    },
+    input.accountSession,
+  );
+  return payload.order;
+}
+
+export async function bindControlReferralCode(input: {
+  accountSession: AccountBootstrapSession;
+  code: string;
+  clientId?: string | null;
+}): Promise<ControlReferralRecord> {
+  const payload = await postControlApi<{ referral: ControlReferralRecord }>(
+    "/api/billing/referrals/bind",
+    { code: input.code, clientId: input.clientId },
+    input.accountSession,
+  );
+  return payload.referral;
+}
+
+export async function upsertControlModelPricing(input: {
+  accountSession: AccountBootstrapSession;
+  pricing: {
+    id?: string;
+    providerId: string;
+    modelId: string;
+    displayName: string;
+    inputPriceUsdPerToken: number;
+    outputPriceUsdPerToken: number;
+    cacheCreationPriceUsdPerToken: number;
+    cacheReadPriceUsdPerToken: number;
+    supportsUsageAccounting?: boolean;
+    enabled?: boolean;
+    source?: ControlModelPricingRecord["source"];
+  };
+}): Promise<ControlModelPricingRecord> {
+  const payload = await postControlApi<{ pricing: ControlModelPricingRecord }>(
+    "/api/admin/billing/pricing",
+    input.pricing,
+    input.accountSession,
+  );
+  return payload.pricing;
+}
+
+export async function rescanControlBillingStorage(input: {
+  accountSession: AccountBootstrapSession;
+}): Promise<ControlStorageQuotaRecord> {
+  const payload = await postControlApi<{ storageQuota: ControlStorageQuotaRecord }>(
+    "/api/billing/storage/rescan",
+    {},
+    input.accountSession,
+  );
+  return payload.storageQuota;
+}
+
+export async function rescanControlAdminBillingStorage(input: {
+  accountSession: AccountBootstrapSession;
+  userId: string;
+}): Promise<ControlStorageQuotaRecord> {
+  const payload = await postControlApi<{ storageQuota: ControlStorageQuotaRecord }>(
+    "/api/admin/billing/storage/rescan",
+    { userId: input.userId },
+    input.accountSession,
+  );
+  return payload.storageQuota;
+}
+
+export async function updateControlBillingSettings(input: {
+  accountSession: AccountBootstrapSession;
+  settings: Partial<
+    Pick<
+      ControlBillingSettingsRecord,
+      | "usdToCnyRate"
+      | "tokenMarkupMultiplier"
+      | "freeMonthlyGrantCny"
+      | "proMonthlyGrantCny"
+      | "referralInviteeBonusCny"
+      | "referralInviterRewardCny"
+      | "referralMonthlyRewardLimit"
+      | "referralDailyRewardLimit"
+      | "referralRewardExpiresDays"
+    >
+  >;
+}): Promise<ControlBillingSettingsRecord> {
+  const payload = await patchControlApi<{ settings: ControlBillingSettingsRecord }>(
+    "/api/admin/billing/settings",
+    input.settings,
+    input.accountSession,
+  );
+  return payload.settings;
+}
+
+export async function updateControlBillingPlanDefinition(input: {
+  accountSession: AccountBootstrapSession;
+  plan: Pick<
+    ControlPlanRecord,
+    | "id"
+    | "priceCny"
+    | "monthlyGrantCny"
+    | "workspaceBytesLimit"
+    | "singleUploadBytesLimit"
+    | "enabled"
+  >;
+}): Promise<ControlPlanRecord> {
+  const payload = await patchControlApi<{ plan: ControlPlanRecord }>(
+    "/api/admin/billing/plans",
+    {
+      planId: input.plan.id,
+      priceCny: input.plan.priceCny,
+      monthlyGrantCny: input.plan.monthlyGrantCny,
+      workspaceBytesLimit: input.plan.workspaceBytesLimit,
+      singleUploadBytesLimit: input.plan.singleUploadBytesLimit,
+      enabled: input.plan.enabled,
+    },
+    input.accountSession,
+  );
+  return payload.plan;
+}
+
+export async function createControlAdminAdjustment(input: {
+  accountSession: AccountBootstrapSession;
+  userId: string;
+  amountCny: number;
+  note?: string | null;
+}): Promise<{ ledgerEntry: ControlLedgerEntryRecord; balanceCny: number }> {
+  return await postControlApi<{ ledgerEntry: ControlLedgerEntryRecord; balanceCny: number }>(
+    "/api/admin/billing/adjustments",
+    {
+      userId: input.userId,
+      amountCny: input.amountCny,
+      note: input.note,
+    },
+    input.accountSession,
+  );
+}
+
+export async function createControlAdminTopUp(input: {
+  accountSession: AccountBootstrapSession;
+  userId: string;
+  amountCny: number;
+  note?: string | null;
+}): Promise<{ ledgerEntry: ControlLedgerEntryRecord; balanceCny: number }> {
+  return await postControlApi<{ ledgerEntry: ControlLedgerEntryRecord; balanceCny: number }>(
+    "/api/admin/billing/top-ups",
+    {
+      userId: input.userId,
+      amountCny: input.amountCny,
+      note: input.note,
+    },
+    input.accountSession,
+  );
+}
+
+export async function updateControlBillingPlan(input: {
+  accountSession: AccountBootstrapSession;
+  userId: string;
+  planId: ControlPlanId;
+}): Promise<{
+  account: ControlBillingAccountRecord;
+  ledgerEntry: ControlLedgerEntryRecord | null;
+  balanceCny: number;
+}> {
+  return await patchControlApi<{
+    account: ControlBillingAccountRecord;
+    ledgerEntry: ControlLedgerEntryRecord | null;
+    balanceCny: number;
+  }>(
+    "/api/admin/billing/users/plan",
+    { userId: input.userId, planId: input.planId },
+    input.accountSession,
+  );
+}
+
+export async function updateControlStorageQuota(input: {
+  accountSession: AccountBootstrapSession;
+  userId: string;
+  uploadedBytesUsed?: number;
+  generatedBytesUsed?: number;
+  temporaryWorkspaceBytesLimit?: number | null;
+}): Promise<ControlStorageQuotaRecord> {
+  const payload = await patchControlApi<{ storageQuota: ControlStorageQuotaRecord }>(
+    "/api/admin/billing/storage",
+    {
+      userId: input.userId,
+      uploadedBytesUsed: input.uploadedBytesUsed,
+      generatedBytesUsed: input.generatedBytesUsed,
+      temporaryWorkspaceBytesLimit: input.temporaryWorkspaceBytesLimit,
+    },
+    input.accountSession,
+  );
+  return payload.storageQuota;
+}
+
+export async function updateControlReferral(input: {
+  accountSession: AccountBootstrapSession;
+  referralId: string;
+  status: ControlReferralStatus;
+  rejectReason?: string | null;
+}): Promise<ControlReferralRecord> {
+  const payload = await patchControlApi<{ referral: ControlReferralRecord }>(
+    `/api/admin/billing/referrals/${encodeURIComponent(input.referralId)}`,
+    {
+      status: input.status,
+      rejectReason: input.rejectReason,
+    },
+    input.accountSession,
+  );
+  return payload.referral;
+}
+
 async function getControlApi<T extends object>(
   path: string,
   accountSession: AccountBootstrapSession,
@@ -795,11 +1334,15 @@ async function requestControlApi<T extends object>(
   }
 
   if (!response.ok) {
-    throw new Error(
+    const message =
       "error" in payload && payload.error
         ? payload.error
-        : translateNow("account.error.requestFailed"),
-    );
+        : translateNow("account.error.requestFailed");
+    const billingReason = getBillingUpgradeReason(message);
+    if (billingReason) {
+      useBillingUpgradeModalStore.getState().open(billingReason);
+    }
+    throw new Error(translateBillingError(message) ?? message);
   }
   return payload as T;
 }

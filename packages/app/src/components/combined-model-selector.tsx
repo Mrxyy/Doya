@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import {
   View,
   Text,
@@ -63,13 +72,99 @@ import {
   type ProviderSelectorProvider,
 } from "@/provider-selection/provider-selection";
 import { translateNow } from "@/i18n/i18n";
+import { loadAccountBootstrapSession } from "@/account/account-api";
+import {
+  getControlBillingPricing,
+  isControlApiConfigured,
+  type ControlModelPricingRecord,
+} from "@/control/control-api";
 
 // TODO: this should be configured per provider in the provider manifest
 const PROVIDERS_WITH_MODEL_DESCRIPTIONS = new Set(["opencode", "pi"]);
 const DESKTOP_PROVIDER_VIEW_MIN_HEIGHT = 220;
 const DESKTOP_PROVIDER_VIEW_MAX_HEIGHT = 400;
 const DESKTOP_PROVIDER_VIEW_BASE_HEIGHT = 80;
-const DESKTOP_MODEL_ROW_HEIGHT = 40;
+const DESKTOP_MODEL_ROW_HEIGHT = 52;
+
+interface ModelPricingDisplay {
+  inputPriceUsdPerToken: number;
+  outputPriceUsdPerToken: number;
+  cacheCreationPriceUsdPerToken: number;
+  cacheReadPriceUsdPerToken: number;
+}
+
+type ModelPricingByKey = ReadonlyMap<string, ModelPricingDisplay>;
+
+function modelPricingKey(providerId: string, modelId: string): string {
+  return `${providerId.trim().toLowerCase()}:${modelId.trim().toLowerCase()}`;
+}
+
+const DEFAULT_MODEL_PRICING_BY_KEY: ModelPricingByKey = new Map<string, ModelPricingDisplay>([
+  [
+    modelPricingKey("openai", "gpt-5.5"),
+    {
+      inputPriceUsdPerToken: 5e-6,
+      outputPriceUsdPerToken: 30e-6,
+      cacheCreationPriceUsdPerToken: 5e-6,
+      cacheReadPriceUsdPerToken: 0.5e-6,
+    },
+  ],
+  [
+    modelPricingKey("openai", "gpt-5.4"),
+    {
+      inputPriceUsdPerToken: 2.5e-6,
+      outputPriceUsdPerToken: 10e-6,
+      cacheCreationPriceUsdPerToken: 2.5e-6,
+      cacheReadPriceUsdPerToken: 0.25e-6,
+    },
+  ],
+  [
+    modelPricingKey("openai", "gpt-5.4-mini"),
+    {
+      inputPriceUsdPerToken: 0.15e-6,
+      outputPriceUsdPerToken: 0.6e-6,
+      cacheCreationPriceUsdPerToken: 0.15e-6,
+      cacheReadPriceUsdPerToken: 0.015e-6,
+    },
+  ],
+  [
+    modelPricingKey("claude", "claude-fable-5"),
+    {
+      inputPriceUsdPerToken: 10e-6,
+      outputPriceUsdPerToken: 50e-6,
+      cacheCreationPriceUsdPerToken: 12.5e-6,
+      cacheReadPriceUsdPerToken: 1e-6,
+    },
+  ],
+  [
+    modelPricingKey("claude", "claude-opus-4.8"),
+    {
+      inputPriceUsdPerToken: 15e-6,
+      outputPriceUsdPerToken: 75e-6,
+      cacheCreationPriceUsdPerToken: 18.75e-6,
+      cacheReadPriceUsdPerToken: 1.5e-6,
+    },
+  ],
+  [
+    modelPricingKey("claude", "claude-sonnet-4.6"),
+    {
+      inputPriceUsdPerToken: 3e-6,
+      outputPriceUsdPerToken: 15e-6,
+      cacheCreationPriceUsdPerToken: 3.75e-6,
+      cacheReadPriceUsdPerToken: 0.3e-6,
+    },
+  ],
+  [
+    modelPricingKey("claude", "claude-haiku-4.5"),
+    {
+      inputPriceUsdPerToken: 0.8e-6,
+      outputPriceUsdPerToken: 4e-6,
+      cacheCreationPriceUsdPerToken: 1e-6,
+      cacheReadPriceUsdPerToken: 0.08e-6,
+    },
+  ],
+]);
+const ModelPricingContext = createContext<ModelPricingByKey>(DEFAULT_MODEL_PRICING_BY_KEY);
 
 type SelectorView =
   | { kind: "all" }
@@ -129,6 +224,58 @@ function sortFavoritesFirst(
     }
   }
   return [...favorites, ...rest];
+}
+
+function getOpenAiModelPricingAliases(modelId: string): string[] {
+  const normalized = modelId.trim().toLowerCase();
+  const withoutPrefix = normalized.startsWith("gpt-")
+    ? normalized.slice("gpt-".length)
+    : normalized;
+  return Array.from(new Set([normalized, `gpt-${withoutPrefix}`]));
+}
+
+function getModelPricingLookupKeys(row: ProviderSelectionModelRow): string[] {
+  const keys = new Set<string>();
+  keys.add(modelPricingKey(row.provider, row.modelId));
+
+  const provider = row.provider.trim().toLowerCase();
+  if (provider === "codex" || provider === "openai") {
+    for (const alias of getOpenAiModelPricingAliases(row.modelId)) {
+      keys.add(modelPricingKey("openai", alias));
+      keys.add(modelPricingKey("codex", alias));
+    }
+  }
+
+  if (provider === "claude" || provider === "anthropic") {
+    keys.add(modelPricingKey("claude", row.modelId));
+    keys.add(modelPricingKey("anthropic", row.modelId));
+  }
+
+  return Array.from(keys);
+}
+
+function useModelPricing(row: ProviderSelectionModelRow): ModelPricingDisplay | null {
+  const pricingByKey = useContext(ModelPricingContext);
+  return useMemo(() => {
+    for (const key of getModelPricingLookupKeys(row)) {
+      const pricing = pricingByKey.get(key);
+      if (pricing) return pricing;
+    }
+    return null;
+  }, [pricingByKey, row]);
+}
+
+function formatUsdPerMillionTokens(value: number): string {
+  return `$${(value * 1_000_000).toFixed(2)}`;
+}
+
+function formatModelPricingSummary(pricing: ModelPricingDisplay): string {
+  return translateNow("modelSelector.pricing.summary", {
+    input: formatUsdPerMillionTokens(pricing.inputPriceUsdPerToken),
+    output: formatUsdPerMillionTokens(pricing.outputPriceUsdPerToken),
+    cacheCreation: formatUsdPerMillionTokens(pricing.cacheCreationPriceUsdPerToken),
+    cacheRead: formatUsdPerMillionTokens(pricing.cacheReadPriceUsdPerToken),
+  });
 }
 
 function ModelRow({
@@ -200,11 +347,17 @@ function ModelRow({
   );
 
   const showDescription = row.description && PROVIDERS_WITH_MODEL_DESCRIPTIONS.has(row.provider);
+  const pricing = useModelPricing(row);
+  const priceDescription = pricing ? formatModelPricingSummary(pricing) : null;
+  const description =
+    priceDescription && showDescription
+      ? `${priceDescription} · ${row.description}`
+      : (priceDescription ?? (showDescription ? row.description : undefined));
 
   return (
     <ComboboxItem
       label={row.modelLabel}
-      description={showDescription ? row.description : undefined}
+      description={description}
       selected={isSelected}
       elevated={elevated}
       onPress={onPress}
@@ -582,6 +735,8 @@ export function CombinedModelSelector({
   const [view, setView] = useState<SelectorView>({ kind: "all" });
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResetKey, bumpSearchResetKey] = useReducer((key: number) => key + 1, 0);
+  const [modelPricing, setModelPricing] = useState<ControlModelPricingRecord[]>([]);
+  const [hasLoadedModelPricing, setHasLoadedModelPricing] = useState(false);
 
   // Single-provider mode: only one provider → skip Level 1 entirely
   const singleProviderView = useMemo<SelectorView | null>(() => {
@@ -686,6 +841,40 @@ export function CombinedModelSelector({
 
     return () => cancelAnimationFrame(frame);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || hasLoadedModelPricing || !isControlApiConfigured()) {
+      return;
+    }
+
+    let cancelled = false;
+    setHasLoadedModelPricing(true);
+    void (async () => {
+      const accountSession = await loadAccountBootstrapSession();
+      if (!accountSession) {
+        return;
+      }
+      const pricing = await getControlBillingPricing({ accountSession });
+      if (!cancelled) {
+        setModelPricing(pricing);
+      }
+    })().catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasLoadedModelPricing, isOpen]);
+
+  const modelPricingByKey = useMemo(() => {
+    const map = new Map<string, ModelPricingDisplay>(DEFAULT_MODEL_PRICING_BY_KEY);
+    if (modelPricing.length === 0) {
+      return map;
+    }
+    for (const pricing of modelPricing) {
+      map.set(modelPricingKey(pricing.providerId, pricing.modelId), pricing);
+    }
+    return map;
+  }, [modelPricing]);
 
   const handleTriggerPress = useCallback(() => {
     handleOpenChange(!isOpen);
@@ -812,42 +1001,44 @@ export function CombinedModelSelector({
           </>
         )}
       </Pressable>
-      <Combobox
-        options={EMPTY_COMBOBOX_OPTIONS}
-        value=""
-        onSelect={noop}
-        open={isOpen}
-        onOpenChange={handleOpenChange}
-        anchorRef={anchorRef}
-        desktopPlacement="top-start"
-        desktopMinWidth={360}
-        desktopFixedHeight={desktopFixedHeight}
-        header={sheetHeader}
-        mobileChildrenScrollEnabled={view.kind !== "provider" || !isNative}
-      >
-        {isContentReady ? (
-          <SelectorContent
-            view={view}
-            providers={providers}
-            selectedProvider={selectedProvider}
-            selectedModel={selectedModel}
-            searchQuery={searchQuery}
-            favoriteKeys={favoriteKeys}
-            onSelect={handleSelect}
-            onToggleFavorite={onToggleFavorite}
-            onDrillDown={handleDrillDown}
-            onRetryProvider={onRetryProvider}
-            isRetryingProvider={isRetryingProvider}
-          />
-        ) : (
-          <View style={styles.sheetLoadingState}>
-            <ActivityIndicator size="small" color={theme.colors.foregroundMuted} />
-            <Text style={styles.sheetLoadingText}>
-              {translateNow("ui.loading.model.selector.ubgv70")}
-            </Text>
-          </View>
-        )}
-      </Combobox>
+      <ModelPricingContext.Provider value={modelPricingByKey}>
+        <Combobox
+          options={EMPTY_COMBOBOX_OPTIONS}
+          value=""
+          onSelect={noop}
+          open={isOpen}
+          onOpenChange={handleOpenChange}
+          anchorRef={anchorRef}
+          desktopPlacement="top-start"
+          desktopMinWidth={420}
+          desktopFixedHeight={desktopFixedHeight}
+          header={sheetHeader}
+          mobileChildrenScrollEnabled={view.kind !== "provider" || !isNative}
+        >
+          {isContentReady ? (
+            <SelectorContent
+              view={view}
+              providers={providers}
+              selectedProvider={selectedProvider}
+              selectedModel={selectedModel}
+              searchQuery={searchQuery}
+              favoriteKeys={favoriteKeys}
+              onSelect={handleSelect}
+              onToggleFavorite={onToggleFavorite}
+              onDrillDown={handleDrillDown}
+              onRetryProvider={onRetryProvider}
+              isRetryingProvider={isRetryingProvider}
+            />
+          ) : (
+            <View style={styles.sheetLoadingState}>
+              <ActivityIndicator size="small" color={theme.colors.foregroundMuted} />
+              <Text style={styles.sheetLoadingText}>
+                {translateNow("ui.loading.model.selector.ubgv70")}
+              </Text>
+            </View>
+          )}
+        </Combobox>
+      </ModelPricingContext.Provider>
     </>
   );
 }

@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Settings,
   Palette,
+  CreditCard,
   Server,
   Network,
   Workflow,
@@ -121,6 +122,7 @@ const SIDEBAR_SECTION_ITEMS: SidebarSectionItem[] = [
   { id: "general", icon: Settings },
   { id: "appearance", icon: Palette },
   { id: "shortcuts", icon: Keyboard, desktopOnly: true },
+  { id: "billing", icon: CreditCard },
   { id: "integrations", icon: Puzzle, desktopOnly: true },
   { id: "permissions", icon: Shield, desktopOnly: true },
   { id: "diagnostics", icon: Stethoscope },
@@ -131,6 +133,7 @@ const VISIBLE_SETTINGS_SIDEBAR_SECTIONS: ReadonlySet<SettingsSectionSlug> = new 
   "general",
   "appearance",
   "shortcuts",
+  "billing",
 ]);
 
 interface HostSectionItem {
@@ -154,6 +157,7 @@ function settingsSectionLabel(
   if (section === "general") return t("settings.section.general");
   if (section === "appearance") return t("settings.section.appearance");
   if (section === "shortcuts") return t("settings.section.shortcuts");
+  if (section === "billing") return t("settings.section.billing");
   if (section === "integrations") return t("settings.section.integrations");
   if (section === "permissions") return t("settings.section.permissions");
   if (section === "diagnostics") return t("settings.section.diagnostics");
@@ -340,6 +344,42 @@ function GeneralSection({
             style={styles.terminalScrollbackInput}
             accessibilityLabel={t("settings.general.terminalScrollback")}
           />
+        </View>
+      </View>
+    </SettingsSection>
+  );
+}
+
+function BillingSection() {
+  const router = useRouter();
+  const { t } = useI18n();
+  const handleOpenBilling = useCallback(() => {
+    router.push("/billing");
+  }, [router]);
+  const handleOpenAdminBilling = useCallback(() => {
+    router.push("/admin/daemons");
+  }, [router]);
+
+  return (
+    <SettingsSection title={t("settings.section.billing")}>
+      <View style={settingsStyles.card}>
+        <View style={settingsStyles.row}>
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.billing.userTitle")}</Text>
+            <Text style={settingsStyles.rowHint}>{t("settings.billing.userHint")}</Text>
+          </View>
+          <Button variant="secondary" size="sm" onPress={handleOpenBilling}>
+            {t("settings.billing.open")}
+          </Button>
+        </View>
+        <View style={ROW_WITH_BORDER_STYLE}>
+          <View style={settingsStyles.rowContent}>
+            <Text style={settingsStyles.rowTitle}>{t("settings.billing.adminTitle")}</Text>
+            <Text style={settingsStyles.rowHint}>{t("settings.billing.adminHint")}</Text>
+          </View>
+          <Button variant="secondary" size="sm" onPress={handleOpenAdminBilling}>
+            {t("settings.billing.openAdmin")}
+          </Button>
         </View>
       </View>
     </SettingsSection>
@@ -812,8 +852,7 @@ function SettingsSidebar({
   const { t } = useI18n();
   const isDesktopApp = isElectronRuntime();
   const items = SIDEBAR_SECTION_ITEMS.filter(
-    (item) =>
-      VISIBLE_SETTINGS_SIDEBAR_SECTIONS.has(item.id) && (!item.desktopOnly || isDesktopApp),
+    (item) => VISIBLE_SETTINGS_SIDEBAR_SECTIONS.has(item.id) && (!item.desktopOnly || isDesktopApp),
   );
   const insets = useSafeAreaInsets();
   const padding = useWindowControlsPadding("sidebar");
@@ -873,9 +912,10 @@ function SettingsSidebar({
 
 export interface SettingsScreenProps {
   view: SettingsView;
+  embedded?: boolean;
 }
 
-export default function SettingsScreen({ view }: SettingsScreenProps) {
+export default function SettingsScreen({ view, embedded = false }: SettingsScreenProps) {
   const router = useRouter();
   const { theme } = useUnistyles();
   const { t } = useI18n();
@@ -1130,6 +1170,8 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
           return <AppearanceSection />;
         case "shortcuts":
           return isDesktopApp ? <KeyboardShortcutsSection /> : null;
+        case "billing":
+          return <BillingSection />;
         case "integrations":
           return isDesktopApp ? <IntegrationsSection /> : null;
         case "permissions":
@@ -1187,6 +1229,17 @@ export default function SettingsScreen({ view }: SettingsScreenProps) {
       />
     </>
   );
+
+  if (embedded) {
+    return (
+      <View style={styles.embeddedContainer}>
+        <ScrollView style={scrollViewStyle} contentContainerStyle={insetBottomStyle}>
+          <View style={styles.embeddedContent}>{content}</View>
+        </ScrollView>
+        {addHostModals}
+      </View>
+    );
+  }
 
   // Mobile root: full-screen sidebar-as-list.
   if (isCompactLayout && view.kind === "root") {
@@ -1295,6 +1348,10 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     backgroundColor: theme.colors.surface0,
   },
+  embeddedContainer: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
   scrollView: {
     flex: 1,
   },
@@ -1304,6 +1361,12 @@ const styles = StyleSheet.create((theme) => ({
     width: "100%",
     maxWidth: 720,
     alignSelf: "center",
+  },
+  embeddedContent: {
+    width: "100%",
+    padding: theme.spacing[3],
+    paddingTop: theme.spacing[3],
+    paddingBottom: theme.spacing[4],
   },
   detailSection: {
     gap: theme.spacing[3],

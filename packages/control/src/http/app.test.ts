@@ -101,6 +101,739 @@ describe("sessions", () => {
   });
 });
 
+describe("billing", () => {
+  it("seeds official OpenAI and Claude API fallback pricing", async () => {
+    const account = await register();
+
+    const state = await fetchJson<{
+      pricing: Array<{
+        providerId: string;
+        modelId: string;
+        source: string;
+        inputPriceUsdPerToken: number;
+        outputPriceUsdPerToken: number;
+        cacheCreationPriceUsdPerToken: number;
+        cacheReadPriceUsdPerToken: number;
+      }>;
+    }>("/api/admin/billing", { account });
+    const fallbackByKey = new Map(
+      state.pricing
+        .filter((entry) => entry.source === "fallback")
+        .map((entry) => [`${entry.providerId}/${entry.modelId}`, entry]),
+    );
+
+    expect([...fallbackByKey.keys()]).toEqual(
+      expect.arrayContaining([
+        "openai/gpt-5.5",
+        "openai/gpt-5.4",
+        "openai/gpt-5.4-mini",
+        "claude/claude-fable-5",
+        "claude/claude-opus-4.8",
+        "claude/claude-sonnet-4.6",
+        "claude/claude-haiku-4.5",
+      ]),
+    );
+    expect(fallbackByKey.get("openai/gpt-5.5")).toEqual(
+      expect.objectContaining({
+        inputPriceUsdPerToken: 5e-6,
+        outputPriceUsdPerToken: 30e-6,
+        cacheReadPriceUsdPerToken: 0.5e-6,
+      }),
+    );
+    expect(fallbackByKey.get("claude/claude-fable-5")).toEqual(
+      expect.objectContaining({
+        inputPriceUsdPerToken: 10e-6,
+        outputPriceUsdPerToken: 50e-6,
+        cacheCreationPriceUsdPerToken: 12.5e-6,
+        cacheReadPriceUsdPerToken: 1e-6,
+      }),
+    );
+    expect(fallbackByKey.has("z-ai/glm-5.1")).toBe(false);
+  });
+
+  it("exposes enabled pricing to signed-in users", async () => {
+    const account = await register();
+
+    const payload = await fetchJson<{
+      pricing: Array<{ providerId: string; modelId: string; enabled: boolean }>;
+    }>("/api/billing/pricing", { account });
+
+    expect(payload.pricing).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerId: "openai",
+          modelId: "gpt-5.5",
+          enabled: true,
+        }),
+      ]),
+    );
+    expect(payload.pricing.every((entry) => entry.enabled)).toBe(true);
+  });
+
+  it("grants monthly credits, records usage once, snapshots pricing, and detects conflicts", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Billable session");
+    await fetchJson<{ pricing: { id: string } }>("/api/admin/billing/pricing", {
+      method: "POST",
+      account,
+      body: {
+        providerId: "claude",
+        modelId: "sonnet",
+        displayName: "Claude Sonnet",
+        inputPriceUsdPerToken: 0.000003,
+        outputPriceUsdPerToken: 0.000015,
+        cacheCreationPriceUsdPerToken: 0.00000375,
+        cacheReadPriceUsdPerToken: 0.0000003,
+      },
+    });
+
+    const initialSummary = await fetchJson<{ balanceCny: number; ledger: Array<{ kind: string }> }>(
+      "/api/billing/summary",
+      { account },
+    );
+    expect(initialSummary.balanceCny).toBe(3);
+    expect(initialSummary.ledger.some((entry) => entry.kind === "monthly_grant")).toBe(true);
+
+    const usage = await fetchJson<{
+      applied: boolean;
+      usageLog: {
+        requestId: string;
+        inputTokens: number;
+        cacheReadTokens: number;
+        inputCostUsd: number;
+        actualCostCny: number;
+        pricingSnapshot: { inputPriceUsdPerToken: number };
+      };
+      ledgerEntry: { kind: string; amountCny: number };
+    }>("/api/billing/usage-turns", {
+      method: "POST",
+      account,
+      body: {
+        sessionId: sessionResponse.session.id,
+        runtimeId: "rt_bill",
+        agentId: "agent_bill",
+        providerId: "claude",
+        modelId: "sonnet",
+        turnId: "turn_1",
+        requestId: "rt_bill:agent_bill:turn_1",
+        requestFingerprint: "fp_1",
+        tokens: {
+          inputTokens: 1000,
+          outputTokens: 500,
+          cachedInputTokens: 300,
+          cacheCreationTokens: 200,
+        },
+      },
+    });
+    expect(usage.applied).toBe(true);
+    expect(usage.usageLog.cacheReadTokens).toBe(300);
+    expect(usage.usageLog.inputCostUsd).toBeCloseTo(700 * 0.000003);
+    expect(usage.usageLog.actualCostCny).toBeCloseTo(
+      (700 * 0.000003 + 500 * 0.000015 + 200 * 0.00000375 + 300 * 0.0000003) * 1.3 * 7.2,
+    );
+    expect(usage.usageLog.pricingSnapshot.inputPriceUsdPerToken).toBe(0.000003);
+    expect(usage.ledgerEntry.kind).toBe("usage_charge");
+    expect(usage.ledgerEntry.amountCny).toBeLessThan(0);
+
+    await fetchJson<{ pricing: { id: string } }>("/api/admin/billing/pricing", {
+      method: "POST",
+      account,
+      body: {
+        providerId: "claude",
+        modelId: "sonnet",
+        displayName: "Claude Sonnet",
+        inputPriceUsdPerToken: 0.5,
+        outputPriceUsdPerToken: 0.5,
+        cacheCreationPriceUsdPerToken: 0.5,
+        cacheReadPriceUsdPerToken: 0.5,
+      },
+    });
+
+    const replay = await fetchJson<{ applied: boolean; usageLog: { actualCostCny: number } }>(
+      "/api/billing/usage-turns",
+      {
+        method: "POST",
+        account,
+        body: {
+          sessionId: sessionResponse.session.id,
+          runtimeId: "rt_bill",
+          agentId: "agent_bill",
+          providerId: "claude",
+          modelId: "sonnet",
+          turnId: "turn_1",
+          requestId: "rt_bill:agent_bill:turn_1",
+          requestFingerprint: "fp_1",
+          tokens: {
+            inputTokens: 1000,
+            outputTokens: 500,
+            cachedInputTokens: 300,
+            cacheCreationTokens: 200,
+          },
+        },
+      },
+    );
+    expect(replay.applied).toBe(false);
+    expect(replay.usageLog.actualCostCny).toBe(usage.usageLog.actualCostCny);
+
+    const conflict = await fetch(`${baseUrl}/api/billing/usage-turns`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({
+        sessionId: sessionResponse.session.id,
+        runtimeId: "rt_bill",
+        agentId: "agent_bill",
+        providerId: "claude",
+        modelId: "sonnet",
+        turnId: "turn_1",
+        requestId: "rt_bill:agent_bill:turn_1",
+        requestFingerprint: "fp_2",
+        tokens: {
+          inputTokens: 1000,
+        },
+      }),
+    });
+    expect(conflict.status).toBe(409);
+  });
+
+  it("blocks preflight when model pricing is missing", async () => {
+    const account = await register();
+
+    const response = await fetch(`${baseUrl}/api/billing/preflight`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({
+        providerId: "claude",
+        modelId: "missing",
+      }),
+    });
+
+    expect(response.status).toBe(402);
+  });
+
+  it("matches Codex GPT-5.5 usage to OpenAI official pricing", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Codex billed session");
+
+    const preflight = await fetchJson<{ ok: boolean }>("/api/billing/preflight", {
+      method: "POST",
+      account,
+      body: {
+        providerId: "codex",
+        modelId: "5.5",
+      },
+    });
+    expect(preflight.ok).toBe(true);
+
+    const usage = await fetchJson<{
+      usageLog: {
+        pricingSnapshot: { providerId: string; modelId: string };
+        inputCostUsd: number;
+        outputCostUsd: number;
+        cacheReadCostUsd: number;
+      };
+    }>("/api/billing/usage-turns", {
+      method: "POST",
+      account,
+      body: {
+        sessionId: sessionResponse.session.id,
+        runtimeId: "rt_codex_55",
+        agentId: "agent_codex_55",
+        providerId: "codex",
+        modelId: "gpt-5.5",
+        turnId: "turn_1",
+        requestFingerprint: "fp_codex_55",
+        tokens: {
+          inputTokens: 100,
+          cachedInputTokens: 20,
+          outputTokens: 10,
+        },
+      },
+    });
+
+    expect(usage.usageLog.pricingSnapshot).toEqual(
+      expect.objectContaining({ providerId: "openai", modelId: "gpt-5.5" }),
+    );
+    expect(usage.usageLog.inputCostUsd).toBeCloseTo(80 * 5e-6);
+    expect(usage.usageLog.outputCostUsd).toBeCloseTo(10 * 30e-6);
+    expect(usage.usageLog.cacheReadCostUsd).toBeCloseTo(20 * 0.5e-6);
+  });
+
+  it("blocks unknown billable runtime allocation before pricing exists", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Preflight runtime");
+
+    const missingPricingResponse = await fetch(
+      `${baseUrl}/api/sessions/${sessionResponse.session.id}/runtimes`,
+      {
+        method: "POST",
+        headers: jsonHeaders(account),
+        body: JSON.stringify({
+          nodeId: "node_1",
+          runtimeId: "rt_1",
+          providerId: "unknown-provider",
+          modelId: "unknown-model",
+          workspaceDir: "/tmp/runtime/workspace",
+        }),
+      },
+    );
+    expect(missingPricingResponse.status).toBe(402);
+
+    await fetchJson<{ pricing: { id: string } }>("/api/admin/billing/pricing", {
+      method: "POST",
+      account,
+      body: {
+        providerId: "unknown-provider",
+        modelId: "unknown-model",
+        displayName: "Unknown Model",
+        inputPriceUsdPerToken: 0.000003,
+        outputPriceUsdPerToken: 0.000015,
+        cacheCreationPriceUsdPerToken: 0.00000375,
+        cacheReadPriceUsdPerToken: 0.0000003,
+      },
+    });
+
+    const runtimeResponse = await fetchJson<{ runtime: { runtimeId: string } }>(
+      `/api/sessions/${sessionResponse.session.id}/runtimes`,
+      {
+        method: "POST",
+        account,
+        body: {
+          nodeId: "node_1",
+          runtimeId: "rt_1",
+          providerId: "unknown-provider",
+          modelId: "unknown-model",
+          workspaceDir: "/tmp/runtime/workspace",
+        },
+      },
+    );
+    expect(runtimeResponse.runtime.runtimeId).toBe("rt_1");
+  });
+
+  it("allows runtime allocation when the provider uses its default model", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Default model runtime");
+
+    const runtimeResponse = await fetchJson<{
+      runtime: { runtimeId: string; providerId: string; modelId: string | null };
+    }>(`/api/sessions/${sessionResponse.session.id}/runtimes`, {
+      method: "POST",
+      account,
+      body: {
+        nodeId: "node_1",
+        runtimeId: "rt_default_model",
+        providerId: "claude",
+        modelId: null,
+        workspaceDir: "/tmp/runtime/workspace",
+      },
+    });
+
+    expect(runtimeResponse.runtime).toEqual(
+      expect.objectContaining({
+        runtimeId: "rt_default_model",
+        providerId: "claude",
+        modelId: null,
+      }),
+    );
+  });
+
+  it("blocks billable runtime allocation when pricing lacks real usage accounting", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Unsupported usage accounting");
+    await fetchJson<{ pricing: { id: string } }>("/api/admin/billing/pricing", {
+      method: "POST",
+      account,
+      body: {
+        providerId: "mock",
+        modelId: "estimated",
+        displayName: "Estimated Model",
+        inputPriceUsdPerToken: 0.000001,
+        outputPriceUsdPerToken: 0.000001,
+        cacheCreationPriceUsdPerToken: 0,
+        cacheReadPriceUsdPerToken: 0,
+        supportsUsageAccounting: false,
+      },
+    });
+
+    const response = await fetch(`${baseUrl}/api/sessions/${sessionResponse.session.id}/runtimes`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({
+        nodeId: "node_1",
+        runtimeId: "rt_estimated",
+        providerId: "mock",
+        modelId: "estimated",
+        workspaceDir: "/tmp/runtime/workspace",
+      }),
+    });
+
+    expect(response.status).toBe(402);
+  });
+
+  it("filters admin usage aggregation by provider and model", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Filtered usage");
+    for (const modelId of ["sonnet", "opus"]) {
+      await fetchJson<{ pricing: { id: string } }>("/api/admin/billing/pricing", {
+        method: "POST",
+        account,
+        body: {
+          providerId: "claude",
+          modelId,
+          displayName: `Claude ${modelId}`,
+          inputPriceUsdPerToken: 0.000003,
+          outputPriceUsdPerToken: 0.000015,
+          cacheCreationPriceUsdPerToken: 0,
+          cacheReadPriceUsdPerToken: 0,
+        },
+      });
+      await fetchJson("/api/billing/usage-turns", {
+        method: "POST",
+        account,
+        body: {
+          sessionId: sessionResponse.session.id,
+          runtimeId: `rt_${modelId}`,
+          agentId: `agent_${modelId}`,
+          providerId: "claude",
+          modelId,
+          turnId: "turn_1",
+          requestFingerprint: `fp_${modelId}`,
+          tokens: { inputTokens: 100, outputTokens: 10 },
+        },
+      });
+    }
+
+    const filtered = await fetchJson<{
+      usage: { requestCount: number };
+      usageLogs: Array<{ modelId: string }>;
+    }>("/api/admin/billing?providerId=claude&modelId=sonnet", { account });
+
+    expect(filtered.usage.requestCount).toBe(1);
+    expect(filtered.usageLogs).toEqual([expect.objectContaining({ modelId: "sonnet" })]);
+  });
+
+  it("updates user plans by switching balance to the plan quota", async () => {
+    const account = await register();
+    await store.createAdminTopUp({
+      userId: account.user.id,
+      amountCny: 194.12,
+      note: "manual balance",
+    });
+    await store.updateBillingPlanDefinition({
+      planId: "pro",
+      priceCny: 39,
+      monthlyGrantCny: 1,
+      workspaceBytesLimit: 5 * 1024 * 1024 * 1024,
+      singleUploadBytesLimit: 200 * 1024 * 1024,
+      enabled: true,
+    });
+
+    const planUpdate = await fetchJson<{
+      account: { planId: string; status: string };
+      ledgerEntry: { kind: string; amountCny: number } | null;
+      balanceCny: number;
+    }>("/api/admin/billing/users/plan", {
+      method: "PATCH",
+      account,
+      body: {
+        userId: account.user.id,
+        planId: "pro",
+      },
+    });
+    expect(planUpdate.account).toEqual(
+      expect.objectContaining({ planId: "pro", status: "active" }),
+    );
+    expect(planUpdate.ledgerEntry).toEqual(
+      expect.objectContaining({ kind: "plan_quota_adjustment", amountCny: -196.12 }),
+    );
+    expect(planUpdate.balanceCny).toBe(1);
+
+    const freeUpdate = await fetchJson<{
+      account: { planId: string; status: string };
+      ledgerEntry: { kind: string; amountCny: number } | null;
+      balanceCny: number;
+    }>("/api/admin/billing/users/plan", {
+      method: "PATCH",
+      account,
+      body: {
+        userId: account.user.id,
+        planId: "free",
+      },
+    });
+
+    expect(freeUpdate.account).toEqual(expect.objectContaining({ planId: "free", status: "free" }));
+    expect(freeUpdate.ledgerEntry).toEqual(
+      expect.objectContaining({ kind: "plan_quota_adjustment", amountCny: 2 }),
+    );
+    expect(freeUpdate.balanceCny).toBe(3);
+
+    advanceTestClock(32 * 24 * 60 * 60 * 1000);
+    const summary = await fetchJson<{
+      account: { planId: string; currentPeriodStart: string };
+      balanceCny: number;
+    }>("/api/billing/summary", { account });
+
+    expect(summary.account.planId).toBe("free");
+    expect(summary.account.currentPeriodStart).toBe("2026-02-01T00:00:00.000Z");
+    expect(summary.balanceCny).toBe(3);
+  });
+
+  it("raises low paid plan orders to the payment gateway minimum", async () => {
+    const account = await register();
+    await store.updateBillingPlanDefinition({
+      planId: "pro",
+      priceCny: 0.01,
+      monthlyGrantCny: 1,
+      workspaceBytesLimit: 5 * 1024 * 1024 * 1024,
+      singleUploadBytesLimit: 200 * 1024 * 1024,
+      enabled: true,
+    });
+
+    const order = await store.createPaymentOrder({
+      userId: account.user.id,
+      planId: "pro",
+      billingPeriod: "monthly",
+      providerType: "alipay",
+    });
+
+    expect(order.amountCny).toBe(0.1);
+  });
+
+  it("sends the payment gateway minimum for low paid plan checkout", async () => {
+    const account = await register();
+    await store.updateBillingPlanDefinition({
+      planId: "pro",
+      priceCny: 0.01,
+      monthlyGrantCny: 1,
+      workspaceBytesLimit: 5 * 1024 * 1024 * 1024,
+      singleUploadBytesLimit: 200 * 1024 * 1024,
+      enabled: true,
+    });
+    let gatewayMoney: string | null = null;
+    const gatewayServer = createServer((req, res) => {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += String(chunk);
+      });
+      req.on("end", () => {
+        const params = new URLSearchParams(body);
+        gatewayMoney = params.get("money");
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            code: 1,
+            trade_no: "gateway_trade_1",
+            payurl: "https://pay.example/checkout",
+            money: gatewayMoney,
+          }),
+        );
+      });
+    });
+    await new Promise<void>((resolve) => gatewayServer.listen(0, "127.0.0.1", () => resolve()));
+    const address = gatewayServer.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Gateway test server did not bind to a TCP port");
+    }
+    const previousMerchantId = process.env.DOYA_PAYMENT_MERCHANT_ID;
+    const previousMerchantKey = process.env.DOYA_PAYMENT_MERCHANT_KEY;
+    const previousPublicBaseUrl = process.env.DOYA_PAYMENT_PUBLIC_BASE_URL;
+    const previousGatewayBaseUrl = process.env.DOYA_PAYMENT_GATEWAY_BASE_URL;
+    process.env.DOYA_PAYMENT_MERCHANT_ID = "1614";
+    process.env.DOYA_PAYMENT_MERCHANT_KEY = "secret";
+    process.env.DOYA_PAYMENT_PUBLIC_BASE_URL = "https://doya.example";
+    process.env.DOYA_PAYMENT_GATEWAY_BASE_URL = `http://127.0.0.1:${address.port}`;
+    try {
+      const response = await fetchJson<{ order: { amountCny: number; paymentUrl: string } }>(
+        "/api/billing/payments",
+        {
+          method: "POST",
+          account,
+          body: {
+            planId: "pro",
+            billingPeriod: "monthly",
+            providerType: "alipay",
+          },
+        },
+      );
+
+      expect(response.order.amountCny).toBe(0.1);
+      expect(response.order.paymentUrl).toBe("https://pay.example/checkout");
+      expect(gatewayMoney).toBe("0.10");
+    } finally {
+      restoreEnv("DOYA_PAYMENT_MERCHANT_ID", previousMerchantId);
+      restoreEnv("DOYA_PAYMENT_MERCHANT_KEY", previousMerchantKey);
+      restoreEnv("DOYA_PAYMENT_PUBLIC_BASE_URL", previousPublicBaseUrl);
+      restoreEnv("DOYA_PAYMENT_GATEWAY_BASE_URL", previousGatewayBaseUrl);
+      await new Promise<void>((resolve) => gatewayServer.close(() => resolve()));
+    }
+  });
+
+  it("records admin top-ups as top-up ledger entries", async () => {
+    const account = await register();
+
+    const response = await fetchJson<{
+      ledgerEntry: { kind: string; amountCny: number };
+      balanceCny: number;
+    }>("/api/admin/billing/top-ups", {
+      method: "POST",
+      account,
+      body: {
+        userId: account.user.id,
+        amountCny: 20,
+        note: "manual payment",
+      },
+    });
+
+    expect(response.ledgerEntry).toEqual(
+      expect.objectContaining({ kind: "top_up", amountCny: 20 }),
+    );
+    expect(response.balanceCny).toBe(23);
+  });
+
+  it("rescans daemon workspace storage into generated bytes", async () => {
+    const account = await register();
+    const daemon = await startFakeDaemon({
+      runtimes: new Map(),
+      createdRuntimeId: "rt_1",
+      workspaceScanTotalBytes: 25,
+    });
+    try {
+      await store.registerNode({
+        nodeId: "node_1",
+        endpoint: daemon.baseUrl,
+        runtimeAuthToken: "daemon-secret",
+      });
+      await store.upsertUserDaemonWorkspace({
+        userId: account.user.id,
+        nodeId: "node_1",
+        workspaceDir: `/tmp/user-workspaces/${account.user.id}`,
+      });
+      await fetchJson("/api/file-snapshots", {
+        method: "POST",
+        account,
+        body: {
+          files: [{ path: "input.txt", contentBase64: Buffer.from("hello").toString("base64") }],
+        },
+      });
+
+      const response = await fetchJson<{
+        storageQuota: {
+          uploadedBytesUsed: number;
+          generatedBytesUsed: number;
+          workspaceBytesUsed: number;
+        };
+      }>("/api/billing/storage/rescan", { method: "POST", account, body: {} });
+
+      expect(response.storageQuota.uploadedBytesUsed).toBe(5);
+      expect(response.storageQuota.generatedBytesUsed).toBe(20);
+      expect(response.storageQuota.workspaceBytesUsed).toBe(25);
+      expect(daemon.authorizationHeaders()).toContain("Bearer daemon-secret");
+    } finally {
+      await daemon.close();
+    }
+  });
+
+  it("rejects high-frequency referral bindings from one source", async () => {
+    const inviter = await register("source-inviter@example.com");
+    const inviterSummary = await fetchJson<{ referralCode: string }>("/api/billing/summary", {
+      account: inviter,
+    });
+
+    for (let index = 0; index < 6; index += 1) {
+      const invitee = await register(`source-invitee-${index}@example.com`);
+      const response = await fetchJson<{
+        referral: { status: string; inviteeBonusLedgerId: string | null };
+      }>("/api/billing/referrals/bind", {
+        method: "POST",
+        account: invitee,
+        body: { code: inviterSummary.referralCode, clientId: "same-device" },
+      });
+      if (index < 5) {
+        expect(response.referral.status).toBe("registered");
+        expect(response.referral.inviteeBonusLedgerId).not.toBeNull();
+      } else {
+        expect(response.referral.status).toBe("rejected");
+        expect(response.referral.inviteeBonusLedgerId).toBeNull();
+      }
+    }
+  });
+
+  it("enforces upload quotas and records referral rewards", async () => {
+    const inviter = await register("inviter@example.com");
+    const invitee = await register("invitee@example.com");
+
+    const inviterSummary = await fetchJson<{ referralCode: string; balanceCny: number }>(
+      "/api/billing/summary",
+      { account: inviter },
+    );
+
+    const referralResponse = await fetchJson<{
+      referral: { status: string; inviteeBonusLedgerId: string | null };
+    }>("/api/billing/referrals/bind", {
+      method: "POST",
+      account: invitee,
+      body: { code: inviterSummary.referralCode },
+    });
+    expect(referralResponse.referral.status).toBe("registered");
+    expect(referralResponse.referral.inviteeBonusLedgerId).not.toBeNull();
+
+    await createGeneratedSession(invitee, "Referral qualification");
+
+    const rewardedInviterSummary = await fetchJson<{
+      balanceCny: number;
+      referrals: Array<{ status: string; inviterRewardLedgerId: string | null }>;
+    }>("/api/billing/summary", { account: inviter });
+    expect(rewardedInviterSummary.balanceCny).toBe(inviterSummary.balanceCny + 5);
+    expect(rewardedInviterSummary.referrals[0]).toEqual(
+      expect.objectContaining({ status: "rewarded", inviterRewardLedgerId: expect.any(String) }),
+    );
+
+    const snapshotResponse = await fetchJson<{
+      snapshot: { files: Array<{ path: string }> };
+    }>("/api/file-snapshots", {
+      method: "POST",
+      account: invitee,
+      body: {
+        files: [
+          {
+            path: "hello.txt",
+            contentBase64: Buffer.from("hello").toString("base64"),
+          },
+        ],
+      },
+    });
+    expect(snapshotResponse.snapshot.files[0]?.path).toBe("hello.txt");
+
+    const storageSummary = await fetchJson<{
+      storageQuota: { uploadedBytesUsed: number; workspaceBytesUsed: number };
+    }>("/api/billing/summary", { account: invitee });
+    expect(storageSummary.storageQuota.uploadedBytesUsed).toBe(5);
+    expect(storageSummary.storageQuota.workspaceBytesUsed).toBe(5);
+
+    await fetchJson("/api/admin/billing/storage", {
+      method: "PATCH",
+      account: inviter,
+      body: {
+        userId: invitee.user.id,
+        temporaryWorkspaceBytesLimit: 5,
+      },
+    });
+
+    const quotaResponse = await fetch(`${baseUrl}/api/file-snapshots`, {
+      method: "POST",
+      headers: jsonHeaders(invitee),
+      body: JSON.stringify({
+        files: [
+          {
+            path: "overflow.txt",
+            contentBase64: Buffer.from("!").toString("base64"),
+          },
+        ],
+      }),
+    });
+    expect(quotaResponse.status).toBe(402);
+  });
+});
+
 describe("user daemon workspaces", () => {
   it("stores one active workspace per user and daemon node", async () => {
     const account = await register();
@@ -447,6 +1180,11 @@ describe("runtime sync events", () => {
         metadata: expect.objectContaining({ content: "# Final" }),
       }),
     );
+    const billingSummary = await fetchJson<{ storageQuota: { generatedBytesUsed: number } }>(
+      "/api/billing/summary",
+      { account },
+    );
+    expect(billingSummary.storageQuota.generatedBytesUsed).toBe(Buffer.byteLength("# Final"));
   });
 
   it("maps runtime turn events into the session status", async () => {
@@ -491,6 +1229,120 @@ describe("runtime sync events", () => {
       );
       expect(currentSession.session.status).toBe(expectedStatus);
     }
+  });
+
+  it("charges runtime terminal usage events once", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Runtime billed");
+    await fetchJson<{ pricing: { id: string } }>("/api/admin/billing/pricing", {
+      method: "POST",
+      account,
+      body: {
+        providerId: "claude",
+        modelId: "sonnet",
+        displayName: "Claude Sonnet",
+        inputPriceUsdPerToken: 0.000003,
+        outputPriceUsdPerToken: 0.000015,
+        cacheCreationPriceUsdPerToken: 0.00000375,
+        cacheReadPriceUsdPerToken: 0.0000003,
+      },
+    });
+    await store.registerNode({ nodeId: "node_1", endpoint: "localhost:6767" });
+    await store.createRuntimeAllocation({
+      sessionId: sessionResponse.session.id,
+      userId: account.user.id,
+      nodeId: "node_1",
+      runtimeId: "rt_1",
+      providerId: "claude",
+      modelId: "sonnet",
+      workspaceDir: "/tmp/runtime/workspace",
+      status: "running",
+    });
+
+    for (let index = 0; index < 2; index += 1) {
+      const syncResponse = await fetch(`${baseUrl}/api/runtime-sync/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId: sessionResponse.session.id,
+          runtimeId: "rt_1",
+          nodeId: "node_1",
+          agentId: "agent_1",
+          event: {
+            type: "turn_completed",
+            provider: "claude",
+            turnId: "turn_1",
+            usage: {
+              inputTokens: 1000,
+              cachedInputTokens: 250,
+              outputTokens: 100,
+              cacheCreationTokens: 50,
+            },
+          },
+        }),
+      });
+      expect(syncResponse.status).toBe(201);
+    }
+
+    const summary = await fetchJson<{
+      usage: { requestCount: number };
+      recentUsageLogs: Array<{ requestId: string; cacheReadTokens: number; inputCostUsd: number }>;
+      ledger: Array<{ kind: string }>;
+    }>("/api/billing/summary", { account });
+    expect(summary.usage.requestCount).toBe(1);
+    expect(summary.recentUsageLogs).toHaveLength(1);
+    expect(summary.recentUsageLogs[0]).toEqual(
+      expect.objectContaining({
+        requestId: "rt_1:agent_1:turn_1",
+        cacheReadTokens: 250,
+      }),
+    );
+    expect(summary.recentUsageLogs[0]?.inputCostUsd).toBeCloseTo(750 * 0.000003);
+    expect(summary.ledger.filter((entry) => entry.kind === "usage_charge")).toHaveLength(1);
+  });
+
+  it("syncs runtime usage events without charging when allocation has no model", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Runtime default model");
+    await store.registerNode({ nodeId: "node_1", endpoint: "localhost:6767" });
+    await store.createRuntimeAllocation({
+      sessionId: sessionResponse.session.id,
+      userId: account.user.id,
+      nodeId: "node_1",
+      runtimeId: "rt_1",
+      providerId: "claude",
+      modelId: null,
+      workspaceDir: "/tmp/runtime/workspace",
+      status: "running",
+    });
+
+    const syncResponse = await fetch(`${baseUrl}/api/runtime-sync/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: sessionResponse.session.id,
+        runtimeId: "rt_1",
+        nodeId: "node_1",
+        agentId: "agent_1",
+        event: {
+          type: "turn_completed",
+          provider: "claude",
+          turnId: "turn_1",
+          usage: {
+            inputTokens: 100,
+            outputTokens: 10,
+          },
+        },
+      }),
+    });
+    expect(syncResponse.status).toBe(201);
+
+    const summary = await fetchJson<{
+      usage: { requestCount: number };
+      ledger: Array<{ kind: string }>;
+    }>("/api/billing/summary", { account });
+    expect(summary.usage.requestCount).toBe(0);
+    expect(summary.ledger.filter((entry) => entry.kind === "usage_charge")).toHaveLength(0);
   });
 });
 
@@ -552,13 +1404,52 @@ describe("session agent bindings", () => {
 
     expect(response).toEqual({ binding: null, node: null });
   });
+
+  it("allows reading an existing binding after balance is exhausted", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Exhausted bound agent");
+    await store.registerNode({
+      nodeId: "node_1",
+      endpoint: "http://127.0.0.1:6767",
+    });
+    await fetchJson(`/api/sessions/${sessionResponse.session.id}/agent-binding`, {
+      method: "POST",
+      account,
+      body: {
+        nodeId: "node_1",
+        agentId: "agent_1",
+        workspaceId: "ws_1",
+        cwd: "/tmp/workspace",
+      },
+    });
+
+    await store.createAdminAdjustment({
+      userId: account.user.id,
+      amountCny: -3,
+      note: "exhaust test balance",
+    });
+
+    const response = await fetch(
+      `${baseUrl}/api/sessions/${sessionResponse.session.id}/agent-binding`,
+      {
+        headers: jsonHeaders(account),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({
+        binding: expect.objectContaining({ agentId: "agent_1" }),
+      }),
+    );
+  });
 });
 
-async function register() {
+async function register(email = "person@example.com") {
   const response = await fetch(`${baseUrl}/api/account/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "person@example.com" }),
+    body: JSON.stringify({ email }),
   });
   return (await response.json()) as { user: { id: string }; accessToken: string };
 }
@@ -585,6 +1476,7 @@ async function startFakeDaemon(input: {
   runtimes: Map<string, "starting" | "running" | "stopped" | "lost">;
   createdRuntimeId: string;
   runtimeApiUnavailable?: boolean;
+  workspaceScanTotalBytes?: number;
 }): Promise<{
   baseUrl: string;
   createdCount: () => number;
@@ -679,6 +1571,28 @@ async function startFakeDaemon(input: {
       );
       return;
     }
+    if (req.method === "POST" && url.pathname === "/api/user-workspaces/scan") {
+      authorizationHeaders.push(req.headers.authorization ?? null);
+      let body = "";
+      req.on("data", (chunk) => {
+        body += String(chunk);
+      });
+      req.on("end", () => {
+        const parsed = JSON.parse(body || "{}") as { userId?: string };
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            workspace: {
+              workspaceDir: `/tmp/user-workspaces/${parsed.userId}`,
+            },
+            totalBytes: input.workspaceScanTotalBytes ?? 0,
+            fileCount: 3,
+            scannedAt: "2026-01-01T00:00:00.000Z",
+          }),
+        );
+      });
+      return;
+    }
     if (req.method === "DELETE" && url.pathname === "/api/user-workspaces/session-workdirs") {
       authorizationHeaders.push(req.headers.authorization ?? null);
       let body = "";
@@ -727,13 +1641,28 @@ async function fetchJson<T>(
 ): Promise<T> {
   const response = await fetch(`${baseUrl}${pathName}`, {
     method: input.method ?? "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${input.account.accessToken}`,
-      "X-Doya-User-Id": input.account.user.id,
-    },
+    headers: jsonHeaders(input.account),
     ...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
   });
   expect(response.status).toBeLessThan(400);
   return (await response.json()) as T;
+}
+
+function jsonHeaders(account: {
+  user: { id: string };
+  accessToken: string;
+}): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${account.accessToken}`,
+    "X-Doya-User-Id": account.user.id,
+  };
+}
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
 }
