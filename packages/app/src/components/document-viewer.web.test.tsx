@@ -113,7 +113,23 @@ vi.mock("@extend-ai/react-docx", async () => {
   return {
     useDocxEditor: () => editor,
     DocxEditorViewer: () =>
-      ReactModule.createElement("div", { "data-testid": "extend-docx-editor" }),
+      ReactModule.createElement(
+        "div",
+        { "data-testid": "extend-docx-editor" },
+        ReactModule.createElement(
+          "section",
+          null,
+          ReactModule.createElement(
+            "p",
+            null,
+            ReactModule.createElement(
+              "strong",
+              { "data-testid": "docx-click-target" },
+              "Revenue target",
+            ),
+          ),
+        ),
+      ),
     setWasmSource: docxMockState.setWasmSource,
   };
 });
@@ -178,6 +194,30 @@ vi.mock("react-native-unistyles", () => ({
         : factory,
   },
 }));
+
+const SELECTED_DOCX_TARGET = {
+  kind: "docx" as const,
+  label: "Word 选中文本",
+  locator: {
+    type: "selection",
+    pageNumber: 1,
+    path: "section:nth-of-type(1) > p:nth-of-type(1)",
+  },
+  context: "Revenue target",
+};
+
+const PENDING_DOCX_TARGET = {
+  kind: "docx" as const,
+  label: "Word 选中文本",
+  locator: {
+    type: "selection",
+    pageNumber: 1,
+    path: "section:nth-of-type(1) > p:nth-of-type(1)",
+  },
+  context: "Revenue target",
+};
+
+const PENDING_DOCX_TARGETS = [PENDING_DOCX_TARGET];
 
 const SELECTED_CSV_TARGET = {
   kind: "csv" as const,
@@ -698,6 +738,73 @@ describe("DocumentViewer web annotation interactions", () => {
     );
   });
 
+  it("does not select DOCX targets from preview clicks", async () => {
+    const { DocumentViewer } = await import("./document-viewer.web");
+    const onAnnotationTargetSelect = vi.fn();
+
+    render(
+      <DocumentViewer
+        kind="docx"
+        bytes={new Uint8Array([1, 2, 3])}
+        mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        fileName="prd.docx"
+        annotationMode
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("docx-click-target"));
+
+    expect(onAnnotationTargetSelect).not.toHaveBeenCalled();
+  });
+
+  it("marks DOCX text selection targets without drawing block outlines", async () => {
+    const { DocumentViewer } = await import("./document-viewer.web");
+    const onAnnotationRemove = vi.fn();
+
+    render(
+      <DocumentViewer
+        kind="docx"
+        bytes={new Uint8Array([1, 2, 3])}
+        mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        fileName="prd.docx"
+        annotationMode
+        selectedAnnotationTarget={SELECTED_DOCX_TARGET}
+        pendingAnnotationTips={[
+          {
+            id: "annotation-1",
+            target: PENDING_DOCX_TARGET,
+            instruction: "改成更正式",
+          },
+        ]}
+        onAnnotationRemove={onAnnotationRemove}
+      />,
+    );
+
+    const clickTarget = await screen.findByTestId("docx-click-target");
+    const semanticTarget = clickTarget.closest("p");
+
+    expect(semanticTarget).toBeInstanceOf(HTMLElement);
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("document-docx-host").querySelector("[data-doya-docx-annotation-state]"),
+      ).toBeTruthy();
+    });
+    const tip = screen
+      .getByTestId("document-docx-host")
+      .querySelector("[data-doya-docx-annotation-tip='true']");
+    expect(tip?.textContent).toContain("改成更正式");
+    const highlighted = screen
+      .getByTestId("document-docx-host")
+      .querySelector<HTMLElement>("[data-doya-docx-annotation-state='pending']");
+    expect(highlighted?.style.outline).toBe("2px solid #f59e0b");
+    fireEvent.click(screen.getByLabelText("document.annotation.tip.remove"));
+    expect(onAnnotationRemove).toHaveBeenCalledWith("annotation-1");
+    expect((semanticTarget as HTMLElement).dataset.doyaDocxAnnotationState).toBeUndefined();
+    expect((semanticTarget as HTMLElement).style.outline).toBe("");
+    expect((semanticTarget as HTMLElement).style.boxShadow).toBe("");
+  });
+
   it("repairs an invalid document base URL before loading DOCX runtime assets", async () => {
     const invalidBase = document.createElement("base");
     invalidBase.href = "about:blank";
@@ -719,7 +826,53 @@ describe("DocumentViewer web annotation interactions", () => {
     expect(() => new URL("main.js", document.baseURI)).not.toThrow();
     expect(docxMockState.importDocxFile).toHaveBeenCalled();
   });
+
+  it("updates the DOCX annotation target from text selection changes", async () => {
+    const { DocumentViewer } = await import("./document-viewer.web");
+    const onAnnotationTargetSelect = vi.fn();
+
+    render(
+      <DocumentViewer
+        kind="docx"
+        bytes={new Uint8Array([1, 2, 3])}
+        mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        fileName="prd.docx"
+        annotationMode
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
+      />,
+    );
+
+    const clickTarget = await screen.findByTestId("docx-click-target");
+    mockSelectionInside(clickTarget, "  Revenue\n target  ");
+
+    await waitFor(() => {
+      document.dispatchEvent(new Event("selectionchange"));
+      expect(onAnnotationTargetSelect).toHaveBeenCalledWith({
+        kind: "docx",
+        label: "Word 选中文本",
+        locator: {
+          type: "selection",
+          pageNumber: 1,
+          path: "div:nth-of-type(1) > section:nth-of-type(1) > p:nth-of-type(1)",
+        },
+        context: "Revenue target",
+      });
+    });
+  });
 });
+
+function mockSelectionInside(element: HTMLElement, text: string): void {
+  const textNode = element.firstChild ?? element;
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  vi.spyOn(window, "getSelection").mockReturnValue({
+    anchorNode: textNode,
+    focusNode: textNode,
+    getRangeAt: () => range,
+    rangeCount: 1,
+    toString: () => text,
+  } as unknown as Selection);
+}
 
 function mockPdfPreviewRects(
   page: HTMLElement,

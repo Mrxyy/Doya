@@ -538,7 +538,7 @@ function AccountMenuTrigger({
         ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" width={300}>
-        <AccountUpgradeMenuCard onUpgrade={handleAccountUpgrade} />
+        {planId === "free" ? <AccountUpgradeMenuCard onUpgrade={handleAccountUpgrade} /> : null}
         <DropdownMenuItem
           testID="sidebar-account-billing"
           leading={accountBillingLeadingIcon}

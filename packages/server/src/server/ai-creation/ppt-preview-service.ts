@@ -16,6 +16,7 @@ const MAX_ATTR_VALUE_LENGTH = 256;
 const EDITABLE_ATTR_RE = /^[A-Za-z_][A-Za-z0-9_.:-]*$/;
 const PROTECTED_ATTRS = new Set(["id", "class", "data-edit-target", "data-edit-annotation"]);
 const PROTECTED_ATTR_SUFFIXES = ["href", ":href"];
+const STATIC_ASSET_VERSION = "20260621-annotation-tip-x";
 
 interface PptPreviewServiceOptions {
   agentManager: AgentManager;
@@ -129,10 +130,17 @@ class PptPreviewService {
     const html = await readFile(path.join(this.staticDir, "index.html"), "utf8");
     res
       .type("html")
+      .set("Cache-Control", "no-store")
       .send(
         html
-          .replace('href="/static/style.css"', `href="${basePath}/static/style.css"`)
-          .replace('src="/static/app.js"', `src="${basePath}/static/app.js"`),
+          .replace(
+            'href="/static/style.css"',
+            `href="${basePath}/static/style.css?v=${STATIC_ASSET_VERSION}"`,
+          )
+          .replace(
+            'src="/static/app.js"',
+            `src="${basePath}/static/app.js?v=${STATIC_ASSET_VERSION}"`,
+          ),
       );
   }
 
@@ -143,6 +151,7 @@ class PptPreviewService {
       return;
     }
     const filePath = path.join(this.staticDir, fileName);
+    res.set("Cache-Control", "no-store");
     if (fileName !== "app.js") {
       res.sendFile(filePath);
       return;

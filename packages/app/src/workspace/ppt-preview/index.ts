@@ -40,10 +40,7 @@ export function buildWorkspacePptPreviewUrl(input: {
 }): string {
   let previewPath = `/ppt-preview/${encodeURIComponent(input.agentId)}/${encodeURIComponent(
     input.projectName,
-  )}`;
-  if (input.locale) {
-    previewPath = `${previewPath}?locale=${encodeURIComponent(input.locale)}`;
-  }
+  )}?lang=${resolvePptPreviewLanguage(input.locale)}`;
   if (input.activeConnection?.type !== "directTcp") {
     return previewPath;
   }
@@ -54,6 +51,10 @@ export function buildWorkspacePptPreviewUrl(input: {
   } catch {
     return previewPath;
   }
+}
+
+function resolvePptPreviewLanguage(locale: string | null | undefined): "en" | "zh" {
+  return locale?.toLowerCase().startsWith("zh") ? "zh" : "en";
 }
 
 function trimNonEmpty(value: string | null | undefined): string | null {

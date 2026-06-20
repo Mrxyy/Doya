@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   createControlBillingPayment,
   getControlBillingSummary,
+  type ControlPlanId,
   type ControlPlanRecord,
 } from "@/control/control-api";
 import { useToast } from "@/contexts/toast-context";
@@ -50,8 +51,8 @@ export function BillingUpgradeModalHost() {
   const [providerType, setProviderType] = useState<PaymentProvider>("alipay");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [plans, setPlans] = useState<ControlPlanRecord[]>([]);
+  const [currentPlanId, setCurrentPlanId] = useState<ControlPlanId | null>(null);
   const visible = reason !== null;
-  const header = useMemo(() => ({ title: t("billing.upgrade.title") }), [t]);
   const freePlan = useMemo(
     () => plans.find((plan) => plan.id === "free") ?? DEFAULT_FREE_PLAN,
     [plans],
@@ -59,6 +60,11 @@ export function BillingUpgradeModalHost() {
   const proPlan = useMemo(
     () => plans.find((plan) => plan.id === "pro") ?? DEFAULT_PRO_PLAN,
     [plans],
+  );
+  const isProRenewal = reason === "balance" && currentPlanId === "pro";
+  const header = useMemo(
+    () => ({ title: t(isProRenewal ? "billing.upgrade.renew.title" : "billing.upgrade.title") }),
+    [isProRenewal, t],
   );
   const freeFeatures = useMemo(
     () => [
@@ -104,14 +110,38 @@ export function BillingUpgradeModalHost() {
     ],
     [proPlan, t],
   );
+  const renewalFeatures = useMemo(
+    () => [
+      {
+        label: t("billing.upgrade.compare.usage"),
+        value: formatMonthlyCredit(
+          proPlan.monthlyGrantCny,
+          t("billing.upgrade.period.monthSuffix"),
+        ),
+      },
+      {
+        label: t("billing.upgrade.compare.storage"),
+        value: formatBytesShort(proPlan.workspaceBytesLimit),
+      },
+      {
+        label: t("billing.upgrade.compare.upload"),
+        value: formatBytesShort(proPlan.singleUploadBytesLimit),
+      },
+      {
+        label: t("billing.upgrade.compare.support"),
+        value: t("billing.upgrade.pro.value.support"),
+      },
+    ],
+    [proPlan, t],
+  );
   const heroBody = useMemo(
     () =>
-      billingUpgradeBody(t, reason, {
+      billingUpgradeBody(t, reason, isProRenewal, {
         grant: formatCnyCompact(proPlan.monthlyGrantCny),
         storage: formatBytesShort(proPlan.workspaceBytesLimit),
         upload: formatBytesShort(proPlan.singleUploadBytesLimit),
       }),
-    [proPlan, reason, t],
+    [isProRenewal, proPlan, reason, t],
   );
   const freePrice = useMemo(
     () =>
@@ -137,6 +167,7 @@ export function BillingUpgradeModalHost() {
       return;
     }
     let isMounted = true;
+    setCurrentPlanId(null);
     async function loadPlans() {
       const accountSession = await loadAccountBootstrapSession();
       if (!accountSession) {
@@ -145,6 +176,7 @@ export function BillingUpgradeModalHost() {
       const summary = await getControlBillingSummary({ accountSession });
       if (isMounted) {
         setPlans(summary.plans);
+        setCurrentPlanId(summary.plan.id);
       }
     }
     void loadPlans().catch((caught) => {
@@ -209,10 +241,12 @@ export function BillingUpgradeModalHost() {
             </View>
             <View style={styles.introCopy}>
               <Text style={styles.reasonText}>
-                {reason ? billingUpgradeReasonLabel(t, reason) : ""}
+                {reason ? billingUpgradeReasonLabel(t, reason, isProRenewal) : ""}
               </Text>
               <Text style={styles.heroTitle}>
-                {reason ? billingUpgradeTitle(t, reason) : t("billing.upgrade.hero.account")}
+                {reason
+                  ? billingUpgradeTitle(t, reason, isProRenewal)
+                  : t("billing.upgrade.hero.account")}
               </Text>
               <Text style={styles.heroBody}>{heroBody}</Text>
             </View>
@@ -242,19 +276,31 @@ export function BillingUpgradeModalHost() {
         </View>
 
         <View style={styles.planGrid}>
-          <PlanCard
-            title={t("billing.upgrade.free.title")}
-            badge={t("billing.upgrade.current")}
-            price={freePrice}
-            features={freeFeatures}
-          />
-          <PlanCard
-            title={t("billing.upgrade.pro.title")}
-            badge={t("billing.upgrade.recommended")}
-            price={proPrice}
-            features={proFeatures}
-            selected
-          />
+          {isProRenewal ? (
+            <PlanCard
+              title={t("billing.upgrade.pro.title")}
+              badge={t("billing.upgrade.renew.currentPro")}
+              price={proPrice}
+              features={renewalFeatures}
+              selected
+            />
+          ) : (
+            <>
+              <PlanCard
+                title={t("billing.upgrade.free.title")}
+                badge={t("billing.upgrade.current")}
+                price={freePrice}
+                features={freeFeatures}
+              />
+              <PlanCard
+                title={t("billing.upgrade.pro.title")}
+                badge={t("billing.upgrade.recommended")}
+                price={proPrice}
+                features={proFeatures}
+                selected
+              />
+            </>
+          )}
         </View>
 
         <View style={styles.paymentMethodRow}>
@@ -277,7 +323,9 @@ export function BillingUpgradeModalHost() {
           leftIcon={Sparkles}
           disabled={isSubmitting}
         >
-          {t("billing.upgrade.payCta", { price: proPrice })}
+          {t(isProRenewal ? "billing.upgrade.renew.payCta" : "billing.upgrade.payCta", {
+            price: proPrice,
+          })}
         </Button>
       </View>
     </AdaptiveModalSheet>
@@ -569,7 +617,11 @@ function PlanCardBackdrop({ selected }: { selected: boolean }) {
 function billingUpgradeReasonLabel(
   t: ReturnType<typeof useI18n>["t"],
   reason: BillingUpgradeReason,
+  isProRenewal: boolean,
 ): string {
+  if (isProRenewal) {
+    return t("billing.upgrade.renew.reason");
+  }
   switch (reason) {
     case "balance":
       return t("billing.upgrade.reason.balance");
@@ -583,7 +635,11 @@ function billingUpgradeReasonLabel(
 function billingUpgradeTitle(
   t: ReturnType<typeof useI18n>["t"],
   reason: BillingUpgradeReason,
+  isProRenewal: boolean,
 ): string {
+  if (isProRenewal) {
+    return t("billing.upgrade.renew.hero");
+  }
   switch (reason) {
     case "balance":
       return t("billing.upgrade.hero.balance");
@@ -597,8 +653,12 @@ function billingUpgradeTitle(
 function billingUpgradeBody(
   t: ReturnType<typeof useI18n>["t"],
   reason: BillingUpgradeReason | null,
+  isProRenewal: boolean,
   plan: { grant: string; storage: string; upload: string },
 ): string {
+  if (isProRenewal) {
+    return t("billing.upgrade.renew.bodyDynamic", plan);
+  }
   switch (reason) {
     case "balance":
       return t("billing.upgrade.body.balanceDynamic", plan);

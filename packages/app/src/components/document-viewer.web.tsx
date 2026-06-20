@@ -7,15 +7,20 @@ import {
   useState,
   type ComponentType,
   type CSSProperties,
-  type MouseEvent,
 } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Asset } from "expo-asset";
 import * as XLSX from "xlsx";
 import { translateNow, useI18n, type Locale as DoyaLocale } from "@/i18n/i18n";
-import type { DocumentAnnotationTarget } from "@/components/document-viewer";
-import { buildSpreadsheetAnnotationTargetFromClick } from "@/utils/document-annotation-event-targets";
+import type {
+  DocumentAnnotationTarget,
+  DocumentPendingAnnotationTip,
+} from "@/components/document-viewer";
+import {
+  buildDocxAnnotationTargetFromSelection,
+  buildSpreadsheetAnnotationTargetFromClick,
+} from "@/utils/document-annotation-event-targets";
 import {
   buildPdfBuiltinAnnotationTarget,
   columnNameFromIndex,
@@ -57,7 +62,9 @@ export interface DocumentViewerProps {
   annotationMode?: boolean;
   selectedAnnotationTarget?: DocumentAnnotationTarget | null;
   pendingAnnotationTargets?: DocumentAnnotationTarget[];
+  pendingAnnotationTips?: DocumentPendingAnnotationTip[];
   onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
+  onAnnotationRemove?: (id: string) => void;
 }
 
 type RenderState = { status: "idle" | "loading" | "ready" } | { status: "error"; message: string };
@@ -252,6 +259,7 @@ function ExtendPdfDocumentViewer({
   const url = useDocumentBlobUrl({ bytes, mimeType });
   const [embedPdfRegistry, setEmbedPdfRegistry] = useState<PluginRegistry | null>(null);
   const onAnnotationTargetSelectRef = useRef(onAnnotationTargetSelect);
+  const selectedPdfTargetKeyRef = useRef<string | null>(null);
   const [EmbedPdfViewerComponent, setEmbedPdfViewerComponent] =
     useState<EmbedPdfViewerComponent | null>(null);
   const pdfConfig = useMemo(
@@ -296,6 +304,18 @@ function ExtendPdfDocumentViewer({
       return;
     }
 
+    const emitAnnotationTarget = (target: DocumentAnnotationTarget | null) => {
+      if (!target) {
+        return;
+      }
+      const targetKey = createDocumentAnnotationTargetKey(target);
+      if (targetKey === selectedPdfTargetKeyRef.current) {
+        return;
+      }
+      selectedPdfTargetKeyRef.current = targetKey;
+      onAnnotationTargetSelectRef.current?.(target);
+    };
+
     const selectAnnotationTarget = (tracked: TrackedAnnotation | null | undefined) => {
       if (!tracked) {
         return;
@@ -305,9 +325,7 @@ function ExtendPdfDocumentViewer({
         state: annotation.getState(),
         tracked,
       });
-      if (target) {
-        onAnnotationTargetSelectRef.current?.(target);
-      }
+      emitAnnotationTarget(target);
     };
     const handleStateChange = (event: { state?: AnnotationDocumentState }) => {
       const state = event.state ?? annotation.getState();
@@ -318,9 +336,7 @@ function ExtendPdfDocumentViewer({
           state,
           tracked: state.byUid[selectedUid],
         });
-        if (target) {
-          onAnnotationTargetSelectRef.current?.(target);
-        }
+        emitAnnotationTarget(target);
       }
     };
 
@@ -337,9 +353,7 @@ function ExtendPdfDocumentViewer({
           state,
           tracked,
         });
-        if (target) {
-          onAnnotationTargetSelectRef.current?.(target);
-        }
+        emitAnnotationTarget(target);
       }
     });
 
@@ -545,11 +559,29 @@ function normalizePdfReplyContents(replies: TrackedAnnotation[]): string {
 }
 
 function DocxDocumentViewer({
+  annotationMode,
   bytes,
   fileName,
   mimeType,
+  onAnnotationRemove,
+  onAnnotationTargetSelect,
+  pendingAnnotationTargets,
+  pendingAnnotationTips,
+  selectedAnnotationTarget,
   sourceUrl,
-}: Pick<DocumentViewerProps, "bytes" | "fileName" | "mimeType" | "sourceUrl">) {
+}: Pick<
+  DocumentViewerProps,
+  | "annotationMode"
+  | "bytes"
+  | "fileName"
+  | "mimeType"
+  | "onAnnotationRemove"
+  | "onAnnotationTargetSelect"
+  | "pendingAnnotationTargets"
+  | "pendingAnnotationTips"
+  | "selectedAnnotationTarget"
+  | "sourceUrl"
+>) {
   const [reactDocxModule, setReactDocxModule] = useState<ReactDocxModule | null>(null);
   const [moduleLoadError, setModuleLoadError] = useState<string | null>(null);
 
@@ -592,7 +624,13 @@ function DocxDocumentViewer({
       bytes={bytes}
       fileName={fileName}
       mimeType={mimeType}
+      annotationMode={annotationMode}
+      onAnnotationRemove={onAnnotationRemove}
+      onAnnotationTargetSelect={onAnnotationTargetSelect}
+      pendingAnnotationTargets={pendingAnnotationTargets}
+      pendingAnnotationTips={pendingAnnotationTips}
       reactDocxModule={reactDocxModule}
+      selectedAnnotationTarget={selectedAnnotationTarget}
       sourceUrl={sourceUrl}
     />
   );
@@ -625,12 +663,30 @@ async function loadReactDocxWasmBytes(): Promise<ArrayBuffer> {
 }
 
 function LoadedDocxDocumentViewer({
+  annotationMode,
   bytes,
   fileName,
   mimeType,
+  onAnnotationRemove,
+  onAnnotationTargetSelect,
+  pendingAnnotationTargets,
+  pendingAnnotationTips,
   reactDocxModule,
+  selectedAnnotationTarget,
   sourceUrl,
-}: Pick<DocumentViewerProps, "bytes" | "fileName" | "mimeType" | "sourceUrl"> & {
+}: Pick<
+  DocumentViewerProps,
+  | "annotationMode"
+  | "bytes"
+  | "fileName"
+  | "mimeType"
+  | "onAnnotationRemove"
+  | "onAnnotationTargetSelect"
+  | "pendingAnnotationTargets"
+  | "pendingAnnotationTips"
+  | "selectedAnnotationTarget"
+  | "sourceUrl"
+> & {
   reactDocxModule: ReactDocxModule;
 }) {
   const { DocxEditorViewer, useDocxEditor } = reactDocxModule;
@@ -639,6 +695,8 @@ function LoadedDocxDocumentViewer({
     initialDocumentTheme: "light",
   });
   const { importDocxFile, isImporting } = editor;
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const selectedSelectionKeyRef = useRef<string | null>(null);
   const [state, setState] = useState<RenderState>({ status: "idle" });
   const importQueueRef = useRef<Promise<void>>(Promise.resolve());
   const loadingState = useMemo(
@@ -682,6 +740,67 @@ function LoadedDocxDocumentViewer({
     };
   }, [bytes, fileName, importDocxFile, mimeType, sourceUrl]);
 
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || state.status !== "ready") {
+      return;
+    }
+    updateDocxAnnotationHighlights({
+      root: host,
+      onAnnotationRemove,
+      selectedAnnotationTarget,
+      pendingAnnotationTips: pendingAnnotationTips ?? [],
+      pendingAnnotationTargets: pendingAnnotationTargets ?? [],
+    });
+  }, [
+    onAnnotationRemove,
+    pendingAnnotationTargets,
+    pendingAnnotationTips,
+    selectedAnnotationTarget,
+    state.status,
+  ]);
+
+  const selectCurrentDocxSelection = useCallback((): boolean => {
+    if (!annotationMode || !onAnnotationTargetSelect || !hostRef.current) {
+      selectedSelectionKeyRef.current = null;
+      return false;
+    }
+    const target = buildDocxAnnotationTargetFromSelection({
+      root: hostRef.current,
+    });
+    if (!target) {
+      return false;
+    }
+    const selectionKey = createDocumentAnnotationTargetKey(target);
+    if (selectionKey === selectedSelectionKeyRef.current) {
+      return true;
+    }
+    selectedSelectionKeyRef.current = selectionKey;
+    onAnnotationTargetSelect(target);
+    return true;
+  }, [annotationMode, onAnnotationTargetSelect]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!annotationMode || !host || state.status !== "ready") {
+      selectedSelectionKeyRef.current = null;
+      return;
+    }
+
+    const syncSelectionSoon = () => {
+      window.setTimeout(selectCurrentDocxSelection, 0);
+    };
+
+    document.addEventListener("selectionchange", selectCurrentDocxSelection);
+    host.addEventListener("pointerup", syncSelectionSoon);
+    host.addEventListener("keyup", syncSelectionSoon);
+    return () => {
+      document.removeEventListener("selectionchange", selectCurrentDocxSelection);
+      host.removeEventListener("pointerup", syncSelectionSoon);
+      host.removeEventListener("keyup", syncSelectionSoon);
+    };
+  }, [annotationMode, selectCurrentDocxSelection, state.status]);
+
   return (
     <div data-testid="document-docx-editor" style={webStyles.docxEditorRoot}>
       {state.status === "idle" || state.status === "loading" || isImporting ? (
@@ -689,7 +808,12 @@ function LoadedDocxDocumentViewer({
       ) : null}
       {state.status === "error" ? <DocumentErrorOverlay message={state.message} /> : null}
       <DocxEditorToolbar editor={editor} />
-      <div style={webStyles.docxEditorCanvas}>
+      <div
+        aria-label={translateNow("ui.docx.preview.title")}
+        data-testid="document-docx-host"
+        ref={hostRef}
+        style={annotationMode ? webStyles.docxEditorCanvasAnnotatable : webStyles.docxEditorCanvas}
+      >
         <DocxEditorViewer
           editor={editor}
           mode="edit"
@@ -712,6 +836,50 @@ async function loadDocxFileFromUrl(input: { fileName: string; sourceUrl: string 
   return new File([blob], input.fileName, {
     type: blob.type || "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   });
+}
+
+function createDocumentAnnotationTargetKey(target: DocumentAnnotationTarget): string {
+  return JSON.stringify([target.kind, target.label, target.locator, target.context ?? ""]);
+}
+
+function updateDocxAnnotationHighlights(input: {
+  root: HTMLElement;
+  onAnnotationRemove?: (id: string) => void;
+  selectedAnnotationTarget?: DocumentAnnotationTarget | null;
+  pendingAnnotationTips: DocumentPendingAnnotationTip[];
+  pendingAnnotationTargets: DocumentAnnotationTarget[];
+}): void {
+  input.root
+    .querySelectorAll<HTMLElement>("[data-doya-docx-annotation-state]")
+    .forEach(clearDocxAnnotationHighlight);
+  const pendingTargetKeys = new Set<string>();
+
+  if (input.pendingAnnotationTips.length > 0) {
+    for (const annotation of input.pendingAnnotationTips) {
+      pendingTargetKeys.add(createDocumentAnnotationTargetKey(annotation.target));
+      applyDocxAnnotationTargetHighlight(input.root, {
+        annotation,
+        onAnnotationRemove: input.onAnnotationRemove,
+        state: "pending",
+        target: annotation.target,
+      });
+    }
+  } else {
+    for (const target of input.pendingAnnotationTargets) {
+      pendingTargetKeys.add(createDocumentAnnotationTargetKey(target));
+      applyDocxAnnotationTargetHighlight(input.root, { state: "pending", target });
+    }
+  }
+
+  if (
+    input.selectedAnnotationTarget &&
+    !pendingTargetKeys.has(createDocumentAnnotationTargetKey(input.selectedAnnotationTarget))
+  ) {
+    applyDocxAnnotationTargetHighlight(input.root, {
+      state: "selected",
+      target: input.selectedAnnotationTarget,
+    });
+  }
 }
 
 function createDocxFileFromBytes(input: {
@@ -821,6 +989,256 @@ function DocxEditorToolbar({ editor }: { editor: DocxEditor }) {
       <span style={webStyles.editorToolbarStatus}>{editor.status}</span>
     </div>
   );
+}
+
+function applyDocxAnnotationTargetHighlight(
+  root: HTMLElement,
+  input: {
+    annotation?: DocumentPendingAnnotationTip;
+    onAnnotationRemove?: (id: string) => void;
+    state: "selected" | "pending";
+    target: DocumentAnnotationTarget | null | undefined;
+  },
+): void {
+  const element = findDocxAnnotationElement(root, input.target);
+  if (!element) {
+    return;
+  }
+  if (input.target?.locator.type === "selection") {
+    applyDocxTextSelectionHighlight(element, {
+      annotation: input.annotation,
+      context: input.target.context ?? "",
+      onAnnotationRemove: input.onAnnotationRemove,
+      state: input.state,
+    });
+    return;
+  }
+  applyDocxAnnotationHighlight(element, input.state);
+}
+
+function findDocxAnnotationElement(
+  root: HTMLElement,
+  target: DocumentAnnotationTarget | null | undefined,
+): HTMLElement | null {
+  if (!target || target.kind !== "docx") {
+    return null;
+  }
+  const path = typeof target.locator.path === "string" ? target.locator.path : "";
+  if (!path) {
+    return null;
+  }
+  try {
+    const element = root.querySelector(path);
+    return element instanceof HTMLElement ? element : null;
+  } catch {
+    return null;
+  }
+}
+
+function applyDocxAnnotationHighlight(element: HTMLElement, state: "selected" | "pending"): void {
+  element.dataset.doyaDocxAnnotationState = state;
+  if (state === "selected") {
+    element.style.backgroundColor = "rgba(37, 99, 235, 0.18)";
+    return;
+  }
+  element.style.outline = "2px solid #f59e0b";
+  element.style.outlineOffset = "2px";
+  element.style.backgroundColor = "rgba(245, 158, 11, 0.08)";
+}
+
+function clearDocxAnnotationHighlight(element: HTMLElement): void {
+  if (element.tagName.toLowerCase() === "mark") {
+    unwrapDocxAnnotationMark(element);
+    return;
+  }
+  delete element.dataset.doyaDocxAnnotationState;
+  element.style.outline = "";
+  element.style.outlineOffset = "";
+  element.style.boxShadow = "";
+  element.style.backgroundColor = "";
+  element.style.borderRadius = "";
+}
+
+interface DocxTextPosition {
+  node: CharacterData;
+  offset: number;
+}
+
+interface DocxNormalizedTextIndex {
+  text: string;
+  positions: DocxTextPosition[];
+}
+
+function applyDocxTextSelectionHighlight(
+  element: HTMLElement,
+  input: {
+    annotation?: DocumentPendingAnnotationTip;
+    context: string;
+    onAnnotationRemove?: (id: string) => void;
+    state: "selected" | "pending";
+  },
+): void {
+  const normalizedContext = input.context.replace(/\s+/g, " ").trim();
+  if (!normalizedContext) {
+    applyDocxAnnotationHighlight(element, input.state);
+    return;
+  }
+  const index = buildDocxNormalizedTextIndex(element);
+  const matchStart = index.text.indexOf(normalizedContext);
+  if (matchStart < 0) {
+    applyDocxAnnotationHighlight(element, input.state);
+    return;
+  }
+  const start = index.positions[matchStart];
+  const end = index.positions[matchStart + normalizedContext.length - 1];
+  if (!start || !end) {
+    applyDocxAnnotationHighlight(element, input.state);
+    return;
+  }
+  const range = document.createRange();
+  range.setStart(start.node, start.offset);
+  range.setEnd(end.node, end.offset + 1);
+
+  const mark = document.createElement("mark");
+  mark.dataset.doyaDocxAnnotationState = input.state;
+  mark.style.backgroundColor =
+    input.state === "selected" ? "rgba(37, 99, 235, 0.24)" : "rgba(245, 158, 11, 0.1)";
+  mark.style.color = "inherit";
+  mark.style.position = "relative";
+  mark.style.borderRadius = "1px";
+  mark.style.padding = "0 1px";
+  if (input.state === "pending") {
+    mark.style.outline = "2px solid #f59e0b";
+    mark.style.outlineOffset = "1px";
+  }
+  mark.append(range.extractContents());
+  if (input.annotation) {
+    mark.append(createDocxAnnotationTip(input.annotation, input.onAnnotationRemove));
+  }
+  range.insertNode(mark);
+}
+
+function createDocxAnnotationTip(
+  annotation: DocumentPendingAnnotationTip,
+  onAnnotationRemove: ((id: string) => void) | undefined,
+): HTMLElement {
+  const tip = document.createElement("span");
+  tip.dataset.doyaDocxAnnotationTip = "true";
+  tip.contentEditable = "false";
+  tip.style.position = "absolute";
+  tip.style.zIndex = "20";
+  tip.style.left = "50%";
+  tip.style.bottom = "calc(100% + 10px)";
+  tip.style.transform = "translateX(-50%)";
+  tip.style.display = "inline-flex";
+  tip.style.alignItems = "center";
+  tip.style.gap = "6px";
+  tip.style.maxWidth = "260px";
+  tip.style.padding = "8px 10px";
+  tip.style.border = "1px solid rgba(148, 163, 184, 0.8)";
+  tip.style.borderRadius = "10px";
+  tip.style.background = "#ffffff";
+  tip.style.color = "#111827";
+  tip.style.font = "13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  tip.style.boxShadow = "0 8px 24px rgba(15, 23, 42, 0.16)";
+  tip.style.whiteSpace = "nowrap";
+
+  const dot = document.createElement("span");
+  dot.style.width = "10px";
+  dot.style.height = "10px";
+  dot.style.borderRadius = "999px";
+  dot.style.background = "#0f8f55";
+  dot.style.boxShadow = "0 0 0 4px rgba(15, 143, 85, 0.12)";
+  dot.style.flex = "0 0 auto";
+  tip.append(dot);
+
+  const text = document.createElement("span");
+  text.textContent = annotation.instruction;
+  text.style.overflow = "hidden";
+  text.style.textOverflow = "ellipsis";
+  text.style.fontWeight = "600";
+  tip.append(text);
+
+  const removeButton = document.createElement("button");
+  removeButton.type = "button";
+  removeButton.textContent = "×";
+  removeButton.setAttribute("aria-label", translateNow("document.annotation.tip.remove"));
+  removeButton.style.width = "16px";
+  removeButton.style.height = "16px";
+  removeButton.style.border = "0";
+  removeButton.style.borderRadius = "999px";
+  removeButton.style.padding = "0";
+  removeButton.style.background = "rgba(37, 99, 235, 0.18)";
+  removeButton.style.color = "#2563eb";
+  removeButton.style.cursor = "pointer";
+  removeButton.style.font = "13px/16px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  removeButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onAnnotationRemove?.(annotation.id);
+  });
+  tip.append(removeButton);
+
+  const arrow = document.createElement("span");
+  arrow.style.position = "absolute";
+  arrow.style.left = "50%";
+  arrow.style.bottom = "-8px";
+  arrow.style.width = "14px";
+  arrow.style.height = "14px";
+  arrow.style.background = "#ffffff";
+  arrow.style.borderRight = "1px solid rgba(148, 163, 184, 0.8)";
+  arrow.style.borderBottom = "1px solid rgba(148, 163, 184, 0.8)";
+  arrow.style.transform = "translateX(-50%) rotate(45deg)";
+  tip.append(arrow);
+
+  return tip;
+}
+
+function buildDocxNormalizedTextIndex(element: HTMLElement): DocxNormalizedTextIndex {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const textParts: string[] = [];
+  const positions: DocxTextPosition[] = [];
+  let previousWasWhitespace = true;
+  let current = walker.nextNode();
+  while (current) {
+    if (isCharacterDataNode(current)) {
+      for (let offset = 0; offset < current.data.length; offset += 1) {
+        const character = current.data[offset] ?? "";
+        if (/\s/.test(character)) {
+          if (!previousWasWhitespace) {
+            textParts.push(" ");
+            positions.push({ node: current, offset });
+          }
+          previousWasWhitespace = true;
+        } else {
+          textParts.push(character);
+          positions.push({ node: current, offset });
+          previousWasWhitespace = false;
+        }
+      }
+    }
+    current = walker.nextNode();
+  }
+  return { text: textParts.join("").trim(), positions };
+}
+
+function isCharacterDataNode(node: Node): node is CharacterData {
+  return typeof node.nodeValue === "string" && "data" in node;
+}
+
+function unwrapDocxAnnotationMark(element: HTMLElement): void {
+  const parent = element.parentNode;
+  if (!parent) {
+    return;
+  }
+  element
+    .querySelectorAll<HTMLElement>("[data-doya-docx-annotation-tip]")
+    .forEach((tip) => tip.remove());
+  while (element.firstChild) {
+    parent.insertBefore(element.firstChild, element);
+  }
+  parent.removeChild(element);
+  parent.normalize();
 }
 
 function PptxDocumentViewer({ bytes }: Pick<DocumentViewerProps, "bytes">) {
@@ -2071,7 +2489,9 @@ export function DocumentViewer({
   sourceUrl,
   annotationMode,
   pendingAnnotationTargets,
+  pendingAnnotationTips,
   selectedAnnotationTarget,
+  onAnnotationRemove,
   onAnnotationTargetSelect,
 }: DocumentViewerProps) {
   const stableBytes = useMemo(() => bytes, [bytes]);
@@ -2088,9 +2508,15 @@ export function DocumentViewer({
   if (kind === "docx") {
     return (
       <DocxDocumentViewer
+        annotationMode={annotationMode}
         bytes={stableBytes}
         fileName={fileName}
         mimeType={mimeType}
+        pendingAnnotationTargets={pendingAnnotationTargets}
+        pendingAnnotationTips={pendingAnnotationTips}
+        selectedAnnotationTarget={selectedAnnotationTarget}
+        onAnnotationRemove={onAnnotationRemove}
+        onAnnotationTargetSelect={onAnnotationTargetSelect}
         sourceUrl={sourceUrl}
       />
     );
@@ -2112,9 +2538,7 @@ export function DocumentViewer({
         />
       );
     }
-    return (
-      <XlsxDocumentEditor bytes={stableBytes} fileName={fileName} />
-    );
+    return <XlsxDocumentEditor bytes={stableBytes} fileName={fileName} />;
   }
   return (
     <SpreadsheetDocumentViewer
@@ -2155,6 +2579,13 @@ const webStyles = {
     minHeight: 0,
     overflow: "auto",
     padding: "24px 0",
+  },
+  docxEditorCanvasAnnotatable: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    padding: "24px 0",
+    cursor: "text",
   },
   docxEditorViewer: {
     minHeight: "100%",

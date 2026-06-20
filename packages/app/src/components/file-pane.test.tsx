@@ -336,6 +336,7 @@ describe("FilePane document annotation flow", () => {
       goal,
       instruction,
       location,
+      name,
       path,
       refreshedPreviewText,
       targetText,
@@ -384,7 +385,11 @@ describe("FilePane document annotation flow", () => {
       expect(prompt).toContain(path);
       expect(prompt).toContain(targetText);
       expect(prompt).toContain(instruction);
-      expect(screen.getByTestId("document-annotation-item")).toBeTruthy();
+      if (name === "docx") {
+        expect(screen.queryByTestId("document-annotation-item")).toBeNull();
+      } else {
+        expect(screen.getByTestId("document-annotation-item")).toBeTruthy();
+      }
 
       const session = useSessionStore.getState().sessions[serverId];
       const optimisticItems = [

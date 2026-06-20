@@ -3,12 +3,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildDocxAnnotationTargetFromClick,
+  buildDocxAnnotationTargetFromSelection,
   buildPdfAnnotationTargetFromClick,
   buildSpreadsheetAnnotationTargetFromClick,
 } from "./document-annotation-event-targets";
 
 describe("document annotation event targets", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     document.body.innerHTML = "";
     window.getSelection()?.removeAllRanges();
   });
@@ -91,6 +93,40 @@ describe("document annotation event targets", () => {
       },
       context: "Revenue target",
     });
+  });
+
+  it("builds a DOCX target from the current text selection position", () => {
+    document.body.innerHTML = `
+      <div id="root">
+        <section><p>Cover</p></section>
+        <section><p><strong id="start">Revenue</strong> <em id="end">target</em></p></section>
+      </div>
+    `;
+    const root = document.getElementById("root") as HTMLElement;
+    const paragraph = document.querySelector("section:nth-of-type(2) > p") as HTMLElement;
+    const range = document.createRange();
+    range.setStartBefore(document.getElementById("start") as HTMLElement);
+    range.setEndAfter(document.getElementById("end") as HTMLElement);
+
+    vi.spyOn(window, "getSelection").mockReturnValue({
+      anchorNode: document.getElementById("start")?.firstChild ?? null,
+      focusNode: document.getElementById("end")?.firstChild ?? null,
+      getRangeAt: () => range,
+      rangeCount: 1,
+      toString: () => "Revenue target",
+    } as unknown as Selection);
+
+    expect(buildDocxAnnotationTargetFromSelection({ root })).toEqual({
+      kind: "docx",
+      label: "Word 选中文本",
+      locator: {
+        type: "selection",
+        pageNumber: 2,
+        path: "section:nth-of-type(2) > p:nth-of-type(1)",
+      },
+      context: "Revenue target",
+    });
+    expect(paragraph.textContent).toBe("Revenue target");
   });
 
   it("builds a PDF target with page-relative coordinates", () => {

@@ -13,6 +13,34 @@ export function getSelectionTextWithin(root: HTMLElement): string {
   return normalizeAnnotationText(selection.toString(), 1000);
 }
 
+export function getSelectionSemanticTargetWithin(root: HTMLElement): HTMLElement | null {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return null;
+  }
+  const selectedText = normalizeAnnotationText(selection.toString(), 1000);
+  if (!selectedText) {
+    return null;
+  }
+  const anchorNode = selection.anchorNode;
+  const focusNode = selection.focusNode;
+  if ((anchorNode && !root.contains(anchorNode)) || (focusNode && !root.contains(focusNode))) {
+    return null;
+  }
+  const range = selection.getRangeAt(0);
+  const commonAncestor = range.commonAncestorContainer;
+  let element: HTMLElement | null = null;
+  if (commonAncestor instanceof HTMLElement) {
+    element = commonAncestor;
+  } else if (commonAncestor.parentNode instanceof HTMLElement) {
+    element = commonAncestor.parentNode;
+  }
+  if (!element || !root.contains(element)) {
+    return null;
+  }
+  return getDocxSemanticTargetElement(root, element);
+}
+
 export function getElementTextSnippet(element: HTMLElement): string {
   return normalizeAnnotationText(element.textContent ?? "", 500);
 }

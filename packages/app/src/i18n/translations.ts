@@ -592,6 +592,13 @@ export const en = {
     "Free includes ¥3 AI credit, 200 MB storage, and 20 MB single upload.",
   "billing.upgrade.cta": "Choose Pro plan",
   "billing.upgrade.payCta": "Pay {price}",
+  "billing.upgrade.renew.bodyDynamic":
+    "Your Pro AI credit for this period is used up. Renew Pro to restore {grant} AI credit, {storage} storage, and {upload} single-file uploads.",
+  "billing.upgrade.renew.currentPro": "Current Pro",
+  "billing.upgrade.renew.hero": "Pro credit is used up. Renew to continue.",
+  "billing.upgrade.renew.payCta": "Renew Pro {price}",
+  "billing.upgrade.renew.reason": "Pro credit used up",
+  "billing.upgrade.renew.title": "Renew Pro",
   "billing.upgrade.free.feature.storage": "200 MB storage",
   "billing.upgrade.free.feature.upload": "20 MB single upload",
   "billing.upgrade.free.feature.usage": "¥3 AI credit monthly",
@@ -1127,6 +1134,11 @@ export const en = {
   "ui.pdf.panel.outline": "Outline",
   "ui.pdf.panel.search": "Search",
   "ui.pdf.panel.thumbnails": "Thumbnails",
+  "document.annotation.docx.selection.modeHint":
+    "Drag to select text in the Word preview; the current location updates from the selection.",
+  "document.annotation.docx.selection.offHint":
+    "Turn on annotation mode, select text in the Word preview, then describe the change.",
+  "document.annotation.tip.remove": "Remove annotation",
   "document.annotation.xlsx.selection.modeHint":
     "Select cells or charts in the spreadsheet; the current location updates automatically.",
   "document.annotation.xlsx.selection.offHint":
@@ -2310,6 +2322,13 @@ export const zh: Record<keyof typeof en, string> = {
   "billing.upgrade.currentFreeDetail": "Free 包含 ¥3 AI 额度、200 MB 存储空间、20 MB 单文件上传。",
   "billing.upgrade.cta": "选择 Pro 套餐",
   "billing.upgrade.payCta": "立即支付 {price}",
+  "billing.upgrade.renew.bodyDynamic":
+    "本周期 Pro AI 额度已用完。续费 Pro 后恢复 {grant} AI 额度、{storage} 存储空间和 {upload} 单文件上传。",
+  "billing.upgrade.renew.currentPro": "当前 Pro",
+  "billing.upgrade.renew.hero": "Pro 额度已用完，续费后继续运行",
+  "billing.upgrade.renew.payCta": "续费 Pro {price}",
+  "billing.upgrade.renew.reason": "Pro 额度已用完",
+  "billing.upgrade.renew.title": "续费 Pro",
   "billing.upgrade.free.feature.storage": "200 MB 存储空间",
   "billing.upgrade.free.feature.upload": "20 MB 单文件上传",
   "billing.upgrade.free.feature.usage": "每月赠送 ¥3 AI 用量",
@@ -2825,6 +2844,10 @@ export const zh: Record<keyof typeof en, string> = {
   "ui.pdf.panel.outline": "大纲",
   "ui.pdf.panel.search": "搜索",
   "ui.pdf.panel.thumbnails": "缩略图",
+  "document.annotation.docx.selection.modeHint":
+    "在 Word 预览中拖动选中文本，当前位置会从选区自动同步。",
+  "document.annotation.docx.selection.offHint": "开启后在 Word 预览中选中文本并填写修改说明。",
+  "document.annotation.tip.remove": "删除标注",
   "document.annotation.xlsx.selection.modeHint": "在表格中选择单元格或图表，当前位置会自动同步。",
   "document.annotation.xlsx.selection.offHint": "开启后选择表格单元格或图表并填写修改说明。",
   "document.annotation.targetGuide.default": "先在预览中选择位置。",

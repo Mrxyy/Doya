@@ -12,6 +12,7 @@ import {
   getElementTextSnippet,
   getPdfPageContentElement,
   getPdfPageTarget,
+  getSelectionSemanticTargetWithin,
   getSelectionTextWithin,
 } from "@/utils/document-annotation-dom-targets";
 
@@ -52,6 +53,23 @@ export function buildDocxAnnotationTargetFromClick(input: {
     clickedPath: buildElementPath(input.root, target),
     selectedText,
     context,
+  });
+}
+
+export function buildDocxAnnotationTargetFromSelection(input: {
+  root: HTMLElement;
+}): DocumentAnnotationTarget | null {
+  const semanticTarget = getSelectionSemanticTargetWithin(input.root);
+  if (!semanticTarget) {
+    return null;
+  }
+  const selectedText = getSelectionTextWithin(input.root);
+  return buildDocxAnnotationTarget({
+    label: getElementLabel(semanticTarget),
+    pageNumber: getDocxPageIndex(input.root, semanticTarget),
+    path: buildElementPath(input.root, semanticTarget),
+    selectedText,
+    context: selectedText,
   });
 }
 

@@ -11,6 +11,12 @@ export interface DocumentAnnotationTarget {
   context?: string;
 }
 
+export interface DocumentPendingAnnotationTip {
+  id: string;
+  target: DocumentAnnotationTarget;
+  instruction: string;
+}
+
 export interface DocumentViewerProps {
   kind: DocumentViewerKind;
   bytes: Uint8Array;
@@ -20,7 +26,9 @@ export interface DocumentViewerProps {
   annotationMode?: boolean;
   selectedAnnotationTarget?: DocumentAnnotationTarget | null;
   pendingAnnotationTargets?: DocumentAnnotationTarget[];
+  pendingAnnotationTips?: DocumentPendingAnnotationTip[];
   onAnnotationTargetSelect?: (target: DocumentAnnotationTarget) => void;
+  onAnnotationRemove?: (id: string) => void;
 }
 
 export function DocumentViewer({ fileName }: DocumentViewerProps) {

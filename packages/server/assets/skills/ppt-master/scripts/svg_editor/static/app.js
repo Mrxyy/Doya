@@ -1643,7 +1643,6 @@
     if (annotationTipLayer) return annotationTipLayer;
     annotationTipLayer = document.createElement("div");
     annotationTipLayer.id = "annotation-tip-layer";
-    annotationTipLayer.setAttribute("aria-hidden", "true");
     var svgContainer = document.getElementById("svg-container");
     svgContainer.appendChild(annotationTipLayer);
     return annotationTipLayer;
@@ -1663,7 +1662,28 @@
       if (rect.width === 0 && rect.height === 0) return;
       var tip = document.createElement("div");
       tip.className = "annotation-tip";
-      tip.textContent = slideAnnotations[eid];
+      var dot = document.createElement("span");
+      dot.className = "annotation-tip-dot";
+      tip.appendChild(dot);
+
+      var text = document.createElement("span");
+      text.className = "annotation-tip-text";
+      text.textContent = slideAnnotations[eid];
+      tip.appendChild(text);
+
+      var removeBtn = document.createElement("button");
+      removeBtn.className = "annotation-tip-remove";
+      removeBtn.type = "button";
+      removeBtn.textContent = "x";
+      removeBtn.title = t("tooltip_remove_annotation");
+      removeBtn.setAttribute("aria-label", t("tooltip_remove_annotation"));
+      removeBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        removeAnnotation(eid);
+      });
+      tip.appendChild(removeBtn);
+
       var left = rect.left - containerRect.left + rect.width / 2 + svgContainer.scrollLeft;
       var top = rect.top - containerRect.top + svgContainer.scrollTop;
       tip.style.left = left + "px";

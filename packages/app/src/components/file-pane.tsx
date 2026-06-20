@@ -70,6 +70,7 @@ interface FilePreviewBodyProps {
   documentPreviewRevision: string | null;
   documentAnnotationMode: boolean;
   pendingDocumentAnnotationTargets: DocumentAnnotationTarget[];
+  pendingDocumentAnnotations: PendingDocumentAnnotation[];
   selectedDocumentAnnotationTarget: DocumentAnnotationTarget | null;
   isLoading: boolean;
   showDesktopWebScrollbar: boolean;
@@ -77,6 +78,7 @@ interface FilePreviewBodyProps {
   location: WorkspaceFileLocation;
   imagePreviewUri: string | null;
   onDocumentAnnotationTargetSelect: (target: DocumentAnnotationTarget) => void;
+  onDocumentAnnotationRemove: (id: string) => void;
 }
 
 function trimNonEmpty(value: string | null | undefined): string | null {
@@ -353,6 +355,7 @@ function FilePreviewBody({
   documentPreviewRevision,
   documentAnnotationMode,
   pendingDocumentAnnotationTargets,
+  pendingDocumentAnnotations,
   selectedDocumentAnnotationTarget,
   isLoading,
   showDesktopWebScrollbar,
@@ -360,6 +363,7 @@ function FilePreviewBody({
   location,
   imagePreviewUri,
   onDocumentAnnotationTargetSelect,
+  onDocumentAnnotationRemove,
 }: FilePreviewBodyProps) {
   const { theme } = useUnistyles();
   const filePath = location.path;
@@ -444,8 +448,10 @@ function FilePreviewBody({
         sourceUrl={documentSourceUrl}
         annotationMode={documentAnnotationMode}
         pendingAnnotationTargets={pendingDocumentAnnotationTargets}
+        pendingAnnotationTips={pendingDocumentAnnotations}
         selectedAnnotationTarget={selectedDocumentAnnotationTarget}
         onAnnotationTargetSelect={onDocumentAnnotationTargetSelect}
+        onAnnotationRemove={onDocumentAnnotationRemove}
       />
     );
   }
@@ -768,6 +774,7 @@ function DocumentAnnotationPanel({
   });
   const shouldGuideTargetSelection =
     controller.annotationMode && controller.selectedAnnotationTarget === null;
+  const shouldShowAnnotationList = documentKind !== "docx";
   const targetGuidePulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -875,19 +882,21 @@ function DocumentAnnotationPanel({
       >
         添加标注
       </Button>
-      <View style={styles.annotationList} testID="document-annotation-list">
-        {controller.pendingAnnotations.length === 0 ? (
-          <Text style={styles.annotationEmpty}>暂无标注</Text>
-        ) : (
-          controller.pendingAnnotations.map((annotation) => (
-            <DocumentAnnotationListItem
-              key={annotation.id}
-              annotation={annotation}
-              onRemove={controller.removeAnnotation}
-            />
-          ))
-        )}
-      </View>
+      {shouldShowAnnotationList ? (
+        <View style={styles.annotationList} testID="document-annotation-list">
+          {controller.pendingAnnotations.length === 0 ? (
+            <Text style={styles.annotationEmpty}>暂无标注</Text>
+          ) : (
+            controller.pendingAnnotations.map((annotation) => (
+              <DocumentAnnotationListItem
+                key={annotation.id}
+                annotation={annotation}
+                onRemove={controller.removeAnnotation}
+              />
+            ))
+          )}
+        </View>
+      ) : null}
       <Button
         disabled={!controller.canApplyAnnotations}
         loading={controller.applyPhase !== "idle"}
@@ -915,6 +924,11 @@ function getDocumentAnnotationHint(input: {
     return input.annotationMode
       ? translateNow("document.annotation.xlsx.selection.modeHint")
       : translateNow("document.annotation.xlsx.selection.offHint");
+  }
+  if (input.documentKind === "docx") {
+    return input.annotationMode
+      ? translateNow("document.annotation.docx.selection.modeHint")
+      : translateNow("document.annotation.docx.selection.offHint");
   }
   return input.annotationMode ? "在预览中点击单元格、文字或页面位置。" : "开启后选择要修改的位置。";
 }
@@ -1155,6 +1169,7 @@ export function FilePane({
             documentPreviewRevision={previewRevision}
             documentAnnotationMode={documentAnnotationMode}
             pendingDocumentAnnotationTargets={pendingDocumentAnnotationTargets}
+            pendingDocumentAnnotations={annotationController.pendingAnnotations}
             selectedDocumentAnnotationTarget={annotationController.selectedAnnotationTarget}
             isLoading={query.isFetching}
             showDesktopWebScrollbar={showDesktopWebScrollbar}
@@ -1162,6 +1177,7 @@ export function FilePane({
             location={location}
             imagePreviewUri={imagePreviewUri}
             onDocumentAnnotationTargetSelect={annotationController.selectTarget}
+            onDocumentAnnotationRemove={annotationController.removeAnnotation}
           />
           {shouldShowApplyOverlay ? (
             <DocumentAnnotationApplyOverlay phase={annotationController.applyPhase} />
