@@ -224,6 +224,7 @@ const LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL = "http://127.0.0.1:8082";
 const LOCAL_ONLYOFFICE_HOST_GATEWAY = "host.docker.internal";
 const ONLYOFFICE_SELECTION_PLUGIN_GUID = "asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}";
 const ONLYOFFICE_SELECTION_PLUGIN_VERSION = "20260614-1";
+const DOCX_PREVIEW_STYLE_ID = "doya-docx-preview-style";
 
 const PDF_SHAPES_ONLY_DISABLED_CATEGORIES = [
   "mode-view",
@@ -580,6 +581,26 @@ function normalizePdfReplyContents(replies: TrackedAnnotation[]): string {
     .slice(0, 1000);
 }
 
+function ensureDocxPreviewStyle(): void {
+  if (document.getElementById(DOCX_PREVIEW_STYLE_ID)) {
+    return;
+  }
+  const style = document.createElement("style");
+  style.id = DOCX_PREVIEW_STYLE_ID;
+  style.textContent = `
+    .doya-docx-wrapper {
+      background: #f8fafc !important;
+      padding: 28px 0 !important;
+    }
+
+    .doya-docx-wrapper > section.doya-docx {
+      border: 1px solid rgba(15, 23, 42, 0.08) !important;
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12) !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function DocxDocumentViewer({
   annotationMode,
   bytes,
@@ -608,6 +629,7 @@ function DocxDocumentViewer({
     if (!host) {
       return;
     }
+    ensureDocxPreviewStyle();
     const renderTarget = host;
 
     let canceled = false;
@@ -909,35 +931,44 @@ function createDocxAnnotationTip(
   tip.style.position = "absolute";
   tip.style.zIndex = "20";
   tip.style.left = "50%";
-  tip.style.bottom = "calc(100% + 10px)";
+  tip.style.bottom = "calc(100% + 14px)";
   tip.style.transform = "translateX(-50%)";
   tip.style.display = "inline-flex";
   tip.style.alignItems = "center";
-  tip.style.gap = "6px";
+  tip.style.gap = "8px";
+  tip.style.minWidth = "92px";
   tip.style.maxWidth = "260px";
-  tip.style.padding = "8px 10px";
-  tip.style.border = "1px solid rgba(148, 163, 184, 0.8)";
-  tip.style.borderRadius = "10px";
-  tip.style.background = "#ffffff";
-  tip.style.color = "#111827";
-  tip.style.font = "13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  tip.style.boxShadow = "0 8px 24px rgba(15, 23, 42, 0.16)";
+  tip.style.minHeight = "36px";
+  tip.style.padding = "8px 11px 8px 12px";
+  tip.style.border = "1px solid rgba(31, 122, 82, 0.18)";
+  tip.style.borderRadius = "11px";
+  tip.style.background = "rgba(255, 255, 255, 0.96)";
+  tip.style.color = "var(--doya-text, #111827)";
+  tip.style.font = "12px/17px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  tip.style.fontWeight = "520";
+  tip.style.boxShadow = "0 10px 28px rgba(15, 23, 42, 0.1), 0 2px 8px rgba(31, 122, 82, 0.08)";
   tip.style.whiteSpace = "nowrap";
+  tip.style.wordBreak = "keep-all";
 
   const dot = document.createElement("span");
-  dot.style.width = "10px";
-  dot.style.height = "10px";
+  dot.style.width = "7px";
+  dot.style.height = "7px";
+  dot.style.minWidth = "7px";
+  dot.style.minHeight = "7px";
   dot.style.borderRadius = "999px";
-  dot.style.background = "#0f8f55";
-  dot.style.boxShadow = "0 0 0 4px rgba(15, 143, 85, 0.12)";
+  dot.style.background = "var(--doya-accent, #1f7a52)";
+  dot.style.boxShadow = "0 0 0 3px rgba(31, 122, 82, 0.12)";
+  dot.style.display = "block";
   dot.style.flex = "0 0 auto";
   tip.append(dot);
 
   const text = document.createElement("span");
   text.textContent = annotation.instruction;
+  text.style.minWidth = "0";
   text.style.overflow = "hidden";
   text.style.textOverflow = "ellipsis";
-  text.style.fontWeight = "600";
+  text.style.whiteSpace = "nowrap";
+  text.style.wordBreak = "keep-all";
   tip.append(text);
 
   const removeButton = document.createElement("button");
@@ -966,9 +997,9 @@ function createDocxAnnotationTip(
   arrow.style.bottom = "-8px";
   arrow.style.width = "14px";
   arrow.style.height = "14px";
-  arrow.style.background = "#ffffff";
-  arrow.style.borderRight = "1px solid rgba(148, 163, 184, 0.8)";
-  arrow.style.borderBottom = "1px solid rgba(148, 163, 184, 0.8)";
+  arrow.style.background = "rgba(255, 255, 255, 0.96)";
+  arrow.style.borderRight = "1px solid rgba(31, 122, 82, 0.18)";
+  arrow.style.borderBottom = "1px solid rgba(31, 122, 82, 0.18)";
   arrow.style.transform = "translateX(-50%) rotate(45deg)";
   tip.append(arrow);
 
@@ -2362,7 +2393,7 @@ const webStyles = {
     height: "100%",
     minHeight: 0,
     overflow: "hidden",
-    background: "var(--doya-surface1, #f4f4f5)",
+    background: "#f8fafc",
   },
   docxHost: {
     width: "100%",

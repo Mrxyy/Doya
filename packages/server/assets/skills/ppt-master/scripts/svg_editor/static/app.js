@@ -1674,7 +1674,7 @@
       var removeBtn = document.createElement("button");
       removeBtn.className = "annotation-tip-remove";
       removeBtn.type = "button";
-      removeBtn.textContent = "x";
+      removeBtn.textContent = "×";
       removeBtn.title = t("tooltip_remove_annotation");
       removeBtn.setAttribute("aria-label", t("tooltip_remove_annotation"));
       removeBtn.addEventListener("click", function (event) {

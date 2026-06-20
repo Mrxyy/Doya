@@ -1440,7 +1440,7 @@ body.annotations-hidden #annotations {
   gap: 8px;
   max-width: min(260px, 42vw);
   min-height: 36px;
-  padding: 8px 30px 8px 12px;
+  padding: 8px 11px 8px 12px;
   color: var(--doya-text);
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(31, 122, 82, 0.18);
@@ -1457,9 +1457,12 @@ body.annotations-hidden #annotations {
 }
 
 .annotation-tip-dot {
+  display: block;
   flex: 0 0 auto;
   width: 7px;
   height: 7px;
+  min-width: 7px;
+  min-height: 7px;
   background: var(--doya-accent);
   border-radius: 999px;
   box-shadow: 0 0 0 3px rgba(31, 122, 82, 0.12);
@@ -1472,23 +1475,21 @@ body.annotations-hidden #annotations {
 }
 
 .annotation-tip-remove {
-  position: absolute;
-  top: 5px;
-  right: 6px;
-  width: 18px;
-  height: 18px;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: 0;
   border-radius: 999px;
-  color: rgba(31, 41, 55, 0.7);
-  background: transparent;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.18);
   cursor: pointer;
-  font: 600 13px/18px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 13px/16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .annotation-tip-remove:hover {
-  color: #1f2937;
-  background: rgba(31, 122, 82, 0.1);
+  color: #1d4ed8;
+  background: rgba(37, 99, 235, 0.24);
 }
 
 .annotation-tip::after {
