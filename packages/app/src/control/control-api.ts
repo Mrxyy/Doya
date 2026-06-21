@@ -124,9 +124,14 @@ export interface ControlDaemonNodeRecord {
   createdAt: string;
 }
 
-export interface ControlSettingsRecord {
-  defaultDaemonNodeId: string | null;
+export interface ControlSchedulerDaemonNodeRecord {
+  id: string;
+  endpoint: string;
+  status: ControlDaemonNodeRecord["status"];
+  lastHeartbeatAt: string;
 }
+
+export type ControlSettingsRecord = Record<string, never>;
 
 export type ControlPlanId = "free" | "pro";
 export type ControlBillingPeriod = "monthly" | "yearly";
@@ -398,7 +403,6 @@ export interface ControlBillingPreflightResult {
 
 export interface ControlDaemonNodeSummary {
   node: ControlDaemonNodeRecord;
-  isDefault: boolean;
   userWorkspaceCount: number;
   runtimeCounts: Record<RuntimeStatus, number>;
   activeSessionCount: number;
@@ -754,16 +758,19 @@ export async function getControlAdminOverview(input: {
   );
 }
 
-export async function setControlDefaultDaemon(input: {
-  accountSession: AccountBootstrapSession;
-  nodeId: string | null;
-}): Promise<ControlSettingsRecord> {
-  const payload = await patchControlApi<{ settings: ControlSettingsRecord }>(
-    "/api/admin/default-daemon",
-    { nodeId: input.nodeId },
-    input.accountSession,
+export async function selectControlRuntimeNode(input: {
+  accountSession?: AccountBootstrapSession | null;
+  providerId?: string | null;
+  modelId?: string | null;
+}): Promise<{ node: ControlSchedulerDaemonNodeRecord; selectionReason: string }> {
+  return await postControlApi<{ node: ControlSchedulerDaemonNodeRecord; selectionReason: string }>(
+    "/api/scheduler/runtime-node",
+    {
+      providerId: input.providerId,
+      modelId: input.modelId,
+    },
+    input.accountSession ?? undefined,
   );
-  return payload.settings;
 }
 
 export async function updateControlDaemonNode(input: {

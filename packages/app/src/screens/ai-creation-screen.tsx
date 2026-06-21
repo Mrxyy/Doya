@@ -91,20 +91,20 @@ import { isWeb } from "@/constants/platform";
 import {
   allocateControlSessionWorkDir,
   appendControlSessionMessage,
-  controlApiBaseUrl,
   createControlSession,
   ensureControlUserDaemonWorkspace,
   isControlApiConfigured,
-  registerControlNode,
+  selectControlRuntimeNode,
   upsertControlAgentBinding,
+  type ControlSchedulerDaemonNodeRecord,
 } from "@/control/control-api";
 import { buildControlAgentLabels } from "@/control/control-agent-labels";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
 import { useToast } from "@/contexts/toast-context";
 import {
+  getHostRuntimeStore,
   useHostRuntimeClient,
   useHostRuntimeIsConnected,
-  useHostRuntimeSnapshot,
   useHosts,
 } from "@/runtime/host-runtime";
 import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
@@ -241,6 +241,7 @@ interface EncodedAiCreationImages {
 interface AiCreationWorkspace {
   cwd: string;
   workspaceId: string;
+  client: DaemonClient;
   controlSessionId?: string;
   runtimeId?: string;
   nodeId?: string;
@@ -257,13 +258,12 @@ interface AiCreationAgentConfig {
 
 interface CreateAiCreationWorkspaceInput {
   accountSession: AccountBootstrapSession | null;
-  client: Pick<DaemonClient, "openProject">;
+  client: DaemonClient | null;
   agentConfig: AiCreationAgentConfig;
   displayName: string;
   initialPrompt: string;
   mergeWorkspaces: (serverId: string, workspaces: Iterable<WorkspaceDescriptor>) => void;
-  preferredNodeEndpoint?: string | null;
-  runtimeAuthToken?: string | null;
+  hosts: ReturnType<typeof useHosts>;
   serverId: string;
   setHasHydratedWorkspaces: (serverId: string, hydrated: boolean) => void;
 }
@@ -1387,7 +1387,6 @@ export function AiCreationScreen({
   const isCompact = useIsCompactFormFactor();
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const hostRuntimeSnapshot = useHostRuntimeSnapshot(serverId);
   const hosts = useHosts();
   const toggleMobileAgentList = usePanelStore((state) => state.toggleMobileAgentList);
   const toggleDesktopAgentList = usePanelStore((state) => state.toggleDesktopAgentList);
@@ -1822,13 +1821,13 @@ export function AiCreationScreen({
 
   const canSubmit =
     prompt.trim().length > 0 &&
-    Boolean(client) &&
-    isConnected &&
     Boolean(composerState) &&
+    (editTargetAgentId ? Boolean(client) && isConnected : true) &&
     (mode !== "edit" || Boolean(editImage));
 
   const handleCreate = useCallback(async () => {
-    if (!client || !composerState) return;
+    if (!composerState) return;
+    if (editTargetAgentId && !client) return;
     const provider = composerState.selectedProvider;
     if (!provider && !editTargetAgentId) {
       toast.error(t("aiCreation.error.selectCodexModel"));
@@ -2004,10 +2003,6 @@ export function AiCreationScreen({
         thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
         featureValues: composerState.featureValues,
       };
-      const preferredNodeEndpoint =
-        hostRuntimeSnapshot?.activeConnection?.type === "directTcp"
-          ? normalizeHostPort(hostRuntimeSnapshot.activeConnection.endpoint)
-          : null;
       const workspace = await createAiCreationWorkspace({
         accountSession,
         agentConfig: aiCreationAgentConfig,
@@ -2015,17 +2010,12 @@ export function AiCreationScreen({
         displayName: title,
         initialPrompt,
         mergeWorkspaces,
-        preferredNodeEndpoint,
-        runtimeAuthToken: preferredNodeEndpoint
-          ? findDirectHostRuntimeAuthToken({
-              endpoint: preferredNodeEndpoint,
-              hosts,
-              serverId,
-            })
-          : null,
+        hosts,
         serverId,
         setHasHydratedWorkspaces,
       });
+      const runtimeClient = workspace.client;
+      const runtimeServerId = workspace.nodeId ?? serverId;
       let fileAttachments:
         | Awaited<ReturnType<typeof materializeWorkspaceFileAttachments>>
         | undefined;
@@ -2038,13 +2028,13 @@ export function AiCreationScreen({
         const wirePayload = await splitComposerAttachmentsForSubmit(submittedReferenceAttachments, {
           materializeImages: (images) =>
             materializeWorkspaceImageAttachmentsForSubmit({
-              client,
+              client: runtimeClient,
               cwd: workspace.cwd,
               images,
             }),
           materializeFiles: (files) =>
             materializeWorkspaceFileAttachments({
-              client,
+              client: runtimeClient,
               cwd: workspace.cwd,
               files,
             }),
@@ -2057,7 +2047,7 @@ export function AiCreationScreen({
         }
       } else if (mode === "image" && references.length > 0) {
         const materializedReferences = await materializeWorkspaceImageAttachmentsForSubmit({
-          client,
+          client: runtimeClient,
           cwd: workspace.cwd,
           images: references.map((reference, index) =>
             withAttachmentFileName(reference, `ai-reference-${index + 1}`),
@@ -2068,7 +2058,7 @@ export function AiCreationScreen({
         composerImages = undefined;
       } else if (editFileInputs.length > 0) {
         editMaterializedFilesForDisplay = await materializeWorkspaceAttachmentsToFiles({
-          client,
+          client: runtimeClient,
           cwd: workspace.cwd,
           files: editFileInputs,
         });
@@ -2086,7 +2076,7 @@ export function AiCreationScreen({
       });
       const initialImages =
         mode === "image" && references.length > 0 ? undefined : (images ?? composerImages);
-      const result = await client.createAgent({
+      const result = await runtimeClient.createAgent({
         config,
         workspaceId: workspace.workspaceId,
         initialPrompt,
@@ -2107,9 +2097,9 @@ export function AiCreationScreen({
         agentId: result.id,
         workspace,
       });
-      setAgents(serverId, (previous) => {
+      setAgents(runtimeServerId, (previous) => {
         const next = new Map(previous);
-        next.set(result.id, normalizeAgentSnapshot(result, serverId));
+        next.set(result.id, normalizeAgentSnapshot(result, runtimeServerId));
         return next;
       });
       const selectionImageForDisplay =
@@ -2136,7 +2126,7 @@ export function AiCreationScreen({
             : [];
       const userMessageText = initialPrompt;
       await saveAiCreationMessageDisplayMetadata({
-        serverId,
+        serverId: runtimeServerId,
         agentId: result.id,
         messageId: clientMessageId,
         text: userMessageText,
@@ -2155,7 +2145,7 @@ export function AiCreationScreen({
         console.warn("[AiCreation] Failed to persist message display metadata", error);
       });
       appendOptimisticUserMessageToAgentStream(
-        serverId,
+        runtimeServerId,
         result.id,
         buildOptimisticUserMessage({
           id: clientMessageId,
@@ -2177,7 +2167,7 @@ export function AiCreationScreen({
       setSelectionStrokes([]);
       setRedoSelectionStrokes([]);
       setSelectionMode(false);
-      router.push(buildHostAgentDetailRoute(serverId, result.id));
+      router.push(buildHostAgentDetailRoute(runtimeServerId, result.id));
     } catch (error) {
       const billingReason = getBillingUpgradeReason(error);
       if (billingReason) {
@@ -2197,7 +2187,6 @@ export function AiCreationScreen({
     editTargetAgentId,
     sourceEditAgentCwd,
     conversationEditImages,
-    hostRuntimeSnapshot?.activeConnection,
     hosts,
     mergeWorkspaces,
     openAccountLogin,
@@ -3640,6 +3629,53 @@ function findDirectHostRuntimeAuthToken(input: {
   return connection?.type === "directTcp" ? (connection.password ?? null) : null;
 }
 
+function endpointToHostPort(endpoint: string): string {
+  try {
+    const parsed = new URL(endpoint.includes("://") ? endpoint : `http://${endpoint}`);
+    return normalizeHostPort(parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname);
+  } catch {
+    return normalizeHostPort(endpoint);
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function ensureRuntimeClientForNode(input: {
+  node: ControlSchedulerDaemonNodeRecord;
+  hosts: ReturnType<typeof useHosts>;
+}): Promise<DaemonClient | null> {
+  const store = getHostRuntimeStore();
+  const existing = store.getSnapshot(input.node.id);
+  if (existing?.connectionStatus === "online" && existing.client) {
+    return existing.client;
+  }
+
+  const endpoint = endpointToHostPort(input.node.endpoint);
+  await store.upsertDirectConnection({
+    serverId: input.node.id,
+    endpoint,
+    label: input.node.id,
+    password: findDirectHostRuntimeAuthToken({
+      endpoint,
+      hosts: input.hosts,
+      serverId: input.node.id,
+    }),
+  });
+  await store.ensureStarted(input.node.id);
+
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const snapshot = store.getSnapshot(input.node.id);
+    if (snapshot?.connectionStatus === "online" && snapshot.client) {
+      return snapshot.client;
+    }
+    await delay(150);
+  }
+  return null;
+}
+
 async function createAiCreationWorkspace(
   input: CreateAiCreationWorkspaceInput,
 ): Promise<AiCreationWorkspace> {
@@ -3650,19 +3686,22 @@ async function createAiCreationWorkspace(
     isControlApiConfigured() &&
     input.accountSession.workspace.workspaceId.startsWith("control:")
   ) {
-    if (input.preferredNodeEndpoint) {
-      await registerControlNode({
-        accountSession: input.accountSession,
-        nodeId: input.serverId,
-        endpoint: input.preferredNodeEndpoint,
-        runtimeAuthToken: input.runtimeAuthToken ?? null,
-        status: "online",
-      });
+    const selection = await selectControlRuntimeNode({
+      accountSession: input.accountSession,
+      providerId: input.agentConfig.provider,
+      modelId: input.agentConfig.model ?? null,
+    });
+    const runtimeClient = await ensureRuntimeClientForNode({
+      node: selection.node,
+      hosts: input.hosts,
+    });
+    if (!runtimeClient) {
+      throw new Error(translateNow("openProject.error.openProjectDaemon"));
     }
     const workingContext = { type: "generated_workspace" } as const;
     const userWorkspace = await ensureControlUserDaemonWorkspace({
       accountSession: input.accountSession,
-      nodeId: input.serverId,
+      nodeId: selection.node.id,
     });
     const controlSession = await createControlSession({
       accountSession: input.accountSession,
@@ -3684,19 +3723,19 @@ async function createAiCreationWorkspace(
     const sessionWorkDir = await allocateControlSessionWorkDir({
       accountSession: input.accountSession,
       sessionId: controlSession.id,
-      nodeId: input.serverId,
+      nodeId: selection.node.id,
       runtimeId: `rt_${controlSession.id}`,
       providerId: input.agentConfig.provider,
       modelId: input.agentConfig.model ?? null,
-      selectionReason: "preferred_node_direct",
+      selectionReason: selection.selectionReason,
     });
-    const payload = await input.client.openProject(sessionWorkDir.runtime.workspaceDir);
+    const payload = await runtimeClient.openProject(sessionWorkDir.runtime.workspaceDir);
     if (payload.error || !payload.workspace) {
       throw new Error(payload.error ?? translateNow("aiCreation.error.createWorkspace"));
     }
     const workspace = normalizeWorkspaceDescriptor(payload.workspace);
-    input.mergeWorkspaces(input.serverId, [workspace]);
-    input.setHasHydratedWorkspaces(input.serverId, true);
+    input.mergeWorkspaces(selection.node.id, [workspace]);
+    input.setHasHydratedWorkspaces(selection.node.id, true);
     const cwd = workspace.workspaceDirectory.trim();
     if (!cwd) {
       throw new Error(translateNow("aiCreation.error.missingWorkspaceDirectory"));
@@ -3704,11 +3743,15 @@ async function createAiCreationWorkspace(
     return {
       cwd,
       workspaceId: workspace.id,
+      client: runtimeClient,
       controlSessionId: controlSession.id,
       runtimeId: sessionWorkDir.runtime.runtimeId,
-      nodeId: input.serverId,
+      nodeId: selection.node.id,
       userWorkspaceId: userWorkspace.id,
     };
+  }
+  if (!input.client) {
+    throw new Error(translateNow("openProject.error.openProjectDaemon"));
   }
   const project = await createAccountProject({
     userId: input.accountSession.user.userId,
@@ -3742,7 +3785,7 @@ async function createAiCreationWorkspace(
   if (!cwd) {
     throw new Error(translateNow("aiCreation.error.missingWorkspaceDirectory"));
   }
-  return { cwd, workspaceId: workspace.id };
+  return { cwd, workspaceId: workspace.id, client: input.client };
 }
 
 function buildAiCreationPrompt(input: {

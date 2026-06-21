@@ -91,8 +91,9 @@ export const registerNodeBodySchema = z.object({
   status: z.enum(["online", "offline", "draining"]).optional(),
 });
 
-export const setDefaultDaemonBodySchema = z.object({
-  nodeId: z.string().min(1).nullable(),
+export const selectRuntimeNodeBodySchema = z.object({
+  providerId: z.string().min(1).optional().nullable(),
+  modelId: z.string().min(1).optional().nullable(),
 });
 
 export const updateDaemonNodeBodySchema = z.object({

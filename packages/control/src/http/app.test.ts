@@ -391,6 +391,7 @@ describe("billing", () => {
         cacheReadPriceUsdPerToken: 0.0000003,
       },
     });
+    await store.registerNode({ nodeId: "node_1", endpoint: "http://127.0.0.1:6767" });
 
     const runtimeResponse = await fetchJson<{ runtime: { runtimeId: string } }>(
       `/api/sessions/${sessionResponse.session.id}/runtimes`,
@@ -412,6 +413,7 @@ describe("billing", () => {
   it("allows runtime allocation when the provider uses its default model", async () => {
     const account = await register();
     const sessionResponse = await createGeneratedSession(account, "Default model runtime");
+    await store.registerNode({ nodeId: "node_1", endpoint: "http://127.0.0.1:6767" });
 
     const runtimeResponse = await fetchJson<{
       runtime: { runtimeId: string; providerId: string; modelId: string | null };
@@ -901,6 +903,193 @@ describe("user daemon workspaces", () => {
     } finally {
       await daemon.close();
     }
+  });
+});
+
+describe("daemon scheduling", () => {
+  it("keeps admin scheduling status when an existing node registers again", async () => {
+    const account = await register();
+    await store.registerNode({
+      nodeId: "node_1",
+      endpoint: "http://127.0.0.1:6767",
+      status: "online",
+    });
+    await store.updateNode({ nodeId: "node_1", status: "offline" });
+
+    const registerResponse = await fetchJson<{ node: { id: string; status: string } }>(
+      "/api/nodes/register",
+      {
+        method: "POST",
+        account,
+        body: {
+          nodeId: "node_1",
+          endpoint: "http://127.0.0.1:6767",
+          status: "online",
+        },
+      },
+    );
+
+    expect(registerResponse.node).toEqual(
+      expect.objectContaining({
+        id: "node_1",
+        status: "offline",
+      }),
+    );
+  });
+
+  it("selects the least-loaded online daemon for new runtimes", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Scheduled selection");
+    await store.registerNode({
+      nodeId: "node_busy",
+      endpoint: "http://127.0.0.1:6767",
+      status: "online",
+    });
+    advanceTestClock(1_000);
+    await store.registerNode({
+      nodeId: "node_idle",
+      endpoint: "http://127.0.0.1:6868",
+      status: "online",
+    });
+    advanceTestClock(1_000);
+    await store.registerNode({
+      nodeId: "node_draining",
+      endpoint: "http://127.0.0.1:6969",
+      status: "draining",
+    });
+    await store.createRuntimeAllocation({
+      sessionId: sessionResponse.session.id,
+      userId: account.user.id,
+      nodeId: "node_busy",
+      runtimeId: "rt_busy",
+      workspaceDir: "/tmp/busy/workspace",
+      status: "running",
+    });
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        providerId: "codex",
+        modelId: "gpt-5",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const selection = (await response.json()) as {
+      node: {
+        id: string;
+        endpoint: string;
+        status: string;
+        lastHeartbeatAt: string;
+        runtimeAuthToken?: unknown;
+        doyaHome?: unknown;
+        capabilities?: unknown;
+      };
+      selectionReason: string;
+    };
+
+    expect(selection).toEqual({
+      node: expect.objectContaining({
+        id: "node_idle",
+        endpoint: "http://127.0.0.1:6868",
+        status: "online",
+        lastHeartbeatAt: expect.any(String),
+      }),
+      selectionReason: "least_active_online",
+    });
+    expect(selection.node.runtimeAuthToken).toBeUndefined();
+    expect(selection.node.doyaHome).toBeUndefined();
+    expect(selection.node.capabilities).toBeUndefined();
+  });
+
+  it("rejects scheduler selection when no daemon is online", async () => {
+    await store.registerNode({
+      nodeId: "node_offline",
+      endpoint: "http://127.0.0.1:6767",
+      status: "offline",
+    });
+    await store.registerNode({
+      nodeId: "node_draining",
+      endpoint: "http://127.0.0.1:6868",
+      status: "draining",
+    });
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ providerId: "codex", modelId: "gpt-5" }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: expect.stringContaining("No online daemon nodes"),
+    });
+  });
+
+  it("rejects runtime allocation on offline or draining daemon nodes", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Scheduled runtime");
+    await store.registerNode({
+      nodeId: "node_offline",
+      endpoint: "http://127.0.0.1:6767",
+      status: "offline",
+    });
+    await store.registerNode({
+      nodeId: "node_draining",
+      endpoint: "http://127.0.0.1:6868",
+      status: "draining",
+    });
+
+    for (const nodeId of ["node_offline", "node_draining"]) {
+      const response = await fetch(
+        `${baseUrl}/api/sessions/${sessionResponse.session.id}/runtimes`,
+        {
+          method: "POST",
+          headers: jsonHeaders(account),
+          body: JSON.stringify({
+            nodeId,
+            runtimeId: `rt_${nodeId}`,
+            workspaceDir: `/tmp/${nodeId}/workspace`,
+          }),
+        },
+      );
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        error: expect.stringContaining("cannot accept new runtimes"),
+      });
+    }
+  });
+
+  it("rejects generated workdir allocation on offline daemon nodes", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Scheduled workdir");
+    await store.registerNode({
+      nodeId: "node_1",
+      endpoint: "http://127.0.0.1:6767",
+      status: "offline",
+    });
+    await fetchJson("/api/nodes/node_1/user-workspace", {
+      method: "POST",
+      account,
+      body: {
+        workspaceDir: "/tmp/doya/user-workspaces/usr_1",
+      },
+    });
+
+    const response = await fetch(`${baseUrl}/api/sessions/${sessionResponse.session.id}/workdir`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({
+        nodeId: "node_1",
+        runtimeId: "rt_offline",
+      }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: expect.stringContaining("cannot accept new runtimes"),
+    });
   });
 });
 

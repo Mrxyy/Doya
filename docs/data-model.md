@@ -67,6 +67,12 @@ runtime lease, not the durable Session identity. Provider capability itself is
 daemon-scoped: the same provider can be available on one daemon, disabled on
 another, and unauthenticated on a third.
 
+New control-plane runtime leases are assigned by the runtime scheduler, not a
+persisted default daemon. The current local strategy chooses among online daemon
+nodes by least active runtime count, then newest heartbeat. Offline and
+draining nodes are excluded from selection and are rejected server-side if a
+client tries to allocate a runtime/workdir to them directly.
+
 Billing data also belongs to the control plane and is stored in the same
 `$DOYA_CONTROL_HOME/control.json` file. Older control files read without billing
 fields are normalized with default settings, Free/Pro plans, and empty billing
@@ -371,6 +377,12 @@ defaults.
 | `lastHeartbeatAt`  | `string`                              | Last registration/heartbeat/update time                                  |
 | `createdAt`        | `string`                              | Creation time                                                            |
 
+Node `status` is the scheduler gate for new runtime leases. Re-registering an
+existing node refreshes endpoint/auth/capability metadata but preserves the
+admin-chosen scheduling status; only the admin update flow should move a node
+back to `online`. Old control files may still contain legacy default-daemon
+settings, but current code ignores them and writes empty control settings.
+
 Provider capability belongs to a daemon node. Target provider snapshots should
 record at least:
 
@@ -388,21 +400,21 @@ record at least:
 
 ### RuntimeAllocation
 
-| Field             | Type                                             | Description                                                        |
-| ----------------- | ------------------------------------------------ | ------------------------------------------------------------------ |
-| `id`              | `string`                                         | Allocation id                                                      |
-| `runtimeId`       | `string`                                         | Runtime lease id, usually `rt_${sessionId}` during migration       |
-| `sessionId`       | `string`                                         | Session being executed                                             |
-| `nodeId`          | `string`                                         | Selected daemon node                                               |
-| `providerId`      | `string \| null`                                 | Provider selected for this runtime lease                           |
-| `modelId`         | `string \| null`                                 | Model selected for this runtime lease                              |
-| `selectionReason` | `string \| null`                                 | Scheduler explanation such as `default_available` or `lowest_load` |
-| `userWorkspaceId` | `string \| null`                                 | User-daemon workspace backing this runtime                         |
-| `workspaceDir`    | `string`                                         | Daemon-local runtime working directory                             |
-| `status`          | `"starting" \| "running" \| "stopped" \| "lost"` | Runtime lease state                                                |
-| `leasedAt`        | `string`                                         | Lease creation time                                                |
-| `releasedAt`      | `string \| null`                                 | Stop/lost time                                                     |
-| `lastHeartbeatAt` | `string`                                         | Last runtime-sync or touch time                                    |
+| Field             | Type                                             | Description                                                          |
+| ----------------- | ------------------------------------------------ | -------------------------------------------------------------------- |
+| `id`              | `string`                                         | Allocation id                                                        |
+| `runtimeId`       | `string`                                         | Runtime lease id, usually `rt_${sessionId}` during migration         |
+| `sessionId`       | `string`                                         | Session being executed                                               |
+| `nodeId`          | `string`                                         | Selected daemon node                                                 |
+| `providerId`      | `string \| null`                                 | Provider selected for this runtime lease                             |
+| `modelId`         | `string \| null`                                 | Model selected for this runtime lease                                |
+| `selectionReason` | `string \| null`                                 | Scheduler explanation such as `least_active_online` or `lowest_load` |
+| `userWorkspaceId` | `string \| null`                                 | User-daemon workspace backing this runtime                           |
+| `workspaceDir`    | `string`                                         | Daemon-local runtime working directory                               |
+| `status`          | `"starting" \| "running" \| "stopped" \| "lost"` | Runtime lease state                                                  |
+| `leasedAt`        | `string`                                         | Lease creation time                                                  |
+| `releasedAt`      | `string \| null`                                 | Stop/lost time                                                       |
+| `lastHeartbeatAt` | `string`                                         | Last runtime-sync or touch time                                      |
 
 `providerId`, `modelId`, and `selectionReason` are nullable for records created
 before provider-aware scheduling. They should be filled for all new allocations,

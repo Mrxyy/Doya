@@ -79,7 +79,7 @@ interface ControlSnapshot {
 }
 
 const EMPTY_SNAPSHOT: ControlSnapshot = {
-  settings: { defaultDaemonNodeId: null },
+  settings: {},
   users: [],
   sessions: [],
   sessionMessages: [],
@@ -106,6 +106,7 @@ export class UsageBillingConflictError extends Error {}
 export class PricingUnavailableError extends Error {}
 export class StorageQuotaExceededError extends Error {}
 export class ReferralConflictError extends Error {}
+export class NodeSchedulingUnavailableError extends Error {}
 
 export interface BillingPreflightResult {
   ok: true;
@@ -170,7 +171,6 @@ export interface AdminBillingState {
 
 export interface AdminDaemonNodeSummary {
   node: Omit<DaemonNodeRecord, "runtimeAuthToken">;
-  isDefault: boolean;
   userWorkspaceCount: number;
   runtimeCounts: Record<RuntimeStatus, number>;
   activeSessionCount: number;
@@ -1343,7 +1343,7 @@ export class ControlStore {
     const node: DaemonNodeRecord = {
       id: nodeId || existing?.id || createId("node"),
       endpoint: input.endpoint,
-      status: input.status ?? "online",
+      status: existing?.status ?? input.status ?? "online",
       capabilities: input.capabilities ?? null,
       runtimeAuthToken,
       doyaHome: input.doyaHome?.trim() || existing?.doyaHome || null,
@@ -1418,7 +1418,6 @@ export class ControlStore {
             );
           return {
             node: stripNodeToken(node),
-            isDefault: this.snapshot.settings.defaultDaemonNodeId === node.id,
             userWorkspaceCount: userWorkspaces.length,
             runtimeCounts: nodeRuntimeCounts,
             activeSessionCount: nodeActiveSessionIds.size,
@@ -1426,12 +1425,7 @@ export class ControlStore {
             userWorkspaces,
           };
         })
-        .sort((left, right) => {
-          if (left.isDefault !== right.isDefault) {
-            return left.isDefault ? -1 : 1;
-          }
-          return right.node.lastHeartbeatAt.localeCompare(left.node.lastHeartbeatAt);
-        }),
+        .sort((left, right) => right.node.lastHeartbeatAt.localeCompare(left.node.lastHeartbeatAt)),
       totals: {
         daemonCount: this.snapshot.daemonNodes.length,
         userWorkspaceCount: this.snapshot.userDaemonWorkspaces.length,
@@ -1440,20 +1434,6 @@ export class ControlStore {
         agentBindingCounts,
       },
     };
-  }
-
-  async setDefaultDaemonNode(nodeId: string | null): Promise<ControlSettingsRecord> {
-    await this.load();
-    const normalizedNodeId = nodeId?.trim() || null;
-    if (normalizedNodeId) {
-      await this.getNode(normalizedNodeId);
-    }
-    this.snapshot.settings = {
-      ...this.snapshot.settings,
-      defaultDaemonNodeId: normalizedNodeId,
-    };
-    await this.enqueuePersist();
-    return this.snapshot.settings;
   }
 
   async updateNode(input: { nodeId: string; status?: NodeStatus }): Promise<DaemonNodeRecord> {
@@ -1476,12 +1456,6 @@ export class ControlStore {
     await this.load();
     await this.getNode(nodeId);
     this.snapshot.daemonNodes = this.snapshot.daemonNodes.filter((node) => node.id !== nodeId);
-    if (this.snapshot.settings.defaultDaemonNodeId === nodeId) {
-      this.snapshot.settings = {
-        ...this.snapshot.settings,
-        defaultDaemonNodeId: null,
-      };
-    }
     await this.enqueuePersist();
   }
 
@@ -1598,6 +1572,43 @@ export class ControlStore {
       throw new NotFoundError("Daemon node not found");
     }
     return node;
+  }
+
+  async getSchedulableNode(nodeId: string): Promise<DaemonNodeRecord> {
+    const node = await this.getNode(nodeId);
+    if (node.status !== "online") {
+      throw new NodeSchedulingUnavailableError(
+        `Daemon node ${node.id} is ${node.status} and cannot accept new runtimes`,
+      );
+    }
+    return node;
+  }
+
+  async selectRuntimeNode(_input: {
+    providerId?: string | null;
+    modelId?: string | null;
+  }): Promise<{ node: DaemonNodeRecord; selectionReason: string }> {
+    await this.load();
+    const activeStatuses = new Set<RuntimeStatus>(["starting", "running"]);
+    const candidates = this.snapshot.daemonNodes
+      .filter((node) => node.status === "online")
+      .map((node) => {
+        const activeRuntimeCount = this.snapshot.runtimeAllocations.filter(
+          (allocation) => allocation.nodeId === node.id && activeStatuses.has(allocation.status),
+        ).length;
+        return { node, activeRuntimeCount };
+      })
+      .sort((left, right) => {
+        if (left.activeRuntimeCount !== right.activeRuntimeCount) {
+          return left.activeRuntimeCount - right.activeRuntimeCount;
+        }
+        return right.node.lastHeartbeatAt.localeCompare(left.node.lastHeartbeatAt);
+      });
+    const selected = candidates[0];
+    if (!selected) {
+      throw new NodeSchedulingUnavailableError("No online daemon nodes can accept new runtimes");
+    }
+    return { node: selected.node, selectionReason: "least_active_online" };
   }
 
   async getUserDaemonWorkspace(input: {
@@ -2353,17 +2364,10 @@ function normalizeSnapshot(value: unknown): ControlSnapshot {
             : null,
       }))
     : [];
-  const defaultDaemonNodeId =
-    typeof record.settings?.defaultDaemonNodeId === "string" &&
-    daemonNodes.some((node) => node.id === record.settings?.defaultDaemonNodeId)
-      ? record.settings.defaultDaemonNodeId
-      : null;
   const billingSettings = normalizeBillingSettings(record.billingSettings);
   const plans = normalizePlans(record.plans);
   return {
-    settings: {
-      defaultDaemonNodeId,
-    },
+    settings: {},
     users: Array.isArray(record.users) ? record.users : [],
     sessions: Array.isArray(record.sessions)
       ? record.sessions.map((session) => ({

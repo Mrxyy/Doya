@@ -42,10 +42,8 @@ import { translate } from "@/i18n/translate";
 import type { TranslationKey, TranslationParams } from "@/i18n/translations";
 import {
   getHostRuntimeStore,
-  isHostRuntimeConnected,
   useHostRuntimeClient,
   useHostRuntimeIsConnected,
-  useHostRuntimeSnapshot,
 } from "@/runtime/host-runtime";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
@@ -71,16 +69,15 @@ import { ConversationReplayDraftControls } from "@/replay/conversation-replay-co
 import {
   appendControlSessionMessage,
   allocateControlSessionWorkDir,
-  controlApiBaseUrl,
   createControlFileSnapshot,
   createControlSession,
   deleteControlSession,
   ensureControlUserDaemonWorkspace,
-  getControlAdminOverview,
   isControlApiConfigured,
   preflightControlBilling,
-  registerControlNode,
+  selectControlRuntimeNode,
   upsertControlAgentBinding,
+  type ControlSchedulerDaemonNodeRecord,
   type WorkingContext,
 } from "@/control/control-api";
 import { buildControlAgentLabels as buildBaseControlAgentLabels } from "@/control/control-agent-labels";
@@ -346,7 +343,7 @@ function findDirectHostRuntimeAuthToken(input: {
   serverId: string;
   endpoint: string;
 }): string | null {
-  const normalizedEndpoint = normalizeHostPort(input.endpoint);
+  const normalizedEndpoint = endpointToHostPort(input.endpoint);
   const host = getHostRuntimeStore()
     .getHosts()
     .find((entry) => entry.serverId === input.serverId);
@@ -357,49 +354,99 @@ function findDirectHostRuntimeAuthToken(input: {
   return connection?.type === "directTcp" ? (connection.password ?? null) : null;
 }
 
-function findConnectedRuntime(preferredServerId: string): {
-  serverId: string;
-  client: DaemonClient;
-  snapshot: ReturnType<ReturnType<typeof getHostRuntimeStore>["getSnapshot"]>;
-} | null {
-  const store = getHostRuntimeStore();
-  const preferredSnapshot = store.getSnapshot(preferredServerId);
-  if (preferredSnapshot?.connectionStatus === "online" && preferredSnapshot.client) {
-    return {
-      serverId: preferredServerId,
-      client: preferredSnapshot.client,
-      snapshot: preferredSnapshot,
-    };
+function endpointToHostPort(endpoint: string): string {
+  try {
+    const parsed = new URL(endpoint.includes("://") ? endpoint : `http://${endpoint}`);
+    return normalizeHostPort(parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname);
+  } catch {
+    return normalizeHostPort(endpoint);
   }
-  for (const host of store.getHosts()) {
-    const snapshot = store.getSnapshot(host.serverId);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function ensureRuntimeClientForNode(
+  node: ControlSchedulerDaemonNodeRecord,
+): Promise<DaemonClient | null> {
+  const store = getHostRuntimeStore();
+  const existing = store.getSnapshot(node.id);
+  if (existing?.connectionStatus === "online" && existing.client) {
+    return existing.client;
+  }
+
+  const endpoint = endpointToHostPort(node.endpoint);
+  await store.upsertDirectConnection({
+    serverId: node.id,
+    endpoint,
+    label: node.id,
+    password: findDirectHostRuntimeAuthToken({ serverId: node.id, endpoint }),
+  });
+  await store.ensureStarted(node.id);
+
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const snapshot = store.getSnapshot(node.id);
     if (snapshot?.connectionStatus === "online" && snapshot.client) {
-      return {
-        serverId: host.serverId,
-        client: snapshot.client,
-        snapshot,
-      };
+      return snapshot.client;
     }
+    await delay(150);
   }
   return null;
 }
 
-async function resolvePreferredControlRuntimeServerId(input: {
+async function resolveNewSessionRuntime(input: {
   accountSession: AccountBootstrapSession;
-  fallbackServerId: string;
-}): Promise<string> {
-  if (
-    !isControlApiConfigured() ||
-    !input.accountSession.workspace.workspaceId.startsWith("control:")
-  ) {
-    return input.fallbackServerId;
+  client: DaemonClient | null;
+  composerState: NonNullable<ReturnType<typeof useAgentInputDraft>["composerState"]>;
+  provider: AgentProvider;
+  serverId: string;
+}): Promise<{
+  agentConfig: ReturnType<typeof buildControlAgentConfig>;
+  client: DaemonClient | null;
+  isControlSession: boolean;
+  selectionReason: string;
+  serverId: string;
+}> {
+  const agentConfig = buildControlAgentConfig({
+    provider: input.provider,
+    ...(input.composerState.modeOptions.length > 0 && input.composerState.selectedMode
+      ? { modeId: input.composerState.selectedMode }
+      : {}),
+    model: input.composerState.effectiveModelId || undefined,
+    thinkingOptionId: input.composerState.effectiveThinkingOptionId || undefined,
+    featureValues: input.composerState.featureValues,
+  });
+  const isControlSession =
+    isControlApiConfigured() && input.accountSession.workspace.workspaceId.startsWith("control:");
+  if (!isControlSession) {
+    return {
+      agentConfig,
+      client: input.client,
+      isControlSession: false,
+      selectionReason: "legacy_route_host",
+      serverId: input.serverId,
+    };
   }
-  try {
-    const overview = await getControlAdminOverview({ accountSession: input.accountSession });
-    return overview.settings.defaultDaemonNodeId ?? input.fallbackServerId;
-  } catch {
-    return input.fallbackServerId;
-  }
+
+  await preflightControlBilling({
+    accountSession: input.accountSession,
+    providerId: agentConfig.provider,
+    modelId: agentConfig.model ?? null,
+  });
+  const selection = await selectControlRuntimeNode({
+    accountSession: input.accountSession,
+    providerId: agentConfig.provider,
+    modelId: agentConfig.model ?? null,
+  });
+  return {
+    agentConfig,
+    client: await ensureRuntimeClientForNode(selection.node),
+    isControlSession: true,
+    selectionReason: selection.selectionReason,
+    serverId: selection.node.id,
+  };
 }
 
 export function NewSessionDraftScreen({
@@ -415,7 +462,6 @@ export function NewSessionDraftScreen({
   const isCompact = useIsCompactFormFactor();
   const client = useHostRuntimeClient(serverId);
   const isConnected = useHostRuntimeIsConnected(serverId);
-  const hostRuntimeSnapshot = useHostRuntimeSnapshot(serverId);
   const mergeWorkspaces = useSessionStore((state) => state.mergeWorkspaces);
   const setAgents = useSessionStore((state) => state.setAgents);
   const setHasHydratedWorkspaces = useSessionStore((state) => state.setHasHydratedWorkspaces);
@@ -467,102 +513,51 @@ export function NewSessionDraftScreen({
         openAccountLogin(serverId);
         return;
       }
-      const preferredRuntimeServerId = await resolvePreferredControlRuntimeServerId({
-        accountSession,
-        fallbackServerId: serverId,
-      });
-      const runtimeStore = getHostRuntimeStore();
-      await runtimeStore.ensureStarted(preferredRuntimeServerId);
-      const startedSnapshot = runtimeStore.getSnapshot(preferredRuntimeServerId);
-      const useCurrentRuntime =
-        preferredRuntimeServerId === serverId &&
-        Boolean(startedSnapshot?.client ?? client) &&
-        (isHostRuntimeConnected(startedSnapshot) || isConnected);
-      const fallbackRuntime = useCurrentRuntime
-        ? null
-        : findConnectedRuntime(preferredRuntimeServerId);
-      const runtimeClient = useCurrentRuntime
-        ? (startedSnapshot?.client ?? client)
-        : (fallbackRuntime?.client ?? null);
-      const runtimeServerId = useCurrentRuntime
-        ? serverId
-        : (fallbackRuntime?.serverId ?? preferredRuntimeServerId);
-      const runtimeSnapshot = useCurrentRuntime
-        ? (startedSnapshot ?? hostRuntimeSnapshot)
-        : (fallbackRuntime?.snapshot ?? hostRuntimeSnapshot);
-      if (!runtimeClient) {
-        toast.error(t("openProject.error.openProjectDaemon"));
-        return;
-      }
       const provider = composerState.selectedProvider;
       if (!provider) {
         toast.error(t("openProject.error.selectModel"));
         return;
       }
-      const clientMessageId = generateMessageId();
-      const effectiveAiCreationContext = resolveHomeAiCreationContext(
-        payload.text,
-        aiCreationContext,
-      );
-      const submitText = resolveHomeSubmitText(
-        payload,
-        effectiveAiCreationContext,
-        clientMessageId,
-        locale,
-      );
-      if (!hasHomeSubmitContent(submitText, payload.attachments)) {
-        return;
-      }
       setIsSubmitting(true);
       let pendingControlSessionId: string | null = null;
       try {
+        const runtime = await resolveNewSessionRuntime({
+          accountSession,
+          client,
+          composerState,
+          provider: provider as AgentProvider,
+          serverId,
+        });
+        if (!runtime.client) {
+          toast.error(t("openProject.error.openProjectDaemon"));
+          return;
+        }
+        const runtimeClient = runtime.client;
+        const runtimeServerId = runtime.serverId;
+        const clientMessageId = generateMessageId();
+        const effectiveAiCreationContext = resolveHomeAiCreationContext(
+          payload.text,
+          aiCreationContext,
+        );
+        const submitText = resolveHomeSubmitText(
+          payload,
+          effectiveAiCreationContext,
+          clientMessageId,
+          locale,
+        );
+        if (!hasHomeSubmitContent(submitText, payload.attachments)) {
+          return;
+        }
         const sessionTitle = buildNewSessionTitle({
           text: submitText.displayText,
           attachments: payload.attachments,
           fallback: t("account.project.defaultName"),
           t,
         });
-        if (
-          isControlApiConfigured() &&
-          accountSession.workspace.workspaceId.startsWith("control:")
-        ) {
-          const controlAgentConfig = buildControlAgentConfig({
-            provider: provider as AgentProvider,
-            ...(composerState.modeOptions.length > 0 && composerState.selectedMode
-              ? { modeId: composerState.selectedMode }
-              : {}),
-            model: composerState.effectiveModelId || undefined,
-            thinkingOptionId: composerState.effectiveThinkingOptionId || undefined,
-            featureValues: composerState.featureValues,
-          });
-          await preflightControlBilling({
-            accountSession,
-            providerId: controlAgentConfig.provider,
-            modelId: controlAgentConfig.model ?? null,
-          });
-          const preferredNodeEndpoint =
-            runtimeSnapshot?.activeConnection?.type === "directTcp"
-              ? normalizeHostPort(runtimeSnapshot.activeConnection.endpoint)
-              : null;
-          if (!preferredNodeEndpoint) {
-            throw new Error(t("openProject.error.openProjectDaemon"));
-          }
-          const runtimeAuthToken = findDirectHostRuntimeAuthToken({
-            serverId: runtimeServerId,
-            endpoint: preferredNodeEndpoint,
-          });
-          if (preferredNodeEndpoint) {
-            await registerControlNode({
-              accountSession,
-              nodeId: runtimeServerId,
-              endpoint: preferredNodeEndpoint,
-              runtimeAuthToken,
-              status: "online",
-            });
-          }
+        if (runtime.isControlSession) {
           const userWorkspace = await ensureControlUserDaemonWorkspace({
             accountSession,
-            nodeId: runtimeServerId,
+            nodeId: runtime.serverId,
           });
           const workingContext = await createWorkingContextFromAttachments({
             accountSession,
@@ -583,43 +578,43 @@ export function NewSessionDraftScreen({
             content: {
               text: submitText.displayText,
               workingContext,
-              agentConfig: controlAgentConfig,
+              agentConfig: runtime.agentConfig,
               attachments: payload.attachments.map(summarizeControlAttachment),
             },
           });
           const sessionWorkDir = await allocateControlSessionWorkDir({
             accountSession,
             sessionId: controlSession.id,
-            nodeId: runtimeServerId,
+            nodeId: runtime.serverId,
             runtimeId: `rt_${controlSession.id}`,
-            providerId: controlAgentConfig.provider,
-            modelId: controlAgentConfig.model ?? null,
-            selectionReason: "preferred_node_direct",
+            providerId: runtime.agentConfig.provider,
+            modelId: runtime.agentConfig.model ?? null,
+            selectionReason: runtime.selectionReason,
           });
-          const openPayload = await runtimeClient.openProject(sessionWorkDir.runtime.workspaceDir);
+          const openPayload = await runtime.client.openProject(sessionWorkDir.runtime.workspaceDir);
           if (openPayload.error || !openPayload.workspace) {
             throw new Error(openPayload.error ?? t("openProject.error.createProject"));
           }
           const workspace = normalizeWorkspaceDescriptor(openPayload.workspace);
-          mergeWorkspaces(runtimeServerId, [workspace]);
-          setHasHydratedWorkspaces(runtimeServerId, true);
+          mergeWorkspaces(runtime.serverId, [workspace]);
+          setHasHydratedWorkspaces(runtime.serverId, true);
 
           const wirePayload = await splitComposerAttachmentsForSubmit(payload.attachments, {
             materializeImages: (images) =>
               materializeWorkspaceImageAttachmentsForSubmit({
-                client: runtimeClient,
+                client: runtime.client,
                 cwd: workspace.workspaceDirectory,
                 images,
               }),
             materializeFiles: (files) =>
               materializeWorkspaceFileAttachments({
-                client: runtimeClient,
+                client: runtime.client,
                 cwd: workspace.workspaceDirectory,
                 files,
               }),
           });
           const images = await encodeImages(wirePayload.images);
-          const agent = await runtimeClient.createAgent({
+          const agent = await runtime.client.createAgent({
             config: buildWorkspaceDraftAgentConfig({
               provider: provider as AgentProvider,
               cwd: workspace.workspaceDirectory,
@@ -637,7 +632,7 @@ export function NewSessionDraftScreen({
             recordConversation,
             labels: buildControlAgentLabels({
               sessionId: controlSession.id,
-              nodeId: runtimeServerId,
+              nodeId: runtime.serverId,
               runtimeId: sessionWorkDir.runtime.runtimeId,
               aiCreationContext: effectiveAiCreationContext,
             }),
@@ -647,7 +642,7 @@ export function NewSessionDraftScreen({
           await upsertControlAgentBinding({
             accountSession,
             sessionId: controlSession.id,
-            nodeId: runtimeServerId,
+            nodeId: runtime.serverId,
             agentId: agent.id,
             userWorkspaceId: userWorkspace.id,
             workspaceId: workspace.id,
@@ -661,20 +656,20 @@ export function NewSessionDraftScreen({
             externalId: `agent:${agent.id}:binding`,
             content: {
               kind: "control_agent_binding",
-              nodeId: runtimeServerId,
+              nodeId: runtime.serverId,
               agentId: agent.id,
               workspaceId: workspace.id,
               workspaceDir: workspace.workspaceDirectory,
             },
           });
           notifyControlSessionsChanged();
-          setAgents(runtimeServerId, (previous) => {
+          setAgents(runtime.serverId, (previous) => {
             const next = new Map(previous);
-            next.set(agent.id, normalizeAgentSnapshot(agent, runtimeServerId));
+            next.set(agent.id, normalizeAgentSnapshot(agent, runtime.serverId));
             return next;
           });
           await saveAiCreationMessageDisplayMetadata({
-            serverId: runtimeServerId,
+            serverId: runtime.serverId,
             agentId: agent.id,
             messageId: clientMessageId,
             text: submitText.agentText,
@@ -686,7 +681,7 @@ export function NewSessionDraftScreen({
             console.warn("[NewSessionDraft] Failed to persist message display metadata", error);
           });
           appendOptimisticUserMessageToAgentStream(
-            runtimeServerId,
+            runtime.serverId,
             agent.id,
             buildOptimisticUserMessage({
               id: clientMessageId,
@@ -700,7 +695,7 @@ export function NewSessionDraftScreen({
           );
           await composerState.persistFormPreferences();
           draft.clear("sent");
-          router.replace(buildHostAgentDetailRoute(runtimeServerId, agent.id));
+          router.replace(buildHostAgentDetailRoute(runtime.serverId, agent.id));
           return;
         }
         const project = await createAccountProject({
@@ -817,8 +812,6 @@ export function NewSessionDraftScreen({
       client,
       composerState,
       draft,
-      hostRuntimeSnapshot,
-      isConnected,
       locale,
       mergeWorkspaces,
       openBillingUpgrade,

@@ -101,9 +101,7 @@ export interface DaemonNodeRecord {
   createdAt: string;
 }
 
-export interface ControlSettingsRecord {
-  defaultDaemonNodeId: string | null;
-}
+export type ControlSettingsRecord = Record<string, never>;
 
 export interface BillingSettingsRecord {
   displayCurrency: "CNY";

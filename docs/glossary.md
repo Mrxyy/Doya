@@ -8,7 +8,7 @@
 - **Agent**：执行者。它是 daemon 中某个 runtime workspace 里正在运行的一次 AI 编程任务，拥有 provider/model/`cwd`/timeline，但不是持久化用户历史对象。UI：`Agent` / `New Agent`。代码：`AgentSnapshotPayload`（`packages/protocol/src/messages.ts:608`）。禁止使用：`Task`、`Job`、`Run`。
 - **Daemon**：本地 Doya server 进程，通过 `serverId` 标识。UI：仅系统上下文使用 `Daemon`。代码：`ServerInfoStatusPayloadSchema` 中的 `serverId`（`packages/protocol/src/messages.ts:1936`）、`DaemonClient`（`packages/client/src/daemon-client.ts`）。
 - **Daemon node**：control-plane 中记录一个可接收 runtime allocation 的 daemon。代码：`DaemonNodeRecord`（`packages/control/src/domain.ts`）。UI 除非明确解释架构，否则使用 `Daemon`。
-- **Default daemon**：operator 对新 runtime allocation 首选位置的偏好。它不是硬绑定；当默认 daemon 离线、draining、过载或缺少请求的 provider/model 时，scheduler 可以选择其他 daemon。
+- **Runtime scheduler**：control-plane 为新 runtime allocation 选择 daemon node 的策略入口。不要使用 default daemon 概念；新 Session / AI creation 必须通过 scheduler 分配 daemon。
 - **Draining daemon**：保留既有 runtime 继续运行，但不应接收新 runtime allocation 的 daemon。UI：admin/operator 表面使用 `draining`。
 - **Host**：客户端连接 profile，指向 daemon，并包含一个或多个 `HostConnection`。UI：`Host` / `Add host` / `Switch host`。代码：`HostProfile`（`packages/app/src/types/host-connection.ts:37`）。禁止用 `Connection` 表示 host，因为它指的是 `HostConnection`。
 - **Project host entry**：project 中某个单独 `(project, daemon)` 组合的一行，聚合该 daemon 在此 project 下的 workspace。内部概念。代码：`ProjectHostEntry`（`packages/app/src/utils/projects.ts:11`）。不要引入 `Checkout` 作为同义词。

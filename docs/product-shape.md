@@ -123,10 +123,9 @@ RuntimeAllocation
 `selectionReason` 是管理端解释调度结果的字段。它不是用户历史的一部分，而是回答
 “为什么这次会话被分配到这台 daemon”。常见值包括：
 
-- `preferred_node_direct`：当前迁移期 App 已经选定 direct host，control plane 只记录结果。
-- `default_available`：默认 daemon 满足 provider/model/负载约束。
 - `user_workspace_affinity`：用户已有工作区在该 daemon 上，复用本地性。
 - `lowest_load`：多个候选 daemon 都可用，选择负载最低者。
+- `least_active_online`：本地 control 实现当前按在线 daemon 的 active runtime 数选择。
 - `provider_available`：只有这台 daemon 上该 provider/model 可用。
 
 ### SessionAgentBinding 是 live 指针
@@ -164,7 +163,7 @@ RuntimeAllocation
   nodeId: daemon_macbook
   providerId: codex
   modelId: gpt-5-codex
-  selectionReason: default_available
+  selectionReason: least_active_online
   workspaceDir: ~/.doya/runtimes/rt_ses_login_page/workspace
   status: running
 
@@ -282,9 +281,8 @@ daemon。管理端里的 Provider 开关语义是：
 - `draining daemon`：整台 daemon 不再接任何新 runtime，已有 runtime 继续跑。
 - `disable provider`：这台 daemon 不再接某个 provider 的新 runtime，其他 provider 仍可调度。
 
-默认 daemon 也只是调度偏好，不是强制目标。默认 daemon 只有在 online、非 draining、
-目标 provider enabled/available、目标 model 可用且负载可接受时才会优先被选中。
-否则 control plane 应选择其他候选 daemon，或提示没有可用执行节点。
+新 runtime 不使用默认 daemon 概念。Control plane 必须通过调度策略选择候选 daemon；
+offline 和 draining daemon 都不能接收新 runtime。没有可用候选时提示没有可用执行节点。
 
 ## Provider-aware 调度
 
@@ -295,8 +293,7 @@ selectRuntimeNode({
   userId,
   providerId,
   modelId,
-  preferredNodeId,
-})
+});
 ```
 
 候选 daemon 必须满足：
@@ -310,7 +307,6 @@ selectRuntimeNode({
 
 候选排序：
 
-- 默认 daemon 满足条件时优先。
 - 用户已有 `UserDaemonWorkspace` 所在 daemon 优先。
 - running runtime 少、CPU/内存/磁盘压力低的 daemon 优先。
 - 选择结果必须写入 `RuntimeAllocation.selectionReason`，用于管理端解释。
@@ -322,13 +318,13 @@ selectRuntimeNode({
   nodeId: "srv_xxx",
   providerId: "claude",
   modelId: "claude-sonnet-4",
-  reason: "default_available",
+  reason: "least_active_online",
 }
 ```
 
-迁移期 App 仍然可能先根据当前 direct host 选择 daemon。即使如此，也要把
-`providerId`、`modelId` 和 `selectionReason: "preferred_node_direct"` 写进
-RuntimeAllocation，为后续 control-plane 调度器接管做准备。
+Legacy non-control workspaces may still use the current direct host. Control
+sessions must ask the scheduler before opening a runtime workspace and write the
+returned `selectionReason` into RuntimeAllocation.
 
 ## 继续会话
 
@@ -387,7 +383,6 @@ daemon 和 runtime 资源，不是普通用户的新建/继续会话入口。
 管理操作：
 
 - 添加 daemon：录入 endpoint 和可选 runtime auth token，注册为 `DaemonNode`。
-- 设置默认 daemon：作为新 Session 分配 runtime 的首选节点。
 - 标记 draining：不再接收新 runtime，但保留已有 runtime 直到停止或迁移。
 - 标记 offline/lost：用于 daemon 不可达时停止调度。
 - 启用/禁用 provider：只影响该 daemon 是否接收该 provider 的新 runtime。
@@ -444,7 +439,7 @@ DaemonNode
 
 ### 负载观察
 
-管理端需要看到 daemon 的负载情况，供默认 daemon 和调度决策使用：
+管理端需要看到 daemon 的负载情况，供调度决策使用：
 
 - CPU、内存、磁盘剩余空间。
 - running/stopped/lost runtime 数量。

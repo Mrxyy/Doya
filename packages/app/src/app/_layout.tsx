@@ -325,7 +325,6 @@ function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
   const [hasGivenUpWaitingForHost, setHasGivenUpWaitingForHost] = useState(false);
   useEffect(() => {
     if (
-      firstHostServerId ||
       anyOnlineHostServerId ||
       daemonStartError ||
       daemonStartIsRunning ||
@@ -341,7 +340,6 @@ function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
       clearTimeout(handle);
     };
   }, [
-    firstHostServerId,
     anyOnlineHostServerId,
     daemonStartError,
     daemonStartIsRunning,

@@ -36,7 +36,6 @@ import {
   registerControlNode,
   removeControlDaemonNode,
   restartControlDaemonNode,
-  setControlDefaultDaemon,
   updateControlDaemonNode,
   type ControlAdminOverview,
   type ControlAdminSessionSummary,
@@ -200,25 +199,6 @@ export default function DaemonAdminScreen() {
   const handleRetry = useCallback(() => {
     void reload();
   }, [reload]);
-
-  const handleSetDefault = useCallback(
-    async (nextNodeId: string | null) => {
-      if (!accountSession) {
-        return;
-      }
-      setIsMutating(true);
-      try {
-        await setControlDefaultDaemon({ accountSession, nodeId: nextNodeId });
-        await reload();
-        toast.show(t("admin.daemons.toast.defaultUpdated"));
-      } catch (caught) {
-        toast.error(caught instanceof Error ? caught.message : String(caught));
-      } finally {
-        setIsMutating(false);
-      }
-    },
-    [accountSession, reload, t, toast],
-  );
 
   const handleUpdateStatus = useCallback(
     async (targetNodeId: string, status: ControlDaemonNodeRecord["status"]) => {
@@ -462,7 +442,6 @@ export default function DaemonAdminScreen() {
                       EMPTY_SELECTED_SESSION_IDS
                     }
                     isMutating={isMutating}
-                    onSetDefault={handleSetDefault}
                     onUpdateStatus={handleUpdateStatus}
                     onRestartDaemon={handleRestartDaemon}
                     onRemoveDaemon={handleRemoveDaemon}
@@ -674,14 +653,6 @@ function DaemonListItem({
             {summary.node.id}
           </Text>
         </View>
-        {summary.isDefault ? (
-          <View style={styles.compactBadge}>
-            <ShieldCheck size={12} color={styles.badgeText.color} />
-            <Text style={styles.badgeText} numberOfLines={1}>
-              {t("admin.daemons.default")}
-            </Text>
-          </View>
-        ) : null}
       </View>
       <Text style={styles.muted} numberOfLines={1}>
         {summary.node.endpoint}
@@ -719,7 +690,6 @@ function DaemonCard({
   summary,
   selectedSessionIds,
   isMutating,
-  onSetDefault,
   onUpdateStatus,
   onRestartDaemon,
   onRemoveDaemon,
@@ -731,7 +701,6 @@ function DaemonCard({
   summary: ControlDaemonNodeSummary;
   selectedSessionIds: string[];
   isMutating: boolean;
-  onSetDefault: (nodeId: string | null) => Promise<void>;
   onUpdateStatus: (nodeId: string, status: ControlDaemonNodeRecord["status"]) => Promise<void>;
   onRestartDaemon: (nodeId: string) => Promise<void>;
   onRemoveDaemon: (nodeId: string) => Promise<void>;
@@ -910,9 +879,6 @@ function DaemonCard({
     });
   }, [patchDaemonConfig, promptDraft]);
 
-  const handleSetAsDefault = useCallback(() => {
-    void onSetDefault(summary.node.id);
-  }, [onSetDefault, summary.node.id]);
   const handleDrain = useCallback(() => {
     void onUpdateStatus(summary.node.id, "draining");
   }, [onUpdateStatus, summary.node.id]);
@@ -951,12 +917,6 @@ function DaemonCard({
                 <Text style={styles.panelTitle} numberOfLines={1}>
                   {summary.node.id}
                 </Text>
-                {summary.isDefault ? (
-                  <View style={styles.badge}>
-                    <ShieldCheck size={12} color={styles.badgeText.color} />
-                    <Text style={styles.badgeText}>{t("admin.daemons.default")}</Text>
-                  </View>
-                ) : null}
               </View>
               <Text style={styles.muted} numberOfLines={1}>
                 {summary.node.endpoint}
@@ -1043,16 +1003,6 @@ function DaemonCard({
                     <Text style={styles.sectionTitle}>{t("admin.daemons.scheduling.title")}</Text>
                   </View>
                   <View style={styles.compactActions}>
-                    <Button
-                      variant={summary.isDefault ? "secondary" : "outline"}
-                      size="sm"
-                      disabled={isMutating || summary.isDefault}
-                      onPress={handleSetAsDefault}
-                    >
-                      {summary.isDefault
-                        ? t("admin.daemons.action.default")
-                        : t("admin.daemons.action.setDefault")}
-                    </Button>
                     <Button
                       variant="outline"
                       size="sm"

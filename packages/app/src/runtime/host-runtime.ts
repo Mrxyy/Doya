@@ -38,6 +38,7 @@ import {
 } from "@/desktop/daemon/desktop-daemon-transport";
 import { replaceFetchedAgentDirectory } from "@/utils/agent-directory-sync";
 import { useSessionStore } from "@/stores/session-store";
+import { isControlApiConfigured, selectControlRuntimeNode } from "@/control/control-api";
 
 export type HostRuntimeConnectionStatus = "idle" | "connecting" | "online" | "offline" | "error";
 
@@ -1200,7 +1201,6 @@ export class HostRuntimeController {
 }
 
 const REGISTRY_STORAGE_KEY = "@doya:daemon-registry";
-const LOCALHOST_FALLBACK_ENDPOINT = "localhost:6767";
 const DEFAULT_LOCALHOST_BOOTSTRAP_TIMEOUT_MS = 2500;
 const E2E_STORAGE_KEY = "@doya:e2e";
 
@@ -1219,6 +1219,15 @@ function isPlaceholderServerId(serverId: string): boolean {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function endpointToHostPort(endpoint: string): string {
+  try {
+    const parsed = new URL(endpoint.includes("://") ? endpoint : `http://${endpoint}`);
+    return normalizeHostPort(parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname);
+  } catch {
+    return normalizeHostPort(endpoint);
+  }
 }
 
 function rekeyMap<V>(map: Map<string, V>, oldKey: string, newKey: string): void {
@@ -1242,6 +1251,8 @@ export class HostRuntimeStore {
   private lastConnectionStatusByServer = new Map<string, HostRuntimeConnectionStatus>();
   private agentDirectoryBootstrapInFlight = new Map<string, Promise<void>>();
   private configuredOverrideBootstrapInFlight: Promise<void> | null = null;
+  private defaultBootstrapInFlight: Promise<void> | null = null;
+  private schedulerBootstrapServerId: string | null = null;
   private bootStarted = false;
 
   constructor(input?: { deps?: HostRuntimeControllerDeps }) {
@@ -1263,6 +1274,10 @@ export class HostRuntimeStore {
 
   getHostListVersion(): number {
     return this.hostListVersion;
+  }
+
+  getSchedulerBootstrapServerId(): string | null {
+    return this.schedulerBootstrapServerId;
   }
 
   boot(): void {
@@ -1294,7 +1309,7 @@ export class HostRuntimeStore {
     if (override) {
       this.bootstrapConfiguredOverride(override);
     } else {
-      await this.bootstrapDefaultLocalhost();
+      this.bootstrapDefaultLocalhost();
     }
   }
 
@@ -1323,25 +1338,6 @@ export class HostRuntimeStore {
     }
   }
 
-  private async bootstrapDefaultLocalhost(): Promise<void> {
-    const connection = connectionFromListen(LOCALHOST_FALLBACK_ENDPOINT);
-    if (!connection || registryHasConnection(this.hosts, connection)) {
-      return;
-    }
-
-    try {
-      await this.probeAndUpsertConnection({
-        connection,
-        timeoutMs: DEFAULT_LOCALHOST_BOOTSTRAP_TIMEOUT_MS,
-      });
-    } catch (error) {
-      console.warn("[HostRuntime] bootstrap probe failed", {
-        endpoint: LOCALHOST_FALLBACK_ENDPOINT,
-        error,
-      });
-    }
-  }
-
   private bootstrapConfiguredOverride(endpoint: string): void {
     const connection = connectionFromListen(endpoint);
     if (!connection) {
@@ -1360,6 +1356,37 @@ export class HostRuntimeStore {
       }
     });
     this.configuredOverrideBootstrapInFlight = bootstrap;
+  }
+
+  private bootstrapDefaultLocalhost(): void {
+    if (this.defaultBootstrapInFlight) {
+      return;
+    }
+
+    const bootstrap = this.runDefaultSchedulerBootstrap()
+      .catch((error) => {
+        console.warn("[HostRuntime] scheduler bootstrap failed", { error });
+      })
+      .finally(() => {
+        if (this.defaultBootstrapInFlight === bootstrap) {
+          this.defaultBootstrapInFlight = null;
+        }
+      });
+    this.defaultBootstrapInFlight = bootstrap;
+  }
+
+  private async runDefaultSchedulerBootstrap(): Promise<void> {
+    if (!isControlApiConfigured()) {
+      return;
+    }
+    const selection = await selectControlRuntimeNode({});
+    await this.upsertDirectConnection({
+      serverId: selection.node.id,
+      endpoint: endpointToHostPort(selection.node.endpoint),
+      label: selection.node.id,
+    });
+    this.schedulerBootstrapServerId = selection.node.id;
+    this.emitHostList();
   }
 
   private async runConfiguredOverrideBootstrap(
@@ -2085,6 +2112,15 @@ export function useHosts(): HostProfile[] {
     (onStoreChange) => store.subscribeHostList(onStoreChange),
     () => store.getHosts(),
     () => store.getHosts(),
+  );
+}
+
+export function useSchedulerBootstrapServerId(): string | null {
+  const store = getHostRuntimeStore();
+  return useSyncExternalStore(
+    (onStoreChange) => store.subscribeHostList(onStoreChange),
+    () => store.getSchedulerBootstrapServerId(),
+    () => store.getSchedulerBootstrapServerId(),
   );
 }
 

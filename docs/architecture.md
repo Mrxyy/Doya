@@ -102,17 +102,22 @@ Daemon-local account project data under `$DOYA_HOME/accounts` is a compatibility
 layer, not the owner of new durable session history.
 
 Runtime allocation is provider-aware in the target architecture. A new Session
-selects a provider/model first, then the control plane chooses a daemon that can
-run that provider/model. Default daemon is a scheduling preference, not a hard
-pin: the selected daemon must still be online, non-draining, provider-enabled,
-provider-available, model-compatible, and under load limits. The selected
-`nodeId`, `providerId`, `modelId`, and `selectionReason` are stored on the
-RuntimeAllocation so the admin UI can explain why a session landed on a daemon.
+selects a provider/model first, then the control-plane scheduler chooses a
+daemon that can run that provider/model. There is no default daemon concept for
+new runtime placement: the selected daemon must be online, non-draining,
+provider-enabled, provider-available, model-compatible, and under load limits.
+The selected `nodeId`, `providerId`, `modelId`, and `selectionReason` are stored
+on the RuntimeAllocation so the admin UI can explain why a session landed on a
+daemon.
 
-During migration, App flows may still choose the active direct host before
-calling the control plane. Those flows still write `providerId`, `modelId`, and
-`selectionReason: "preferred_node_direct"` to allocations so later scheduler
-handoff does not lose intent.
+During migration, legacy non-control workspaces may still use the active direct
+host. Control sessions and AI creation must ask the scheduler before opening a
+runtime workspace.
+
+When no explicit local daemon override is configured, app startup also asks the
+control-plane scheduler for the initial runtime host. This bootstrap selection
+does not require an account/control session; authentication is still required
+for creating user sessions and allocating workdir/runtime resources.
 
 ### `packages/server` — The daemon
 

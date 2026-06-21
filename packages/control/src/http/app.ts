@@ -11,6 +11,7 @@ import {
 import {
   BillingPreflightError,
   NotFoundError,
+  NodeSchedulingUnavailableError,
   PricingUnavailableError,
   ReferralConflictError,
   StorageQuotaExceededError,
@@ -38,7 +39,7 @@ import {
   recordUsageTurnBodySchema,
   runtimeSyncArtifactBodySchema,
   runtimeSyncEventBodySchema,
-  setDefaultDaemonBodySchema,
+  selectRuntimeNodeBodySchema,
   updateBillingSettingsBodySchema,
   updateBillingPlanDefinitionBodySchema,
   updateBillingPlanBodySchema,
@@ -452,6 +453,21 @@ export function createControlApp(store: ControlStore): express.Express {
     }),
   );
 
+  app.post(
+    "/api/scheduler/runtime-node",
+    asyncHandler(async (req, res) => {
+      const body = parseBody(selectRuntimeNodeBodySchema, req.body);
+      const selection = await store.selectRuntimeNode({
+        providerId: body.providerId,
+        modelId: body.modelId,
+      });
+      res.json({
+        node: toSchedulerDaemonNode(selection.node),
+        selectionReason: selection.selectionReason,
+      });
+    }),
+  );
+
   app.get(
     "/api/admin/daemon-overview",
     requireAuth(store),
@@ -591,15 +607,6 @@ export function createControlApp(store: ControlStore): express.Express {
           rejectReason: body.rejectReason,
         }),
       });
-    }),
-  );
-
-  app.patch(
-    "/api/admin/default-daemon",
-    requireAuth(store),
-    asyncHandler(async (req, res) => {
-      const body = parseBody(setDefaultDaemonBodySchema, req.body);
-      res.json({ settings: await store.setDefaultDaemonNode(body.nodeId) });
     }),
   );
 
@@ -802,7 +809,7 @@ export function createControlApp(store: ControlStore): express.Express {
         providerId: body.providerId,
         modelId: body.modelId,
       });
-      const node = await store.getNode(body.nodeId);
+      const node = await store.getSchedulableNode(body.nodeId);
       const allocation = await allocateDaemonSessionWorkDir({
         node,
         userId,
@@ -836,6 +843,7 @@ export function createControlApp(store: ControlStore): express.Express {
         providerId: body.providerId,
         modelId: body.modelId,
       });
+      await store.getSchedulableNode(body.nodeId);
       const runtime = await store.createRuntimeAllocation({
         sessionId: req.params.sessionId,
         userId,
@@ -1015,7 +1023,11 @@ function errorHandler(error: unknown, _req: Request, res: Response, _next: NextF
     res.status(402).json({ error: error.message });
     return;
   }
-  if (error instanceof UsageBillingConflictError || error instanceof ReferralConflictError) {
+  if (
+    error instanceof UsageBillingConflictError ||
+    error instanceof ReferralConflictError ||
+    error instanceof NodeSchedulingUnavailableError
+  ) {
     res.status(409).json({ error: error.message });
     return;
   }
@@ -1026,6 +1038,20 @@ function errorHandler(error: unknown, _req: Request, res: Response, _next: NextF
 function toPublicDaemonNode(node: DaemonNodeRecord): Omit<DaemonNodeRecord, "runtimeAuthToken"> {
   const { runtimeAuthToken: _runtimeAuthToken, ...publicNode } = node;
   return publicNode;
+}
+
+function toSchedulerDaemonNode(node: DaemonNodeRecord): {
+  id: string;
+  endpoint: string;
+  status: DaemonNodeRecord["status"];
+  lastHeartbeatAt: string;
+} {
+  return {
+    id: node.id,
+    endpoint: node.endpoint,
+    status: node.status,
+    lastHeartbeatAt: node.lastHeartbeatAt,
+  };
 }
 
 async function ensureDaemonUserWorkspace(input: {
