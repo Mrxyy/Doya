@@ -130,57 +130,6 @@ export class AccountControlPlane {
     return this.createAuthResult(await this.refreshAccessToken(user));
   }
 
-  async loginOrRegisterByPhone(input: {
-    phone: string;
-    displayName?: string;
-  }): Promise<AccountAuthResult> {
-    const phone = input.phone.trim();
-    if (!phone) {
-      throw new AccountControlPlaneError("手机号不能为空");
-    }
-
-    const existingUser = await this.findActiveUserByPhone(phone);
-    if (existingUser) {
-      return this.createAuthResult(await this.refreshAccessToken(existingUser));
-    }
-
-    const timestamp = this.timestamp();
-    const user: AccountUserRecord = {
-      userId: `usr_${randomUUID()}`,
-      email: `${phone}@phone.doya.local`,
-      phone,
-      accessToken: randomUUID(),
-      createdAt: timestamp,
-      disabledAt: null,
-    };
-    const workspaceId = `ws_${randomUUID()}`;
-    const workspace: AccountWorkspaceRecord = {
-      workspaceId,
-      ownerUserId: user.userId,
-      displayName: input.displayName?.trim() || "我的工作区",
-      cwd: path.join(this.workspacesRoot, workspaceId),
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      deletedAt: null,
-    };
-    await mkdir(workspace.cwd, { recursive: true });
-
-    await this.load();
-    this.snapshot.users = upsertById(this.snapshot.users, user, (record) => record.userId);
-    this.snapshot.workspaces = upsertById(
-      this.snapshot.workspaces,
-      workspace,
-      (record) => record.workspaceId,
-    );
-    await this.enqueuePersist();
-    await this.ensureDefaultProject({
-      userId: user.userId,
-      workspace,
-    });
-
-    return this.createAuthResult(user);
-  }
-
   async getSession(input: { userId: string; accessToken: string }): Promise<AccountAuthResult> {
     const user = await this.requireUserAccess(input);
     return this.createAuthResult(user);
@@ -399,14 +348,6 @@ export class AccountControlPlane {
       this.snapshot.users.find(
         (record) => normalizeEmail(record.email) === normalizedEmail && record.disabledAt === null,
       ) ?? null
-    );
-  }
-
-  private async findActiveUserByPhone(phone: string): Promise<AccountUserRecord | null> {
-    await this.load();
-    return (
-      this.snapshot.users.find((record) => record.phone === phone && record.disabledAt === null) ??
-      null
     );
   }
 

@@ -99,6 +99,7 @@ import {
   type ControlSchedulerDaemonNodeRecord,
 } from "@/control/control-api";
 import { buildControlAgentLabels } from "@/control/control-agent-labels";
+import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
 import { useToast } from "@/contexts/toast-context";
 import {
@@ -3629,15 +3630,6 @@ function findDirectHostRuntimeAuthToken(input: {
   return connection?.type === "directTcp" ? (connection.password ?? null) : null;
 }
 
-function endpointToHostPort(endpoint: string): string {
-  try {
-    const parsed = new URL(endpoint.includes("://") ? endpoint : `http://${endpoint}`);
-    return normalizeHostPort(parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname);
-  } catch {
-    return normalizeHostPort(endpoint);
-  }
-}
-
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -3652,13 +3644,14 @@ async function ensureRuntimeClientForNode(input: {
     return existing.client;
   }
 
-  const endpoint = endpointToHostPort(input.node.endpoint);
+  const directEndpoint = resolveControlRuntimeDirectEndpoint(input.node.endpoint);
   await store.upsertDirectConnection({
     serverId: input.node.id,
-    endpoint,
+    endpoint: directEndpoint.endpoint,
+    useTls: directEndpoint.useTls,
     label: input.node.id,
     password: findDirectHostRuntimeAuthToken({
-      endpoint,
+      endpoint: directEndpoint.endpoint,
       hosts: input.hosts,
       serverId: input.node.id,
     }),

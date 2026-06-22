@@ -144,11 +144,6 @@ import {
   AccountControlPlaneError,
   type AccountAuthResult,
 } from "./account-control-plane.js";
-import {
-  SmsVerificationError,
-  SmsVerificationService,
-  type SmsVerificationConfig,
-} from "./sms-verification-service.js";
 import { createPptPreviewRouter } from "./ai-creation/ppt-preview-service.js";
 import { createPptConfirmRouter } from "./ai-creation/ppt-confirm-service.js";
 import { getDownloadableFileInfo } from "./file-explorer/service.js";
@@ -352,7 +347,6 @@ export interface DoyaDaemonConfig {
   auth?: DaemonAuthConfig;
   openai?: DoyaOpenAIConfig;
   speech?: DoyaSpeechConfig;
-  smsVerification?: SmsVerificationConfig | null;
   voiceLlmProvider?: AgentProvider | null;
   voiceLlmProviderExplicit?: boolean;
   voiceLlmModel?: string | null;
@@ -527,13 +521,8 @@ export async function createDoyaDaemon(
   const onlyOfficeSelectionCaptures = new Map<string, OnlyOfficeSelectionCapture>();
 
   const accountControlPlane = new AccountControlPlane({ doyaHome });
-  const smsVerificationService = new SmsVerificationService(config.smsVerification ?? null);
   const sendAccountError = (res: express.Response, error: unknown): void => {
     if (error instanceof AccountControlPlaneError) {
-      res.status(error.statusCode).json({ error: error.message });
-      return;
-    }
-    if (error instanceof SmsVerificationError) {
       res.status(error.statusCode).json({ error: error.message });
       return;
     }
@@ -560,37 +549,6 @@ export async function createDoyaDaemon(
       try {
         const result = await accountControlPlane.login({
           email: typeof req.body?.email === "string" ? req.body.email : "",
-        });
-        res.json(formatAccountAuthResult(result));
-      } catch (error) {
-        sendAccountError(res, error);
-      }
-    })();
-  });
-
-  app.post("/api/account/sms/send", (req, res) => {
-    void (async () => {
-      try {
-        await smsVerificationService.sendLoginCode({
-          phone: typeof req.body?.phone === "string" ? req.body.phone : "",
-        });
-        res.json({ ok: true });
-      } catch (error) {
-        sendAccountError(res, error);
-      }
-    })();
-  });
-
-  app.post("/api/account/sms/login", (req, res) => {
-    void (async () => {
-      try {
-        const phone = smsVerificationService.verify({
-          phone: typeof req.body?.phone === "string" ? req.body.phone : "",
-          code: typeof req.body?.code === "string" ? req.body.code : "",
-        });
-        const result = await accountControlPlane.loginOrRegisterByPhone({
-          phone,
-          displayName: typeof req.body?.displayName === "string" ? req.body.displayName : undefined,
         });
         res.json(formatAccountAuthResult(result));
       } catch (error) {

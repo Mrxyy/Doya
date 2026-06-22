@@ -13,6 +13,7 @@ import {
   type ControlSessionRecord,
 } from "@/control/control-api";
 import { buildControlAgentLabels } from "@/control/control-agent-labels";
+import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { getHostRuntimeStore, type HostMutations } from "@/runtime/host-runtime";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { normalizeWorkspaceDescriptor } from "@/stores/session-store";
@@ -370,9 +371,11 @@ async function ensureRuntimeClient(input: {
   if (existing?.connectionStatus === "online" && existing.client) {
     return existing.client;
   }
+  const directEndpoint = resolveControlRuntimeDirectEndpoint(input.endpoint);
   await input.upsertDirectConnection({
     serverId: input.nodeId,
-    endpoint: endpointToHostPort(input.endpoint),
+    endpoint: directEndpoint.endpoint,
+    useTls: directEndpoint.useTls,
     label: input.nodeId,
   });
   const deadline = Date.now() + 5_000;
@@ -384,15 +387,6 @@ async function ensureRuntimeClient(input: {
     await delay(150);
   }
   throw new Error("Runtime daemon is not connected");
-}
-
-function endpointToHostPort(endpoint: string): string {
-  try {
-    const parsed = new URL(endpoint.includes("://") ? endpoint : `http://${endpoint}`);
-    return normalizeHostPort(parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname);
-  } catch {
-    return normalizeHostPort(endpoint);
-  }
 }
 
 function findLegacyControlAgentBinding(input: {

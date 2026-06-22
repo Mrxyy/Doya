@@ -20,7 +20,6 @@ import { AgentProviderSchema } from "@getdoya/protocol/provider-manifest";
 import { hashDaemonPassword } from "./auth.js";
 import { resolveSpeechConfig } from "./speech/speech-config-resolver.js";
 import { mergeHostnames, parseHostnamesEnv, type HostnamesConfig } from "./hostnames.js";
-import { resolveSmsVerificationConfig } from "./sms-verification-service.js";
 
 const DEFAULT_PORT = 6767;
 const DEFAULT_RELAY_ENDPOINT = "relay.doya.sh:443";
@@ -365,7 +364,6 @@ export function loadConfig(
     auth: resolveAuthConfig(env, persisted),
     openai,
     speech,
-    smsVerification: resolveSmsVerificationConfig(env),
     voiceLlmProvider: voiceLlm.provider,
     voiceLlmProviderExplicit: voiceLlm.providerExplicit,
     voiceLlmModel: voiceLlm.model,

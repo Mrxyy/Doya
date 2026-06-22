@@ -9,6 +9,11 @@ import {
   type PaymentNotifyPayload,
 } from "../payment-gateway.js";
 import {
+  resolveSmsVerificationConfig,
+  SmsVerificationError,
+  SmsVerificationService,
+} from "../sms-verification-service.js";
+import {
   BillingPreflightError,
   NotFoundError,
   NodeSchedulingUnavailableError,
@@ -34,6 +39,8 @@ import {
   daemonConfigPatchBodySchema,
   createSessionBodySchema,
   loginBodySchema,
+  smsLoginBodySchema,
+  smsSendBodySchema,
   registerBodySchema,
   registerNodeBodySchema,
   recordUsageTurnBodySchema,
@@ -61,6 +68,9 @@ type AuthenticatedRequest = Request & { auth?: AuthContext };
 
 export function createControlApp(store: ControlStore): express.Express {
   const app = express();
+  const smsVerificationService = new SmsVerificationService(
+    resolveSmsVerificationConfig(process.env),
+  );
   app.use(applyCorsHeaders);
   app.options("*", (_req, res) => {
     res.status(204).end();
@@ -84,6 +94,24 @@ export function createControlApp(store: ControlStore): express.Express {
     asyncHandler(async (req, res) => {
       const body = parseBody(loginBodySchema, req.body);
       res.json(await store.login(body));
+    }),
+  );
+
+  app.post(
+    "/api/account/sms/send",
+    asyncHandler(async (req, res) => {
+      const body = parseBody(smsSendBodySchema, req.body);
+      await smsVerificationService.sendLoginCode(body);
+      res.json({ ok: true });
+    }),
+  );
+
+  app.post(
+    "/api/account/sms/login",
+    asyncHandler(async (req, res) => {
+      const body = parseBody(smsLoginBodySchema, req.body);
+      const phone = smsVerificationService.verify(body);
+      res.json(await store.loginOrRegisterByPhone({ phone }));
     }),
   );
 
@@ -1015,6 +1043,10 @@ function errorHandler(error: unknown, _req: Request, res: Response, _next: NextF
     res.status(404).json({ error: error.message });
     return;
   }
+  if (error instanceof SmsVerificationError) {
+    res.status(error.statusCode).json({ error: error.message });
+    return;
+  }
   if (
     error instanceof BillingPreflightError ||
     error instanceof PricingUnavailableError ||
@@ -1048,7 +1080,7 @@ function toSchedulerDaemonNode(node: DaemonNodeRecord): {
 } {
   return {
     id: node.id,
-    endpoint: node.endpoint,
+    endpoint: node.publicEndpoint ?? node.endpoint,
     status: node.status,
     lastHeartbeatAt: node.lastHeartbeatAt,
   };

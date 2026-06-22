@@ -364,6 +364,61 @@ agents, and an aggressive service worker can strand installed users on stale web
 code. If offline behavior becomes a product requirement, add it deliberately
 with an update strategy and test the installed-app upgrade path.
 
+## Docker production compose
+
+中文的一键生产部署流程见 [docs/docker-production-deploy.zh.md](docker-production-deploy.zh.md)。
+
+The root `docker-compose.yml` builds the production daemon and Expo web export:
+
+```bash
+npm run docker:build
+npm run docker:up
+```
+
+By default the web app is served on `http://localhost:8080`, the daemon on
+`localhost:6767`, and the control API on `http://localhost:6777`. For a remote
+host, copy `docker/.env.example` to `docker/.env`, then set the internal daemon
+endpoint, optional browser-visible daemon endpoint, control endpoint, and matching
+app origins before building:
+
+```bash
+npm run docker:build
+npm run docker:up
+```
+
+The compose stack stores daemon state in the `doya_home` Docker volume, control
+state in the `doya_control_home` Docker volume, and mounts `./workspaces` at
+`/workspaces` for projects. Agent provider CLIs and their auth still need to
+exist inside the server container or be added by extending the server image.
+SMS login credentials (`DOYA_DOTSMS_*`) and payment credentials (`DOYA_PAYMENT_*`)
+are passed to the control service.
+
+Runtime node registration keeps two daemon addresses when needed:
+`DOYA_RUNTIME_NODE_ENDPOINT` is the internal address the control service uses to
+call the daemon, while `DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT` is returned to browser
+clients by the scheduler. In an nginx TLS deployment, one node can use
+`DOYA_RUNTIME_NODE_ENDPOINT=http://server:6767` and
+`DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT=https://www.example.com`; additional daemons
+can register their own public paths or hostnames.
+
+For registry-based deployment, set `DOYA_SERVER_IMAGE`, `DOYA_CONTROL_IMAGE`,
+and `DOYA_APP_IMAGE` in `docker/.env`, build and push locally, then copy
+`docker-compose.deploy.yml` plus `docker/.env` to the server. For Docker Hub
+under `jadenxiong`, use image names like `jadenxiong/doya-server:0.1.88`,
+`jadenxiong/doya-control:0.1.88`, and `jadenxiong/doya-app:0.1.88`:
+
+```bash
+docker compose --env-file docker/.env build
+docker compose --env-file docker/.env push
+```
+
+On the server:
+
+```bash
+docker compose --env-file docker/.env -f docker-compose.deploy.yml pull
+docker compose --env-file docker/.env -f docker-compose.deploy.yml up -d
+```
+
 ## Expo troubleshooting
 
 ```bash

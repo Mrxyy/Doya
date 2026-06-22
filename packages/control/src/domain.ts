@@ -93,6 +93,7 @@ export interface FileSnapshotRecord {
 export interface DaemonNodeRecord {
   id: string;
   endpoint: string;
+  publicEndpoint: string | null;
   status: NodeStatus;
   capabilities: unknown;
   runtimeAuthToken: string | null;

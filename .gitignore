@@ -10,6 +10,7 @@ result
 
 # Environment variables
 .env
+docker/.env
 .env.test
 .env.local
 .env.test.local

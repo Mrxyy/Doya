@@ -37,12 +37,10 @@ direct host，不能让 6868 复用 6767 的 `projects.cwd`。
 
 ## HTTP 接口
 
-Legacy 账号项目接口挂在原 daemon 上：
+Legacy 项目接口挂在原 daemon 上：
 
 - `POST /api/account/register`
 - `POST /api/account/login`
-- `POST /api/account/sms/send`
-- `POST /api/account/sms/login`
 - `POST /api/account/projects`
 
 开发时如果 daemon 监听 `127.0.0.1:6767`，App 会默认请求 `http://127.0.0.1:6767`。`npm run dev` 走 portless 时，App 使用 `EXPO_PUBLIC_LOCAL_DAEMON` 推导 daemon HTTP 地址。
@@ -79,8 +77,13 @@ npm run dev:control
 
 ## 短信登录
 
-手机号注册/登录走 daemon 内置短信验证码接口。短信服务凭证只在 daemon
-环境变量中配置，App 不保存或发送服务商 secret：
+手机号注册/登录属于 control plane，接口挂在 control service 上：
+
+- `POST /api/account/sms/send`
+- `POST /api/account/sms/login`
+
+短信服务凭证只在 control service 环境变量中配置，App 不保存或发送服务商
+secret：
 
 ```bash
 DOYA_DOTSMS_APIKEY=...

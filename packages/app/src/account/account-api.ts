@@ -3,9 +3,12 @@ import {
   controlApiBaseUrl,
   isControlApiConfigured,
   loginControlAccount,
+  loginControlAccountWithSms,
   refreshControlAccountSession,
   registerControlAccount,
+  sendControlAccountSmsCode,
 } from "@/control/control-api";
+import { isWeb } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
 
 const ACCOUNT_SESSION_STORAGE_KEY = "doya.account.session.v1";
@@ -54,10 +57,6 @@ interface AccountAuthResponse {
   accessToken: string;
 }
 
-interface AccountSmsSendResponse {
-  ok: boolean;
-}
-
 interface AccountErrorPayload {
   error?: string;
 }
@@ -70,6 +69,13 @@ export function accountApiBaseUrl(): string {
 
   const localDaemon = process.env.EXPO_PUBLIC_LOCAL_DAEMON;
   if (!localDaemon) {
+    const webHost = getCurrentWebHost();
+    if (webHost) {
+      if (webHost.protocol === "https:") {
+        return `${webHost.origin}`;
+      }
+      return `${webHost.protocol}//${webHost.hostname}:6767`;
+    }
     return "http://127.0.0.1:6767";
   }
 
@@ -84,6 +90,21 @@ export function accountApiBaseUrl(): string {
     return `https://${trimmed.slice("wss://".length)}`;
   }
   return `http://${trimmed}`;
+}
+
+function getCurrentWebHost(): {
+  origin: string;
+  protocol: "http:" | "https:";
+  hostname: string;
+} | null {
+  if (!isWeb) {
+    return null;
+  }
+  const location = globalThis.location;
+  if (!location.hostname || (location.protocol !== "http:" && location.protocol !== "https:")) {
+    return null;
+  }
+  return { origin: location.origin, protocol: location.protocol, hostname: location.hostname };
 }
 
 export async function loadAccountBootstrapSession(): Promise<AccountBootstrapSession | null> {
@@ -209,7 +230,7 @@ export async function loginAccountUser(input: { email: string }): Promise<Accoun
 }
 
 export async function sendAccountSmsCode(input: { phone: string }): Promise<void> {
-  await postLegacyAccountApi<AccountSmsSendResponse>("/api/account/sms/send", input);
+  await sendControlAccountSmsCode(input);
 }
 
 export async function loginAccountUserWithSms(input: {
@@ -217,12 +238,7 @@ export async function loginAccountUserWithSms(input: {
   code: string;
   displayName: string;
 }): Promise<AccountBootstrapSession> {
-  const payload = await postLegacyAccountApi<AccountAuthResponse>("/api/account/sms/login", input);
-  return {
-    ...payload,
-    projects: payload.projects ?? [],
-    apiBaseUrl: accountApiBaseUrl(),
-  };
+  return loginControlAccountWithSms(input);
 }
 
 export async function postLegacyAccountApi<T extends object>(

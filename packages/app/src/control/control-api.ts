@@ -1,5 +1,5 @@
 import type { AccountBootstrapSession } from "@/account/account-api";
-import { isDev } from "@/constants/platform";
+import { isDev, isWeb } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
 import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
 import { getBillingUpgradeReason, translateBillingError } from "@/utils/billing-errors";
@@ -117,6 +117,7 @@ export interface ControlFileSnapshotRecord {
 export interface ControlDaemonNodeRecord {
   id: string;
   endpoint: string;
+  publicEndpoint: string | null;
   status: "online" | "offline" | "draining";
   capabilities: unknown;
   doyaHome: string | null;
@@ -500,7 +501,29 @@ export function controlApiBaseUrl(): string | null {
   if (explicit) {
     return explicit.replace(/\/$/, "");
   }
+  const webHost = getCurrentWebHost();
+  if (webHost) {
+    if (webHost.protocol === "https:") {
+      return `${webHost.origin}/control-api`;
+    }
+    return `${webHost.protocol}//${webHost.hostname}:6777`;
+  }
   return isDev ? "http://localhost:6777" : null;
+}
+
+function getCurrentWebHost(): {
+  origin: string;
+  protocol: "http:" | "https:";
+  hostname: string;
+} | null {
+  if (!isWeb) {
+    return null;
+  }
+  const location = globalThis.location;
+  if (!location.hostname || (location.protocol !== "http:" && location.protocol !== "https:")) {
+    return null;
+  }
+  return { origin: location.origin, protocol: location.protocol, hostname: location.hostname };
 }
 
 export function isControlApiConfigured(): boolean {
@@ -537,6 +560,19 @@ export async function loginControlAccount(input: {
   email: string;
 }): Promise<AccountBootstrapSession> {
   const payload = await postControlApi<ControlAccountSession>("/api/account/login", input);
+  return mapControlAccountSession(payload);
+}
+
+export async function sendControlAccountSmsCode(input: { phone: string }): Promise<void> {
+  await postControlApi<{ ok: boolean }>("/api/account/sms/send", input);
+}
+
+export async function loginControlAccountWithSms(input: {
+  phone: string;
+  code: string;
+  displayName: string;
+}): Promise<AccountBootstrapSession> {
+  const payload = await postControlApi<ControlAccountSession>("/api/account/sms/login", input);
   return mapControlAccountSession(payload);
 }
 

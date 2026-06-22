@@ -39,6 +39,7 @@ import {
 import { replaceFetchedAgentDirectory } from "@/utils/agent-directory-sync";
 import { useSessionStore } from "@/stores/session-store";
 import { isControlApiConfigured, selectControlRuntimeNode } from "@/control/control-api";
+import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 
 export type HostRuntimeConnectionStatus = "idle" | "connecting" | "online" | "offline" | "error";
 
@@ -1221,15 +1222,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function endpointToHostPort(endpoint: string): string {
-  try {
-    const parsed = new URL(endpoint.includes("://") ? endpoint : `http://${endpoint}`);
-    return normalizeHostPort(parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname);
-  } catch {
-    return normalizeHostPort(endpoint);
-  }
-}
-
 function rekeyMap<V>(map: Map<string, V>, oldKey: string, newKey: string): void {
   const value = map.get(oldKey);
   if (value === undefined) {
@@ -1380,9 +1372,11 @@ export class HostRuntimeStore {
       return;
     }
     const selection = await selectControlRuntimeNode({});
+    const directEndpoint = resolveControlRuntimeDirectEndpoint(selection.node.endpoint);
     await this.upsertDirectConnection({
       serverId: selection.node.id,
-      endpoint: endpointToHostPort(selection.node.endpoint),
+      endpoint: directEndpoint.endpoint,
+      useTls: directEndpoint.useTls,
       label: selection.node.id,
     });
     this.schedulerBootstrapServerId = selection.node.id;

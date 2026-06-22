@@ -81,6 +81,7 @@ import {
   type WorkingContext,
 } from "@/control/control-api";
 import { buildControlAgentLabels as buildBaseControlAgentLabels } from "@/control/control-agent-labels";
+import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
 
 const MAX_SESSION_TITLE_LENGTH = 60;
@@ -343,7 +344,7 @@ function findDirectHostRuntimeAuthToken(input: {
   serverId: string;
   endpoint: string;
 }): string | null {
-  const normalizedEndpoint = endpointToHostPort(input.endpoint);
+  const normalizedEndpoint = normalizeHostPort(input.endpoint);
   const host = getHostRuntimeStore()
     .getHosts()
     .find((entry) => entry.serverId === input.serverId);
@@ -352,15 +353,6 @@ function findDirectHostRuntimeAuthToken(input: {
       entry.type === "directTcp" && normalizeHostPort(entry.endpoint) === normalizedEndpoint,
   );
   return connection?.type === "directTcp" ? (connection.password ?? null) : null;
-}
-
-function endpointToHostPort(endpoint: string): string {
-  try {
-    const parsed = new URL(endpoint.includes("://") ? endpoint : `http://${endpoint}`);
-    return normalizeHostPort(parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname);
-  } catch {
-    return normalizeHostPort(endpoint);
-  }
 }
 
 function delay(ms: number): Promise<void> {
@@ -376,12 +368,16 @@ async function ensureRuntimeClientForNode(
     return existing.client;
   }
 
-  const endpoint = endpointToHostPort(node.endpoint);
+  const directEndpoint = resolveControlRuntimeDirectEndpoint(node.endpoint);
   await store.upsertDirectConnection({
     serverId: node.id,
-    endpoint,
+    endpoint: directEndpoint.endpoint,
+    useTls: directEndpoint.useTls,
     label: node.id,
-    password: findDirectHostRuntimeAuthToken({ serverId: node.id, endpoint }),
+    password: findDirectHostRuntimeAuthToken({
+      serverId: node.id,
+      endpoint: directEndpoint.endpoint,
+    }),
   });
   await store.ensureStarted(node.id);
 

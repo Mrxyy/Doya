@@ -26,6 +26,16 @@ export const loginBodySchema = z.object({
   email: z.string().min(1),
 });
 
+export const smsSendBodySchema = z.object({
+  phone: z.string().min(1),
+});
+
+export const smsLoginBodySchema = z.object({
+  phone: z.string().min(1),
+  code: z.string().min(1),
+  displayName: z.string().optional(),
+});
+
 export const createSessionBodySchema = z.object({
   title: z.string().min(1),
   workingContext: workingContextSchema,
@@ -85,6 +95,7 @@ export const createFileSnapshotBodySchema = z.object({
 export const registerNodeBodySchema = z.object({
   nodeId: z.string().min(1).optional(),
   endpoint: z.string().min(1),
+  publicEndpoint: z.string().min(1).optional().nullable(),
   doyaHome: z.string().optional().nullable(),
   capabilities: z.unknown().optional(),
   runtimeAuthToken: z.string().optional().nullable(),

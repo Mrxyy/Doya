@@ -1,0 +1,111 @@
+name: doya
+
+services:
+  server:
+    image: ${DOYA_SERVER_IMAGE}
+    environment:
+      DOYA_CORS_ORIGINS: ${DOYA_CORS_ORIGINS}
+      DOYA_HOME: /data/doya
+      DOYA_HOSTNAMES: ${DOYA_HOSTNAMES}
+      DOYA_LISTEN: 0.0.0.0:6767
+      DOYA_RELAY_ENABLED: "0"
+      DOYA_SERVER_ID: ${DOYA_RUNTIME_NODE_ID}
+      NODE_ENV: production
+    ports:
+      - "6767:6767"
+    restart: unless-stopped
+    volumes:
+      - doya_home:/data/doya
+      - ./workspaces:/workspaces
+      - ${DOYA_CODEX_HOME:-/root/.codex}:/root/.codex
+      - ${DOYA_CODEX_BIN:-/root/.codex/standalone/releases/0.139.0-x86_64-unknown-linux-musl/bin/codex}:/usr/local/bin/codex:ro
+
+  control:
+    image: ${DOYA_CONTROL_IMAGE}
+    environment:
+      DOYA_CONTROL_HOME: /data/control
+      DOYA_CONTROL_HOST: 0.0.0.0
+      DOYA_CONTROL_PORT: "6777"
+      DOYA_DOTSMS_APIKEY: ${DOYA_DOTSMS_APIKEY:-}
+      DOYA_DOTSMS_SECRET: ${DOYA_DOTSMS_SECRET:-}
+      DOYA_DOTSMS_SIGN_ID: ${DOYA_DOTSMS_SIGN_ID:-}
+      DOYA_DOTSMS_TEMPLATE_ID: ${DOYA_DOTSMS_TEMPLATE_ID:-}
+      DOYA_DOTSMS_URL: ${DOYA_DOTSMS_URL:-}
+      DOYA_PAYMENT_GATEWAY_BASE_URL: ${DOYA_PAYMENT_GATEWAY_BASE_URL:-}
+      DOYA_PAYMENT_MERCHANT_ID: ${DOYA_PAYMENT_MERCHANT_ID:-}
+      DOYA_PAYMENT_MERCHANT_KEY: ${DOYA_PAYMENT_MERCHANT_KEY:-}
+      DOYA_PAYMENT_NOTIFY_URL: ${DOYA_PAYMENT_NOTIFY_URL:-}
+      DOYA_PAYMENT_PUBLIC_BASE_URL: ${DOYA_PAYMENT_PUBLIC_BASE_URL:-}
+      DOYA_PAYMENT_RETURN_URL: ${DOYA_PAYMENT_RETURN_URL:-}
+      NODE_ENV: production
+    ports:
+      - "6777:6777"
+    restart: unless-stopped
+    volumes:
+      - doya_control_home:/data/control
+
+  app:
+    image: ${DOYA_APP_IMAGE}
+    depends_on:
+      - control
+      - server
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+
+  runtime-node-register:
+    image: ${DOYA_SERVER_IMAGE}
+    depends_on:
+      - control
+      - server
+    environment:
+      DOYA_CONTROL_INTERNAL_URL: http://control:6777
+      DOYA_RUNTIME_NODE_EMAIL: ${DOYA_RUNTIME_NODE_EMAIL}
+      DOYA_RUNTIME_NODE_ENDPOINT: ${DOYA_RUNTIME_NODE_ENDPOINT}
+      DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT: ${DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT:-}
+      DOYA_RUNTIME_NODE_HOME: /data/doya
+      DOYA_RUNTIME_NODE_ID: ${DOYA_RUNTIME_NODE_ID}
+    command: >
+      node -e "
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      async function post(path, body, headers = {}) {
+        const response = await fetch(process.env.DOYA_CONTROL_INTERNAL_URL + path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...headers },
+          body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+          throw new Error(path + ' failed with ' + response.status + ': ' + await response.text());
+        }
+        return await response.json();
+      }
+      async function main() {
+        let account;
+        for (let attempt = 1; attempt <= 30; attempt += 1) {
+          try {
+            account = await post('/api/account/register', { email: process.env.DOYA_RUNTIME_NODE_EMAIL });
+            break;
+          } catch (error) {
+            if (attempt === 30) throw error;
+            await sleep(1000);
+          }
+        }
+        await post('/api/nodes/register', {
+          nodeId: process.env.DOYA_RUNTIME_NODE_ID,
+          endpoint: process.env.DOYA_RUNTIME_NODE_ENDPOINT,
+          publicEndpoint: process.env.DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT || null,
+          doyaHome: process.env.DOYA_RUNTIME_NODE_HOME,
+          status: 'online',
+        }, {
+          authorization: 'Bearer ' + account.accessToken,
+          'x-doya-user-id': account.user.id,
+        });
+        console.log('Registered runtime node ' + process.env.DOYA_RUNTIME_NODE_ID);
+      }
+      main().catch((error) => { console.error(error); process.exit(1); });
+      "
+    restart: "no"
+
+volumes:
+  doya_control_home:
+  doya_home:

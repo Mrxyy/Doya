@@ -265,6 +265,32 @@ export class ControlStore {
     return this.rotateAccessToken(user);
   }
 
+  async loginOrRegisterByPhone(input: { phone: string }): Promise<AccountSession> {
+    await this.load();
+    const phone = input.phone.trim();
+    if (!phone) {
+      throw new Error("Phone is required");
+    }
+    const existing = this.snapshot.users.find(
+      (user) => user.phone === phone && user.disabledAt === null,
+    );
+    if (existing) {
+      return this.rotateAccessToken(existing);
+    }
+    const user: StoredUserRecord = {
+      id: createId("usr"),
+      email: `${phone}@phone.doya.local`,
+      phone,
+      accessToken: createAccessToken(),
+      createdAt: this.timestamp(),
+      disabledAt: null,
+    };
+    this.snapshot.users = [...this.snapshot.users, user];
+    this.ensureBillingAccountForUser(user.id);
+    await this.enqueuePersist();
+    return { user: stripUserToken(user), accessToken: user.accessToken };
+  }
+
   async getUserByToken(input: { userId: string; accessToken: string }): Promise<UserRecord> {
     return stripUserToken(await this.requireUser(input));
   }
@@ -1328,6 +1354,7 @@ export class ControlStore {
   async registerNode(input: {
     nodeId?: string;
     endpoint: string;
+    publicEndpoint?: string | null;
     doyaHome?: string | null;
     capabilities?: unknown;
     status?: NodeStatus;
@@ -1343,6 +1370,7 @@ export class ControlStore {
     const node: DaemonNodeRecord = {
       id: nodeId || existing?.id || createId("node"),
       endpoint: input.endpoint,
+      publicEndpoint: input.publicEndpoint?.trim() || existing?.publicEndpoint || null,
       status: existing?.status ?? input.status ?? "online",
       capabilities: input.capabilities ?? null,
       runtimeAuthToken,
@@ -1440,6 +1468,7 @@ export class ControlStore {
     const node = await this.getNode(input.nodeId);
     const nextNode: DaemonNodeRecord = {
       ...node,
+      publicEndpoint: node.publicEndpoint ?? null,
       status: input.status ?? node.status,
       lastHeartbeatAt: this.timestamp(),
     };
@@ -2357,6 +2386,10 @@ function normalizeSnapshot(value: unknown): ControlSnapshot {
   const daemonNodes = Array.isArray(record.daemonNodes)
     ? record.daemonNodes.map((node) => ({
         ...node,
+        publicEndpoint:
+          typeof node.publicEndpoint === "string" && node.publicEndpoint.trim()
+            ? node.publicEndpoint
+            : null,
         doyaHome: typeof node.doyaHome === "string" && node.doyaHome.trim() ? node.doyaHome : null,
         runtimeAuthToken:
           typeof node.runtimeAuthToken === "string" && node.runtimeAuthToken.trim()
