@@ -364,11 +364,11 @@ async function runCreateChatAgent(input: CreateChatAgentInput): Promise<void> {
   const { client, payload, composerState, ensureWorkspace, serverId, draftKey } = input;
   const { text, attachments, cwd } = payload;
   if (!composerState) {
-    throw new Error("Composer state is required");
+    throw new Error(translateNow("composer.draft.error.composerStateRequired"));
   }
   const provider = composerState.selectedProvider;
   if (!provider) {
-    throw new Error("Select a model");
+    throw new Error(translateNow("composer.draft.error.selectModel"));
   }
   const { attachments: reviewAttachments } = await splitComposerAttachmentsForSubmit(
     attachments.filter((attachment) => attachment.kind !== "file" && attachment.kind !== "image"),

@@ -21,6 +21,8 @@ import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-moda
 import { AdminAccessGate } from "@/components/admin-access-gate";
 import { AddHostMethodModal } from "@/components/add-host-method-modal";
 import { AddHostModal } from "@/components/add-host-modal";
+import { DraftAgentControls } from "@/composer/agent-controls";
+import { buildDraftAgentControls } from "@/composer/draft/input-draft-core";
 import { PairLinkModal } from "@/components/pair-link-modal";
 import { SettingsTextAreaCard } from "@/components/settings-textarea";
 import { Button } from "@/components/ui/button";
@@ -48,7 +50,14 @@ import {
 } from "@/control/control-api";
 import { getControlSessionDisplayTitle } from "@/control/control-session-display-title";
 import { useToast } from "@/contexts/toast-context";
+import { useAgentFormState, type FormInitialValues } from "@/hooks/use-agent-form-state";
+import { useDraftAgentFeatures } from "@/hooks/use-draft-agent-features";
 import { useI18n } from "@/i18n/i18n";
+import {
+  resolveEffectiveComposerModelId,
+  resolveEffectiveComposerThinkingOptionId,
+  type ProviderSelectionState,
+} from "@/provider-selection/provider-selection";
 import { useEnsureHostRuntimeStarted } from "@/runtime/host-runtime";
 import { ProvidersSection } from "@/screens/settings/providers-section";
 import type { HostProfile } from "@/types/host-connection";
@@ -711,20 +720,111 @@ function DaemonCard({
   const { t } = useI18n();
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<DaemonDetailTab>("overview");
-  useEnsureHostRuntimeStarted(
-    activeTab === "providers" && summary.node.status !== "offline" ? summary.node.id : null,
-  );
-  const activeAgents = summary.agentBindingCounts.active;
-  const resourceStats = readResourceStats(summary.load);
   const [daemonConfig, setDaemonConfig] = useState<ControlDaemonConfig | null>(null);
   const [isConfigLoading, setIsConfigLoading] = useState(false);
   const [isPromptEditing, setIsPromptEditing] = useState(false);
   const [promptDraft, setPromptDraft] = useState("");
+  const [isModelLockEditing, setIsModelLockEditing] = useState(false);
+  useEnsureHostRuntimeStarted(
+    activeTab === "providers" && summary.node.status !== "offline" ? summary.node.id : null,
+  );
+  useEnsureHostRuntimeStarted(
+    isModelLockEditing && summary.node.status !== "offline" ? summary.node.id : null,
+  );
+  const activeAgents = summary.agentBindingCounts.active;
+  const resourceStats = readResourceStats(summary.load);
   const persistedPrompt = daemonConfig?.appendSystemPrompt ?? "";
+  const lockedProviderModel = daemonConfig?.agents?.lockedProviderModel ?? null;
   const isDoyaToolsEnabled = daemonConfig?.mcp.injectIntoAgents !== false;
   const promptHeader = useMemo<SheetHeader>(
     () => ({ title: t("admin.daemons.config.prompt.title") }),
     [t],
+  );
+  const modelLockHeader = useMemo<SheetHeader>(
+    () => ({ title: t("admin.daemons.config.modelLock.title") }),
+    [t],
+  );
+  const modelLockLabel = lockedProviderModel
+    ? `${lockedProviderModel.provider}/${lockedProviderModel.model}`
+    : t("admin.daemons.config.modelLock.empty");
+  const modelLockInitialValues = useMemo<FormInitialValues>(
+    () => ({
+      serverId: summary.node.id,
+      ...(lockedProviderModel?.provider ? { provider: lockedProviderModel.provider } : {}),
+      ...(lockedProviderModel?.model ? { model: lockedProviderModel.model } : {}),
+      ...(lockedProviderModel?.modeId ? { modeId: lockedProviderModel.modeId } : {}),
+      ...(lockedProviderModel?.thinkingOptionId
+        ? { thinkingOptionId: lockedProviderModel.thinkingOptionId }
+        : {}),
+    }),
+    [
+      lockedProviderModel?.modeId,
+      lockedProviderModel?.model,
+      lockedProviderModel?.provider,
+      lockedProviderModel?.thinkingOptionId,
+      summary.node.id,
+    ],
+  );
+  const modelLockFormState = useAgentFormState({
+    initialServerId: summary.node.id,
+    initialValues: modelLockInitialValues,
+    isVisible: isModelLockEditing,
+    isCreateFlow: true,
+    ignoreDaemonProviderModelLock: true,
+  });
+  const modelLockProviderSelection = useMemo<ProviderSelectionState>(
+    () => ({
+      provider: modelLockFormState.selectedProvider,
+      modelId: modelLockFormState.selectedModel,
+      modeId: modelLockFormState.selectedMode,
+      thinkingOptionId: modelLockFormState.selectedThinkingOptionId,
+      availableModels: modelLockFormState.availableModels,
+      modeOptions: modelLockFormState.modeOptions,
+    }),
+    [
+      modelLockFormState.availableModels,
+      modelLockFormState.modeOptions,
+      modelLockFormState.selectedMode,
+      modelLockFormState.selectedModel,
+      modelLockFormState.selectedProvider,
+      modelLockFormState.selectedThinkingOptionId,
+    ],
+  );
+  const modelLockEffectiveModelId = useMemo(
+    () => resolveEffectiveComposerModelId(modelLockProviderSelection),
+    [modelLockProviderSelection],
+  );
+  const modelLockEffectiveThinkingOptionId = useMemo(
+    () =>
+      resolveEffectiveComposerThinkingOptionId(
+        modelLockProviderSelection,
+        modelLockEffectiveModelId,
+      ),
+    [modelLockEffectiveModelId, modelLockProviderSelection],
+  );
+  const modelLockFeatureWorkingDir =
+    summary.userWorkspaces[0]?.workspace.workspaceDir ?? summary.node.doyaHome ?? "";
+  const {
+    features: modelLockFeatures,
+    featureValues: modelLockFeatureValues,
+    setFeatureValue: setModelLockFeatureValue,
+  } = useDraftAgentFeatures({
+    serverId: summary.node.id,
+    provider: modelLockFormState.selectedProvider,
+    cwd: modelLockFeatureWorkingDir,
+    modeId: modelLockFormState.selectedMode,
+    modelId: modelLockEffectiveModelId,
+    thinkingOptionId: modelLockEffectiveThinkingOptionId,
+    initialFeatureValues: lockedProviderModel?.featureValues,
+  });
+  const modelLockControls = useMemo(
+    () =>
+      buildDraftAgentControls({
+        formState: modelLockFormState,
+        features: modelLockFeatures,
+        onSetFeature: setModelLockFeatureValue,
+      }),
+    [modelLockFeatures, modelLockFormState, setModelLockFeatureValue],
   );
   const detailTabOptions = useMemo<SegmentedControlOption<DaemonDetailTab>[]>(
     () => [
@@ -834,7 +934,9 @@ function DaemonCard({
         toast.show(t("admin.daemons.config.toastSaved"));
         return true;
       } catch (caught) {
-        toast.error(caught instanceof Error ? caught.message : t("admin.daemons.config.errorSave"));
+        toast.error(
+          caught instanceof Error ? caught.message : t("admin.daemons.config.errorSave"),
+        );
         return false;
       } finally {
         setIsConfigLoading(false);
@@ -878,6 +980,71 @@ function DaemonCard({
       }
     });
   }, [patchDaemonConfig, promptDraft]);
+
+  const handleOpenModelLock = useCallback(() => {
+    setIsModelLockEditing(true);
+  }, []);
+
+  const handleCloseModelLock = useCallback(() => {
+    if (isConfigLoading) {
+      return;
+    }
+    setIsModelLockEditing(false);
+  }, [isConfigLoading]);
+
+  const handleResetModelLockDraft = useCallback(() => {
+    void patchDaemonConfig({
+      agents: {
+        lockedProviderModel: null,
+      },
+    }).then((saved) => {
+      if (saved) {
+        setIsModelLockEditing(false);
+      }
+    });
+  }, [patchDaemonConfig]);
+
+  const modelLockDraftChanged =
+    modelLockFormState.selectedProvider !== (lockedProviderModel?.provider ?? null) ||
+    modelLockEffectiveModelId !== (lockedProviderModel?.model ?? "") ||
+    modelLockFormState.selectedMode !== (lockedProviderModel?.modeId ?? "") ||
+    modelLockEffectiveThinkingOptionId !== (lockedProviderModel?.thinkingOptionId ?? "") ||
+    JSON.stringify(modelLockFeatureValues ?? {}) !==
+      JSON.stringify(lockedProviderModel?.featureValues ?? {});
+  const modelLockDraftIsComplete =
+    Boolean(modelLockFormState.selectedProvider) && modelLockEffectiveModelId.length > 0;
+
+  const handleSaveModelLock = useCallback(() => {
+    if (!modelLockFormState.selectedProvider || !modelLockEffectiveModelId) {
+      return;
+    }
+    void patchDaemonConfig({
+      agents: {
+        lockedProviderModel: {
+          provider: modelLockFormState.selectedProvider,
+          model: modelLockEffectiveModelId,
+          ...(modelLockFormState.selectedMode
+            ? { modeId: modelLockFormState.selectedMode }
+            : {}),
+          ...(modelLockEffectiveThinkingOptionId
+            ? { thinkingOptionId: modelLockEffectiveThinkingOptionId }
+            : {}),
+          ...(modelLockFeatureValues ? { featureValues: modelLockFeatureValues } : {}),
+        },
+      },
+    }).then((saved) => {
+      if (saved) {
+        setIsModelLockEditing(false);
+      }
+    });
+  }, [
+    modelLockEffectiveModelId,
+    modelLockEffectiveThinkingOptionId,
+    modelLockFeatureValues,
+    modelLockFormState.selectedMode,
+    modelLockFormState.selectedProvider,
+    patchDaemonConfig,
+  ]);
 
   const handleDrain = useCallback(() => {
     void onUpdateStatus(summary.node.id, "draining");
@@ -1069,6 +1236,24 @@ function DaemonCard({
                         {t("ui.edit.1a6ui")}
                       </Button>
                     </View>
+                    <View style={styles.configRow}>
+                      <View style={styles.configRowContent}>
+                        <Text style={styles.configRowTitle}>
+                          {t("admin.daemons.config.modelLock.title")}
+                        </Text>
+                        <Text style={styles.muted} numberOfLines={1}>
+                          {modelLockLabel}
+                        </Text>
+                      </View>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isMutating || isConfigLoading || !daemonConfig}
+                        onPress={handleOpenModelLock}
+                      >
+                        {t("ui.edit.1a6ui")}
+                      </Button>
+                    </View>
                   </View>
                 </View>
               </View>
@@ -1191,6 +1376,41 @@ function DaemonCard({
               size="sm"
               disabled={isConfigLoading || promptDraft === persistedPrompt}
               onPress={handleSavePrompt}
+            >
+              {t("ui.save.1j2ql")}
+            </Button>
+          </View>
+        </AdaptiveModalSheet>
+      ) : null}
+      {isModelLockEditing ? (
+        <AdaptiveModalSheet
+          header={modelLockHeader}
+          visible
+          onClose={handleCloseModelLock}
+          desktopMaxWidth={560}
+        >
+          <View style={styles.modelLockFields}>
+            <DraftAgentControls {...modelLockControls} />
+            <Text style={styles.muted}>{t("admin.daemons.config.modelLock.hint")}</Text>
+          </View>
+          <View style={styles.promptActions}>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isConfigLoading || !lockedProviderModel}
+              onPress={handleResetModelLockDraft}
+            >
+              {t("ui.reset.1ay23z")}
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              disabled={
+                isConfigLoading ||
+                !modelLockDraftChanged ||
+                !modelLockDraftIsComplete
+              }
+              onPress={handleSaveModelLock}
             >
               {t("ui.save.1j2ql")}
             </Button>
@@ -2194,6 +2414,9 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     justifyContent: "flex-end",
     gap: theme.spacing[2],
+  },
+  modelLockFields: {
+    gap: theme.spacing[3],
   },
   workspaceList: {
     flex: 1,

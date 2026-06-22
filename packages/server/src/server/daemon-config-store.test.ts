@@ -141,6 +141,45 @@ describe("DaemonConfigStore", () => {
     expect(persisted.daemon?.appendSystemPrompt).toBe("Prefer terse replies.");
   });
 
+  test("patch persists locked provider model into config.json", () => {
+    const doyaHome = mkdtempSync(path.join(tmpdir(), "doya-daemon-config-store-"));
+    tempDirs.push(doyaHome);
+
+    const store = new DaemonConfigStore(
+      doyaHome,
+      {
+        mcp: { injectIntoAgents: false },
+        providers: {},
+        metadataGeneration: { providers: [] },
+        agents: { lockedProviderModel: null },
+        autoArchiveAfterMerge: false,
+        appendSystemPrompt: "",
+      },
+      undefined,
+    );
+
+    store.patch({
+      agents: {
+        lockedProviderModel: {
+          provider: "codex",
+          model: "gpt-5.5",
+          modeId: "default",
+          thinkingOptionId: "medium",
+          featureValues: { fast_mode: true },
+        },
+      },
+    });
+
+    const persisted = loadPersistedConfig(doyaHome);
+    expect(persisted.agents?.lockedProviderModel).toEqual({
+      provider: "codex",
+      model: "gpt-5.5",
+      modeId: "default",
+      thinkingOptionId: "medium",
+      featureValues: { fast_mode: true },
+    });
+  });
+
   test("patch persists provider additional models into config.json", () => {
     const doyaHome = mkdtempSync(path.join(tmpdir(), "doya-daemon-config-store-"));
     tempDirs.push(doyaHome);

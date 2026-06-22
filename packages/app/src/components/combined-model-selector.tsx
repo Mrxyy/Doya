@@ -316,7 +316,11 @@ function ModelRow({
           hitSlop={8}
           style={favoriteButtonStyle}
           accessibilityRole="button"
-          accessibilityLabel={isFavorite ? "Unfavorite model" : "Favorite model"}
+          accessibilityLabel={translateNow(
+            isFavorite
+              ? "modelSelector.favorite.removeAccessibility"
+              : "modelSelector.favorite.addAccessibility",
+          )}
           testID={`favorite-model-${row.provider}-${row.modelId}`}
         >
           {({ hovered }) => {
@@ -463,9 +467,11 @@ function GroupProviderButton({ provider, onDrillDown }: GroupProviderButtonProps
   let stateNode: React.ReactNode;
   if (selection.kind === "models") {
     const count = selection.rows.length;
-    stateNode = (
-      <Text style={styles.drillDownCount}>{`${count} ${count === 1 ? "model" : "models"}`}</Text>
-    );
+    const countLabel =
+      count === 1
+        ? translateNow("modelSelector.modelCount.one", { count })
+        : translateNow("modelSelector.modelCount.many", { count });
+    stateNode = <Text style={styles.drillDownCount}>{countLabel}</Text>;
   } else if (selection.kind === "loading") {
     stateNode = (
       <View style={styles.rowStateInline}>
@@ -598,7 +604,9 @@ function ProviderErrorEmptyState({
       <Text style={styles.emptyStateText}>{message}</Text>
       {onRetryProvider ? (
         <Button variant="default" size="sm" onPress={handleRetry} disabled={isRetryingProvider}>
-          {isRetryingProvider ? "Retrying…" : "Retry"}
+          {isRetryingProvider
+            ? translateNow("modelSelector.retrying")
+            : translateNow("modelSelector.retry")}
         </Button>
       ) : null}
     </View>

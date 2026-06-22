@@ -87,7 +87,7 @@ import {
   HEADER_INNER_HEIGHT,
   useIsCompactFormFactor,
 } from "@/constants/layout";
-import { isWeb } from "@/constants/platform";
+import { isDev, isWeb } from "@/constants/platform";
 import {
   allocateControlSessionWorkDir,
   appendControlSessionMessage,
@@ -1485,6 +1485,8 @@ export function AiCreationScreen({
   const composerState = draft.composerState;
   const selectedProvider = composerState?.selectedProvider ?? "";
   const selectedModel = composerState?.selectedModel ?? "";
+  const isProviderModelLocked = composerState?.isProviderModelLocked === true;
+  const showModelSelector = !isProviderModelLocked || isDev;
   const isPromptInputScrollable = promptInputHeight >= AI_CREATION_PROMPT_MAX_HEIGHT;
   const promptInputStyle = useMemo(
     () => [
@@ -2210,13 +2212,14 @@ export function AiCreationScreen({
     selectionPreviewUri,
   ]);
 
-  const modelSelector = composerState ? (
+  const modelSelector = composerState && showModelSelector ? (
     <CombinedModelSelector
       providers={composerState.modelSelectorProviders}
       selectedProvider={selectedProvider}
       selectedModel={selectedModel}
       onSelect={handleSelectModel}
       isLoading={composerState.isAllModelsLoading}
+      disabled={isProviderModelLocked}
       onOpen={composerState.refetchProviderModelsIfStale}
       onRetryProvider={composerState.refreshProviderModels}
       isRetryingProvider={composerState.isProviderModelsRefreshing}

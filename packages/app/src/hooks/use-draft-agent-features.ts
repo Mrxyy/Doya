@@ -35,6 +35,11 @@ export function useDraftAgentFeatures(input: {
   const normalizedCwd = cwd?.trim() || "";
   const normalizedProvider = provider ?? null;
   const previousProviderRef = useRef<AgentProvider | null>(normalizedProvider);
+  const initialFeatureValuesKey = useMemo(
+    () => JSON.stringify(initialFeatureValues ?? {}),
+    [initialFeatureValues],
+  );
+  const previousInitialFeatureValuesKeyRef = useRef(initialFeatureValuesKey);
   const persistedFeatureValues = useMemo(
     () => (provider ? (preferences.providerPreferences?.[provider]?.featureValues ?? {}) : {}),
     [preferences.providerPreferences, provider],
@@ -92,6 +97,14 @@ export function useDraftAgentFeatures(input: {
   const features = useMemo(() => {
     return applyFeatureValues(availableFeatures, featureValues);
   }, [availableFeatures, featureValues]);
+
+  useEffect(() => {
+    if (previousInitialFeatureValuesKeyRef.current === initialFeatureValuesKey) {
+      return;
+    }
+    previousInitialFeatureValuesKeyRef.current = initialFeatureValuesKey;
+    setLocalFeatureValues(initialFeatureValues ?? {});
+  }, [initialFeatureValues, initialFeatureValuesKey]);
 
   useEffect(() => {
     const previousProvider = previousProviderRef.current;

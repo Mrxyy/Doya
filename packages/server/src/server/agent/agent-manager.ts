@@ -176,6 +176,14 @@ interface AgentManagerRescueTimeouts {
   interruptSessionMs?: number;
 }
 
+interface LockedProviderModel {
+  provider: AgentProvider;
+  model: string;
+  modeId?: string;
+  thinkingOptionId?: string;
+  featureValues?: Record<string, unknown>;
+}
+
 interface ProviderEnabledFlag {
   enabled: boolean;
   derivedFromProviderId?: string | null;
@@ -194,6 +202,7 @@ export interface AgentManagerOptions {
   terminalManager?: TerminalManager | null;
   mcpBaseUrl?: string;
   appendSystemPrompt?: string;
+  lockedProviderModel?: LockedProviderModel | null;
   agentStreamCoalesceWindowMs?: number;
   rescueTimeouts?: AgentManagerRescueTimeouts;
   logger: Logger;
@@ -448,6 +457,7 @@ export class AgentManager {
   private readonly agentStreamCoalescer: AgentStreamCoalescer;
   private mcpBaseUrl: string | null;
   private appendSystemPrompt: string;
+  private lockedProviderModel: LockedProviderModel | null;
   private onAgentAttention?: AgentAttentionCallback;
   private onRawStreamEvent?: AgentRawStreamEventCallback;
   private onAgentArchived?: AgentArchivedCallback;
@@ -462,6 +472,7 @@ export class AgentManager {
     this.onRawStreamEvent = options?.onRawStreamEvent;
     this.mcpBaseUrl = options?.mcpBaseUrl ?? null;
     this.appendSystemPrompt = options.appendSystemPrompt ?? "";
+    this.lockedProviderModel = options.lockedProviderModel ?? null;
     this.logger = options.logger.child({ module: "agent", component: "agent-manager" });
     this.rescueTimeouts = {
       reloadSessionCloseMs:
@@ -522,6 +533,10 @@ export class AgentManager {
 
   setAppendSystemPrompt(prompt: string | null | undefined): void {
     this.appendSystemPrompt = prompt ?? "";
+  }
+
+  setLockedProviderModel(value: LockedProviderModel | null): void {
+    this.lockedProviderModel = value;
   }
 
   public getMetricsSnapshot(): AgentMetricsSnapshot {
@@ -846,10 +861,10 @@ export class AgentManager {
               ...config.mcpServers,
             },
           };
-    this.requireEnabledProvider(injectedConfig.provider);
     const normalizedConfig = this.applyDaemonAppendSystemPrompt(
       await this.normalizeConfig(injectedConfig),
     );
+    this.requireEnabledProvider(normalizedConfig.provider);
     const launchContext = this.buildLaunchContext(resolvedAgentId, options?.env);
     const client = await this.requireAvailableClient({
       provider: normalizedConfig.provider,
@@ -897,7 +912,7 @@ export class AgentManager {
       provider: handle.provider,
     } as AgentSessionConfig;
     const normalizedConfig = this.applyDaemonAppendSystemPrompt(
-      await this.normalizeConfig(mergedConfig),
+      await this.normalizeConfig(mergedConfig, { applyLockedProviderModel: false }),
     );
     const resumeOverrides: Partial<AgentSessionConfig> = { ...overrides };
     let hasResumeOverrides = overrides !== undefined;
@@ -964,7 +979,7 @@ export class AgentManager {
       provider,
     } as AgentSessionConfig;
     const normalizedConfig = this.applyDaemonAppendSystemPrompt(
-      await this.normalizeConfig(refreshConfig),
+      await this.normalizeConfig(refreshConfig, { applyLockedProviderModel: false }),
     );
     const launchContext = this.buildLaunchContext(agentId);
 
@@ -1227,6 +1242,16 @@ export class AgentManager {
     const agent = this.requireSessionAgent(agentId);
     const normalizedModelId =
       typeof modelId === "string" && modelId.trim().length > 0 ? modelId : null;
+    const lockedProviderModel = this.lockedProviderModel;
+    if (
+      lockedProviderModel &&
+      (agent.provider !== lockedProviderModel.provider ||
+        normalizedModelId !== lockedProviderModel.model)
+    ) {
+      throw new Error(
+        `This daemon locks agent provider/model to ${lockedProviderModel.provider}/${lockedProviderModel.model}.`,
+      );
+    }
 
     if (agent.session.setModel) {
       await agent.session.setModel(normalizedModelId);
@@ -3503,7 +3528,10 @@ export class AgentManager {
     }
   }
 
-  private async normalizeConfig(config: AgentSessionConfig): Promise<AgentSessionConfig> {
+  private async normalizeConfig(
+    config: AgentSessionConfig,
+    options: { applyLockedProviderModel?: boolean } = {},
+  ): Promise<AgentSessionConfig> {
     const normalized: AgentSessionConfig = { ...config };
 
     // Always resolve cwd to absolute path for consistent history file lookup
@@ -3527,6 +3555,10 @@ export class AgentManager {
         }
         throw new Error(`Failed to access working directory: ${normalized.cwd}`, { cause: error });
       }
+    }
+
+    if (options.applyLockedProviderModel !== false) {
+      this.applyLockedProviderModel(normalized, config);
     }
 
     if (typeof normalized.model === "string") {
@@ -3559,6 +3591,35 @@ export class AgentManager {
     }
 
     return normalized;
+  }
+
+  private applyLockedProviderModel(
+    normalized: AgentSessionConfig,
+    original: AgentSessionConfig,
+  ): void {
+    const lockedProviderModel = this.lockedProviderModel;
+    if (!lockedProviderModel) {
+      return;
+    }
+
+    const providerChanged = original.provider !== lockedProviderModel.provider;
+    const modelChanged = original.model !== lockedProviderModel.model;
+    normalized.provider = lockedProviderModel.provider;
+    normalized.model = lockedProviderModel.model;
+    if (providerChanged || modelChanged) {
+      normalized.thinkingOptionId = lockedProviderModel.thinkingOptionId;
+    } else if (!original.thinkingOptionId && lockedProviderModel.thinkingOptionId) {
+      normalized.thinkingOptionId = lockedProviderModel.thinkingOptionId;
+    }
+    if (!original.modeId && lockedProviderModel.modeId) {
+      normalized.modeId = lockedProviderModel.modeId;
+    }
+    if (lockedProviderModel.featureValues) {
+      normalized.featureValues = {
+        ...lockedProviderModel.featureValues,
+        ...original.featureValues,
+      };
+    }
   }
 
   private applyDaemonAppendSystemPrompt(config: AgentSessionConfig): AgentSessionConfig {

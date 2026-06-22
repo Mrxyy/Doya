@@ -180,7 +180,7 @@ export function WorkspaceSetupDialog() {
   });
   const composerState = chatDraft.composerState;
   if (!composerState && pendingWorkspaceSetup) {
-    throw new Error("Workspace setup composer state is required");
+    throw new Error(translateNow("composer.draft.error.workspaceSetupComposerStateRequired"));
   }
 
   const { icon: projectIcon } = useProjectIconQuery({
@@ -294,10 +294,10 @@ export function WorkspaceSetupDialog() {
         const ensuredWorkspace = await ensureWorkspace({ cwd, attachments });
         const connectedClient = withConnectedClient();
         if (!composerState) {
-          throw new Error("Workspace setup composer state is required");
+          throw new Error(translateNow("composer.draft.error.workspaceSetupComposerStateRequired"));
         }
         if (!composerState.selectedProvider) {
-          throw new Error("Select a model");
+          throw new Error(translateNow("composer.draft.error.selectModel"));
         }
 
         const workspaceDirectory = requireWorkspaceExecutionAuthority({

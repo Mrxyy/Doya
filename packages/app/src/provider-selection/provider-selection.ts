@@ -291,23 +291,23 @@ export function resolveSubmissionReadiness(input: {
   hasClient: boolean;
 }): ProviderSelectionReadiness {
   if (!input.allowsEmptyAutoSubmit && !input.text.trim()) {
-    return { ok: false, reason: "Initial prompt is required" };
+    return { ok: false, reason: translateNow("composer.draft.error.initialPromptRequired") };
   }
   if (input.providerCount === 0) {
-    return { ok: false, reason: "No available providers on the selected host" };
+    return { ok: false, reason: translateNow("composer.draft.error.noAvailableProviders") };
   }
   if (!(input.autoSubmitConfig?.provider ?? input.selection.provider)) {
-    return { ok: false, reason: "Select a model" };
+    return { ok: false, reason: translateNow("composer.draft.error.selectModel") };
   }
   if (input.selection.isModelLoading) {
-    return { ok: false, reason: "Model defaults are still loading" };
+    return { ok: false, reason: translateNow("composer.draft.error.modelDefaultsLoading") };
   }
   const hasSelectedModel = Boolean(input.autoSubmitConfig?.model ?? input.selection.modelId);
   if (!hasSelectedModel && input.selection.availableModels.length > 0) {
-    return { ok: false, reason: "No model is available for the selected provider" };
+    return { ok: false, reason: translateNow("composer.draft.error.noModelForProvider") };
   }
   if (!input.workspaceDirectory) {
-    return { ok: false, reason: "Workspace directory not found" };
+    return { ok: false, reason: translateNow("composer.draft.error.workspaceDirectoryNotFound") };
   }
   if (!input.hasClient) {
     return { ok: false, reason: translateNow("ui.host.is.not.connected.n90cm6") };

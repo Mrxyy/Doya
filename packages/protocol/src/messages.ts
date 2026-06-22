@@ -116,6 +116,22 @@ const MutableMetadataGenerationConfigSchema = z
   })
   .passthrough();
 
+const MutableLockedProviderModelSchema = z
+  .object({
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    modeId: z.string().min(1).optional(),
+    thinkingOptionId: z.string().min(1).optional(),
+    featureValues: z.record(z.string(), z.unknown()).optional(),
+  })
+  .passthrough();
+
+const MutableDaemonAgentsConfigSchema = z
+  .object({
+    lockedProviderModel: MutableLockedProviderModelSchema.nullable().default(null),
+  })
+  .passthrough();
+
 export const MutableDaemonConfigSchema = z
   .object({
     mcp: z
@@ -125,6 +141,7 @@ export const MutableDaemonConfigSchema = z
       .passthrough(),
     providers: z.record(z.string(), MutableDaemonProviderConfigSchema).default({}),
     metadataGeneration: MutableMetadataGenerationConfigSchema.default({ providers: [] }),
+    agents: MutableDaemonAgentsConfigSchema.default({ lockedProviderModel: null }),
     autoArchiveAfterMerge: z.boolean().default(false),
     appendSystemPrompt: z.string().default(""),
   })
@@ -137,6 +154,7 @@ export const MutableDaemonConfigPatchSchema = z
       .record(z.string(), MutableDaemonProviderConfigSchema.partial().passthrough())
       .optional(),
     metadataGeneration: MutableMetadataGenerationConfigSchema.partial().optional(),
+    agents: MutableDaemonAgentsConfigSchema.partial().optional(),
     autoArchiveAfterMerge: z.boolean().optional(),
     appendSystemPrompt: z.string().optional(),
   })

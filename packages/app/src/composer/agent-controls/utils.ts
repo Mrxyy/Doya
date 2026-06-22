@@ -33,6 +33,23 @@ export function getFeatureTooltip(feature: Pick<AgentFeature, "id" | "label" | "
   return feature.tooltip ?? feature.label;
 }
 
+export function formatAgentFeatureLabel(feature: Pick<AgentFeature, "id" | "label">): string {
+  const localized = getLocalizedFeatureLabel(feature);
+  if (localized) {
+    return localized;
+  }
+  return formatControlLabel(feature, false);
+}
+
+export function formatAgentFeatureOptionLabel(option: ControlLabelInput): string {
+  const compact = (option.label ?? option.id).replace(/[\s_-]+/g, "").toLowerCase();
+  const localized = getLocalizedFeatureOptionLabel(compact);
+  if (localized) {
+    return localized;
+  }
+  return formatControlLabel(option, option.label == null);
+}
+
 export function getFeatureHighlightColor(featureId: string): FeatureHighlightColor {
   switch (featureId) {
     case "fast_mode":
@@ -102,6 +119,13 @@ export function formatThinkingOptionLabel(option: ControlLabelInput): string {
 
 function getLocalizedAgentModeLabel(compact: string): string | null {
   switch (compact) {
+    case "alwaysask":
+      return translateNow("composer.agentMode.alwaysAsk");
+    case "automode":
+      return translateNow("composer.agentMode.autoMode");
+    case "acceptfileedits":
+    case "acceptedits":
+      return translateNow("composer.agentMode.acceptFileEdits");
     case "defaultpermissions":
     case "default":
       return translateNow("composer.agentMode.defaultPermissions");
@@ -115,8 +139,22 @@ function getLocalizedAgentModeLabel(compact: string): string | null {
       return translateNow("composer.agentMode.autoReview");
     case "fullaccess":
       return translateNow("composer.agentMode.fullAccess");
+    case "allowall":
+      return translateNow("composer.agentMode.allowAll");
+    case "agent":
+    case "agentmode":
+      return translateNow("composer.agentMode.agent");
+    case "build":
+    case "buildmode":
+      return translateNow("composer.agentMode.build");
+    case "loadtest":
+      return translateNow("composer.agentMode.loadTest");
     case "planmode":
+    case "plan":
       return translateNow("composer.agentMode.plan");
+    case "bypass":
+    case "bypasspermissions":
+      return translateNow("composer.agentMode.bypass");
     default:
       return null;
   }
@@ -124,6 +162,9 @@ function getLocalizedAgentModeLabel(compact: string): string | null {
 
 function getLocalizedThinkingOptionLabel(compact: string): string | null {
   switch (compact) {
+    case "off":
+    case "none":
+      return translateNow("composer.thinking.off");
     case "minimal":
       return translateNow("composer.thinking.minimal");
     case "low":
@@ -135,9 +176,40 @@ function getLocalizedThinkingOptionLabel(compact: string): string | null {
     case "extra":
     case "extrahigh":
       return translateNow("composer.thinking.extraHigh");
+    case "max":
+    case "maximum":
+      return translateNow("composer.thinking.max");
     case "auto":
     case "default":
       return translateNow("composer.thinking.auto");
+    default:
+      return null;
+  }
+}
+
+function getLocalizedFeatureLabel(feature: Pick<AgentFeature, "id" | "label">): string | null {
+  switch (feature.id) {
+    case "fast_mode":
+      return translateNow("composer.agentFeature.fastMode.label");
+    case "plan_mode":
+      return translateNow("composer.agentFeature.planMode.label");
+    case "auto_accept":
+      return translateNow("composer.agentFeature.autoAccept.label");
+    default:
+      return null;
+  }
+}
+
+function getLocalizedFeatureOptionLabel(compact: string): string | null {
+  switch (compact) {
+    case "on":
+    case "enabled":
+    case "true":
+      return translateNow("ui.on");
+    case "off":
+    case "disabled":
+    case "false":
+      return translateNow("ui.off");
     default:
       return null;
   }

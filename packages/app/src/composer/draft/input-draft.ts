@@ -7,7 +7,9 @@ import {
   type CreateAgentInitialValues,
   type UseAgentFormStateResult,
 } from "@/hooks/use-agent-form-state";
+import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { useDraftAgentFeatures } from "@/hooks/use-draft-agent-features";
+import { getLockedProviderModel } from "@/utils/daemon-config";
 import {
   areAttachmentsEqual,
   buildDraftAgentControls,
@@ -69,6 +71,8 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     isCreateFlow: true,
     onlineServerIds: composerOptions?.onlineServerIds ?? [],
   });
+  const { config: daemonConfig } = useDaemonConfig(formState.selectedServerId);
+  const daemonAgentConfig = getLockedProviderModel(daemonConfig);
   const draftKey = useMemo(
     () =>
       resolveDraftKey({
@@ -232,6 +236,15 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
   );
 
   const workingDir = lockedWorkingDir || formState.workingDir;
+  const initialFeatureValues = useMemo(() => {
+    const daemonFeatureValues = daemonAgentConfig?.featureValues ?? {};
+    const composerFeatureValues = composerOptions?.initialFeatureValues ?? {};
+    const mergedFeatureValues = {
+      ...daemonFeatureValues,
+      ...composerFeatureValues,
+    };
+    return Object.keys(mergedFeatureValues).length > 0 ? mergedFeatureValues : undefined;
+  }, [composerOptions?.initialFeatureValues, daemonAgentConfig?.featureValues]);
   const {
     features: draftFeatures,
     featureValues: draftFeatureValues,
@@ -243,7 +256,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     modeId: formState.selectedMode,
     modelId: effectiveModelId,
     thinkingOptionId: effectiveThinkingOptionId,
-    initialFeatureValues: composerOptions?.initialFeatureValues,
+    initialFeatureValues,
   });
 
   const commandDraftConfig = useMemo(
@@ -293,6 +306,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     draftFeatures,
     draftFeatureValues,
     formState,
+    initialFeatureValues,
     setDraftFeatureValue,
     workingDir,
   ]);

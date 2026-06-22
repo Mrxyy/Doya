@@ -281,6 +281,26 @@ function resolveAppendSystemPrompt(persisted: ReturnType<typeof loadPersistedCon
   return persisted.daemon?.appendSystemPrompt ?? "";
 }
 
+function resolveLockedProviderModel(
+  persisted: ReturnType<typeof loadPersistedConfig>,
+): DoyaDaemonConfig["lockedProviderModel"] {
+  const lockedProviderModel = persisted.agents?.lockedProviderModel;
+  if (!lockedProviderModel) {
+    return null;
+  }
+  return {
+    provider: lockedProviderModel.provider,
+    model: lockedProviderModel.model,
+    ...(lockedProviderModel.modeId ? { modeId: lockedProviderModel.modeId } : {}),
+    ...(lockedProviderModel.thinkingOptionId
+      ? { thinkingOptionId: lockedProviderModel.thinkingOptionId }
+      : {}),
+    ...(lockedProviderModel.featureValues
+      ? { featureValues: lockedProviderModel.featureValues }
+      : {}),
+  };
+}
+
 function resolveStaticLoadConfigSettings(
   env: NodeJS.ProcessEnv,
   cli: CliConfigOverrides | undefined,
@@ -369,6 +389,7 @@ export function loadConfig(
     voiceLlmModel: voiceLlm.model,
     agentProviderSettings: extractAgentProviderSettings(providerOverrides),
     metadataGeneration: persisted.agents?.metadataGeneration,
+    lockedProviderModel: resolveLockedProviderModel(persisted),
     providerOverrides,
     log: resolveLogConfigFromEnv(env, persisted),
   };

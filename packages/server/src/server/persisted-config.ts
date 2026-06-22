@@ -151,6 +151,16 @@ const AgentMetadataGenerationSchema = z
   })
   .strict();
 
+const LockedProviderModelSchema = z
+  .object({
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    modeId: z.string().min(1).optional(),
+    thinkingOptionId: z.string().min(1).optional(),
+    featureValues: z.record(z.string(), z.unknown()).optional(),
+  })
+  .strict();
+
 const BUILTIN_PROVIDER_IDS = ["claude", "codex", "copilot", "opencode", "pi"] as const;
 
 function isLegacyProviderEntry(value: unknown): boolean {
@@ -259,6 +269,7 @@ export const PersistedConfigSchema = z
       .object({
         providers: z.preprocess(normalizeAgentProviders, ProviderOverridesSchema).optional(),
         metadataGeneration: AgentMetadataGenerationSchema.optional(),
+        lockedProviderModel: LockedProviderModelSchema.nullable().optional(),
       })
       .strict()
       .optional(),

@@ -459,6 +459,51 @@ test("normalizeConfig injects the provider default model when omitted", async ()
   expect(snapshot.config.modeId).toBe("auto");
 });
 
+test("locked provider model supplies daemon control defaults without overriding explicit values", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-test-"));
+  const client = new TestAgentClient();
+  const manager = new AgentManager({
+    clients: {
+      codex: client,
+    },
+    lockedProviderModel: {
+      provider: "codex",
+      model: "gpt-5.4",
+      modeId: "default",
+      thinkingOptionId: "low",
+      featureValues: {
+        fast_mode: true,
+        plan_mode: true,
+      },
+    },
+    logger,
+    idFactory: () => "00000000-0000-4000-8000-000000000199",
+  });
+
+  const snapshot = await manager.createAgent({
+    provider: "codex",
+    cwd: workdir,
+    modeId: "bypassPermissions",
+    featureValues: {
+      fast_mode: false,
+    },
+  });
+
+  expect(snapshot.config).toEqual(
+    expect.objectContaining({
+      provider: "codex",
+      model: "gpt-5.4",
+      modeId: "bypassPermissions",
+      thinkingOptionId: "low",
+      featureValues: {
+        fast_mode: false,
+        plan_mode: true,
+      },
+    }),
+  );
+  expect(client.createdConfigs[0]).toEqual(snapshot.config);
+});
+
 test("createAgent forwards request env into the spawned provider process", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-env-test-"));
   const client = new EnvProbeAgentClient();

@@ -10,6 +10,7 @@ import {
   type StreamItem,
   type UserMessageImageAttachment,
 } from "@/types/stream";
+import { translateNow } from "@/i18n/i18n";
 import type { AgentAttachment } from "@getdoya/protocol/messages";
 
 const EMPTY_STREAM_ITEMS: StreamItem[] = [];
@@ -262,13 +263,13 @@ export function useDraftAgentCreateFlow<TDraftAgent, TCreateResult>({
   const handleCreateFromInput = useCallback(
     async ({ text, attachments, cwd }: SubmitContext) => {
       if (isSubmitting) {
-        throw new Error("Already loading");
+        throw new Error(translateNow("composer.draft.error.alreadyLoading"));
       }
 
       dispatch({ type: "DRAFT_SET_ERROR", message: "" });
       const trimmedPrompt = text.trim();
       if (!trimmedPrompt && !allowEmptyText) {
-        const error = new Error("Initial prompt is required");
+        const error = new Error(translateNow("composer.draft.error.initialPromptRequired"));
         dispatch({ type: "DRAFT_SET_ERROR", message: error.message });
         throw error;
       }

@@ -12,7 +12,9 @@ import {
   buildSelectableProviderSelectorProviders,
   type ProviderSelectorProvider,
 } from "@/provider-selection/provider-selection";
+import { getLockedProviderModel } from "@/utils/daemon-config";
 import { useProvidersSnapshot } from "./use-providers-snapshot";
+import { useDaemonConfig } from "./use-daemon-config";
 import {
   useFormPreferences,
   mergeProviderPreferences,
@@ -21,6 +23,7 @@ import {
 import {
   resolveAgentForm,
   resolveEffectiveModel,
+  resolveThinkingOptionId,
   normalizeSelectedModelId,
   resolveDefaultModelId,
   mergeSelectedComposerPreferences,
@@ -43,6 +46,7 @@ export interface UseAgentFormStateOptions {
   isCreateFlow?: boolean;
   isTargetDaemonReady?: boolean;
   onlineServerIds?: string[];
+  ignoreDaemonProviderModelLock?: boolean;
 }
 
 export interface UseAgentFormStateResult {
@@ -77,6 +81,7 @@ export interface UseAgentFormStateResult {
   refetchProviderModelsIfStale: () => void;
   setProviderAndModelFromUser: (provider: AgentProvider, modelId: string) => void;
   workingDirIsEmpty: boolean;
+  isProviderModelLocked: boolean;
   persistFormPreferences: () => Promise<void>;
 }
 
@@ -166,6 +171,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
     isCreateFlow = true,
     isTargetDaemonReady: _isTargetDaemonReady = true,
     onlineServerIds = [],
+    ignoreDaemonProviderModelLock = false,
   } = options;
 
   const { preferences, isLoading: isPreferencesLoading, updatePreferences } = useFormPreferences();
@@ -214,6 +220,13 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
     refresh: refreshSnapshot,
     refetchIfStale: refetchSnapshotIfStale,
   } = useProvidersSnapshot(formState.serverId, { cwd: formState.workingDir });
+  const { config: daemonConfig } = useDaemonConfig(formState.serverId);
+  const lockedProviderModel = ignoreDaemonProviderModelLock
+    ? null
+    : getLockedProviderModel(daemonConfig);
+  const selectedProviderForData = (
+    lockedProviderModel?.provider ?? formState.provider
+  ) as AgentProvider | null;
 
   const allProviderEntries = useMemo(() => snapshotEntries ?? [], [snapshotEntries]);
   const snapshotProviderDefinitions = useMemo(
@@ -250,16 +263,17 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
   );
   const snapshotSelectedEntry = useMemo(
     () =>
-      formState.provider
-        ? ((snapshotEntries ?? []).find((entry) => entry.provider === formState.provider) ?? null)
+      selectedProviderForData
+        ? ((snapshotEntries ?? []).find((entry) => entry.provider === selectedProviderForData) ??
+            null)
         : null,
-    [formState.provider, snapshotEntries],
+    [selectedProviderForData, snapshotEntries],
   );
   const snapshotSelectedProviderModels = snapshotSelectedEntry?.models ?? null;
   const selectedProviderIsLoading = snapshotSelectedEntry?.status === "loading";
   const snapshotSelectedProviderModes = resolveSelectedProviderModes({
     selectedEntry: snapshotSelectedEntry,
-    provider: formState.provider,
+    provider: selectedProviderForData,
     providerDefinitionMap: snapshotProviderDefinitionMap,
   });
   const providerDefinitions = snapshotProviderDefinitions;
@@ -271,10 +285,26 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
   const modeOptions = snapshotSelectedProviderModes;
   const isAllModelsLoading = snapshotIsLoading || selectedProviderIsLoading;
 
-  const combinedInitialValues = useMemo(
-    () => combineInitialValues(initialValues, initialServerId),
-    [initialValues, initialServerId],
-  );
+  const daemonInitialValues = useMemo<FormInitialValues | undefined>(() => {
+    if (!lockedProviderModel) {
+      return undefined;
+    }
+    return {
+      provider: lockedProviderModel.provider,
+      model: lockedProviderModel.model,
+      ...(lockedProviderModel.modeId ? { modeId: lockedProviderModel.modeId } : {}),
+      ...(lockedProviderModel.thinkingOptionId
+        ? { thinkingOptionId: lockedProviderModel.thinkingOptionId }
+        : {}),
+    };
+  }, [lockedProviderModel]);
+
+  const combinedInitialValues = useMemo(() => {
+    const explicitInitialValues = combineInitialValues(initialValues, initialServerId);
+    return daemonInitialValues
+      ? { ...explicitInitialValues, ...daemonInitialValues }
+      : explicitInitialValues;
+  }, [daemonInitialValues, initialValues, initialServerId]);
 
   useEffect(() => {
     if (!isVisible || !isCreateFlow) {
@@ -407,7 +437,9 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
   const setModeFromUser = useCallback(
     (modeId: string) => {
       dispatch({ type: "SET_MODE_FROM_USER", modeId });
-      const provider = reducerStateRef.current.form.provider;
+      const provider = (
+        lockedProviderModel?.provider ?? reducerStateRef.current.form.provider
+      ) as AgentProvider | null;
       if (provider) {
         void updatePreferences((current) =>
           mergeSelectedComposerPreferences({
@@ -420,7 +452,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
         );
       }
     },
-    [updatePreferences],
+    [lockedProviderModel?.provider, updatePreferences],
   );
 
   const setModelFromUser = useCallback(
@@ -448,21 +480,24 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
     (thinkingOptionId: string) => {
       dispatch({ type: "SET_THINKING_OPTION_FROM_USER", thinkingOptionId });
       const { provider, model: modelId } = reducerStateRef.current.form;
-      if (provider && modelId) {
+      const effectiveProvider = (lockedProviderModel?.provider ??
+        provider) as AgentProvider | null;
+      const effectiveModelId = lockedProviderModel?.model ?? modelId;
+      if (effectiveProvider && effectiveModelId) {
         void updatePreferences((current) =>
           mergeSelectedComposerPreferences({
             preferences: current,
-            provider,
+            provider: effectiveProvider,
             updates: {
               thinkingByModel: {
-                [modelId]: thinkingOptionId,
+                [effectiveModelId]: thinkingOptionId,
               },
             },
           }),
         );
       }
     },
-    [updatePreferences],
+    [lockedProviderModel?.model, lockedProviderModel?.provider, updatePreferences],
   );
 
   const setWorkingDir = useCallback((value: string) => {
@@ -485,26 +520,53 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
   );
 
   const refetchProviderModelsIfStale = useCallback(() => {
-    refetchSnapshotIfStale(reducerStateRef.current.form.provider);
-  }, [refetchSnapshotIfStale]);
+    refetchSnapshotIfStale(
+      (lockedProviderModel?.provider ??
+        reducerStateRef.current.form.provider) as AgentProvider | null,
+    );
+  }, [lockedProviderModel?.provider, refetchSnapshotIfStale]);
 
   const persistFormPreferences = useCallback(async () => {
-    if (!formState.provider) {
+    const provider = (lockedProviderModel?.provider ??
+      formState.provider) as AgentProvider | null;
+    if (!provider) {
       return;
     }
+    const nextFormState = {
+      ...formState,
+      provider,
+      model: lockedProviderModel?.model ?? formState.model,
+    };
     await persistProviderPreferences({
-      provider: formState.provider,
-      formState,
+      provider,
+      formState: nextFormState,
       availableModels,
       updatePreferences,
     });
-  }, [availableModels, formState, updatePreferences]);
+  }, [
+    availableModels,
+    formState,
+    lockedProviderModel?.model,
+    lockedProviderModel?.provider,
+    updatePreferences,
+  ]);
 
-  const agentDefinition = formState.provider
-    ? providerDefinitionMap.get(formState.provider)
+  const agentDefinition = selectedProviderForData
+    ? providerDefinitionMap.get(selectedProviderForData)
     : undefined;
-  const effectiveModel = resolveEffectiveModel(availableModels, formState.model);
-  const resolvedModelId = effectiveModel?.id ?? formState.model;
+  const selectedMode = modeOptions.some((mode) => mode.id === formState.modeId)
+    ? formState.modeId
+    : (agentDefinition?.defaultModeId ?? modeOptions[0]?.id ?? "");
+  const selectedModelForData = lockedProviderModel?.model ?? formState.model;
+  const effectiveModel = resolveEffectiveModel(availableModels, selectedModelForData);
+  const resolvedModelId = effectiveModel?.id ?? selectedModelForData;
+  const resolvedThinkingOptionId = selectedProviderForData
+    ? resolveThinkingOptionId({
+        availableModels,
+        modelId: resolvedModelId,
+        requestedThinkingOptionId: formState.thinkingOptionId,
+      })
+    : "";
   const availableThinkingOptionsRaw = effectiveModel?.thinkingOptions;
   const availableThinkingOptions = useMemo(
     () => availableThinkingOptionsRaw ?? [],
@@ -520,13 +582,13 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
       selectedServerId: formState.serverId,
       setSelectedServerId,
       setSelectedServerIdFromUser,
-      selectedProvider: formState.provider,
+      selectedProvider: selectedProviderForData,
       setProviderFromUser,
-      selectedMode: formState.modeId,
+      selectedMode,
       setModeFromUser,
       selectedModel: resolvedModelId,
       setModelFromUser,
-      selectedThinkingOptionId: formState.thinkingOptionId,
+      selectedThinkingOptionId: resolvedThinkingOptionId,
       setThinkingOptionFromUser,
       workingDir: formState.workingDir,
       setWorkingDir,
@@ -548,14 +610,15 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
       refetchProviderModelsIfStale,
       setProviderAndModelFromUser,
       workingDirIsEmpty,
+      isProviderModelLocked: lockedProviderModel !== null,
       persistFormPreferences,
     }),
     [
       formState.serverId,
-      formState.provider,
-      formState.modeId,
+      selectedProviderForData,
+      selectedMode,
       resolvedModelId,
-      formState.thinkingOptionId,
+      resolvedThinkingOptionId,
       formState.workingDir,
       setSelectedServerId,
       setSelectedServerIdFromUser,
@@ -582,6 +645,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
       refetchProviderModelsIfStale,
       setProviderAndModelFromUser,
       workingDirIsEmpty,
+      lockedProviderModel,
       persistFormPreferences,
     ],
   );

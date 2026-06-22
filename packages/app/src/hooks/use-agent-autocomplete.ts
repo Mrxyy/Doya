@@ -17,6 +17,7 @@ import {
   findActiveFileMention,
   type FileMentionRange,
 } from "@/utils/file-mention-autocomplete";
+import { translateNow } from "@/i18n/i18n";
 
 interface UseAgentAutocompleteInput {
   userInput: string;
@@ -416,8 +417,14 @@ export function useAgentAutocomplete(input: UseAgentAutocompleteInput): AgentAut
     fileSuggestionsError: fileSuggestionsQuery.error,
   });
 
-  const loadingText = mode === "file" ? "Searching workspace..." : "Loading commands...";
-  const emptyText = mode === "file" ? "No files or directories found" : "No commands found";
+  const loadingText =
+    mode === "file"
+      ? translateNow("composer.autocomplete.searchingWorkspace")
+      : translateNow("composer.autocomplete.loadingCommands");
+  const emptyText =
+    mode === "file"
+      ? translateNow("composer.autocomplete.noFiles")
+      : translateNow("composer.autocomplete.noCommands");
 
   return {
     isVisible,

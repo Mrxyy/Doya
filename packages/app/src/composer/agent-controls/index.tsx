@@ -29,7 +29,9 @@ import {
 } from "@/provider-selection/provider-selection";
 import { useSessionStore } from "@/stores/session-store";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
+import { useDaemonConfig } from "@/hooks/use-daemon-config";
 import { resolveProviderDefinition } from "@/utils/provider-definitions";
+import { getLockedProviderModel } from "@/utils/daemon-config";
 import {
   buildFavoriteModelKey,
   mergeProviderPreferences,
@@ -54,6 +56,8 @@ import type {
 } from "@getdoya/protocol/agent-types";
 import type { AgentProviderDefinition } from "@getdoya/protocol/provider-manifest";
 import {
+  formatAgentFeatureLabel,
+  formatAgentFeatureOptionLabel,
   getFeatureHighlightColor,
   getFeatureTooltip,
   getAgentControlHint,
@@ -61,6 +65,7 @@ import {
   resolveAgentModelSelection,
 } from "@/composer/agent-controls/utils";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { isDev } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { toErrorMessage } from "@/utils/error-messages";
 import { translateNow } from "@/i18n/i18n";
@@ -85,6 +90,7 @@ interface ControlledAgentControlsProps {
   selectedThinkingOptionId?: string;
   onSelectThinkingOption?: (thinkingOptionId: string) => void;
   disabled?: boolean;
+  modelSelectorDisabled?: boolean;
   isModelLoading?: boolean;
   modelSelectorProviders?: ProviderSelectorProvider[];
   favoriteKeys?: Set<string>;
@@ -125,6 +131,7 @@ export interface DraftAgentControlsProps {
   isRetryingModelProvider?: boolean;
   disabled?: boolean;
   modelSelectorServerId?: string | null;
+  isProviderModelLocked?: boolean;
 }
 
 interface AgentControlsProps {
@@ -410,6 +417,7 @@ function ControlledAgentControls({
   isRetryingModelProvider = false,
   desktopExtras,
   modelSelectorServerId = null,
+  modelSelectorDisabled = false,
 }: ControlledAgentControlsProps) {
   const { theme } = useUnistyles();
   const isCompact = useIsCompactFormFactor();
@@ -453,7 +461,7 @@ function ControlledAgentControls({
     hasDesktopExtras: desktopExtras !== null && desktopExtras !== undefined,
   });
 
-  const modelDisabled = disabled;
+  const modelDisabled = disabled || modelSelectorDisabled;
 
   const comboboxProviderOptions = useMemo<ComboboxOption[]>(
     () => toComboboxOptions(providerOptions),
@@ -1164,6 +1172,9 @@ function DesktopFeatureItem({
   if (feature.type === "select") {
     const FeatureIcon = getFeatureIcon(feature.icon);
     const selectedOption = feature.options.find((o) => o.id === feature.value);
+    const selectedOptionLabel = selectedOption
+      ? formatAgentFeatureOptionLabel(selectedOption)
+      : formatAgentFeatureLabel(feature);
     return (
       <DropdownMenu open={openSelector === featureSelector} onOpenChange={handleFeatureOpenChange}>
         <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
@@ -1176,7 +1187,7 @@ function DesktopFeatureItem({
               testID={`agent-feature-${feature.id}`}
             >
               <FeatureIcon size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
-              <Text style={styles.modeBadgeText}>{selectedOption?.label ?? feature.label}</Text>
+              <Text style={styles.modeBadgeText}>{selectedOptionLabel}</Text>
               <ChevronDown size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
             </DropdownMenuTrigger>
           </TooltipTrigger>
@@ -1265,8 +1276,10 @@ function SheetFeatureItem({
               theme.colors.foregroundMuted,
             )}
           />
-          <Text style={styles.sheetSelectText}>{feature.label}</Text>
-          <Text style={styles.modeBadgeText}>{feature.value ? "On" : "Off"}</Text>
+          <Text style={styles.sheetSelectText}>{formatAgentFeatureLabel(feature)}</Text>
+          <Text style={styles.modeBadgeText}>
+            {feature.value ? translateNow("ui.on") : translateNow("ui.off")}
+          </Text>
         </Pressable>
       </View>
     );
@@ -1274,6 +1287,9 @@ function SheetFeatureItem({
 
   if (feature.type === "select") {
     const selectedOption = feature.options.find((o) => o.id === feature.value);
+    const selectedOptionLabel = selectedOption
+      ? formatAgentFeatureOptionLabel(selectedOption)
+      : formatAgentFeatureLabel(feature);
     return (
       <View style={styles.sheetSection}>
         <DropdownMenu
@@ -1287,7 +1303,7 @@ function SheetFeatureItem({
             accessibilityLabel={getFeatureTooltip(feature)}
             testID={`agent-feature-${feature.id}`}
           >
-            <Text style={styles.sheetSelectText}>{selectedOption?.label ?? feature.label}</Text>
+            <Text style={styles.sheetSelectText}>{selectedOptionLabel}</Text>
             <ChevronDown size={theme.iconSize.md} color={theme.colors.foregroundMuted} />
           </DropdownMenuTrigger>
           <DropdownMenuContent side="top" align="start">
@@ -1323,7 +1339,7 @@ function FeatureOptionMenuItem({
 
   return (
     <DropdownMenuItem selected={selected} onSelect={handleSelect}>
-      {option.label}
+      {formatAgentFeatureOptionLabel(option)}
     </DropdownMenuItem>
   );
 }
@@ -1366,6 +1382,8 @@ export const AgentControls = memo(function AgentControls({
   );
   const client = useSessionStore((state) => state.sessions[serverId]?.client ?? null);
   const toast = useToast();
+  const { config: daemonConfig } = useDaemonConfig(serverId);
+  const lockedProviderModel = getLockedProviderModel(daemonConfig);
 
   const {
     entries: snapshotEntries,
@@ -1546,7 +1564,7 @@ export const AgentControls = memo(function AgentControls({
       modelSelectorProviders={agentModelSelectorProviders}
       modelOptions={modelOptions}
       selectedModelId={modelSelection.activeModelId ?? undefined}
-      onSelectModel={handleSelectModel}
+      onSelectModel={lockedProviderModel ? undefined : handleSelectModel}
       favoriteKeys={favoriteKeys}
       onToggleFavoriteModel={handleToggleFavoriteModel}
       thinkingOptions={thinkingOptions.length > 1 ? thinkingOptions : undefined}
@@ -1591,6 +1609,7 @@ export function DraftAgentControls({
   isRetryingModelProvider = false,
   disabled = false,
   modelSelectorServerId = null,
+  isProviderModelLocked = false,
 }: DraftAgentControlsProps) {
   const { preferences, updatePreferences } = useFormPreferences();
   const isCompact = useIsCompactFormFactor();
@@ -1643,25 +1662,39 @@ export function DraftAgentControls({
     ),
     [selectedProvider, providerDefinitions, modeOptions, selectedMode, onSelectMode, disabled],
   );
+  const showLockedModelSelector = isProviderModelLocked && isDev;
+  const showModelSelector = !isProviderModelLocked || showLockedModelSelector;
+  const noopSelectModel = useCallback(() => undefined, []);
+  const noopSelectProviderAndModel = useCallback(() => undefined, []);
+  let effectiveOnSelectModel = onSelectModel;
+  let effectiveOnSelectProviderAndModel = onSelectProviderAndModel;
+  if (isProviderModelLocked) {
+    effectiveOnSelectModel = showLockedModelSelector ? noopSelectModel : undefined;
+    effectiveOnSelectProviderAndModel = showLockedModelSelector
+      ? noopSelectProviderAndModel
+      : undefined;
+  }
 
   if (!isCompact) {
     return (
       <View style={styles.container}>
-        <CombinedModelSelector
-          providers={modelSelectorProviders}
-          selectedProvider={selectedProvider ?? ""}
-          selectedModel={selectedModel}
-          onSelect={onSelectProviderAndModel}
-          favoriteKeys={favoriteKeys}
-          onToggleFavorite={handleToggleFavorite}
-          isLoading={isAllModelsLoading}
-          disabled={disabled}
-          onOpen={onModelSelectorOpen}
-          onClose={onDropdownClose}
-          onRetryProvider={onRetryModelProvider}
-          isRetryingProvider={isRetryingModelProvider}
-          serverId={modelSelectorServerId}
-        />
+        {showModelSelector ? (
+          <CombinedModelSelector
+            providers={modelSelectorProviders}
+            selectedProvider={selectedProvider ?? ""}
+            selectedModel={selectedModel}
+            onSelect={onSelectProviderAndModel}
+            favoriteKeys={favoriteKeys}
+            onToggleFavorite={handleToggleFavorite}
+            isLoading={isAllModelsLoading}
+            disabled={disabled || showLockedModelSelector}
+            onOpen={onModelSelectorOpen}
+            onClose={onDropdownClose}
+            onRetryProvider={onRetryModelProvider}
+            isRetryingProvider={isRetryingModelProvider}
+            serverId={modelSelectorServerId}
+          />
+        ) : null}
         {selectedProvider ? (
           <ControlledAgentControls
             provider={selectedProvider}
@@ -1687,9 +1720,10 @@ export function DraftAgentControls({
       modelSelectorProviders={modelSelectorProviders}
       modelOptions={modelOptions}
       selectedModelId={selectedModel}
-      onSelectModel={onSelectModel}
-      onSelectProviderAndModel={onSelectProviderAndModel}
+      onSelectModel={effectiveOnSelectModel}
+      onSelectProviderAndModel={effectiveOnSelectProviderAndModel}
       isModelLoading={isAllModelsLoading}
+      modelSelectorDisabled={showLockedModelSelector}
       favoriteKeys={favoriteKeys}
       onToggleFavoriteModel={handleToggleFavorite}
       thinkingOptions={mappedThinkingOptions.length > 0 ? mappedThinkingOptions : undefined}

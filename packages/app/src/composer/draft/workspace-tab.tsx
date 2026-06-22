@@ -173,15 +173,18 @@ async function submitDraftCreateRequest(input: {
     composerState,
   } = input;
 
-  invariant(workspaceDirectory, "Workspace directory is required");
-  invariant(workspaceExecutionAuthority, "Workspace authority is required");
+  invariant(workspaceDirectory, translateNow("composer.draft.error.workspaceDirectoryRequired"));
+  invariant(
+    workspaceExecutionAuthority,
+    translateNow("composer.draft.error.workspaceAuthorityRequired"),
+  );
   if (!client) {
     throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
   }
 
   const provider = autoSubmitConfig?.provider ?? composerState.selectedProvider;
   if (!provider) {
-    throw new Error("Select a model");
+    throw new Error(translateNow("composer.draft.error.selectModel"));
   }
   const modeIdOverride = resolveDraftModeIdOverride({
     autoSubmitConfig,
@@ -237,7 +240,7 @@ function buildDraftAgentSnapshot(input: {
   };
 }): Agent {
   const { attempt, serverId, tabId, workspaceDirectory, autoSubmitConfig, composerState } = input;
-  invariant(workspaceDirectory, "Workspace directory is required");
+  invariant(workspaceDirectory, translateNow("composer.draft.error.workspaceDirectoryRequired"));
   const now = attempt.timestamp;
   const model = autoSubmitConfig?.model ?? (composerState.effectiveModelId || null);
   const thinkingOptionId =
@@ -249,7 +252,7 @@ function buildDraftAgentSnapshot(input: {
   });
   const provider = autoSubmitConfig?.provider ?? composerState.selectedProvider;
   if (!provider) {
-    throw new Error("Select a model");
+    throw new Error(translateNow("composer.draft.error.selectModel"));
   }
   return {
     serverId,

@@ -202,6 +202,35 @@ function createAgentMcpBaseUrl(listenTarget: ListenTarget | null): string | null
   ).toString();
 }
 
+function readLockedProviderModel(value: unknown): DoyaDaemonConfig["lockedProviderModel"] {
+  if (!isPlainRecord(value)) {
+    return null;
+  }
+  const record = value;
+  if (typeof record.provider !== "string" || typeof record.model !== "string") {
+    return null;
+  }
+  const provider = record.provider.trim();
+  const model = record.model.trim();
+  if (!provider || !model) {
+    return null;
+  }
+  const lockedProviderModel: NonNullable<DoyaDaemonConfig["lockedProviderModel"]> = {
+    provider,
+    model,
+  };
+  if (typeof record.modeId === "string" && record.modeId.trim()) {
+    lockedProviderModel.modeId = record.modeId.trim();
+  }
+  if (typeof record.thinkingOptionId === "string" && record.thinkingOptionId.trim()) {
+    lockedProviderModel.thinkingOptionId = record.thinkingOptionId.trim();
+  }
+  if (isPlainRecord(record.featureValues)) {
+    lockedProviderModel.featureValues = record.featureValues;
+  }
+  return lockedProviderModel;
+}
+
 async function streamLocalFile(input: {
   absolutePath: string;
   cacheControl?: string;
@@ -360,6 +389,13 @@ export interface DoyaDaemonConfig {
       thinkingOptionId?: string;
     }>;
   };
+  lockedProviderModel?: {
+    provider: AgentProvider;
+    model: string;
+    modeId?: string;
+    thinkingOptionId?: string;
+    featureValues?: Record<string, unknown>;
+  } | null;
   providerOverrides?: Record<string, ProviderOverride>;
   log?: PersistedConfig["log"];
   onLifecycleIntent?: (intent: DaemonLifecycleIntent) => void;
@@ -405,6 +441,9 @@ export async function createDoyaDaemon(
       ),
       metadataGeneration: {
         providers: config.metadataGeneration?.providers ?? [],
+      },
+      agents: {
+        lockedProviderModel: config.lockedProviderModel ?? null,
       },
       autoArchiveAfterMerge: config.autoArchiveAfterMerge ?? false,
       appendSystemPrompt: config.appendSystemPrompt ?? "",
@@ -1226,6 +1265,7 @@ export async function createDoyaDaemon(
     providerDefinitions: initialAgentManagerState.providerDefinitions,
     registry: agentStorage,
     appendSystemPrompt: config.appendSystemPrompt,
+    lockedProviderModel: config.lockedProviderModel ?? null,
     onRawStreamEvent: ({ agentId, event, labels }) => {
       conversationRecordingStore.recordAgentStreamEvent(agentId, event);
       return controlTimelineSync.sync({ agentId, event, labels });
@@ -1661,6 +1701,9 @@ export async function createDoyaDaemon(
           });
           daemonConfigStore.onFieldChange("appendSystemPrompt", (value) => {
             agentManager.setAppendSystemPrompt(typeof value === "string" ? value : "");
+          });
+          daemonConfigStore.onFieldChange("agents.lockedProviderModel", (value) => {
+            agentManager.setLockedProviderModel(readLockedProviderModel(value));
           });
           const relayEnabled = config.relayEnabled ?? true;
           const relayEndpoint = config.relayEndpoint ?? "relay.doya.sh:443";

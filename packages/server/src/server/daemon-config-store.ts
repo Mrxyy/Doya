@@ -183,20 +183,27 @@ function mergeMutableConfigIntoPersistedConfig(params: {
   };
   const shouldPersistMetadataGeneration =
     metadataGenerationProviders.length > 0 || persisted.agents?.metadataGeneration !== undefined;
+  const shouldPersistLockedProviderModel =
+    mutable.agents.lockedProviderModel !== null ||
+    persisted.agents?.lockedProviderModel !== undefined;
 
   let nextAgents = persisted.agents as PersistedConfig["agents"];
-  if (providerOverrides && Object.keys(providerOverrides).length > 0) {
+  if (
+    (providerOverrides && Object.keys(providerOverrides).length > 0) ||
+    shouldPersistMetadataGeneration ||
+    shouldPersistLockedProviderModel
+  ) {
     nextAgents = {
       ...persistedAgents,
-      providers: providerOverrides,
+      ...(providerOverrides && Object.keys(providerOverrides).length > 0
+        ? { providers: providerOverrides }
+        : {}),
       ...(shouldPersistMetadataGeneration
         ? { metadataGeneration: persistedMetadataGeneration }
         : {}),
-    } as PersistedConfig["agents"];
-  } else if (shouldPersistMetadataGeneration) {
-    nextAgents = {
-      ...persistedAgents,
-      metadataGeneration: persistedMetadataGeneration,
+      ...(shouldPersistLockedProviderModel
+        ? { lockedProviderModel: mutable.agents.lockedProviderModel }
+        : {}),
     } as PersistedConfig["agents"];
   }
 
