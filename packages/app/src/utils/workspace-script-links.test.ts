@@ -54,6 +54,20 @@ describe("resolveWorkspaceScriptLink", () => {
     });
   });
 
+  it("uses HTTPS for TLS direct network connections", () => {
+    expect(
+      resolveLink({
+        type: "directTcp",
+        endpoint: "www.codexppt.com:443",
+        display: "www.codexppt.com:443",
+        useTls: true,
+      }),
+    ).toEqual({
+      openUrl: "https://www.codexppt.com:3000",
+      labelUrl: "https://www.codexppt.com:3000",
+    });
+  });
+
   it("shows the local proxy URL but disables opening over relay", () => {
     expect(resolveLink({ type: "relay", endpoint: "relay.doya.sh:443", display: "relay" })).toEqual(
       {

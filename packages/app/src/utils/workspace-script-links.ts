@@ -14,11 +14,14 @@ function isLoopbackHost(host: string): boolean {
   );
 }
 
-function buildDirectServiceUrl(endpoint: string, port: number): string | null {
+function buildDirectServiceUrl(endpoint: string, port: number, useTls: boolean): string | null {
   try {
     const { host, isIpv6 } = parseHostPort(endpoint);
     const base = isIpv6 ? `[${host}]` : host;
-    return `http://${base}:${port}`;
+    const scheme = useTls ? "https" : "http";
+    const portSuffix =
+      (scheme === "https" && port === 443) || (scheme === "http" && port === 80) ? "" : `:${port}`;
+    return `${scheme}://${base}${portSuffix}`;
   } catch {
     return null;
   }
@@ -58,7 +61,11 @@ export function resolveWorkspaceScriptLink(input: {
     return { openUrl: null, labelUrl: script.proxyUrl };
   }
 
-  const directUrl = buildDirectServiceUrl(activeConnection.endpoint, script.port);
+  const directUrl = buildDirectServiceUrl(
+    activeConnection.endpoint,
+    script.port,
+    activeConnection.useTls === true,
+  );
   return {
     openUrl: directUrl,
     labelUrl: directUrl ?? script.proxyUrl,

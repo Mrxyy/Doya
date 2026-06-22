@@ -10,7 +10,11 @@ import {
   type AccountBootstrapSession,
 } from "@/account/account-api";
 import { bindControlReferralCode } from "@/control/control-api";
-import { AccountLoginCard, type AccountAuthMode } from "@/screens/open-project-screen";
+import {
+  AccountLoginCard,
+  isValidAccountPhone,
+  type AccountAuthMode,
+} from "@/screens/open-project-screen";
 import { isDev, isWeb } from "@/constants/platform";
 import { useI18n } from "@/i18n/i18n";
 import { getOverlayRoot, OVERLAY_Z } from "@/lib/overlay-root";
@@ -28,6 +32,7 @@ export function AccountLoginModalHost() {
     isDev ? "email" : "sms",
   );
   const [isSendingSmsCode, setIsSendingSmsCode] = useState(false);
+  const [smsResendRemainingSeconds, setSmsResendRemainingSeconds] = useState(0);
   const [accountBusy, setAccountBusy] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
   const accountWorkspaceName = t("account.workspace.defaultName");
@@ -37,7 +42,16 @@ export function AccountLoginModalHost() {
     setAccountError(null);
     setAccountBusy(false);
     setIsSendingSmsCode(false);
+    setSmsResendRemainingSeconds(0);
   }, [serverId]);
+
+  useEffect(() => {
+    if (smsResendRemainingSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setSmsResendRemainingSeconds((remaining) => Math.max(remaining - 1, 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [smsResendRemainingSeconds]);
 
   const handleClose = useCallback(() => {
     if (accountBusy) return;
@@ -45,11 +59,16 @@ export function AccountLoginModalHost() {
   }, [accountBusy, close]);
 
   const handleSendAccountSmsCode = useCallback(() => {
+    if (!isValidAccountPhone(accountPhone)) {
+      setAccountError(t("openProject.error.invalidPhone"));
+      return;
+    }
     setIsSendingSmsCode(true);
     setAccountError(null);
     void (async () => {
       try {
         await sendAccountSmsCode({ phone: accountPhone });
+        setSmsResendRemainingSeconds(60);
       } catch (caught) {
         setAccountError(caught instanceof Error ? caught.message : t("openProject.error.sendCode"));
       } finally {
@@ -57,6 +76,11 @@ export function AccountLoginModalHost() {
       }
     })();
   }, [accountPhone, t]);
+
+  const handlePhoneChange = useCallback((phone: string) => {
+    setAccountPhone(phone);
+    setSmsResendRemainingSeconds(0);
+  }, []);
 
   const saveAccountAndBindReferral = useCallback(
     async (session: AccountBootstrapSession) => {
@@ -73,6 +97,10 @@ export function AccountLoginModalHost() {
   );
 
   const handleLoginAccount = useCallback(() => {
+    if (!isValidAccountPhone(accountPhone)) {
+      setAccountError(t("openProject.error.invalidPhone"));
+      return;
+    }
     setAccountBusy(true);
     setAccountError(null);
     void (async () => {
@@ -132,14 +160,16 @@ export function AccountLoginModalHost() {
             accountPhone={accountPhone}
             accountSmsCode={accountSmsCode}
             isSendingSmsCode={isSendingSmsCode}
+            smsResendRemainingSeconds={smsResendRemainingSeconds}
             presentation="modal"
             onAuthModeChange={setAccountAuthMode}
             onEmailChange={setAccountEmail}
             onEmailLogin={handleDevEmailLoginAccount}
-            onPhoneChange={setAccountPhone}
+            onPhoneChange={handlePhoneChange}
             onSmsCodeChange={setAccountSmsCode}
             onSmsCodeSend={handleSendAccountSmsCode}
             onSmsLogin={handleLoginAccount}
+            onClose={handleClose}
           />
         </ScrollView>
       </View>
@@ -154,8 +184,10 @@ export function AccountLoginModalHost() {
       handleClose,
       handleDevEmailLoginAccount,
       handleLoginAccount,
+      handlePhoneChange,
       handleSendAccountSmsCode,
       isSendingSmsCode,
+      smsResendRemainingSeconds,
       t,
     ],
   );

@@ -44,7 +44,7 @@ import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-e
 export type HostRuntimeConnectionStatus = "idle" | "connecting" | "online" | "offline" | "error";
 
 export type ActiveConnection =
-  | { type: "directTcp"; endpoint: string; display: string }
+  | { type: "directTcp"; endpoint: string; display: string; useTls?: boolean }
   | { type: "directSocket"; endpoint: string; display: "socket" }
   | { type: "directPipe"; endpoint: string; display: "pipe" }
   | { type: "relay"; endpoint: string; display: "relay" };
@@ -206,6 +206,7 @@ function toActiveConnection(connection: HostConnection): ActiveConnection {
       type: "directTcp",
       endpoint: connection.endpoint,
       display: connection.endpoint,
+      useTls: connection.useTls ?? false,
     };
   }
   return {

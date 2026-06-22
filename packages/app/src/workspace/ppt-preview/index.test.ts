@@ -77,4 +77,15 @@ describe("buildWorkspacePptPreviewUrl", () => {
       }),
     ).toBe("http://127.0.0.1:6767/ppt-preview/agent-1/deck?lang=en");
   });
+
+  it("builds an absolute HTTPS URL for TLS direct TCP connections", () => {
+    expect(
+      buildWorkspacePptPreviewUrl({
+        activeConnection: { type: "directTcp", endpoint: "www.codexppt.com:443", useTls: true },
+        agentId: "agent-1",
+        locale: "en",
+        projectName: "deck",
+      }),
+    ).toBe("https://www.codexppt.com/ppt-preview/agent-1/deck?lang=en");
+  });
 });

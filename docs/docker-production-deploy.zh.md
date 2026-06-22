@@ -79,7 +79,7 @@ DOYA_CONTROL_IMAGE=jadenxiong/doya-control:latest
 DOYA_APP_IMAGE=jadenxiong/doya-app:latest
 
 DOYA_CORS_ORIGINS=https://www.codexppt.com,https://codexppt.com
-DOYA_HOSTNAMES=www.codexppt.com,codexppt.com
+DOYA_HOSTNAMES=www.codexppt.com,codexppt.com,server
 
 DOYA_RUNTIME_NODE_EMAIL=runtime-node@doya.local
 DOYA_RUNTIME_NODE_ID=prod-64-83-17-170
@@ -179,6 +179,24 @@ location /ws {
 
 location /control-api/ {
     proxy_pass http://127.0.0.1:6777/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location /ppt-confirm/ {
+    proxy_pass http://127.0.0.1:6767/ppt-confirm/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location /ppt-preview/ {
+    proxy_pass http://127.0.0.1:6767/ppt-preview/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;

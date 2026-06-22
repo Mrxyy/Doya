@@ -9,6 +9,7 @@ import {
   matchesModelSearch,
   resolveSelectedModelLabel,
   resolveSubmissionReadiness,
+  resolveEffectiveComposerModelId,
 } from "./provider-selection";
 
 describe("combined model selector data", () => {
@@ -278,6 +279,22 @@ describe("combined model selector data", () => {
         isLoading: false,
       }),
     ).toBe("Error");
+  });
+
+  it("uses the provider default as the effective model when the selected model is empty", () => {
+    expect(
+      resolveEffectiveComposerModelId({
+        provider: "codex",
+        modelId: "",
+        modeId: "",
+        thinkingOptionId: "",
+        availableModels: [
+          { provider: "codex", id: "gpt-5.4-mini", label: "GPT-5.4 Mini" },
+          { provider: "codex", id: "gpt-5.5", label: "GPT-5.5", isDefault: true },
+        ],
+        modeOptions: [],
+      }),
+    ).toBe("gpt-5.5");
   });
 
   it("returns observable submission readiness reasons", () => {

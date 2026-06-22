@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType } from "r
 import { ActivityIndicator, View, Text, Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
-import { ArrowRight, MessagesSquare, Plug, Smartphone, Sparkles } from "lucide-react-native";
+import { ArrowRight, MessagesSquare, Plug, Smartphone, Sparkles, X } from "lucide-react-native";
 import Svg, { Circle, Ellipse, Path } from "react-native-svg";
 import { AdaptiveModalSheet, AdaptiveTextInput } from "@/components/adaptive-modal-sheet";
 import { DoyaLogo } from "@/components/icons/doya-logo";
@@ -63,6 +63,11 @@ const AUTH_BUTTON_GRADIENT_KEYFRAME_CSS = `
   }
 `;
 export type AccountAuthMode = "sms" | "email";
+
+export function isValidAccountPhone(phone: string): boolean {
+  const compact = phone.trim().replace(/[\s-]/g, "");
+  return /^1\d{10}$/.test(compact) || /^\+861\d{10}$/.test(compact);
+}
 
 function ensureAuthButtonGradientKeyframes() {
   if (!isWeb || typeof document === "undefined") {
@@ -351,6 +356,7 @@ export interface AccountLoginCardProps {
   accountPhone: string;
   accountSmsCode: string;
   isSendingSmsCode: boolean;
+  smsResendRemainingSeconds: number;
   onAuthModeChange: (mode: AccountAuthMode) => void;
   onEmailChange: (email: string) => void;
   onEmailLogin: () => void;
@@ -358,11 +364,12 @@ export interface AccountLoginCardProps {
   onSmsCodeChange: (code: string) => void;
   onSmsCodeSend: () => void;
   onSmsLogin: () => void;
+  onClose?: () => void;
   presentation?: "page" | "modal";
 }
 
 export function AccountLoginCard(props: AccountLoginCardProps) {
-  const { presentation = "page", ...loginProps } = props;
+  const { onClose, presentation = "page", ...loginProps } = props;
   const cardStyle = useMemo(
     () => [styles.authCard, presentation === "modal" ? styles.authCardModal : null],
     [presentation],
@@ -370,6 +377,7 @@ export function AccountLoginCard(props: AccountLoginCardProps) {
 
   return (
     <View style={cardStyle}>
+      {presentation === "modal" && onClose ? <AuthCloseButton onPress={onClose} /> : null}
       <View style={styles.authHeader}>
         <View style={styles.authHeaderTop}>
           <View style={styles.authLogoBadge}>
@@ -390,6 +398,30 @@ export function AccountLoginCard(props: AccountLoginCardProps) {
   );
 }
 
+function AuthCloseButton({ onPress }: { onPress: () => void }) {
+  const { theme } = useUnistyles();
+  const [hovered, setHovered] = useState(false);
+  const handleHoverIn = useCallback(() => setHovered(true), []);
+  const handleHoverOut = useCallback(() => setHovered(false), []);
+  const buttonStyle = useMemo(
+    () => [styles.authCloseButton, hovered ? styles.authCloseButtonHovered : null],
+    [hovered],
+  );
+
+  return (
+    <Pressable
+      accessibilityLabel={translateNow("ui.dismiss.1j6d1ey")}
+      accessibilityRole="button"
+      onHoverIn={handleHoverIn}
+      onHoverOut={handleHoverOut}
+      onPress={onPress}
+      style={buttonStyle}
+    >
+      <X size={18} color={theme.colors.foregroundMuted} />
+    </Pressable>
+  );
+}
+
 function LoginFormPanel({
   accountAuthMode,
   accountBusy,
@@ -398,6 +430,7 @@ function LoginFormPanel({
   accountPhone,
   accountSmsCode,
   isSendingSmsCode,
+  smsResendRemainingSeconds,
   onAuthModeChange,
   onEmailChange,
   onEmailLogin,
@@ -419,13 +452,14 @@ function LoginFormPanel({
       accountPhone={accountPhone}
       accountSmsCode={accountSmsCode}
       isSendingSmsCode={isSendingSmsCode}
+      smsResendRemainingSeconds={smsResendRemainingSeconds}
       onPhoneChange={onPhoneChange}
       onSmsCodeChange={onSmsCodeChange}
       onSmsCodeSend={onSmsCodeSend}
     />
   );
   const canSubmitEmail = Boolean(accountEmail.trim());
-  const canSubmitSms = Boolean(accountPhone.trim()) && Boolean(accountSmsCode.trim());
+  const canSubmitSms = isValidAccountPhone(accountPhone) && Boolean(accountSmsCode.trim());
   const isSubmitDisabled =
     accountBusy ||
     (!shouldUseEmail && isSendingSmsCode) ||
@@ -693,6 +727,7 @@ function SmsLoginForm({
   accountPhone,
   accountSmsCode,
   isSendingSmsCode,
+  smsResendRemainingSeconds,
   onPhoneChange,
   onSmsCodeChange,
   onSmsCodeSend,
@@ -701,12 +736,33 @@ function SmsLoginForm({
   accountPhone: string;
   accountSmsCode: string;
   isSendingSmsCode: boolean;
+  smsResendRemainingSeconds: number;
   onPhoneChange: (phone: string) => void;
   onSmsCodeChange: (code: string) => void;
   onSmsCodeSend: () => void;
 }) {
   const { t } = useI18n();
   const codeInputStyle = useMemo(() => [styles.sheetInput, styles.codeInput], []);
+  const canSendCode = isValidAccountPhone(accountPhone);
+  const isResendWaiting = smsResendRemainingSeconds > 0;
+  const isSendCodeReady = canSendCode && !isResendWaiting;
+  const sendCodeLabel = isResendWaiting
+    ? t("openProject.accountAuth.resendCodeCountdown", {
+        seconds: smsResendRemainingSeconds,
+      })
+    : t("openProject.accountAuth.sendCode");
+  const sendCodeButtonStyle = useMemo(
+    () => [styles.sendCodeButton, isSendCodeReady ? styles.sendCodeButtonReady : null],
+    [isSendCodeReady],
+  );
+  const sendCodeButtonTextStyle = useMemo(
+    () => (isSendCodeReady ? styles.sendCodeButtonTextReady : null),
+    [isSendCodeReady],
+  );
+  const handleSendCodePress = useCallback(() => {
+    if (isResendWaiting) return;
+    onSmsCodeSend();
+  }, [isResendWaiting, onSmsCodeSend]);
 
   return (
     <View style={styles.sheetStack}>
@@ -738,12 +794,13 @@ function SmsLoginForm({
         <Button
           variant="secondary"
           size="sm"
-          style={styles.sendCodeButton}
+          style={sendCodeButtonStyle}
+          textStyle={sendCodeButtonTextStyle}
           loading={isSendingSmsCode}
-          disabled={isSendingSmsCode || !accountPhone.trim()}
-          onPress={onSmsCodeSend}
+          disabled={isSendingSmsCode || !canSendCode}
+          onPress={handleSendCodePress}
         >
-          {t("openProject.accountAuth.sendCode")}
+          {sendCodeLabel}
         </Button>
       </View>
       {accountError ? <Text style={styles.errorText}>{accountError}</Text> : null}
@@ -848,8 +905,24 @@ const styles = StyleSheet.create((theme) => ({
   },
   authCardModal: {
     maxWidth: { xs: 480, md: 600 },
+    height: { xs: "auto", md: 700 },
     paddingRight: { xs: 40, md: 56 },
     paddingLeft: { xs: 40, md: 56 },
+  },
+  authCloseButton: {
+    position: "absolute",
+    top: 18,
+    right: 18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface1,
+    zIndex: 3,
+  },
+  authCloseButtonHovered: {
+    backgroundColor: theme.colors.surface2,
   },
   authHeader: {
     gap: theme.spacing[6],
@@ -1095,7 +1168,14 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
   },
   sendCodeButton: {
-    minWidth: 116,
+    minWidth: 132,
+  },
+  sendCodeButtonReady: {
+    backgroundColor: theme.colors.surface0,
+    borderColor: theme.colors.accent,
+  },
+  sendCodeButtonTextReady: {
+    color: theme.colors.accent,
   },
   errorText: {
     color: theme.colors.destructive,

@@ -33,7 +33,7 @@ export function createWorkspacePptPreviewTabTarget(input: {
 }
 
 export function buildWorkspacePptPreviewUrl(input: {
-  activeConnection: { type: string; endpoint: string } | null;
+  activeConnection: { type: string; endpoint: string; useTls?: boolean } | null;
   agentId: string;
   projectName: string;
   locale?: "en" | "zh";
@@ -47,7 +47,10 @@ export function buildWorkspacePptPreviewUrl(input: {
   try {
     const { host, port, isIpv6 } = parseHostPort(input.activeConnection.endpoint);
     const baseHost = isIpv6 ? `[${host}]` : host;
-    return `http://${baseHost}:${port}${previewPath}`;
+    const scheme = input.activeConnection.useTls === true ? "https" : "http";
+    const portSuffix =
+      (scheme === "https" && port === 443) || (scheme === "http" && port === 80) ? "" : `:${port}`;
+    return `${scheme}://${baseHost}${portSuffix}${previewPath}`;
   } catch {
     return previewPath;
   }

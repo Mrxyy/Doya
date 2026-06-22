@@ -4,6 +4,8 @@ const DEFAULT_DOTSMS_TEMPLATE_URL = "https://api.dotsms.cn/sms/template";
 const CODE_TTL_MS = 5 * 60 * 1000;
 const RESEND_INTERVAL_MS = 60 * 1000;
 const MAX_VERIFY_ATTEMPTS = 5;
+const LOGIN_CODE_SMS_CONTENT_PREFIX = "您的验证码是:";
+const LOGIN_CODE_SMS_CONTENT_SUFFIX = "，感谢您的使用，请不要向他人分享验证码。";
 
 export interface SmsVerificationConfig {
   provider: "dotsms";
@@ -54,7 +56,7 @@ export class SmsVerificationService {
   async sendLoginCode(input: { phone: string }): Promise<void> {
     const phone = normalizePhone(input.phone);
     if (!phone) {
-      throw new SmsVerificationError("手机号不能为空");
+      throw new SmsVerificationError("请输入正确的手机号");
     }
 
     const config = this.requireConfig();
@@ -68,7 +70,7 @@ export class SmsVerificationService {
     await sendDotSmsTemplate({
       config,
       phone,
-      content: code,
+      code,
     });
 
     this.codes.set(phone, {
@@ -84,7 +86,7 @@ export class SmsVerificationService {
     const phone = normalizePhone(input.phone);
     const code = input.code.trim();
     if (!phone || !code) {
-      throw new SmsVerificationError("手机号和验证码不能为空");
+      throw new SmsVerificationError("请输入正确的手机号和验证码");
     }
 
     const record = this.codes.get(phone);
@@ -147,21 +149,15 @@ export function normalizePhone(phone: string): string {
 async function sendDotSmsTemplate(input: {
   config: SmsVerificationConfig;
   phone: string;
-  content: string;
+  code: string;
 }): Promise<void> {
+  const body = createDotSmsRequestBody(input);
   const response = await fetch(input.config.url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      apikey: input.config.apiKey,
-      secret: input.config.secret,
-      mobile: input.phone,
-      sign_id: input.config.signId,
-      template_id: input.config.templateId,
-      content: input.content,
-    }),
+    body: JSON.stringify(body),
   });
 
   let payload: DotSmsResponse;
@@ -174,4 +170,36 @@ async function sendDotSmsTemplate(input: {
   if (!response.ok || String(payload.code) !== "0") {
     throw new SmsVerificationError(payload.msg || "短信验证码发送失败", 502);
   }
+}
+
+function createDotSmsRequestBody(input: {
+  config: SmsVerificationConfig;
+  phone: string;
+  code: string;
+}): Record<string, string> {
+  const base = {
+    apikey: input.config.apiKey,
+    secret: input.config.secret,
+    mobile: input.phone,
+    sign_id: input.config.signId,
+  };
+  if (isDotSmsTemplateUrl(input.config.url)) {
+    return {
+      ...base,
+      template_id: input.config.templateId,
+      content: input.code,
+    };
+  }
+  return {
+    ...base,
+    content: formatLoginCodeSmsContent(input.code),
+  };
+}
+
+function isDotSmsTemplateUrl(url: string): boolean {
+  return new URL(url).pathname.endsWith("/sms/template");
+}
+
+function formatLoginCodeSmsContent(code: string): string {
+  return `${LOGIN_CODE_SMS_CONTENT_PREFIX}${code}${LOGIN_CODE_SMS_CONTENT_SUFFIX}`;
 }
