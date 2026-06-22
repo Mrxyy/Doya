@@ -41,20 +41,16 @@ describe("resolveSpeechConfig", () => {
     expect(result.speech.local).toEqual({
       modelsDir: path.join(doyaHome, "models", "local-speech"),
       models: {
-        dictationStt: "parakeet-tdt-0.6b-v2-int8",
-        voiceStt: "parakeet-tdt-0.6b-v2-int8",
-        voiceTts: "kokoro-en-v0_19",
-        voiceTtsSpeakerId: 0,
+        dictationStt: "paraformer-zh-small-2024-03-09",
+        voiceStt: "paraformer-zh-small-2024-03-09",
+        voiceTts: "vits-piper-zh_cn-xiao_ya-medium",
       },
     });
-    expect(result.speech.local?.models.dictationStt).toBe("parakeet-tdt-0.6b-v2-int8");
-    expect(result.speech.local?.models.voiceStt).toBe("parakeet-tdt-0.6b-v2-int8");
-    expect(result.speech.local?.models.voiceTts).toBe("kokoro-en-v0_19");
-    expect(result.speech.local?.models.voiceTtsSpeakerId).toBe(0);
-    expect(result.speech.sttLanguages).toEqual({
-      dictation: "en",
-      voice: "en",
-    });
+    expect(result.speech.local?.models.dictationStt).toBe("paraformer-zh-small-2024-03-09");
+    expect(result.speech.local?.models.voiceStt).toBe("paraformer-zh-small-2024-03-09");
+    expect(result.speech.local?.models.voiceTts).toBe("vits-piper-zh_cn-xiao_ya-medium");
+    expect(result.speech.local?.models.voiceTtsSpeakerId).toBeUndefined();
+    expect(result.speech.sttLanguages).toEqual({});
   });
 
   test("resolves feature-scoped local speech settings", () => {

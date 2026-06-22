@@ -138,7 +138,7 @@ export class OpenAISTT implements SpeechToTextProvider {
             }
 
             const wav = convertPCMToWavBuffer(pcm16);
-            const result = await transcribeAudio(wav, "audio/wav", params.language ?? "en", logger);
+            const result = await transcribeAudio(wav, "audio/wav", params.language, logger);
 
             emitter.emit("transcript", {
               segmentId: committedId,
@@ -176,7 +176,7 @@ export class OpenAISTT implements SpeechToTextProvider {
   private async transcribeAudioInternal(
     audioBuffer: Buffer,
     format: string,
-    language: string,
+    language: string | undefined,
     logger: pino.Logger,
   ): Promise<TranscriptionResult> {
     const startTime = Date.now();
@@ -196,8 +196,8 @@ export class OpenAISTT implements SpeechToTextProvider {
 
       const response = await this.openaiClient.audio.transcriptions.create({
         file: await import("fs").then((fs) => fs.createReadStream(tempFilePath!)),
-        language,
         model: modelToUse,
+        ...(language ? { language } : {}),
         ...(supportsLogprobs ? { include: includeLogprobs } : {}),
         response_format: "json",
       });

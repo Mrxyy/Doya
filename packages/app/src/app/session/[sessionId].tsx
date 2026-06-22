@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet as RNStyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams, type Href } from "expo-router";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
+import { MicVocal } from "lucide-react-native";
 import { loadAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
 import {
   getControlSession,
@@ -125,7 +126,7 @@ export default function ControlSessionRoute() {
             visibleMessages(messages).map((message) => (
               <View key={message.id} style={styles.messageRow}>
                 <Text style={styles.messageRole}>{message.role}</Text>
-                <Text style={styles.messageText}>{formatMessageContent(message.content)}</Text>
+                <MessageContent content={message.content} />
               </View>
             ))
           )}
@@ -135,7 +136,31 @@ export default function ControlSessionRoute() {
   );
 }
 
-function formatMessageContent(content: unknown): string {
+interface FormattedMessageContent {
+  kind: "plain" | "spoken";
+  text: string;
+}
+
+function MessageContent({ content }: { content: unknown }) {
+  const { t } = useI18n();
+  const formatted = formatMessageContent(content);
+  if (formatted.kind === "spoken") {
+    return (
+      <View style={styles.spokenCard}>
+        <View style={styles.spokenHeader}>
+          <View style={styles.spokenIcon}>
+            <ThemedMicVocal size={14} uniProps={iconColorMapping} />
+          </View>
+          <Text style={styles.spokenLabel}>{t("session.message.spokenInput")}</Text>
+        </View>
+        <Text style={styles.spokenText}>{formatted.text}</Text>
+      </View>
+    );
+  }
+  return <Text style={styles.messageText}>{formatted.text}</Text>;
+}
+
+function getTextContent(content: unknown): string {
   if (typeof content === "string") {
     return content;
   }
@@ -144,6 +169,21 @@ function formatMessageContent(content: unknown): string {
     return typeof text === "string" ? text : JSON.stringify(content);
   }
   return JSON.stringify(content);
+}
+
+function formatMessageContent(content: unknown): FormattedMessageContent {
+  const text = getTextContent(content);
+  const spokenMatch = text.match(/<spoken-input>\s*([\s\S]*?)\s*<\/spoken-input>/);
+  if (spokenMatch) {
+    return {
+      kind: "spoken",
+      text: spokenMatch[1]?.trim() ?? "",
+    };
+  }
+  return {
+    kind: "plain",
+    text: text.replace(/<instruction>[\s\S]*?<\/instruction>/g, "").trim(),
+  };
 }
 
 function visibleMessages(messages: ControlSessionMessageRecord[]): ControlSessionMessageRecord[] {
@@ -180,6 +220,40 @@ const styles = StyleSheet.create((theme) => ({
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
   },
+  spokenCard: {
+    alignSelf: "flex-start",
+    gap: theme.spacing[2],
+    maxWidth: "100%",
+    backgroundColor: theme.colors.surface1,
+    borderColor: theme.colors.border,
+    borderWidth: RNStyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: theme.spacing[3],
+    paddingVertical: theme.spacing[3],
+  },
+  spokenHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+  },
+  spokenIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface2,
+  },
+  spokenLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.medium,
+  },
+  spokenText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    lineHeight: 22,
+  },
   muted: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
@@ -187,4 +261,9 @@ const styles = StyleSheet.create((theme) => ({
   spinnerColor: {
     color: theme.colors.foregroundMuted,
   },
+}));
+
+const ThemedMicVocal = withUnistyles(MicVocal);
+const iconColorMapping = StyleSheet.create((theme) => ({
+  color: theme.colors.accent,
 }));

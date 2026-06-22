@@ -114,7 +114,7 @@ import {
   normalizeAiCreationStream,
 } from "./ai-creation";
 import { buildAgentStreamWorkspaceFileOpenRequest } from "./open-file";
-import { parseDoyaMessageCard, type DoyaMessageCard } from "@/utils/doya-message-markup";
+import type { DoyaMessageCard } from "@/utils/doya-message-markup";
 import { loadAccountBootstrapSession } from "@/account/account-api";
 import {
   getControlBillingSummary,
@@ -179,6 +179,37 @@ function isLiveArtifactProgressItem(
     cards.some(isLiveArtifactProgressCard) ||
     Boolean(extractAiCreationPptPreviewPath(item.text)) ||
     Boolean(extractAiCreationPptConfirmPath(item.text))
+  );
+}
+
+function getSpeakToolMessage(item: StreamItem | null): string | null {
+  if (item?.kind !== "tool_call" || item.payload.source !== "agent") {
+    return null;
+  }
+  const data = item.payload.data;
+  if (
+    data.name !== "speak" ||
+    data.detail.type !== "unknown" ||
+    typeof data.detail.input !== "string"
+  ) {
+    return null;
+  }
+  const text = data.detail.input.trim();
+  return text.length > 0 ? text : null;
+}
+
+function isDuplicateSpeakAssistantMessage(layoutItem: StreamLayoutItem): boolean {
+  const item = layoutItem.item;
+  if (item.kind !== "assistant_message") {
+    return false;
+  }
+  const text = item.text.trim();
+  if (!text) {
+    return false;
+  }
+  return (
+    getSpeakToolMessage(layoutItem.aboveItem) === text ||
+    getSpeakToolMessage(layoutItem.belowItem) === text
   );
 }
 
@@ -297,6 +328,13 @@ function toAssistantTurnBillingUsageFromStore(
     cacheReadTokens: usage.cacheReadTokens,
     actualCostCny: usage.actualCostCny,
   };
+}
+
+function filterBillingUsageLogsByAgentId(
+  logs: ControlUsageLogRecord[],
+  agentId: string,
+): ControlUsageLogRecord[] {
+  return logs.filter((log) => log.agentId === agentId);
 }
 
 function getTurnFooterHostCandidateTurnIds(host: TurnFooterHost): string[] {
@@ -457,7 +495,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         }
         const summary = await getControlBillingSummary({ accountSession });
         if (!cancelled) {
-          setBillingUsageLogs(summary.recentUsageLogs.filter((log) => log.agentId === agent.id));
+          setBillingUsageLogs(filterBillingUsageLogsByAgentId(summary.recentUsageLogs, agent.id));
         }
       })().catch(() => {});
 
@@ -743,6 +781,9 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
 
     const renderAssistantMessageItem = useCallback(
       (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "assistant_message" }>) => {
+        if (isDuplicateSpeakAssistantMessage(layoutItem)) {
+          return null;
+        }
         if (item.id === AI_CREATION_PLACEHOLDER_ID) {
           return <AiCreationPlaceholder title={item.text} />;
         }
@@ -883,16 +924,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
 
         if (payload.source === "agent") {
           const data = payload.data;
+          const speakMessage = getSpeakToolMessage(item);
 
-          if (
-            data.name === "speak" &&
-            data.detail.type === "unknown" &&
-            typeof data.detail.input === "string" &&
-            data.detail.input.trim()
-          ) {
-            return (
-              <SpeakMessage message={data.detail.input} timestamp={item.timestamp.getTime()} />
-            );
+          if (speakMessage) {
+            return <SpeakMessage message={speakMessage} timestamp={item.timestamp.getTime()} />;
           }
 
           return (

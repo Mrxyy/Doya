@@ -150,6 +150,7 @@ import {
   type AgentPromptInput,
   type AgentRunOptions,
   type AgentSessionConfig,
+  type AgentTimelineItem,
   type ProviderSnapshotEntry,
 } from "./agent/agent-sdk-types.js";
 import type { StoredAgentRecord } from "./agent/agent-storage.js";
@@ -177,6 +178,7 @@ import {
   type WorkspaceRegistry,
 } from "./workspace-registry.js";
 import {
+  buildVoiceOnlyMcpServers,
   buildVoiceModeSystemPrompt,
   stripVoiceModeSystemPrompt,
   wrapSpokenInput,
@@ -540,6 +542,7 @@ const AVAILABLE_EDITOR_TARGETS_CACHE_KEY = "available";
 
 interface VoiceModeBaseConfig {
   systemPrompt?: string;
+  mcpServers?: AgentSessionConfig["mcpServers"];
 }
 
 interface AudioBufferState {
@@ -759,6 +762,15 @@ export class Session {
   // Voice mode state
   private isVoiceMode = false;
   private speechInProgress = false;
+  private readonly voiceFallbackSpokenTurnIds = new Set<string>();
+  private readonly pendingSpokenVoiceAgentIds = new Set<string>();
+  private readonly spokenVoiceTurnIds = new Set<string>();
+  private readonly activeSpokenVoiceTurnIdsByAgentId = new Map<string, string>();
+  private readonly spokenVoiceAssistantTextByTurnId = new Map<string, string[]>();
+  private readonly spokenVoicePlayedToolTurnIds = new Set<string>();
+  private readonly playedSpeakToolCallIds = new Set<string>();
+  private voiceToolPlaybackQueue: Promise<void> = Promise.resolve();
+  private lastVoiceSpeakText: string | null = null;
 
   private dictationStreamManager!: DictationStreamManager;
   private resolveVoiceTurnDetection!: () => TurnDetectionProvider | null;
@@ -849,7 +861,7 @@ export class Session {
   private registerVoiceCallerContext?: (agentId: string, context: VoiceCallerContext) => void;
   private unregisterVoiceCallerContext?: (agentId: string) => void;
   private getSpeechReadiness?: () => SpeechReadinessSnapshot;
-  private readonly sttLanguage: string;
+  private readonly sttLanguage: string | undefined;
   private readonly serverId: string | undefined;
   private readonly daemonVersion: string | undefined;
   private readonly daemonRuntimeConfig: SessionOptions["daemonRuntimeConfig"];
@@ -986,7 +998,7 @@ export class Session {
     this.getDaemonTcpPort = getDaemonTcpPort ?? null;
     this.getDaemonTcpHost = getDaemonTcpHost ?? null;
     this.resolveScriptHealth = resolveScriptHealth ?? null;
-    this.sttLanguage = sttLanguage ?? "en";
+    this.sttLanguage = sttLanguage;
     this.subscribeToOptionalManagers();
     this.bindVoiceBridges({ voice, voiceBridge, dictation });
     this.serverId = serverId;
@@ -1354,28 +1366,7 @@ export class Session {
           return;
         }
 
-        if (
-          this.isVoiceMode &&
-          this.voiceModeAgentId === event.agentId &&
-          event.event.type === "permission_requested" &&
-          isVoicePermissionAllowed(event.event.request)
-        ) {
-          const requestId = event.event.request.id;
-          void this.agentManager
-            .respondToPermission(event.agentId, requestId, {
-              behavior: "allow",
-            })
-            .catch((error) => {
-              this.sessionLogger.warn(
-                {
-                  err: error,
-                  agentId: event.agentId,
-                  requestId,
-                },
-                "Failed to auto-allow speak tool permission in voice mode",
-              );
-            });
-        }
+        this.handleVoiceAgentStreamEvent(event);
 
         const serializedEvent = serializeAgentStreamEvent(event.event);
         if (!serializedEvent) {
@@ -1421,6 +1412,77 @@ export class Session {
       },
       { replayState: false },
     );
+  }
+
+  private handleVoiceAgentStreamEvent(
+    event: Extract<AgentManagerEvent, { type: "agent_stream" }>,
+  ): void {
+    if (!this.isVoiceMode || this.voiceModeAgentId !== event.agentId) {
+      return;
+    }
+
+    if (
+      event.event.type === "permission_requested" &&
+      isVoicePermissionAllowed(event.event.request)
+    ) {
+      this.allowVoicePermissionRequest(event.agentId, event.event.request.id);
+      return;
+    }
+
+    if (event.event.type === "turn_started" && this.pendingSpokenVoiceAgentIds.has(event.agentId)) {
+      this.trackSpokenVoiceTurnStart(event.agentId, event.event.turnId);
+      return;
+    }
+
+    if (event.event.type === "timeline" && event.event.item.type === "assistant_message") {
+      this.recordSpokenVoiceAssistantText(
+        event.agentId,
+        event.event.item.turnId,
+        event.event.item.text,
+      );
+      return;
+    }
+
+    if (event.event.type === "timeline" && event.event.item.type === "tool_call") {
+      this.recordSpokenVoiceToolCallText(event.agentId, event.event.item);
+      return;
+    }
+
+    if (event.event.type === "turn_completed") {
+      void this.handleVoiceTurnCompletedFallback(event.agentId, event.event.turnId).catch(
+        (error) => {
+          this.sessionLogger.warn(
+            { err: error, agentId: event.agentId, turnId: event.event.turnId },
+            "Failed to play voice fallback for completed turn",
+          );
+        },
+      );
+    }
+  }
+
+  private allowVoicePermissionRequest(agentId: string, requestId: string): void {
+    void this.agentManager
+      .respondToPermission(agentId, requestId, {
+        behavior: "allow",
+      })
+      .catch((error) => {
+        this.sessionLogger.warn(
+          {
+            err: error,
+            agentId,
+            requestId,
+          },
+          "Failed to auto-allow speak tool permission in voice mode",
+        );
+      });
+  }
+
+  private trackSpokenVoiceTurnStart(agentId: string, turnId: string | undefined): void {
+    this.pendingSpokenVoiceAgentIds.delete(agentId);
+    const turnKey = this.getSpokenVoiceTurnKey(agentId, turnId);
+    this.spokenVoiceTurnIds.add(turnKey);
+    this.activeSpokenVoiceTurnIdsByAgentId.set(agentId, turnKey);
+    this.spokenVoiceAssistantTextByTurnId.set(turnKey, []);
   }
 
   private buildAgentStreamPayload(
@@ -2753,7 +2815,11 @@ export class Session {
           await this.disableVoiceModeForActiveAgent(true);
         }
 
-        if (!this.isVoiceMode || this.voiceModeAgentId !== normalizedAgentId) {
+        if (
+          !this.isVoiceMode ||
+          this.voiceModeAgentId !== normalizedAgentId ||
+          !this.voiceModeBaseConfig
+        ) {
           this.sessionLogger.info(
             { agentId: normalizedAgentId, elapsedMs: Date.now() - startedAt },
             "set_voice_mode enabling voice for agent",
@@ -2857,6 +2923,15 @@ export class Session {
 
   private async enableVoiceModeForAgent(agentId: string): Promise<string> {
     const startedAt = Date.now();
+    this.voiceFallbackSpokenTurnIds.clear();
+    this.pendingSpokenVoiceAgentIds.clear();
+    this.spokenVoiceTurnIds.clear();
+    this.activeSpokenVoiceTurnIdsByAgentId.clear();
+    this.spokenVoiceAssistantTextByTurnId.clear();
+    this.spokenVoicePlayedToolTurnIds.clear();
+    this.playedSpeakToolCallIds.clear();
+    this.voiceToolPlaybackQueue = Promise.resolve();
+    this.lastVoiceSpeakText = null;
     this.sessionLogger.info({ agentId }, "enableVoiceModeForAgent.ensureAgentLoaded.start");
     const existing = await ensureAgentLoaded(agentId, {
       agentManager: this.agentManager,
@@ -2872,11 +2947,28 @@ export class Session {
 
     const baseConfig: VoiceModeBaseConfig = {
       systemPrompt: stripVoiceModeSystemPrompt(existing.config.systemPrompt),
+      mcpServers: existing.config.mcpServers,
     };
     this.voiceModeBaseConfig = baseConfig;
+    const voiceMcpServers = buildVoiceOnlyMcpServers(
+      this.mcpBaseUrl,
+      agentId,
+      baseConfig.mcpServers,
+    );
+    this.sessionLogger.info(
+      {
+        agentId,
+        mcpBaseUrlConfigured: this.mcpBaseUrl !== null,
+        hasVoiceMcpServer: Boolean(voiceMcpServers && "doya_voice" in voiceMcpServers),
+      },
+      "Voice mode MCP override prepared",
+    );
     const refreshOverrides: Partial<AgentSessionConfig> = {
       systemPrompt: buildVoiceModeSystemPrompt(baseConfig.systemPrompt, true),
     };
+    if (voiceMcpServers) {
+      refreshOverrides.mcpServers = voiceMcpServers;
+    }
 
     try {
       this.sessionLogger.info(
@@ -2912,9 +3004,11 @@ export class Session {
     if (restoreAgentConfig && this.voiceModeBaseConfig) {
       const baseConfig = this.voiceModeBaseConfig;
       try {
-        await this.agentManager.reloadAgentSession(agentId, {
+        const restoreOverrides: Partial<AgentSessionConfig> = {
           systemPrompt: buildVoiceModeSystemPrompt(baseConfig.systemPrompt, false),
-        });
+          mcpServers: baseConfig.mcpServers ?? {},
+        };
+        await this.agentManager.reloadAgentSession(agentId, restoreOverrides);
       } catch (error) {
         this.sessionLogger.warn(
           { err: error, agentId },
@@ -2925,6 +3019,15 @@ export class Session {
 
     this.voiceModeBaseConfig = null;
     this.voiceModeAgentId = null;
+    this.voiceFallbackSpokenTurnIds.clear();
+    this.pendingSpokenVoiceAgentIds.clear();
+    this.spokenVoiceTurnIds.clear();
+    this.activeSpokenVoiceTurnIdsByAgentId.clear();
+    this.spokenVoiceAssistantTextByTurnId.clear();
+    this.spokenVoicePlayedToolTurnIds.clear();
+    this.playedSpeakToolCallIds.clear();
+    this.voiceToolPlaybackQueue = Promise.resolve();
+    this.lastVoiceSpeakText = null;
   }
 
   private handleDictationManagerMessage(msg: DictationStreamOutboundMessage): void {
@@ -3020,7 +3123,7 @@ export class Session {
           });
         },
         onError: (error) => {
-          this.sessionLogger.error({ err: error }, "Voice turn controller failed");
+          this.handleVoiceTurnControllerError(controller, error);
         },
       },
     });
@@ -3029,6 +3132,23 @@ export class Session {
     await controller.start();
     this.voiceTurnController = controller;
     this.sessionLogger.info("startVoiceTurnController connected");
+  }
+
+  private handleVoiceTurnControllerError(controller: VoiceTurnController, error: unknown): void {
+    this.sessionLogger.error({ err: error }, "Voice turn controller failed");
+    if (this.voiceTurnController !== controller) {
+      return;
+    }
+    this.voiceTurnController = null;
+    void this.stopVoiceTurnControllerAfterError(controller);
+  }
+
+  private async stopVoiceTurnControllerAfterError(controller: VoiceTurnController): Promise<void> {
+    try {
+      await controller.stop();
+    } catch (error) {
+      this.sessionLogger.warn({ err: error }, "Failed to stop voice turn controller after error");
+    }
   }
 
   private async stopVoiceTurnController(): Promise<void> {
@@ -3081,6 +3201,9 @@ export class Session {
 
     const promptText = options?.spokenInput ? wrapSpokenInput(text) : text;
     const prompt = this.buildAgentPrompt(promptText, images, attachments);
+    if (options?.spokenInput) {
+      this.pendingSpokenVoiceAgentIds.add(agentId);
+    }
 
     try {
       await sendPromptToAgent({
@@ -3094,6 +3217,9 @@ export class Session {
       });
       return { ok: true };
     } catch (error) {
+      if (options?.spokenInput) {
+        this.pendingSpokenVoiceAgentIds.delete(agentId);
+      }
       this.handleAgentRunError(agentId, error, "Failed to send agent message");
       return {
         ok: false,
@@ -8253,7 +8379,43 @@ export class Session {
     chunkFormat: string,
   ): Promise<void> {
     if (!this.voiceTurnController) {
-      throw new Error("Voice mode is enabled but the voice turn controller is not running");
+      this.sessionLogger.warn(
+        { agentId: this.voiceModeAgentId },
+        "Voice mode controller missing while receiving audio; attempting restart",
+      );
+      try {
+        await this.startVoiceTurnController();
+      } catch (error) {
+        this.sessionLogger.error(
+          { err: error, agentId: this.voiceModeAgentId },
+          "Failed to restart voice turn controller; disabling voice mode",
+        );
+        this.isVoiceMode = false;
+        this.voiceModeAgentId = null;
+        this.voiceModeBaseConfig = null;
+        this.voiceFallbackSpokenTurnIds.clear();
+        this.pendingSpokenVoiceAgentIds.clear();
+        this.spokenVoiceTurnIds.clear();
+        this.activeSpokenVoiceTurnIdsByAgentId.clear();
+        this.spokenVoiceAssistantTextByTurnId.clear();
+        this.spokenVoicePlayedToolTurnIds.clear();
+        this.playedSpeakToolCallIds.clear();
+        this.voiceToolPlaybackQueue = Promise.resolve();
+        this.lastVoiceSpeakText = null;
+        this.emit({
+          type: "activity_log",
+          payload: {
+            id: uuidv4(),
+            timestamp: new Date(),
+            type: "error",
+            content: "Voice mode stopped because the voice controller failed to restart.",
+          },
+        });
+        throw error;
+      }
+      if (!this.voiceTurnController) {
+        throw new Error("Voice mode controller restart did not create a controller");
+      }
     }
     const chunkBytes = Buffer.byteLength(msg.audio, "base64");
     this.voiceInputChunkCount += 1;
@@ -8586,6 +8748,7 @@ export class Session {
 
   private registerVoiceBridgeForAgent(agentId: string): void {
     this.registerVoiceSpeakHandler?.(agentId, async ({ text, signal }) => {
+      this.lastVoiceSpeakText = text;
       this.sessionLogger.info(
         {
           agentId,
@@ -8621,6 +8784,171 @@ export class Session {
       allowCustomCwd: false,
       enableVoiceTools: true,
     });
+  }
+
+  private getSpokenVoiceTurnKey(agentId: string, turnId: string | undefined): string {
+    return turnId ? `turn:${turnId}` : `agent:${agentId}`;
+  }
+
+  private recordSpokenVoiceAssistantText(
+    agentId: string,
+    turnId: string | undefined,
+    text: string,
+  ): void {
+    const turnKey = turnId
+      ? this.getSpokenVoiceTurnKey(agentId, turnId)
+      : this.activeSpokenVoiceTurnIdsByAgentId.get(agentId);
+    if (!turnKey || !this.spokenVoiceTurnIds.has(turnKey)) {
+      return;
+    }
+    const parts = this.spokenVoiceAssistantTextByTurnId.get(turnKey);
+    if (parts) {
+      if (parts[parts.length - 1]?.trim() === text.trim()) {
+        return;
+      }
+      parts.push(text);
+    } else {
+      this.spokenVoiceAssistantTextByTurnId.set(turnKey, [text]);
+    }
+  }
+
+  private extractSpeakToolText(item: Extract<AgentTimelineItem, { type: "tool_call" }>): string {
+    if (item.name !== "speak" || item.detail.type !== "unknown") {
+      return "";
+    }
+
+    const input = item.detail.input;
+    if (typeof input === "string") {
+      return input.trim();
+    }
+    if (input && typeof input === "object" && "text" in input) {
+      const text = (input as { text?: unknown }).text;
+      return typeof text === "string" ? text.trim() : "";
+    }
+    return "";
+  }
+
+  private recordSpokenVoiceToolCallText(
+    agentId: string,
+    item: Extract<AgentTimelineItem, { type: "tool_call" }>,
+  ): void {
+    const text = this.extractSpeakToolText(item);
+    if (!text) {
+      return;
+    }
+    this.recordSpokenVoiceAssistantText(agentId, undefined, text);
+    const turnKey = this.activeSpokenVoiceTurnIdsByAgentId.get(agentId);
+    if (turnKey) {
+      this.spokenVoicePlayedToolTurnIds.add(turnKey);
+    }
+    this.playSpeakToolCallText(agentId, item.callId, text);
+  }
+
+  private playSpeakToolCallText(agentId: string, callId: string, text: string): void {
+    if (this.playedSpeakToolCallIds.has(callId)) {
+      return;
+    }
+    this.playedSpeakToolCallIds.add(callId);
+    this.lastVoiceSpeakText = text;
+    this.voiceToolPlaybackQueue = this.voiceToolPlaybackQueue
+      .catch(() => undefined)
+      .then(() =>
+        this.playSpeakToolCallTextNow({
+          agentId,
+          callId,
+          text,
+          signal: this.abortController.signal,
+        }),
+      );
+  }
+
+  private async playSpeakToolCallTextNow(params: {
+    agentId: string;
+    callId: string;
+    text: string;
+    signal: AbortSignal;
+  }): Promise<void> {
+    const { agentId, callId, text, signal } = params;
+    if (signal.aborted) {
+      return;
+    }
+    this.sessionLogger.info(
+      {
+        agentId,
+        callId,
+        textLength: text.length,
+        preview: text.slice(0, 160),
+        playbackRoute: "voice-runtime",
+      },
+      "Playing voice speak tool-call text immediately",
+    );
+    await this.ttsManager.generateAndWaitForPlayback(text, (msg) => this.emit(msg), signal, true);
+    this.sessionLogger.info(
+      { agentId, callId, textLength: text.length },
+      "Voice speak tool-call text finished playback",
+    );
+  }
+
+  private async handleVoiceTurnCompletedFallback(
+    agentId: string,
+    turnId: string | undefined,
+  ): Promise<void> {
+    const turnKey = this.getSpokenVoiceTurnKey(agentId, turnId);
+    if (!this.spokenVoiceTurnIds.has(turnKey)) {
+      return;
+    }
+    this.spokenVoiceTurnIds.delete(turnKey);
+    if (this.activeSpokenVoiceTurnIdsByAgentId.get(agentId) === turnKey) {
+      this.activeSpokenVoiceTurnIdsByAgentId.delete(agentId);
+    }
+    if (this.voiceFallbackSpokenTurnIds.has(turnKey)) {
+      return;
+    }
+    this.voiceFallbackSpokenTurnIds.add(turnKey);
+
+    const textParts = this.spokenVoiceAssistantTextByTurnId.get(turnKey) ?? [];
+    this.spokenVoiceAssistantTextByTurnId.delete(turnKey);
+    const alreadyPlayedSpeakTool = this.spokenVoicePlayedToolTurnIds.delete(turnKey);
+    if (alreadyPlayedSpeakTool) {
+      this.sessionLogger.info(
+        { agentId, turnId, turnKey },
+        "Skipping voice fallback because speak tool-call already played this turn",
+      );
+      return;
+    }
+    const trimmed = textParts.join("").trim();
+    if (!trimmed) {
+      this.sessionLogger.info(
+        { agentId, turnId, turnKey },
+        "Skipping voice fallback because current turn produced no assistant text",
+      );
+      return;
+    }
+    if (trimmed === this.lastVoiceSpeakText?.trim()) {
+      this.sessionLogger.info(
+        { agentId, turnId, turnKey, textLength: trimmed.length },
+        "Skipping voice fallback because speak already played same text",
+      );
+      return;
+    }
+
+    this.sessionLogger.info(
+      {
+        agentId,
+        turnId,
+        turnKey,
+        textLength: trimmed.length,
+        preview: trimmed.slice(0, 160),
+        playbackRoute: "voice-runtime",
+      },
+      "Playing voice fallback for assistant text response",
+    );
+    await this.ttsManager.generateAndWaitForPlayback(
+      trimmed,
+      (msg) => this.emit(msg),
+      this.abortController.signal,
+      true,
+    );
   }
 
   /**

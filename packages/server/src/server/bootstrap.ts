@@ -299,8 +299,8 @@ export type DoyaOpenAIConfig = OpenAiSpeechProviderConfig;
 export type DoyaLocalSpeechConfig = LocalSpeechProviderConfig;
 
 export interface DoyaSpeechSttLanguages {
-  dictation: string;
-  voice: string;
+  dictation?: string;
+  voice?: string;
 }
 
 export interface DoyaSpeechConfig {
@@ -1435,7 +1435,10 @@ export async function createDoyaDaemon(
     const agentMcpRoute = "/mcp/agents";
     const agentMcpTransports: AgentMcpTransportMap = new Map();
 
-    const createAgentMcpTransport = async (callerAgentId?: string) => {
+    const createAgentMcpTransport = async (params?: {
+      callerAgentId?: string;
+      voiceOnly?: boolean;
+    }) => {
       const agentMcpServer = await createAgentMcpServer({
         agentManager,
         agentStorage,
@@ -1501,8 +1504,9 @@ export async function createDoyaDaemon(
         },
         doyaHome,
         worktreesRoot: config.worktreesRoot,
-        callerAgentId,
+        callerAgentId: params?.callerAgentId,
         enableVoiceTools: false,
+        voiceOnly: params?.voiceOnly ?? false,
         resolveSpeakHandler: (agentId) => wsServer?.resolveVoiceSpeakHandler(agentId) ?? null,
         resolveCallerContext: (agentId) => wsServer?.resolveVoiceCallerContext(agentId) ?? null,
         logger,
@@ -1588,7 +1592,13 @@ export async function createDoyaDaemon(
           } else if (Array.isArray(callerAgentIdRaw) && typeof callerAgentIdRaw[0] === "string") {
             callerAgentId = callerAgentIdRaw[0];
           }
-          transport = await createAgentMcpTransport(callerAgentId);
+          const voiceOnlyRaw = req.query.voiceOnly;
+          const voiceOnly =
+            voiceOnlyRaw === "1" ||
+            voiceOnlyRaw === "true" ||
+            (Array.isArray(voiceOnlyRaw) &&
+              (voiceOnlyRaw[0] === "1" || voiceOnlyRaw[0] === "true"));
+          transport = await createAgentMcpTransport({ callerAgentId, voiceOnly });
         }
 
         await transport.handleRequest(

@@ -130,7 +130,7 @@ describe("DictationStreamManager (provider-agnostic provider)", () => {
   function resolveDictationLanguage(params: {
     env?: NodeJS.ProcessEnv;
     persisted?: unknown;
-  }): string {
+  }): string | undefined {
     const result = resolveSpeechConfig({
       doyaHome: "/tmp/doya-home",
       env: params.env ?? ({} as NodeJS.ProcessEnv),
@@ -157,10 +157,10 @@ describe("DictationStreamManager (provider-agnostic provider)", () => {
     return sttProvider;
   }
 
-  it("defaults to English when dictation language config is unset", async () => {
+  it("does not force a language when dictation language config is unset", async () => {
     const sttProvider = await startWithResolvedDictationLanguage({});
 
-    expect(sttProvider.lastLanguage).toBe("en");
+    expect(sttProvider.lastLanguage).toBeUndefined();
   });
 
   it("uses DOYA_DICTATION_LANGUAGE when set", async () => {
@@ -180,7 +180,7 @@ describe("DictationStreamManager (provider-agnostic provider)", () => {
       } as NodeJS.ProcessEnv,
     });
 
-    expect(sttProvider.lastLanguage).toBe("en");
+    expect(sttProvider.lastLanguage).toBeUndefined();
   });
 
   it("uses settings dictation STT language when env var is unset", async () => {

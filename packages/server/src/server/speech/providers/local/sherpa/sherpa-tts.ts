@@ -6,7 +6,7 @@ import type { SpeechStreamResult, TextToSpeechProvider } from "../../../speech-p
 import { chunkBuffer, float32ToPcm16le } from "../../../audio.js";
 import { loadSherpaOnnxNode } from "./sherpa-onnx-node-loader.js";
 
-export type SherpaTtsPreset = "kokoro-en-v0_19";
+export type SherpaTtsPreset = "kokoro-en-v0_19" | "vits-piper-zh_cn-xiao_ya-medium";
 
 export interface SherpaTtsConfig {
   preset: SherpaTtsPreset;
@@ -34,6 +34,56 @@ interface SherpaOfflineTtsNative {
   free?: () => void;
 }
 
+function createKokoroModelConfig(config: SherpaTtsConfig): Record<string, unknown> {
+  const modelPath = `${config.modelDir}/model.onnx`;
+  const voicesPath = `${config.modelDir}/voices.bin`;
+  const tokensPath = `${config.modelDir}/tokens.txt`;
+  const dataDir = `${config.modelDir}/espeak-ng-data`;
+
+  assertFileExists(modelPath, "TTS model");
+  assertFileExists(voicesPath, "TTS voices");
+  assertFileExists(tokensPath, "TTS tokens");
+  assertFileExists(dataDir, "TTS espeak-ng dataDir");
+
+  return {
+    kokoro: {
+      model: modelPath,
+      voices: voicesPath,
+      tokens: tokensPath,
+      dataDir,
+      lengthScale: config.lengthScale ?? 1.0,
+    },
+  };
+}
+
+function createVitsPiperZhModelConfig(config: SherpaTtsConfig): Record<string, unknown> {
+  const modelPath = `${config.modelDir}/zh_CN-xiao_ya-medium.onnx`;
+  const tokensPath = `${config.modelDir}/tokens.txt`;
+  const lexiconPath = `${config.modelDir}/lexicon.txt`;
+
+  assertFileExists(modelPath, "TTS model");
+  assertFileExists(tokensPath, "TTS tokens");
+  assertFileExists(lexiconPath, "TTS lexicon");
+
+  return {
+    vits: {
+      model: modelPath,
+      lexicon: lexiconPath,
+      tokens: tokensPath,
+      noiseScale: 0.667,
+      noiseScaleW: 0.8,
+      lengthScale: config.lengthScale ?? 1.0,
+    },
+  };
+}
+
+function createModelConfig(config: SherpaTtsConfig): Record<string, unknown> {
+  if (config.preset === "kokoro-en-v0_19") {
+    return createKokoroModelConfig(config);
+  }
+  return createVitsPiperZhModelConfig(config);
+}
+
 export class SherpaOnnxTTS implements TextToSpeechProvider {
   private readonly tts: SherpaOfflineTtsNative;
   private readonly speakerId: number;
@@ -50,28 +100,8 @@ export class SherpaOnnxTTS implements TextToSpeechProvider {
       throw new Error("sherpa-onnx-node OfflineTts is unavailable");
     }
 
-    const modelPath = `${config.modelDir}/model.onnx`;
-    const voicesPath = `${config.modelDir}/voices.bin`;
-    const tokensPath = `${config.modelDir}/tokens.txt`;
-    const dataDir = `${config.modelDir}/espeak-ng-data`;
-
-    assertFileExists(modelPath, "TTS model");
-    assertFileExists(voicesPath, "TTS voices");
-    assertFileExists(tokensPath, "TTS tokens");
-    assertFileExists(dataDir, "TTS espeak-ng dataDir");
-
-    const modelConfig = {
-      kokoro: {
-        model: modelPath,
-        voices: voicesPath,
-        tokens: tokensPath,
-        dataDir,
-        lengthScale: config.lengthScale ?? 1.0,
-      },
-    };
-
     const offlineTtsConfig = {
-      model: modelConfig,
+      model: createModelConfig(config),
       numThreads: config.numThreads ?? 2,
       provider: "cpu",
       maxNumSentences: 1,

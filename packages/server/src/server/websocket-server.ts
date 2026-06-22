@@ -880,7 +880,7 @@ export class VoiceAssistantWebSocketServer {
       daemonConfigStore: this.daemonConfigStore,
       mcpBaseUrl: this.mcpBaseUrl,
       stt: () => this.speech?.resolveStt() ?? null,
-      sttLanguage: this.speech?.resolveSttLanguage() ?? "en",
+      sttLanguage: this.speech?.resolveSttLanguage(),
       tts: () => this.speech?.resolveTts() ?? null,
       terminalManager: this.terminalManager,
       providerSnapshotManager: this.providerSnapshotManager,
@@ -914,7 +914,7 @@ export class VoiceAssistantWebSocketServer {
           ? {
               finalTimeoutMs: this.dictation?.finalTimeoutMs,
               stt: () => this.speech?.resolveDictationStt() ?? null,
-              sttLanguage: this.speech?.resolveDictationSttLanguage() ?? "en",
+              sttLanguage: this.speech?.resolveDictationSttLanguage(),
               getSpeechReadiness: () => this.speech!.getReadiness(),
             }
           : undefined,

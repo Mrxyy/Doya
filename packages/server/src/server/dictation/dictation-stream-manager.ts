@@ -130,7 +130,7 @@ export class DictationStreamManager {
   private readonly emit: (msg: DictationStreamOutboundMessage) => void;
   private readonly sessionId: string;
   private readonly resolveStt: () => SpeechToTextProvider | null;
-  private readonly language: string;
+  private readonly language: string | undefined;
   private readonly finalTimeoutMs: number;
   private readonly autoCommitSeconds: number;
   private readonly streams = new Map<string, DictationStreamState>();
@@ -148,7 +148,7 @@ export class DictationStreamManager {
     this.emit = params.emit;
     this.sessionId = params.sessionId;
     this.resolveStt = toResolver(params.stt);
-    this.language = params.language ?? "en";
+    this.language = params.language;
     this.finalTimeoutMs = params.finalTimeoutMs ?? DEFAULT_DICTATION_FINAL_TIMEOUT_MS;
     this.autoCommitSeconds =
       params.autoCommitSeconds ??

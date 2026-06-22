@@ -391,6 +391,20 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     lineHeight: 22,
     overflowWrap: "anywhere",
   },
+  spokenInput: {
+    gap: theme.spacing[2],
+  },
+  spokenInputHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+  },
+  spokenInputLabel: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.medium,
+    lineHeight: 16,
+  },
   imagePreviewContainer: {
     flexDirection: "row",
     gap: theme.spacing[2],
@@ -1897,6 +1911,18 @@ function shouldUseDoyaCardBubble(input: {
   );
 }
 
+interface SpokenInputMessage {
+  text: string;
+}
+
+function parseSpokenInputMessage(message: string): SpokenInputMessage | null {
+  const match = message.match(/<spoken-input>\s*([\s\S]*?)\s*<\/spoken-input>/);
+  if (!match) {
+    return null;
+  }
+  return { text: match[1]?.trim() ?? "" };
+}
+
 export const UserMessage = memo(function UserMessage({
   serverId,
   agentId,
@@ -1926,10 +1952,14 @@ export const UserMessage = memo(function UserMessage({
     () => filterUserMessageDisplayAttachments({ images: displayImages, attachments }),
     [attachments, displayImages],
   );
-  const visibleMessage = useMemo(() => getDoyaMessageVisibleText(message), [message]);
+  const spokenInput = useMemo(() => parseSpokenInputMessage(message), [message]);
+  const visibleMessage = useMemo(
+    () => spokenInput?.text ?? getDoyaMessageVisibleText(message),
+    [message, spokenInput],
+  );
   const hasText = visibleMessage.trim().length > 0 || message.trim().length > 0;
   const doyaCard = useMemo(() => parseDoyaMessageCard(message), [message]);
-  const shouldRenderRawText = visibleMessage.trim().length > 0 && !doyaCard;
+  const shouldRenderRawText = visibleMessage.trim().length > 0 && !doyaCard && !spokenInput;
   const hasImages = displayImages.length > 0;
   const hasAttachments = displayAttachments.length > 0;
   const shouldUseDoyaBubble = shouldUseDoyaCardBubble({
@@ -1948,7 +1978,7 @@ export const UserMessage = memo(function UserMessage({
 
   const handlePointerEnter = useCallback(() => setIsHovered(true), []);
   const handlePointerLeave = useCallback(() => setIsHovered(false), []);
-  const getMessageContent = useCallback(() => message, [message]);
+  const getMessageContent = useCallback(() => spokenInput?.text ?? message, [message, spokenInput]);
   const handleRewind = useCallback(
     (input: { mode: RewindMode; rewoundText: string }) => {
       return rewindMutation.rewindAgent(input);
@@ -2041,6 +2071,19 @@ export const UserMessage = memo(function UserMessage({
             </View>
           ) : null}
           {doyaCard ? <UserMessageDoyaCard card={doyaCard} /> : null}
+          {spokenInput ? (
+            <View style={userMessageStylesheet.spokenInput}>
+              <View style={userMessageStylesheet.spokenInputHeader}>
+                <ThemedMicVocal size={12} uniProps={foregroundMutedColorMapping} />
+                <Text style={userMessageStylesheet.spokenInputLabel}>
+                  {translateNow("ui.spoke.1bosq4")}
+                </Text>
+              </View>
+              <Text selectable style={userMessageStylesheet.text}>
+                {spokenInput.text}
+              </Text>
+            </View>
+          ) : null}
           {shouldRenderRawText ? (
             <Text selectable style={userMessageStylesheet.text}>
               {visibleMessage}
@@ -2191,11 +2234,12 @@ export const AssistantTurnFooter = memo(function AssistantTurnFooter({
 
   const canSwap = Boolean(timestampLabel);
   const showTimestamp = canSwap && (isWeb ? hovered : pressedReveal);
-  const billingUsageLabel = billingUsage
-    ? formatAssistantTurnBillingUsage(billingUsage)
-    : durationLabel
-      ? translateNow("message.footer.billingUsageUnavailable")
-      : "";
+  let billingUsageLabel = "";
+  if (billingUsage) {
+    billingUsageLabel = formatAssistantTurnBillingUsage(billingUsage);
+  } else if (durationLabel) {
+    billingUsageLabel = translateNow("message.footer.billingUsageUnavailable");
+  }
 
   const handleHoverIn = useCallback(() => setHovered(true), []);
   const handleHoverOut = useCallback(() => setHovered(false), []);

@@ -16,6 +16,7 @@ interface RealtimeVoiceOverlayProps {
 
 const OVERLAY_BUTTON_SIZE = 44;
 const OVERLAY_VERTICAL_PADDING = (FOOTER_HEIGHT - OVERLAY_BUTTON_SIZE) / 2;
+const INPUT_WAVEFORM_VOLUME_THRESHOLD = 0.015;
 
 export function RealtimeVoiceOverlay({
   isMuted,
@@ -24,7 +25,11 @@ export function RealtimeVoiceOverlay({
   onStop,
 }: RealtimeVoiceOverlayProps) {
   const { theme } = useUnistyles();
-  const { volume, isSpeaking } = useVoiceTelemetry();
+  const { volume, isSpeaking, isPlayingAudio } = useVoiceTelemetry();
+  const isCapturingInput = !isMuted && volume > INPUT_WAVEFORM_VOLUME_THRESHOLD;
+  const isWaveformActive = isCapturingInput || isSpeaking || isPlayingAudio;
+  const effectiveVolume = isPlayingAudio ? Math.max(volume, 0.55) : volume;
+  const effectiveMuted = isMuted && !isPlayingAudio;
   const muteButtonStyle = useMemo(
     () => [
       styles.actionButton,
@@ -42,10 +47,12 @@ export function RealtimeVoiceOverlay({
     <View style={styles.container}>
       <View style={styles.meterContainer}>
         <VolumeMeter
-          volume={volume}
-          isMuted={isMuted}
-          isSpeaking={isSpeaking}
+          volume={effectiveVolume}
+          isMuted={effectiveMuted}
+          isSpeaking={isWaveformActive}
           orientation="horizontal"
+          variant="waveform"
+          color={isWaveformActive ? theme.colors.accent : theme.colors.foregroundMuted}
         />
       </View>
 

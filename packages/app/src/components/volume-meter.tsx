@@ -15,7 +15,7 @@ interface VolumeMeterProps {
   isMuted?: boolean;
   isSpeaking?: boolean;
   orientation?: "vertical" | "horizontal";
-  variant?: "default" | "compact";
+  variant?: "default" | "compact" | "waveform";
   color?: string;
 }
 
@@ -27,6 +27,37 @@ export function VolumeMeter({
   variant = "default",
   color,
 }: VolumeMeterProps) {
+  if (variant === "waveform") {
+    return (
+      <WaveformVolumeMeter
+        volume={volume}
+        isMuted={isMuted}
+        isSpeaking={isSpeaking}
+        color={color}
+      />
+    );
+  }
+
+  return (
+    <ClassicVolumeMeter
+      volume={volume}
+      isMuted={isMuted}
+      isSpeaking={isSpeaking}
+      orientation={orientation}
+      variant={variant}
+      color={color}
+    />
+  );
+}
+
+function ClassicVolumeMeter({
+  volume,
+  isMuted = false,
+  isSpeaking = false,
+  orientation = "vertical",
+  variant = "default",
+  color,
+}: Omit<VolumeMeterProps, "variant"> & { variant: "default" | "compact" }) {
   const { theme } = useUnistyles();
   const isCompact = variant === "compact";
 
@@ -195,6 +226,120 @@ export function VolumeMeter({
   );
 }
 
+const WAVEFORM_BAR_FACTORS = [0.38, 0.72, 0.52, 1, 0.58, 0.82, 0.44] as const;
+
+function WaveformVolumeMeter({
+  volume,
+  isMuted,
+  isSpeaking,
+  color,
+}: Pick<VolumeMeterProps, "volume" | "isMuted" | "isSpeaking" | "color">) {
+  const { theme } = useUnistyles();
+  const lineColor = color ?? theme.colors.foregroundMuted;
+  const containerStyle = useMemo(() => [styles.waveformContainer], []);
+  return (
+    <View
+      style={containerStyle}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      {WAVEFORM_BAR_FACTORS.map((factor, index) => (
+        <WaveformBar
+          key={`waveform-${factor}`}
+          factor={factor}
+          index={index}
+          volume={volume}
+          isMuted={Boolean(isMuted)}
+          isSpeaking={Boolean(isSpeaking)}
+          color={lineColor}
+        />
+      ))}
+    </View>
+  );
+}
+
+function WaveformBar({
+  factor,
+  index,
+  volume,
+  isMuted,
+  isSpeaking,
+  color,
+}: {
+  factor: number;
+  index: number;
+  volume: number;
+  isMuted: boolean;
+  isSpeaking: boolean;
+  color: string;
+}) {
+  const pulse = useSharedValue(1);
+  const animatedVolume = useSharedValue(0);
+
+  useEffect(() => {
+    if (isMuted) {
+      pulse.value = 0.55;
+      return;
+    }
+    if (!isSpeaking) {
+      pulse.value = withTiming(1, {
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+      });
+      return;
+    }
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(0.72 + factor * 0.22, { duration: index * 90 }),
+        withTiming(1.08 + factor * 0.34, {
+          duration: 520 + index * 45,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(0.76 + factor * 0.18, {
+          duration: 640 + index * 35,
+          easing: Easing.inOut(Easing.ease),
+        }),
+      ),
+      -1,
+      false,
+    );
+  }, [factor, index, isMuted, isSpeaking, pulse]);
+
+  useEffect(() => {
+    animatedVolume.value = withTiming(isMuted ? 0 : volume, {
+      duration: volume > animatedVolume.value ? 80 : 160,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [animatedVolume, isMuted, volume]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const volumeBoost = isSpeaking ? animatedVolume.value * 18 : 0;
+    const idleHeight = 10 + factor * 18;
+    let currentHeight = 10 + factor * 10;
+    if (isMuted) {
+      currentHeight = 8;
+    } else if (isSpeaking) {
+      currentHeight = idleHeight * pulse.value + volumeBoost;
+    }
+    let opacity = 0.64;
+    if (isMuted) {
+      opacity = 0.28;
+    } else if (isSpeaking) {
+      opacity = 0.92;
+    }
+    return {
+      height: Math.max(8, Math.min(38, currentHeight)),
+      opacity,
+    };
+  });
+  const barStyle = useMemo(
+    () => [styles.waveformBar, { backgroundColor: color }, animatedStyle],
+    [animatedStyle, color],
+  );
+
+  return <ReanimatedAnimated.View style={barStyle} />;
+}
+
 const styles = StyleSheet.create((theme) => ({
   container: {
     flexDirection: "row",
@@ -202,6 +347,18 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
   },
   line: {
+    borderRadius: theme.borderRadius.full,
+  },
+  waveformContainer: {
+    width: 92,
+    height: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing[1],
+  },
+  waveformBar: {
+    width: 5,
     borderRadius: theme.borderRadius.full,
   },
 }));

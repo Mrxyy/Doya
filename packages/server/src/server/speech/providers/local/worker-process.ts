@@ -3,7 +3,10 @@ import pino from "pino";
 import type { StreamingTranscriptionSession } from "../../speech-provider.js";
 import type { TurnDetectionSession } from "../../turn-detection-provider.js";
 import { getLocalSpeechModelDir, type LocalSttModelId, type LocalTtsModelId } from "./models.js";
-import { SherpaOfflineRecognizerEngine } from "./sherpa/sherpa-offline-recognizer.js";
+import {
+  SherpaOfflineRecognizerEngine,
+  type SherpaOfflineRecognizerModel,
+} from "./sherpa/sherpa-offline-recognizer.js";
 import { SherpaOnnxParakeetSTT } from "./sherpa/sherpa-parakeet-stt.js";
 import { SherpaParakeetRealtimeTranscriptionSession } from "./sherpa/sherpa-parakeet-realtime-session.js";
 import { SherpaOnnxTTS } from "./sherpa/sherpa-tts.js";
@@ -85,13 +88,7 @@ function getSttEngine(
   const modelDir = getLocalSpeechModelDir(config.modelsDir, modelId);
   const created = new SherpaOfflineRecognizerEngine(
     {
-      model: {
-        kind: "nemo_transducer",
-        encoder: `${modelDir}/encoder.int8.onnx`,
-        decoder: `${modelDir}/decoder.int8.onnx`,
-        joiner: `${modelDir}/joiner.int8.onnx`,
-        tokens: `${modelDir}/tokens.txt`,
-      },
+      model: createSttRecognizerModel(modelDir, modelId),
       numThreads: 2,
       debug: 0,
     },
@@ -99,6 +96,27 @@ function getSttEngine(
   );
   sttEngines.set(key, created);
   return created;
+}
+
+function createSttRecognizerModel(
+  modelDir: string,
+  modelId: LocalSttModelId,
+): SherpaOfflineRecognizerModel {
+  if (modelId === "paraformer-zh-small-2024-03-09") {
+    return {
+      kind: "paraformer",
+      model: `${modelDir}/model.int8.onnx`,
+      tokens: `${modelDir}/tokens.txt`,
+    };
+  }
+
+  return {
+    kind: "nemo_transducer",
+    encoder: `${modelDir}/encoder.int8.onnx`,
+    decoder: `${modelDir}/decoder.int8.onnx`,
+    joiner: `${modelDir}/joiner.int8.onnx`,
+    tokens: `${modelDir}/tokens.txt`,
+  };
 }
 
 function getSttProvider(

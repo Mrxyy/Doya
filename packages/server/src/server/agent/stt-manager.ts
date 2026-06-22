@@ -123,7 +123,7 @@ export class STTManager {
   private readonly sessionId: string;
   private readonly logger: pino.Logger;
   private readonly resolveStt: () => SpeechToTextProvider | null;
-  private readonly language: string;
+  private readonly language: string | undefined;
 
   constructor(
     sessionId: string,
@@ -134,7 +134,7 @@ export class STTManager {
     this.sessionId = sessionId;
     this.logger = logger.child({ module: "agent", component: "stt-manager", sessionId });
     this.resolveStt = toResolver(stt);
-    this.language = options?.language ?? "en";
+    this.language = options?.language;
   }
 
   public getProvider(): SpeechToTextProvider | null {

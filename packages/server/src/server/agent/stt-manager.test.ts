@@ -96,7 +96,10 @@ class SequencedFakeStt implements SpeechToTextProvider {
 }
 
 describe("STTManager", () => {
-  function resolveVoiceLanguage(params: { env?: NodeJS.ProcessEnv; persisted?: unknown }): string {
+  function resolveVoiceLanguage(params: {
+    env?: NodeJS.ProcessEnv;
+    persisted?: unknown;
+  }): string | undefined {
     const result = resolveSpeechConfig({
       doyaHome: "/tmp/doya-home",
       env: params.env ?? ({} as NodeJS.ProcessEnv),
@@ -117,10 +120,10 @@ describe("STTManager", () => {
     return fakeStt;
   }
 
-  it("defaults to English when no voice language config is set", async () => {
+  it("does not force a language when no voice language config is set", async () => {
     const fakeStt = await transcribeWithResolvedVoiceLanguage({});
 
-    expect(fakeStt.lastLanguage).toBe("en");
+    expect(fakeStt.lastLanguage).toBeUndefined();
   });
 
   it("uses DOYA_VOICE_LANGUAGE over DOYA_DICTATION_LANGUAGE", async () => {
@@ -152,7 +155,7 @@ describe("STTManager", () => {
       } as NodeJS.ProcessEnv,
     });
 
-    expect(fakeStt.lastLanguage).toBe("en");
+    expect(fakeStt.lastLanguage).toBeUndefined();
   });
 
   it("uses settings voice STT language when no env var is set", async () => {

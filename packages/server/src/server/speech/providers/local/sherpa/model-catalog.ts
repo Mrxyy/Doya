@@ -14,6 +14,15 @@ interface SherpaOnnxCatalogEntry {
 }
 
 export const SHERPA_ONNX_MODEL_CATALOG = {
+  "paraformer-zh-small-2024-03-09": {
+    kind: "stt-offline",
+    archiveUrl:
+      "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-paraformer-zh-small-2024-03-09.tar.bz2",
+    extractedDir: "sherpa-onnx-paraformer-zh-small-2024-03-09",
+    requiredFiles: ["model.int8.onnx", "tokens.txt"],
+    description: "Paraformer small (offline, Chinese + English).",
+    defaultFor: "stt",
+  },
   "parakeet-tdt-0.6b-v2-int8": {
     kind: "stt-offline",
     archiveUrl:
@@ -21,7 +30,6 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     extractedDir: "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8",
     requiredFiles: ["encoder.int8.onnx", "decoder.int8.onnx", "joiner.int8.onnx", "tokens.txt"],
     description: "NVIDIA Parakeet TDT v2 (offline NeMo transducer, English).",
-    defaultFor: "stt",
   },
   "parakeet-tdt-0.6b-v3-int8": {
     kind: "stt-offline",
@@ -39,6 +47,21 @@ export const SHERPA_ONNX_MODEL_CATALOG = {
     extractedDir: "kokoro-en-v0_19",
     requiredFiles: ["model.onnx", "voices.bin", "tokens.txt", "espeak-ng-data"],
     description: "Kokoro TTS (higher quality; larger).",
+  },
+  "vits-piper-zh_cn-xiao_ya-medium": {
+    kind: "tts",
+    archiveUrl:
+      "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-zh_CN-xiao_ya-medium.tar.bz2",
+    extractedDir: "vits-piper-zh_CN-xiao_ya-medium",
+    requiredFiles: [
+      "zh_CN-xiao_ya-medium.onnx",
+      "tokens.txt",
+      "lexicon.txt",
+      "date.fst",
+      "number.fst",
+      "phone.fst",
+    ],
+    description: "Piper VITS Xiao Ya (offline Mandarin Chinese).",
     defaultFor: "tts",
   },
 } as const satisfies Record<string, SherpaOnnxCatalogEntry>;

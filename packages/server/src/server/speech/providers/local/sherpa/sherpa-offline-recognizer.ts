@@ -9,13 +9,23 @@ function assertFileExists(filePath: string, label: string): void {
   }
 }
 
-export interface SherpaOfflineRecognizerModel {
+export interface SherpaOfflineTransducerModel {
   kind: "nemo_transducer";
   encoder: string;
   decoder: string;
   joiner: string;
   tokens: string;
 }
+
+export interface SherpaOfflineParaformerModel {
+  kind: "paraformer";
+  model: string;
+  tokens: string;
+}
+
+export type SherpaOfflineRecognizerModel =
+  | SherpaOfflineTransducerModel
+  | SherpaOfflineParaformerModel;
 
 export interface SherpaOfflineRecognizerConfig {
   model: SherpaOfflineRecognizerModel;
@@ -54,9 +64,7 @@ export class SherpaOfflineRecognizerEngine {
       component: "offline-recognizer",
     });
 
-    assertFileExists(config.model.encoder, "offline encoder");
-    assertFileExists(config.model.decoder, "offline decoder");
-    assertFileExists(config.model.joiner, "offline joiner");
+    const modelConfig = buildOfflineModelConfig(config.model);
     assertFileExists(config.model.tokens, "tokens");
 
     const sherpa = loadSherpaOnnxNode();
@@ -67,13 +75,9 @@ export class SherpaOfflineRecognizerEngine {
         featureDim: config.featureDim ?? 80,
       },
       modelConfig: {
-        transducer: {
-          encoder: config.model.encoder,
-          decoder: config.model.decoder,
-          joiner: config.model.joiner,
-        },
+        ...modelConfig,
         tokens: config.model.tokens,
-        modelType: "nemo_transducer",
+        modelType: config.model.kind,
         numThreads: config.numThreads ?? 1,
         provider: config.provider ?? "cpu",
         debug: config.debug ?? 0,
@@ -128,4 +132,26 @@ export class SherpaOfflineRecognizerEngine {
       this.logger.warn({ err }, "Failed to free sherpa offline recognizer");
     }
   }
+}
+
+function buildOfflineModelConfig(model: SherpaOfflineRecognizerModel): object {
+  if (model.kind === "paraformer") {
+    assertFileExists(model.model, "offline paraformer model");
+    return {
+      paraformer: {
+        model: model.model,
+      },
+    };
+  }
+
+  assertFileExists(model.encoder, "offline encoder");
+  assertFileExists(model.decoder, "offline decoder");
+  assertFileExists(model.joiner, "offline joiner");
+  return {
+    transducer: {
+      encoder: model.encoder,
+      decoder: model.decoder,
+      joiner: model.joiner,
+    },
+  };
 }

@@ -42,6 +42,7 @@ export interface VoiceRuntimeSnapshot {
 export interface VoiceRuntimeTelemetrySnapshot {
   volume: number;
   isSpeaking: boolean;
+  isPlayingAudio: boolean;
   segmentDuration: number;
 }
 
@@ -129,6 +130,7 @@ const INITIAL_SNAPSHOT: VoiceRuntimeSnapshot = {
 const INITIAL_TELEMETRY: VoiceRuntimeTelemetrySnapshot = {
   volume: 0,
   isSpeaking: false,
+  isPlayingAudio: false,
   segmentDuration: 0,
 };
 
@@ -152,6 +154,7 @@ function telemetryEqual(
   return (
     left.volume === right.volume &&
     left.isSpeaking === right.isSpeaking &&
+    left.isPlayingAudio === right.isPlayingAudio &&
     left.segmentDuration === right.segmentDuration
   );
 }
@@ -291,6 +294,7 @@ export function createVoiceRuntime(deps: VoiceRuntimeDeps): VoiceRuntime {
     playback.orderedGroupIds = [];
     playback.activeGroupId = null;
     playback.processing = false;
+    patchTelemetry((prev) => ({ ...prev, isPlayingAudio: false }));
   }
 
   function activateNextPlaybackGroup(): void {
@@ -858,6 +862,11 @@ export function createVoiceRuntime(deps: VoiceRuntimeDeps): VoiceRuntime {
       }
       stopCue();
       getActiveSession()?.adapter.setAssistantAudioPlaying(true);
+      patchTelemetry((prev) => ({
+        ...prev,
+        isPlayingAudio: true,
+        volume: Math.max(prev.volume, 0.45),
+      }));
       patchSnapshot((prev) => ({ ...prev, phase: "playing" }));
     },
 
@@ -867,6 +876,10 @@ export function createVoiceRuntime(deps: VoiceRuntimeDeps): VoiceRuntime {
       }
 
       getActiveSession()?.adapter.setAssistantAudioPlaying(false);
+      patchTelemetry((prev) => ({
+        ...prev,
+        isPlayingAudio: false,
+      }));
       if (!state.snapshot.isVoiceMode) {
         return;
       }
@@ -916,6 +929,10 @@ export function createVoiceRuntime(deps: VoiceRuntimeDeps): VoiceRuntime {
           deps.engine.clearQueue();
         }
         getActiveSession()?.adapter.setAssistantAudioPlaying(false);
+        patchTelemetry((prev) => ({
+          ...prev,
+          isPlayingAudio: false,
+        }));
       }
       patchTelemetry((prev) => ({
         ...prev,

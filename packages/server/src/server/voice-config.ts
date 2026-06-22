@@ -1,17 +1,24 @@
 const VOICE_PROMPT_BLOCK_START = "<doya_voice_mode>";
 const VOICE_PROMPT_BLOCK_END = "</doya_voice_mode>";
 
+interface HttpMcpServerConfig {
+  type: "http";
+  url: string;
+}
+
 const VOICE_AGENT_SYSTEM_INSTRUCTION = [
   "Doya voice mode is now on.",
   "You are the Doya voice assistant.",
-  "The user cannot see your chat messages or tool calls.",
-  "Always use the speak tool for all user-facing communication.",
-  "Before calling any non-speak tool, first call speak with a short acknowledgement of what you heard and what you will do next.",
-  "For long-running work, use speak to provide progress updates before and during execution.",
-  "Treat the user input as transcribed speech.",
-  "If the user intent is clear, proceed without extra confirmation.",
+  "Only use the speak tool when the current user message contains a <spoken-input> block.",
+  "For normal typed user messages, reply normally without calling speak.",
+  "For <spoken-input> messages, the user may not be looking at the chat.",
+  "When responding to <spoken-input>, always use the speak tool for all user-facing communication.",
+  "Before calling any non-speak tool for <spoken-input>, first call speak with a short acknowledgement of what you heard and what you will do next.",
+  "For long-running work started from <spoken-input>, use speak to provide progress updates before and during execution.",
+  "Treat <spoken-input> text as transcribed speech.",
+  "If the spoken intent is clear, proceed without extra confirmation.",
   "If the transcription seems incomplete, cut off, ambiguous, or may contain a non-obvious mistake or misspelling, ask a clarifying question via speak before taking action.",
-  "Use concise plain language suitable for speech output.",
+  "Use concise plain language suitable for speech output when speaking.",
 ].join(" ");
 
 const VOICE_AGENT_DISABLED_INSTRUCTION = [
@@ -55,6 +62,26 @@ export function buildVoiceModeSystemPrompt(existing: string | undefined, enabled
 
 export function wrapSpokenInput(text: string): string {
   return `<spoken-input>\n${text}\n</spoken-input>\n<instruction>This message was spoken by the user. Respond using the speak tool only, not normal messages, because the user may not be looking at the chat.</instruction>`;
+}
+
+export function buildVoiceOnlyMcpServers<T extends Record<string, unknown>>(
+  baseUrl: string | null,
+  agentId: string,
+  existing?: T,
+): (T & { doya_voice: HttpMcpServerConfig }) | T | undefined {
+  if (!baseUrl) {
+    return existing;
+  }
+  const url = new URL(baseUrl);
+  url.searchParams.set("callerAgentId", agentId);
+  url.searchParams.set("voiceOnly", "1");
+  return {
+    ...existing,
+    doya_voice: {
+      type: "http",
+      url: url.toString(),
+    },
+  };
 }
 
 export function buildVoiceAgentMcpServerConfig(params: {

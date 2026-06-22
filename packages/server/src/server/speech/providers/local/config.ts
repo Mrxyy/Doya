@@ -35,15 +35,13 @@ export interface ResolvedLocalSpeechConfig {
 export type { LocalSpeechModelId, LocalSttModelId, LocalTtsModelId };
 
 const DEFAULT_LOCAL_MODELS_SUBDIR = path.join("models", "local-speech");
-const DEFAULT_STT_LANGUAGE = "en";
-
 export interface LocalSpeechSttLanguageConfig {
-  dictation: string;
-  voice: string;
+  dictation?: string;
+  voice?: string;
 }
 
 const NumberLikeSchema = z.union([z.number(), z.string().trim().min(1)]);
-const LanguageSchema = z.string().trim().min(1).default(DEFAULT_STT_LANGUAGE);
+const LanguageSchema = z.string().trim().min(1).optional();
 
 const OptionalFiniteNumberSchema = NumberLikeSchema.pipe(z.coerce.number().finite()).optional();
 
@@ -119,14 +117,12 @@ function buildLocalSpeechLanguageResolutionInput(params: {
     dictationLanguage: firstNonEmptyString([
       env.DOYA_DICTATION_LANGUAGE,
       persisted.features?.dictation?.stt?.language,
-      DEFAULT_STT_LANGUAGE,
     ]),
     voiceLanguage: firstNonEmptyString([
       env.DOYA_VOICE_LANGUAGE,
       env.DOYA_DICTATION_LANGUAGE,
       persisted.features?.voiceMode?.stt?.language,
       persisted.features?.dictation?.stt?.language,
-      DEFAULT_STT_LANGUAGE,
     ]),
   };
 }

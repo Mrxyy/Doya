@@ -131,6 +131,10 @@ describe("voice runtime", () => {
     runtime.onAssistantAudioStarted("server-1");
 
     expect(runtime.getSnapshot().phase).toBe("playing");
+    expect(runtime.getTelemetrySnapshot()).toMatchObject({
+      isPlayingAudio: true,
+      volume: expect.any(Number),
+    });
     expect(adapter.setAssistantAudioPlaying).toHaveBeenCalledWith(true);
   });
 
@@ -315,6 +319,7 @@ describe("voice runtime", () => {
     runtime.onAssistantAudioFinished("server-1");
 
     expect(runtime.getSnapshot().phase).toBe("listening");
+    expect(runtime.getTelemetrySnapshot().isPlayingAudio).toBe(false);
     expect(engine.play).toHaveBeenCalled();
   });
 
@@ -369,6 +374,7 @@ describe("voice runtime", () => {
     expect(engine.clearQueue).toHaveBeenCalled();
     expect(adapter.setAssistantAudioPlaying).toHaveBeenCalledWith(false);
     expect(runtime.getTelemetrySnapshot().isSpeaking).toBe(true);
+    expect(runtime.getTelemetrySnapshot().isPlayingAudio).toBe(false);
   });
 
   it("drops queued voice chunks that arrive after server speech interrupts playback", async () => {
