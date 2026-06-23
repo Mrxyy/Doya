@@ -128,6 +128,20 @@ describe("materializeWorkspaceFileAttachments", () => {
         createdAt: 1,
       },
     ]);
+    expect(result.attachments).toEqual([
+      {
+        type: "text",
+        mimeType: "text/plain",
+        title: "screenshot.png",
+        text: [
+          "Uploaded file: screenshot.png",
+          "MIME type: image/png",
+          "Workspace path: attachments/abc-screenshot.png",
+          "Doya display: image",
+          "Use the workspace path above when the user asks about this file.",
+        ].join("\n"),
+      },
+    ]);
     expect(result.images[0]).not.toHaveProperty("preview");
   });
 

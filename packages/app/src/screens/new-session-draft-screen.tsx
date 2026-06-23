@@ -40,6 +40,7 @@ import { useToast } from "@/contexts/toast-context";
 import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import { translate } from "@/i18n/translate";
 import type { TranslationKey, TranslationParams } from "@/i18n/translations";
+import { AI_CREATION_STYLE_PROMPT_LABELS, type AiCreationVisualStyle } from "@/ai-creation/options";
 import {
   getHostRuntimeStore,
   useHostRuntimeClient,
@@ -121,11 +122,7 @@ type HomeAiCreationIntent =
   | "spreadsheet_creation";
 
 const HOME_AI_CREATION_RATIO = "16:9";
-const HOME_AI_CREATION_STYLE = "auto";
-
-const HOME_STYLE_PROMPT_LABELS = {
-  auto: "auto",
-} as const;
+const HOME_AI_CREATION_STYLE: AiCreationVisualStyle = "auto";
 const FIREWORK_PARTICLES = [
   { color: "#f97316", x: -112, y: -72, size: 8, delay: 0 },
   { color: "#facc15", x: -84, y: -118, size: 7, delay: 18 },
@@ -153,6 +150,8 @@ interface HomePromptSuggestion {
 interface HomeAiCreationSubmitContext {
   mode: HomeAiCreationMode;
   displayText: string;
+  ratio?: string;
+  style?: AiCreationVisualStyle;
 }
 
 const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
@@ -1555,6 +1554,8 @@ function resolveHomeSubmitText(
           prompt: displayText,
           referenceCount: payload.attachments.length,
           defaultLocale,
+          ratio: aiCreationContext.ratio,
+          style: aiCreationContext.style,
         })
       : rawText,
   };
@@ -1638,6 +1639,8 @@ function buildHomeAiCreationPrompt(input: {
   prompt: string;
   referenceCount: number;
   defaultLocale: Locale;
+  ratio?: string;
+  style?: AiCreationVisualStyle;
 }): string {
   const baseInput = {
     messageId: input.messageId,
@@ -1647,7 +1650,7 @@ function buildHomeAiCreationPrompt(input: {
   if (input.mode === "slides") {
     return buildHomeAiCreationMarkupPrompt({
       ...baseInput,
-      ratio: HOME_AI_CREATION_RATIO,
+      ratio: input.ratio ?? HOME_AI_CREATION_RATIO,
       sourceCount: input.referenceCount,
       includeExpectedTarget: false,
       defaultLocale: input.defaultLocale,
@@ -1696,12 +1699,14 @@ function buildHomeAiCreationPrompt(input: {
   }
   return buildHomeAiCreationMarkupPrompt({
     ...baseInput,
-    ratio: HOME_AI_CREATION_RATIO,
-    style: HOME_STYLE_PROMPT_LABELS[HOME_AI_CREATION_STYLE],
+    ratio: input.ratio ?? HOME_AI_CREATION_RATIO,
+    style: AI_CREATION_STYLE_PROMPT_LABELS[input.style ?? HOME_AI_CREATION_STYLE],
     sourceCount: input.referenceCount,
     defaultLocale: input.defaultLocale,
     aiInstructions: buildHomeImagegenPrompt({
       prompt: input.prompt,
+      ratio: input.ratio ?? HOME_AI_CREATION_RATIO,
+      style: input.style ?? HOME_AI_CREATION_STYLE,
       referenceCount: input.referenceCount,
     }),
   });
@@ -1839,7 +1844,12 @@ function getHomeAiCreationMarkupConfig(mode: HomeAiCreationMode): {
   };
 }
 
-function buildHomeImagegenPrompt(input: { prompt: string; referenceCount: number }): string {
+function buildHomeImagegenPrompt(input: {
+  prompt: string;
+  ratio: string;
+  style: AiCreationVisualStyle;
+  referenceCount: number;
+}): string {
   const lines = [
     "Use the Codex imagegen skill for this request. Follow the default built-in image_gen workflow unless the user explicitly asks for a CLI fallback.",
     "This is an AI creation surface. Do not explain your reasoning, workflow, skill usage, shell commands, or implementation steps in the final conversation.",
@@ -1848,8 +1858,8 @@ function buildHomeImagegenPrompt(input: { prompt: string; referenceCount: number
     "Create a raster image from this prompt:",
     input.prompt,
     "",
-    `Aspect ratio: ${HOME_AI_CREATION_RATIO}`,
-    `Style: ${HOME_STYLE_PROMPT_LABELS[HOME_AI_CREATION_STYLE]}`,
+    `Aspect ratio: ${input.ratio}`,
+    `Style: ${AI_CREATION_STYLE_PROMPT_LABELS[input.style]}`,
     "Save the final image into the current workspace if a workspace-bound asset is produced.",
     "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](assets/generated-image.png)",
   ];

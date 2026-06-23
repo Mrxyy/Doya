@@ -59,7 +59,10 @@ import { buildDraftStoreKey, generateDraftId } from "@/stores/draft-keys";
 import { usePanelStore } from "@/stores/panel-store";
 import { type Agent, useSessionStore } from "@/stores/session-store";
 import { useWorkspaceLayoutStore } from "@/stores/workspace-layout-store";
-import { buildWorkspaceTabPersistenceKey } from "@/stores/workspace-tabs-store";
+import {
+  buildWorkspaceTabPersistenceKey,
+  type WorkspaceTabTarget,
+} from "@/stores/workspace-tabs-store";
 import type { Theme } from "@/styles/theme";
 import { useArchiveSubagent, useSubagentsForParent } from "@/subagents";
 import { SubagentsTrack } from "@/subagents/track";
@@ -319,7 +322,7 @@ function useAgentPanelDescriptor(
 }
 
 function AgentPanel() {
-  const { serverId, target, openFileInWorkspace } = usePaneContext();
+  const { serverId, target, openFileInWorkspace, openTab } = usePaneContext();
   const { isInteractive } = usePaneFocus();
   invariant(target.kind === "agent", "AgentPanel requires agent target");
 
@@ -329,6 +332,7 @@ function AgentPanel() {
       agentId={target.agentId}
       isPaneFocused={isInteractive}
       onOpenWorkspaceFile={openFileInWorkspace}
+      onOpenWorkspaceTab={openTab}
     />
   );
 }
@@ -461,11 +465,13 @@ function AgentPanelContent({
   agentId,
   isPaneFocused,
   onOpenWorkspaceFile,
+  onOpenWorkspaceTab,
 }: {
   serverId: string;
   agentId: string;
   isPaneFocused: boolean;
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
+  onOpenWorkspaceTab?: (target: WorkspaceTabTarget) => void;
 }) {
   const resolvedAgentId = agentId.trim() || undefined;
   const resolvedServerId = serverId.trim() || undefined;
@@ -508,6 +514,7 @@ function AgentPanelContent({
       isConnected={runtimeIsConnected}
       connectionStatus={connectionStatus}
       onOpenWorkspaceFile={onOpenWorkspaceFile}
+      onOpenWorkspaceTab={onOpenWorkspaceTab}
     />
   );
 }
@@ -520,6 +527,7 @@ function AgentPanelBody({
   isConnected,
   connectionStatus,
   onOpenWorkspaceFile,
+  onOpenWorkspaceTab,
 }: {
   serverId: string;
   agentId?: string;
@@ -528,6 +536,7 @@ function AgentPanelBody({
   isConnected: boolean;
   connectionStatus: HostRuntimeConnectionStatus;
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
+  onOpenWorkspaceTab?: (target: WorkspaceTabTarget) => void;
 }) {
   const { isArchivingAgent: _isArchivingAgent } = useArchiveAgent();
   const hasSession = useSessionStore((state) => Boolean(state.sessions[serverId]));
@@ -673,6 +682,7 @@ function AgentPanelBody({
       isConnected={isConnected}
       connectionStatus={connectionStatus}
       onOpenWorkspaceFile={onOpenWorkspaceFile}
+      onOpenWorkspaceTab={onOpenWorkspaceTab}
     />
   );
 }
@@ -685,6 +695,7 @@ function ChatAgentContent({
   isConnected,
   connectionStatus,
   onOpenWorkspaceFile,
+  onOpenWorkspaceTab,
 }: {
   serverId: string;
   agentId?: string;
@@ -693,6 +704,7 @@ function ChatAgentContent({
   isConnected: boolean;
   connectionStatus: HostRuntimeConnectionStatus;
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
+  onOpenWorkspaceTab?: (target: WorkspaceTabTarget) => void;
 }) {
   const panelToast = useToastHost();
   const { isArchivingAgent } = useArchiveAgent();
@@ -1112,6 +1124,7 @@ function ChatAgentContent({
       cwd={agentCwd}
       attentionController={attentionController}
       onOpenWorkspaceFile={onOpenWorkspaceFile}
+      onOpenWorkspaceTab={onOpenWorkspaceTab}
     />
   );
 }
@@ -1137,6 +1150,7 @@ function ChatAgentReadyContent({
   cwd,
   attentionController,
   onOpenWorkspaceFile,
+  onOpenWorkspaceTab,
 }: {
   serverId: string;
   agentId: string;
@@ -1158,6 +1172,7 @@ function ChatAgentReadyContent({
   cwd: string;
   attentionController: ReturnType<typeof useAgentAttentionClear>;
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
+  onOpenWorkspaceTab?: (target: WorkspaceTabTarget) => void;
 }) {
   const agentInputDraft = useAgentInputDraft({
     draftKey: buildDraftStoreKey({
@@ -1289,6 +1304,7 @@ function ChatAgentReadyContent({
         hasAppliedAuthoritativeHistory={hasAppliedAuthoritativeHistory}
         toast={panelToast.api}
         onOpenWorkspaceFile={onOpenWorkspaceFile}
+        onOpenWorkspaceTab={onOpenWorkspaceTab}
         replayRecording={activeReplay?.recording ?? null}
         replayPositionMs={activeReplay?.positionMs ?? 0}
       />
@@ -1376,6 +1392,7 @@ const AgentStreamSection = memo(function AgentStreamSection({
   hasAppliedAuthoritativeHistory,
   toast,
   onOpenWorkspaceFile,
+  onOpenWorkspaceTab,
   replayRecording,
   replayPositionMs,
 }: {
@@ -1387,6 +1404,7 @@ const AgentStreamSection = memo(function AgentStreamSection({
   hasAppliedAuthoritativeHistory: boolean;
   toast: ReturnType<typeof useToastHost>["api"];
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
+  onOpenWorkspaceTab?: (target: WorkspaceTabTarget) => void;
   replayRecording?: ConversationRecording | null;
   replayPositionMs?: number;
 }) {
@@ -1447,6 +1465,7 @@ const AgentStreamSection = memo(function AgentStreamSection({
       isReplayMode={Boolean(replayProjection)}
       toast={toast}
       onOpenWorkspaceFile={onOpenWorkspaceFile}
+      onOpenWorkspaceTab={onOpenWorkspaceTab}
     />
   );
 });

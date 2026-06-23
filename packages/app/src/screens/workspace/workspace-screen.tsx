@@ -10,7 +10,15 @@ import {
 } from "react";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useIsFocused } from "@react-navigation/native";
-import { ActivityIndicator, BackHandler, Keyboard, Pressable, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  BackHandler,
+  Keyboard,
+  Pressable,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import * as Clipboard from "expo-clipboard";
@@ -70,12 +78,18 @@ import { ExplorerSidebarAnimationProvider } from "@/contexts/explorer-sidebar-an
 import { useToast } from "@/contexts/toast-context";
 import { useExplorerOpenGesture } from "@/hooks/use-explorer-open-gesture";
 import { useI18n, translateNow } from "@/i18n/i18n";
-import { selectIsFileExplorerOpen, usePanelStore } from "@/stores/panel-store";
+import {
+  selectIsAgentListOpen,
+  selectIsFileExplorerOpen,
+  usePanelStore,
+} from "@/stores/panel-store";
 import { type ExplorerCheckoutContext } from "@/stores/explorer-checkout-context";
 import { useSessionStore, type WorkspaceDescriptor } from "@/stores/session-store";
 import {
   buildWorkspaceTabPersistenceKey,
+  collectAllPanes,
   collectAllTabs,
+  findPaneContainingTab,
   getFocusedBrowserId,
   type WorkspaceLayout,
   useWorkspaceLayoutStore,
@@ -168,10 +182,7 @@ import {
   deriveWorkspaceAgentVisibility,
   workspaceAgentVisibilityEqual,
 } from "@/workspace-tabs/agent-visibility";
-import {
-  deriveWorkspacePaneState,
-  resolveSideFileOpenPlacement,
-} from "@/screens/workspace/workspace-pane-state";
+import { deriveWorkspacePaneState } from "@/screens/workspace/workspace-pane-state";
 import {
   buildWorkspacePaneContentModel,
   WorkspacePaneContent,
@@ -206,6 +217,7 @@ import { RenderProfile } from "@/utils/render-profiler";
 const WORKSPACE_SETUP_AUTO_OPEN_WINDOW_MS = 30_000;
 const WORKSPACE_FLOATING_PANEL_PORTAL_HOST_PREFIX = "workspace-floating-panels";
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
+const PREVIEW_SOURCE_PANE_WIDTH = 700;
 const EMPTY_UI_TABS: WorkspaceTab[] = [];
 const EMPTY_WORKSPACE_SCRIPTS: WorkspaceDescriptor["scripts"] = [];
 const EMPTY_PINNED_AGENT_IDS = new Set<string>();
@@ -431,6 +443,74 @@ function WorkspaceDocumentTitleEffect({
 }
 
 function noop() {}
+
+function subtreeHasPane(node: WorkspaceLayout["root"], paneId: string): boolean {
+  if (node.kind === "pane") {
+    return node.pane.id === paneId;
+  }
+  return node.group.children.some((child) => subtreeHasPane(child, paneId));
+}
+
+function findHorizontalSplitForPanePair(
+  node: WorkspaceLayout["root"],
+  leftPaneId: string,
+  rightPaneId: string,
+): { groupId: string; leftIndex: number; rightIndex: number; sizes: number[] } | null {
+  if (node.kind === "pane") {
+    return null;
+  }
+
+  if (node.group.direction === "horizontal") {
+    const leftIndex = node.group.children.findIndex((child) => subtreeHasPane(child, leftPaneId));
+    const rightIndex = node.group.children.findIndex((child) => subtreeHasPane(child, rightPaneId));
+    if (leftIndex >= 0 && rightIndex >= 0 && Math.abs(leftIndex - rightIndex) === 1) {
+      return {
+        groupId: node.group.id,
+        leftIndex,
+        rightIndex,
+        sizes: node.group.sizes,
+      };
+    }
+  }
+
+  for (const child of node.group.children) {
+    const result = findHorizontalSplitForPanePair(child, leftPaneId, rightPaneId);
+    if (result) {
+      return result;
+    }
+  }
+
+  return null;
+}
+
+function buildPreviewSplitSizes(input: {
+  layout: WorkspaceLayout;
+  sourcePaneId: string;
+  previewPaneId: string;
+  width: number;
+}): { groupId: string; sizes: number[] } | null {
+  if (input.width <= 0) {
+    return null;
+  }
+  const split = findHorizontalSplitForPanePair(
+    input.layout.root,
+    input.sourcePaneId,
+    input.previewPaneId,
+  );
+  if (!split || split.sizes.length !== 2) {
+    return null;
+  }
+
+  const sourceRatio = Math.min(0.82, Math.max(0.18, PREVIEW_SOURCE_PANE_WIDTH / input.width));
+  const sizes = split.sizes.slice();
+  sizes[split.leftIndex] = sourceRatio;
+  sizes[split.rightIndex] = 1 - sourceRatio;
+  return { groupId: split.groupId, sizes };
+}
+
+function isWorkspacePreviewTarget(target: WorkspaceTabTarget): boolean {
+  return target.kind === "pptPreview";
+}
 
 function mobileTabMenuTriggerStyle({ open, pressed }: { open?: boolean; pressed?: boolean }) {
   return [
@@ -1634,6 +1714,7 @@ function WorkspaceScreenContent({
   const router = useRouter();
   const toast = useToast();
   const isMobile = useIsCompactFormFactor();
+  const canRenderDesktopPaneSplits = supportsDesktopPaneSplits();
   const isFocusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
 
   const normalizedServerId = useMemo(() => trimNonEmpty(decodeSegment(serverId)) ?? "", [serverId]);
@@ -1913,6 +1994,11 @@ function WorkspaceScreenContent({
   const isExplorerOpen = usePanelStore((state) =>
     selectIsFileExplorerOpen(state, { isCompact: isMobile }),
   );
+  const isAgentListOpen = usePanelStore((state) =>
+    selectIsAgentListOpen(state, { isCompact: isMobile }),
+  );
+  const closeDesktopAgentList = usePanelStore((state) => state.closeDesktopAgentList);
+  const openDesktopAgentList = usePanelStore((state) => state.openDesktopAgentList);
   const openFileExplorerForCheckout = usePanelStore((state) => state.openFileExplorerForCheckout);
   const toggleFileExplorerForCheckout = usePanelStore(
     (state) => state.toggleFileExplorerForCheckout,
@@ -1983,6 +2069,13 @@ function WorkspaceScreenContent({
   const workspaceLayout = useWorkspaceLayoutStore((state) =>
     persistenceKey ? (state.layoutByWorkspace[persistenceKey] ?? null) : null,
   );
+  const [workspaceContentWidth, setWorkspaceContentWidth] = useState(0);
+  const autoCollapsedPreviewSidebarRef = useRef(false);
+  const previewPaneIdsRef = useRef<Set<string>>(new Set());
+  const lastPreviewSplitRef = useRef<{
+    sourcePaneId: string;
+    previewPaneId: string;
+  } | null>(null);
   const hasHydratedWorkspaceLayoutStore = useWorkspaceLayoutStoreHydrated();
   const workspaceSetupSnapshot = useWorkspaceSetupStore((state) =>
     persistenceKey ? (state.snapshots[persistenceKey] ?? null) : null,
@@ -2021,6 +2114,137 @@ function WorkspaceScreenContent({
   const { closingTabIds, closeTab } = useCloseTabs();
   const { onLayout: onHeaderLayout, isBelow: showCompactButtonLabels } =
     useContainerWidthBelow(700);
+  const handleWorkspaceContentLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    setWorkspaceContentWidth((current) =>
+      Math.abs(current - nextWidth) > 1 ? nextWidth : current,
+    );
+  }, []);
+  const updatePreviewSplitSize = useCallback(
+    function updatePreviewSplitSize(input: { sourcePaneId: string; previewPaneId: string }) {
+      if (!persistenceKey) {
+        return;
+      }
+      const layout =
+        useWorkspaceLayoutStore.getState().layoutByWorkspace[persistenceKey] ?? workspaceLayout;
+      if (!layout) {
+        return;
+      }
+      const split = buildPreviewSplitSizes({
+        layout,
+        sourcePaneId: input.sourcePaneId,
+        previewPaneId: input.previewPaneId,
+        width: workspaceContentWidth,
+      });
+      if (!split) {
+        return;
+      }
+      resizeWorkspaceSplit(persistenceKey, split.groupId, split.sizes);
+    },
+    [persistenceKey, resizeWorkspaceSplit, workspaceContentWidth, workspaceLayout],
+  );
+  const prepareDesktopPreviewPane = useCallback(
+    function prepareDesktopPreviewPane(sourcePaneId: string): string | null {
+      if (!persistenceKey || !workspaceLayout || isMobile || !canRenderDesktopPaneSplits) {
+        return null;
+      }
+
+      if (isAgentListOpen && !autoCollapsedPreviewSidebarRef.current) {
+        closeDesktopAgentList();
+        autoCollapsedPreviewSidebarRef.current = true;
+      }
+
+      const currentLayout =
+        useWorkspaceLayoutStore.getState().layoutByWorkspace[persistenceKey] ?? workspaceLayout;
+      let previewPaneId = findAdjacentPane(currentLayout.root, sourcePaneId, "right");
+      if (!previewPaneId) {
+        previewPaneId = splitWorkspacePaneEmpty(persistenceKey, {
+          targetPaneId: sourcePaneId,
+          position: "right",
+        });
+      }
+      if (!previewPaneId) {
+        return null;
+      }
+
+      previewPaneIdsRef.current.add(previewPaneId);
+      lastPreviewSplitRef.current = { sourcePaneId, previewPaneId };
+      focusWorkspacePane(persistenceKey, previewPaneId);
+      updatePreviewSplitSize({ sourcePaneId, previewPaneId });
+      return previewPaneId;
+    },
+    [
+      canRenderDesktopPaneSplits,
+      closeDesktopAgentList,
+      focusWorkspacePane,
+      isAgentListOpen,
+      isMobile,
+      persistenceKey,
+      splitWorkspacePaneEmpty,
+      updatePreviewSplitSize,
+      workspaceLayout,
+    ],
+  );
+  const openWorkspaceTargetInPreviewPane = useCallback(
+    function openWorkspaceTargetInPreviewPane(input: {
+      target: WorkspaceTabTarget;
+      sourcePaneId?: string | null;
+      parentTabId?: string | null;
+    }): string | null {
+      if (!persistenceKey) {
+        return null;
+      }
+      if (isMobile || !input.sourcePaneId) {
+        return input.parentTabId
+          ? openWorkspaceChildTabFocused(persistenceKey, input.target, input.parentTabId)
+          : openWorkspaceTabFocused(persistenceKey, input.target);
+      }
+
+      const previewPaneId = prepareDesktopPreviewPane(input.sourcePaneId);
+      if (!previewPaneId) {
+        return input.parentTabId
+          ? openWorkspaceChildTabFocused(persistenceKey, input.target, input.parentTabId)
+          : openWorkspaceTabFocused(persistenceKey, input.target);
+      }
+
+      const existingTabId = buildDeterministicWorkspaceTabId(input.target);
+      const existingTab = uiTabs.find(
+        (tab) => tab.tabId === existingTabId || workspaceTabTargetsEqual(tab.target, input.target),
+      );
+      if (existingTab) {
+        const existingPane = findPaneContainingTab(
+          useWorkspaceLayoutStore.getState().layoutByWorkspace[persistenceKey]?.root ??
+            workspaceLayout?.root ??
+            createDefaultLayout().root,
+          existingTab.tabId,
+        );
+        if (existingPane?.id !== previewPaneId) {
+          moveWorkspaceTabToPane(persistenceKey, existingTab.tabId, previewPaneId);
+        }
+      }
+
+      const tabId = input.parentTabId
+        ? openWorkspaceChildTabFocused(persistenceKey, input.target, input.parentTabId)
+        : openWorkspaceTabFocused(persistenceKey, input.target);
+      if (tabId) {
+        previewPaneIdsRef.current.add(previewPaneId);
+        lastPreviewSplitRef.current = { sourcePaneId: input.sourcePaneId, previewPaneId };
+        updatePreviewSplitSize({ sourcePaneId: input.sourcePaneId, previewPaneId });
+      }
+      return tabId;
+    },
+    [
+      isMobile,
+      moveWorkspaceTabToPane,
+      openWorkspaceChildTabFocused,
+      openWorkspaceTabFocused,
+      persistenceKey,
+      prepareDesktopPreviewPane,
+      uiTabs,
+      updatePreviewSplitSize,
+      workspaceLayout,
+    ],
+  );
   const closeWorkspaceTabWithCleanup = useCallback(
     function closeWorkspaceTabWithCleanup(input: {
       tabId: string;
@@ -2077,6 +2301,29 @@ function WorkspaceScreenContent({
       setFocusedAgentId(normalizedServerId, null);
     };
   }, [isRouteFocused, normalizedServerId, setFocusedAgentId]);
+
+  useEffect(() => {
+    const split = lastPreviewSplitRef.current;
+    if (!split || !workspaceLayout || workspaceContentWidth <= 0) {
+      return;
+    }
+    updatePreviewSplitSize(split);
+  }, [updatePreviewSplitSize, workspaceContentWidth, workspaceLayout]);
+
+  useEffect(() => {
+    if (!autoCollapsedPreviewSidebarRef.current || !workspaceLayout || isMobile) {
+      return;
+    }
+    const paneCount = collectAllPanes(workspaceLayout.root).length;
+    if (paneCount > 1) {
+      return;
+    }
+
+    previewPaneIdsRef.current = new Set();
+    autoCollapsedPreviewSidebarRef.current = false;
+    lastPreviewSplitRef.current = null;
+    openDesktopAgentList();
+  }, [isMobile, openDesktopAgentList, workspaceLayout]);
 
   const openWorkspaceDraftTab = useCallback(
     function openWorkspaceDraftTab(input?: { draftId?: string; focus?: boolean }) {
@@ -2420,38 +2667,22 @@ function WorkspaceScreenContent({
       const target: WorkspaceTabTarget = createWorkspaceFileTabTarget(location, {
         sourceAgentId: input.sourceAgentId,
       });
-      const placement = resolveSideFileOpenPlacement({
-        layout: workspaceLayout,
-        sourcePaneId: input.sourcePaneId,
-        tabs: uiTabs,
+      const tabId = openWorkspaceTargetInPreviewPane({
         target,
+        sourcePaneId: input.sourcePaneId,
+        parentTabId: input.parentTabId,
       });
-      if (placement.kind === "focus-side-pane") {
-        focusWorkspacePane(persistenceKey, placement.paneId);
-      } else if (placement.kind === "split-side-pane") {
-        splitWorkspacePaneEmpty(persistenceKey, {
-          targetPaneId: placement.paneId,
-          position: "right",
-        });
-      }
-
-      const tabId = input.parentTabId
-        ? openWorkspaceChildTabFocused(persistenceKey, target, input.parentTabId)
-        : openWorkspaceTabFocused(persistenceKey, target);
       if (tabId) {
         navigateToTabId(tabId);
       }
     },
     [
       isMobile,
-      focusWorkspacePane,
       navigateToTabId,
+      openWorkspaceTargetInPreviewPane,
       openWorkspaceChildTabFocused,
       openWorkspaceTabFocused,
       persistenceKey,
-      splitWorkspacePaneEmpty,
-      uiTabs,
-      workspaceLayout,
     ],
   );
 
@@ -3107,7 +3338,6 @@ function WorkspaceScreenContent({
   });
 
   const activeTabDescriptor = useMemo(() => activeTab?.descriptor ?? null, [activeTab]);
-  const canRenderDesktopPaneSplits = supportsDesktopPaneSplits();
   const shouldRenderDesktopPaneFallback = useMemo(
     () => !isMobile && !canRenderDesktopPaneSplits,
     [isMobile, canRenderDesktopPaneSplits],
@@ -3130,6 +3360,17 @@ function WorkspaceScreenContent({
         normalizedWorkspaceId,
         onOpenTab: (target) => {
           if (!persistenceKey) {
+            return;
+          }
+          if (isWorkspacePreviewTarget(target) && input.paneId) {
+            const tabId = openWorkspaceTargetInPreviewPane({
+              target,
+              sourcePaneId: input.paneId,
+              parentTabId: input.tab.tabId,
+            });
+            if (tabId) {
+              navigateToTabId(tabId);
+            }
             return;
           }
           if (input.focusPaneBeforeOpen && input.paneId) {
@@ -3168,6 +3409,7 @@ function WorkspaceScreenContent({
       normalizedWorkspaceId,
       openImportSheet,
       openWorkspaceChildTabFocused,
+      openWorkspaceTargetInPreviewPane,
       persistenceKey,
       retargetWorkspaceTab,
     ],
@@ -3673,7 +3915,9 @@ function WorkspaceScreenContent({
             {content}
           </MobileExplorerOpenGestureSurface>
         ) : (
-          <View style={styles.content}>{desktopContent}</View>
+          <View style={styles.content} onLayout={handleWorkspaceContentLayout}>
+            {desktopContent}
+          </View>
         )}
       </View>
     </View>

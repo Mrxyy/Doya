@@ -134,4 +134,25 @@ describe("filterUserMessageDisplayAttachments", () => {
       }),
     ).toEqual([]);
   });
+
+  it("hides the materialized edit source attachment when the source is shown as a selection reference", () => {
+    const editSourceAttachment = uploadedFileAttachment({
+      title: "ai-edit-source.png",
+      mimeType: "image/png",
+      path: "attachments/ai-edit-source.png",
+    });
+    const fileAttachment = uploadedFileAttachment({
+      title: "notes.md",
+      mimeType: "text/markdown",
+      path: "attachments/notes.md",
+    });
+
+    expect(
+      filterUserMessageDisplayAttachments({
+        images: [],
+        attachments: [editSourceAttachment, fileAttachment],
+        selectionPreviewUri: "http://127.0.0.1:6767/raw/attachments/ai-edit-source.png",
+      }),
+    ).toEqual([fileAttachment]);
+  });
 });

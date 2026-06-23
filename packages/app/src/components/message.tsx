@@ -2,8 +2,10 @@ import {
   View,
   Text,
   Image,
+  Modal,
   Pressable,
   ActivityIndicator,
+  ScrollView,
   type GestureResponderEvent,
   type LayoutChangeEvent,
   StyleProp,
@@ -55,6 +57,7 @@ import {
   Pencil,
   Presentation,
   Sparkles,
+  X,
   type LucideIcon,
 } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -114,7 +117,7 @@ import {
   type DoyaMessageCard,
 } from "@/utils/doya-message-markup";
 import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
-import { isWeb, isNative } from "@/constants/platform";
+import { isDev, isWeb, isNative } from "@/constants/platform";
 import type { AgentCapabilityFlags } from "@getdoya/protocol/agent-types";
 import { RewindMenu, type RewindMode } from "@/components/rewind/rewind-menu";
 import { useRewindAgentMutation } from "@/components/rewind/use-rewind-agent-mutation";
@@ -938,6 +941,84 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.xs,
     lineHeight: 17,
   },
+  doyaRawButton: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    marginTop: theme.spacing[2],
+    borderRadius: theme.borderRadius.full,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface2,
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: 3,
+  },
+  doyaRawButtonText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.medium,
+    lineHeight: 15,
+  },
+  doyaRawModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(24, 24, 27, 0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: theme.spacing[4],
+  },
+  doyaRawModalPanel: {
+    width: 860,
+    maxWidth: "100%",
+    maxHeight: "82%",
+    borderRadius: theme.borderRadius.xl,
+    borderWidth: theme.borderWidth[1],
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+    overflow: "hidden",
+    shadowColor: "#000000",
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 14 },
+  },
+  doyaRawModalHeader: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing[3],
+    borderBottomWidth: theme.borderWidth[1],
+    borderBottomColor: theme.colors.border,
+    paddingHorizontal: theme.spacing[4],
+  },
+  doyaRawModalTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.semibold,
+  },
+  doyaRawModalClose: {
+    width: 32,
+    height: 32,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  doyaRawModalCloseIcon: {
+    color: theme.colors.foregroundMuted,
+  },
+  doyaRawModalScroll: {
+    maxHeight: 640,
+  },
+  doyaRawModalContent: {
+    padding: theme.spacing[4],
+  },
+  doyaRawModalText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    lineHeight: 20,
+    fontFamily: "monospace",
+    ...(isWeb ? { whiteSpace: "pre-wrap" as const } : {}),
+  },
   copyButton: {
     alignSelf: "center",
     padding: theme.spacing[1],
@@ -1742,7 +1823,68 @@ function DoyaImageIllustration({ visual }: { visual: DoyaMessageCardVisual }) {
   );
 }
 
-function UserMessageDoyaProgressCard({ card }: { card: DoyaMessageCard }) {
+export function DoyaRawResponseButton({ rawMessage }: { rawMessage: string }) {
+  const [visible, setVisible] = useState(false);
+  const handleOpen = useCallback(() => setVisible(true), []);
+  const handleClose = useCallback(() => setVisible(false), []);
+
+  if (!isDev) {
+    return null;
+  }
+
+  return (
+    <>
+      <Pressable
+        onPress={handleOpen}
+        style={userMessageStylesheet.doyaRawButton}
+        accessibilityRole="button"
+        accessibilityLabel="View raw Doya response"
+      >
+        <FileText size={13} color={userMessageStylesheet.doyaRawButtonText.color} />
+        <Text style={userMessageStylesheet.doyaRawButtonText}>Raw</Text>
+      </Pressable>
+      <Modal
+        transparent
+        animationType="fade"
+        visible={visible}
+        statusBarTranslucent
+        onRequestClose={handleClose}
+      >
+        <View style={userMessageStylesheet.doyaRawModalOverlay}>
+          <View style={userMessageStylesheet.doyaRawModalPanel}>
+            <View style={userMessageStylesheet.doyaRawModalHeader}>
+              <Text style={userMessageStylesheet.doyaRawModalTitle}>Raw Doya response</Text>
+              <Pressable
+                onPress={handleClose}
+                style={userMessageStylesheet.doyaRawModalClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close raw Doya response"
+              >
+                <X size={18} color={userMessageStylesheet.doyaRawModalCloseIcon.color} />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={userMessageStylesheet.doyaRawModalScroll}
+              contentContainerStyle={userMessageStylesheet.doyaRawModalContent}
+            >
+              <Text selectable style={userMessageStylesheet.doyaRawModalText}>
+                {rawMessage}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+}
+
+function UserMessageDoyaProgressCard({
+  card,
+  rawMessage,
+}: {
+  card: DoyaMessageCard;
+  rawMessage: string;
+}) {
   return (
     <View style={userMessageStylesheet.doyaProgressCard}>
       <View style={userMessageStylesheet.doyaProgressIconBox}>
@@ -1765,12 +1907,19 @@ function UserMessageDoyaProgressCard({ card }: { card: DoyaMessageCard }) {
             ))}
           </View>
         ) : null}
+        <DoyaRawResponseButton rawMessage={rawMessage} />
       </View>
     </View>
   );
 }
 
-function UserMessageDoyaTaskCard({ card }: { card: DoyaMessageCard }) {
+function UserMessageDoyaTaskCard({
+  card,
+  rawMessage,
+}: {
+  card: DoyaMessageCard;
+  rawMessage: string;
+}) {
   const isResult = card.kind.endsWith(".result");
   const visual = getDoyaMessageCardVisual(card);
   const Icon = visual.Icon;
@@ -1883,16 +2032,17 @@ function UserMessageDoyaTaskCard({ card }: { card: DoyaMessageCard }) {
           ))}
         </View>
       ) : null}
+      <DoyaRawResponseButton rawMessage={rawMessage} />
     </View>
   );
 }
 
-function UserMessageDoyaCard({ card }: { card: DoyaMessageCard }) {
+function UserMessageDoyaCard({ card, rawMessage }: { card: DoyaMessageCard; rawMessage: string }) {
   if (isDoyaSlidesProgressCard(card)) {
-    return <UserMessageDoyaProgressCard card={card} />;
+    return <UserMessageDoyaProgressCard card={card} rawMessage={rawMessage} />;
   }
 
-  return <UserMessageDoyaTaskCard card={card} />;
+  return <UserMessageDoyaTaskCard card={card} rawMessage={rawMessage} />;
 }
 
 function shouldUseDoyaCardBubble(input: {
@@ -1949,8 +2099,15 @@ export const UserMessage = memo(function UserMessage({
     [images],
   );
   const displayAttachments = useMemo(
-    () => filterUserMessageDisplayAttachments({ images: displayImages, attachments }),
-    [attachments, displayImages],
+    () =>
+      filterUserMessageDisplayAttachments({
+        images: displayImages,
+        attachments,
+        selectionImage,
+        selectionImageSource,
+        selectionPreviewUri,
+      }),
+    [attachments, displayImages, selectionImage, selectionImageSource, selectionPreviewUri],
   );
   const spokenInput = useMemo(() => parseSpokenInputMessage(message), [message]);
   const visibleMessage = useMemo(
@@ -2070,7 +2227,7 @@ export const UserMessage = memo(function UserMessage({
               ))}
             </View>
           ) : null}
-          {doyaCard ? <UserMessageDoyaCard card={doyaCard} /> : null}
+          {doyaCard ? <UserMessageDoyaCard card={doyaCard} rawMessage={message} /> : null}
           {spokenInput ? (
             <View style={userMessageStylesheet.spokenInput}>
               <View style={userMessageStylesheet.spokenInputHeader}>
@@ -2323,6 +2480,7 @@ export const LiveElapsed = memo(function LiveElapsed({
 
 interface AssistantMessageProps {
   message: string;
+  rawMessage?: string;
   timestamp: number;
   workspaceRoot?: string;
   serverId?: string;
@@ -3135,6 +3293,7 @@ function MarkdownListView({ baseStyle, spacing, children }: MarkdownListViewProp
 
 export const AssistantMessage = memo(function AssistantMessage({
   message,
+  rawMessage,
   timestamp: _timestamp,
   workspaceRoot,
   serverId,
@@ -3449,6 +3608,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   }, [client, fileLinkActions, markdownParser, onEditImage, serverId, workspaceRoot]);
 
   const keyedBlocks = useMemo(() => buildAssistantMessageRenderBlocks(message), [message]);
+  const shouldShowRawButton = Boolean(rawMessage && rawMessage !== message);
 
   const assistantContainerStyle = useMemo(
     () => [
@@ -3470,7 +3630,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           marginBottom={index < keyedBlocks.length - 1 ? 12 : 0}
         >
           {card ? (
-            <UserMessageDoyaCard card={card} />
+            <UserMessageDoyaCard card={card} rawMessage={message} />
           ) : (
             <MemoizedMarkdownBlock
               text={text ?? ""}
@@ -3481,6 +3641,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           )}
         </AssistantMessageBlockContainer>
       ))}
+      {shouldShowRawButton ? <DoyaRawResponseButton rawMessage={rawMessage ?? ""} /> : null}
     </View>
   );
 });

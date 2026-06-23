@@ -96,6 +96,8 @@ export interface MessageInputProps {
   isPaneFocused?: boolean;
   /** Content to render on the left side of the composer toolbar (e.g., AgentControls) */
   leftContent?: React.ReactNode;
+  /** Hides the built-in attachment button when the left slot owns the whole left toolbar. */
+  hideAttachmentButton?: boolean;
   /** Content to render on the right side before the voice button (e.g., context window meter) */
   beforeVoiceContent?: React.ReactNode;
   /** Content to render on the right side after voice button (e.g., realtime button, cancel button) */
@@ -1097,6 +1099,7 @@ interface ResolvedMessageInputProps {
   disabled: boolean;
   isPaneFocused: boolean;
   leftContent: React.ReactNode;
+  hideAttachmentButton: boolean;
   beforeVoiceContent: React.ReactNode;
   rightContent: React.ReactNode;
   voiceServerId: string | undefined;
@@ -1137,6 +1140,7 @@ function resolveMessageInputProps(props: MessageInputProps): ResolvedMessageInpu
     disabled: props.disabled ?? false,
     isPaneFocused: props.isPaneFocused ?? true,
     leftContent: props.leftContent,
+    hideAttachmentButton: props.hideAttachmentButton === true,
     beforeVoiceContent: props.beforeVoiceContent,
     rightContent: props.rightContent,
     voiceServerId: props.voiceServerId,
@@ -1185,6 +1189,7 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
       disabled,
       isPaneFocused,
       leftContent,
+      hideAttachmentButton,
       beforeVoiceContent,
       rightContent,
       voiceServerId,
@@ -1776,13 +1781,18 @@ export const MessageInput = forwardRef<MessageInputRef, MessageInputProps>(
           <View style={styles.buttonRow}>
             {/* Toolbar left: attachment button + agent controls */}
             <View style={styles.leftButtonGroup}>
-              <AttachmentDropdown
-                isConnected={isConnected}
-                disabled={disabled}
-                attachButtonStyle={attachButtonStyle}
-                renderAttachButtonIcon={renderAttachButtonIcon}
-                attachmentMenuItems={attachmentMenuItems}
-              />
+              {hideAttachmentButton ? null : (
+                <AttachmentDropdown
+                  isConnected={isConnected}
+                  disabled={disabled}
+                  attachButtonStyle={attachButtonStyle}
+                  renderAttachButtonIcon={renderAttachButtonIcon}
+                  attachmentMenuItems={attachmentMenuItems}
+                />
+              )}
+              {leftContent && !hideAttachmentButton ? (
+                <View style={styles.attachmentDivider} />
+              ) : null}
               {leftContent}
             </View>
 
@@ -1905,7 +1915,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   buttonRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     justifyContent: "space-between",
     marginHorizontal: -6,
   },
@@ -1914,7 +1924,7 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexShrink: 1,
     flexGrow: 1,
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     gap: theme.spacing[0],
   },
   rightButtonGroup: {
@@ -1935,6 +1945,14 @@ const styles = StyleSheet.create((theme: Theme) => ({
     height: 28,
     alignItems: "center",
     justifyContent: "center",
+  },
+  attachmentDivider: {
+    width: 1,
+    height: 16,
+    alignSelf: "center",
+    marginLeft: theme.spacing[1],
+    marginRight: theme.spacing[1],
+    backgroundColor: theme.colors.surface2,
   },
   voiceButton: {
     width: 28,

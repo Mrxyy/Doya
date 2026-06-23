@@ -249,13 +249,52 @@ function buildUserMessageItem(input: {
 
   const displayText = extractAiCreationDisplayText(input.text) ?? input.text;
   const parsed = extractFileAttachmentBlocks(displayText);
+  const images = userMessageImagesFromUploadedImageAttachments(parsed.attachments);
   return {
     kind: "user_message",
     id: input.id,
     text: parsed.text,
     timestamp: input.timestamp,
+    ...(images.length > 0 ? { images } : {}),
     ...(parsed.attachments.length > 0 ? { attachments: parsed.attachments } : {}),
   };
+}
+
+function userMessageImagesFromUploadedImageAttachments(
+  attachments: readonly AgentAttachment[],
+): UserMessageImageAttachment[] {
+  const images: UserMessageImageAttachment[] = [];
+  for (const attachment of attachments) {
+    if (attachment.type !== "text") {
+      continue;
+    }
+    if (extractUploadedAttachmentField(attachment.text, "Doya display") !== "image") {
+      continue;
+    }
+    const mimeType = extractUploadedAttachmentField(attachment.text, "MIME type");
+    if (!mimeType?.toLowerCase().startsWith("image/")) {
+      continue;
+    }
+    const path = extractUploadedAttachmentField(attachment.text, "Workspace path");
+    if (!path) {
+      continue;
+    }
+    images.push({
+      kind: "workspace_image",
+      id: `uploaded-image:${path}`,
+      path,
+      mimeType,
+      fileName: attachment.title ?? undefined,
+      createdAt: 0,
+    });
+  }
+  return images;
+}
+
+function extractUploadedAttachmentField(text: string, label: string): string | null {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const match = new RegExp(`^${escapedLabel}:\\s*(.+)$`, "mu").exec(text);
+  return match?.[1]?.trim() || null;
 }
 
 function extractFileAttachmentBlocks(text: string): {
@@ -281,7 +320,7 @@ function extractFileAttachmentBlocks(text: string): {
 
 function findFileAttachmentBlockStart(text: string): number | null {
   const uploadedFileMatch = text.match(
-    /Uploaded file: [^\n]+\nMIME type: [^\n]+\nWorkspace path: [^\n]+\nUse the workspace path above when the user asks about this file\./,
+    /Uploaded file: [^\n]+\nMIME type: [^\n]+\nWorkspace path: [^\n]+\n(?:Doya display: [^\n]+\n)?Use the workspace path above when the user asks about this file\./,
   );
   if (uploadedFileMatch?.index !== undefined) {
     return uploadedFileMatch.index;
@@ -321,7 +360,7 @@ function parseFileAttachmentBlocks(text: string): AgentAttachment[] {
     });
   }
   const uploadedPattern =
-    /Uploaded file: ([^\n]+)\nMIME type: ([^\n]+)\nWorkspace path: ([^\n]+)\nUse the workspace path above when the user asks about this file\./g;
+    /Uploaded file: ([^\n]+)\nMIME type: ([^\n]+)\nWorkspace path: ([^\n]+)\n((?:Doya display: [^\n]+\n)?)Use the workspace path above when the user asks about this file\./g;
   for (const match of text.matchAll(uploadedPattern)) {
     const title = match[1]?.trim();
     const mimeType = match[2]?.trim();
@@ -337,6 +376,7 @@ function parseFileAttachmentBlocks(text: string): AgentAttachment[] {
         `Uploaded file: ${title}`,
         `MIME type: ${mimeType}`,
         `Workspace path: ${workspacePath}`,
+        ...(match[4]?.trim() ? [match[4].trim()] : []),
         "Use the workspace path above when the user asks about this file.",
       ].join("\n"),
     });

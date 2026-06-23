@@ -29,6 +29,7 @@ export function useDraftAgentFeatures(input: {
   const [localFeatureValues, setLocalFeatureValues] = useState<Record<string, unknown>>(
     () => initialFeatureValues ?? {},
   );
+  const userFeatureValueIdsRef = useRef<Set<string>>(new Set());
   const client = useHostRuntimeClient(serverId ?? "");
   const isConnected = useHostRuntimeIsConnected(serverId ?? "");
   const { preferences, updatePreferences } = useFormPreferences();
@@ -103,7 +104,14 @@ export function useDraftAgentFeatures(input: {
       return;
     }
     previousInitialFeatureValuesKeyRef.current = initialFeatureValuesKey;
-    setLocalFeatureValues(initialFeatureValues ?? {});
+    setLocalFeatureValues((current) => ({
+      ...initialFeatureValues,
+      ...Object.fromEntries(
+        Array.from(userFeatureValueIdsRef.current)
+          .filter((featureId) => Object.prototype.hasOwnProperty.call(current, featureId))
+          .map((featureId) => [featureId, current[featureId]]),
+      ),
+    }));
   }, [initialFeatureValues, initialFeatureValuesKey]);
 
   useEffect(() => {
@@ -113,6 +121,7 @@ export function useDraftAgentFeatures(input: {
       return;
     }
     if (previousProvider !== normalizedProvider) {
+      userFeatureValueIdsRef.current = new Set();
       setLocalFeatureValues({});
     }
   }, [normalizedProvider]);
@@ -130,6 +139,7 @@ export function useDraftAgentFeatures(input: {
   const effectiveFeatureValues = Object.keys(featureValues).length > 0 ? featureValues : undefined;
   const setFeatureValue = useCallback(
     (featureId: string, value: unknown) => {
+      userFeatureValueIdsRef.current.add(featureId);
       setLocalFeatureValues((current) => {
         if (Object.is(current[featureId], value)) {
           return current;

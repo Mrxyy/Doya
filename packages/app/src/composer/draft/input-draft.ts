@@ -236,6 +236,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
   );
 
   const workingDir = lockedWorkingDir || formState.workingDir;
+  const featureDiscoveryCwd = workingDir.trim() || "~";
   const initialFeatureValues = useMemo(() => {
     const daemonFeatureValues = daemonAgentConfig?.featureValues ?? {};
     const composerFeatureValues = composerOptions?.initialFeatureValues ?? {};
@@ -252,7 +253,7 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
   } = useDraftAgentFeatures({
     serverId: formState.selectedServerId,
     provider: formState.selectedProvider,
-    cwd: workingDir,
+    cwd: featureDiscoveryCwd,
     modeId: formState.selectedMode,
     modelId: effectiveModelId,
     thinkingOptionId: effectiveThinkingOptionId,
@@ -306,7 +307,6 @@ export function useAgentInputDraft(input: UseAgentInputDraftInput): AgentInputDr
     draftFeatures,
     draftFeatureValues,
     formState,
-    initialFeatureValues,
     setDraftFeatureValue,
     workingDir,
   ]);

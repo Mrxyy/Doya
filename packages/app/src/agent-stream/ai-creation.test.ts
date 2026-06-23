@@ -54,6 +54,26 @@ function aiCreationCardUserMessage(
   };
 }
 
+function uploadedFileAttachment(input: {
+  title: string;
+  path: string;
+}): Extract<
+  NonNullable<Extract<StreamItem, { kind: "user_message" }>["attachments"]>[number],
+  { type: "text" }
+> {
+  return {
+    type: "text",
+    mimeType: "text/plain",
+    title: input.title,
+    text: [
+      `Uploaded file: ${input.title}`,
+      "MIME type: image/png",
+      `Workspace path: ${input.path}`,
+      "Use the workspace path above when the user asks about this file.",
+    ].join("\n"),
+  };
+}
+
 function assistantMessage(
   id: string,
   text: string,
@@ -222,6 +242,40 @@ describe("normalizeAiCreationStream", () => {
       text: "![](/repo/assets/final.png)",
     });
     expect(result.head).toEqual([]);
+  });
+
+  it("does not restore edit image thumbnails from the ai-edit file name alone", () => {
+    const user = aiCreationCardUserMessage("u1", 1, {
+      kind: "ai_creation.image.edit",
+      title: "编辑图片",
+    });
+    user.attachments = [
+      uploadedFileAttachment({
+        title: "ai-edit-source.png",
+        path: "attachments/ai-edit-source.png",
+      }),
+    ];
+
+    const result = normalizeAiCreationStream({
+      agentStatus: "running",
+      tail: [
+        user,
+        targetMessage("target", 2, {
+          kind: "ai_creation.image.edit",
+          goal: "edit_image",
+          targetId: "u1",
+          text: "编辑图片",
+        }),
+      ],
+      head: [],
+    });
+
+    expect(result.tail[0]).toMatchObject({
+      kind: "user_message",
+    });
+    expect(result.tail[0]?.kind === "user_message" ? result.tail[0].images : undefined).toBe(
+      undefined,
+    );
   });
 
   it("shows the final pptx result after the slides agent finishes", () => {

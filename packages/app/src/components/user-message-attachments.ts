@@ -1,9 +1,13 @@
 import type { AgentAttachment } from "@getdoya/protocol/messages";
+import type { AttachmentMetadata } from "@/attachments/types";
 import type { UserMessageImageAttachment } from "@/types/stream";
 
 export function filterUserMessageDisplayAttachments(input: {
   images: readonly UserMessageImageAttachment[];
   attachments: readonly AgentAttachment[];
+  selectionImage?: AttachmentMetadata;
+  selectionImageSource?: string;
+  selectionPreviewUri?: string;
 }): AgentAttachment[] {
   const hasDisplayedImage = input.images.length > 0;
   const imageKeys = new Set<string>();
@@ -13,6 +17,7 @@ export function filterUserMessageDisplayAttachments(input: {
       addComparableKeys(imageKeys, image.fileName ?? null);
     }
   }
+  addSelectionReferenceKeys(imageKeys, input);
   if (!hasDisplayedImage && imageKeys.size === 0) {
     return [...input.attachments];
   }
@@ -26,6 +31,28 @@ export function filterUserMessageDisplayAttachments(input: {
     const attachmentKeys = getAttachmentComparableKeys(attachment);
     return !attachmentKeys.some((key) => imageKeys.has(key));
   });
+}
+
+function addSelectionReferenceKeys(
+  keys: Set<string>,
+  input: {
+    selectionImage?: AttachmentMetadata;
+    selectionImageSource?: string;
+    selectionPreviewUri?: string;
+  },
+): void {
+  const hasSelectionReference = Boolean(
+    input.selectionImage || input.selectionImageSource || input.selectionPreviewUri,
+  );
+  if (!hasSelectionReference) {
+    return;
+  }
+  const selectionImage = input.selectionImage;
+  if (selectionImage) {
+    addComparableKeys(keys, selectionImage.fileName ?? null);
+  }
+  addComparableKeys(keys, input.selectionImageSource);
+  addComparableKeys(keys, input.selectionPreviewUri);
 }
 
 function isWorkspaceUserMessageImage(
