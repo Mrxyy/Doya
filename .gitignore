@@ -91,3 +91,4 @@ packages/desktop/.cache/
 packages/desktop/src-tauri/resources/managed-runtime/
 app.json
 .doya-dev
+guide-project
