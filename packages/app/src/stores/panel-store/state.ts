@@ -46,6 +46,7 @@ export interface ExplorerPanelIntent extends PanelLayoutInput {
 export interface PanelCoreState {
   mobileView: MobilePanelView;
   desktop: DesktopSidebarState;
+  desktopAgentListSuppressed: boolean;
   explorerTab: ExplorerTab;
   explorerTabByCheckout: Record<string, ExplorerTab>;
 }
@@ -80,7 +81,7 @@ export function selectPanelVisibility(
     };
   }
   return {
-    isAgentListOpen: state.desktop.agentListOpen,
+    isAgentListOpen: state.desktop.agentListOpen && !state.desktopAgentListSuppressed,
     isFileExplorerOpen: state.desktop.fileExplorerOpen,
   };
 }

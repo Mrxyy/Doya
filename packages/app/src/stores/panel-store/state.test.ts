@@ -21,6 +21,7 @@ function makePanelState(overrides: Partial<PanelCoreState> = {}): PanelCoreState
       fileExplorerOpen: false,
       focusModeEnabled: false,
     },
+    desktopAgentListSuppressed: false,
     explorerTab: "changes",
     explorerTabByCheckout: {},
     ...overrides,
@@ -123,6 +124,18 @@ describe("panel-store visibility selectors", () => {
     });
     expect(selectIsAgentListOpen(state, { isCompact: false })).toBe(true);
     expect(selectIsFileExplorerOpen(state, { isCompact: false })).toBe(false);
+  });
+
+  it("hides a suppressed desktop agent list without changing the persisted flag", () => {
+    const state = makePanelState({
+      desktop: { agentListOpen: true, fileExplorerOpen: false, focusModeEnabled: false },
+      desktopAgentListSuppressed: true,
+    });
+
+    expect(selectPanelVisibility(state, { isCompact: false })).toEqual({
+      isAgentListOpen: false,
+      isFileExplorerOpen: false,
+    });
   });
 });
 

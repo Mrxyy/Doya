@@ -1,4 +1,6 @@
 import {
+  createContext,
+  useContext,
   useCallback,
   useEffect,
   useMemo,
@@ -15,6 +17,7 @@ import {
   View,
   type GestureResponderEvent,
   type ImageSourcePropType,
+  type LayoutChangeEvent,
   type PressableStateCallbackType,
 } from "react-native";
 import { router } from "expo-router";
@@ -22,7 +25,15 @@ import * as Clipboard from "expo-clipboard";
 import type { ConversationRecording } from "@getdoya/protocol/messages";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { Check, Copy, Download, Link2, Share2, Sparkles, X } from "lucide-react-native";
+import {
+  Check,
+  Copy,
+  Download,
+  Link2,
+  MoreHorizontal,
+  Share2,
+  Sparkles,
+} from "lucide-react-native";
 import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import type { AgentProvider } from "@getdoya/protocol/agent-types";
 import { saveAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
@@ -38,6 +49,7 @@ import { splitComposerAttachmentsForSubmit } from "@/composer/attachments/submit
 import { useAgentInputDraft } from "@/composer/draft/input-draft";
 import type { ImageAttachment, MessagePayload } from "@/composer/types";
 import { FileDropZone } from "@/components/file-drop-zone";
+import { SplitContainer } from "@/components/split-container";
 import { SidebarMenuToggle } from "@/components/headers/menu-header";
 import {
   HEADER_HORIZONTAL_PADDING,
@@ -49,6 +61,7 @@ import { useToast } from "@/contexts/toast-context";
 import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import { translate } from "@/i18n/translate";
 import type { TranslationKey, TranslationParams } from "@/i18n/translations";
+import { AI_CREATION_STYLE_PROMPT_LABELS, type AiCreationVisualStyle } from "@/ai-creation/options";
 import {
   getHostRuntimeStore,
   useHostRuntimeClient,
@@ -56,6 +69,7 @@ import {
 } from "@/runtime/host-runtime";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
+import { selectIsAgentListOpen, usePanelStore } from "@/stores/panel-store";
 import { saveAiCreationMessageDisplayMetadata } from "@/stores/ai-creation-message-display-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
 import { encodeImages } from "@/utils/encode-images";
@@ -123,6 +137,10 @@ import {
 } from "@/data/home-prompt-recordings/home-preset-recordings";
 import { resolveDocumentViewerKind } from "@/utils/document-viewer-kind";
 import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
+import type { WorkspacePaneContentModel } from "@/screens/workspace/workspace-pane-content";
+import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-types";
+import type { WorkspaceLayout } from "@/stores/workspace-layout-store";
+import type { WorkspaceTab } from "@/stores/workspace-tabs-store";
 
 const MAX_SESSION_TITLE_LENGTH = 60;
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
@@ -141,6 +159,12 @@ const HOME_TITLE_GRADIENT_ANIMATION_NAME = "doya-home-title-gradient";
 const HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS = 12_000;
 const HOME_PRESET_CONTEXT_MAX_CHARS = 24_000;
 const HOME_PRESET_CONTEXT_ITEM_MAX_CHARS = 1_200;
+const HOME_PRESET_PREVIEW_SOURCE_PANE_WIDTH = 700;
+const HOME_PRESET_SOURCE_PANE_ID = "home-preset-source-pane";
+const HOME_PRESET_PREVIEW_PANE_ID = "home-preset-preview-pane";
+const HOME_PRESET_SOURCE_TAB_ID = "home-preset-source-tab";
+const HOME_PRESET_PREVIEW_TAB_ID = "home-preset-preview-tab";
+const HOME_PRESET_PREVIEW_SPLIT_GROUP_ID = "home-preset-preview-split";
 const HOME_TITLE_GRADIENT_KEYFRAME_CSS = `
   @keyframes ${HOME_TITLE_GRADIENT_ANIMATION_NAME} {
     0% {
@@ -191,6 +215,69 @@ interface HomePresetSyntheticConfirm {
   item: Extract<StreamItem, { kind: "assistant_message" }>;
 }
 
+function resolveHomePresetPreviewSourcePaneRatio(containerWidth: number): number {
+  if (containerWidth <= 0) {
+    return 1;
+  }
+  return Math.min(0.82, Math.max(0.18, HOME_PRESET_PREVIEW_SOURCE_PANE_WIDTH / containerWidth));
+}
+
+function buildHomePresetPaneLayout(input: {
+  focusedPaneId: string;
+  sourceRatio: number;
+  shouldShowPreviewPane: boolean;
+}): WorkspaceLayout {
+  if (!input.shouldShowPreviewPane) {
+    return {
+      root: {
+        kind: "pane",
+        pane: {
+          id: HOME_PRESET_SOURCE_PANE_ID,
+          tabIds: [HOME_PRESET_SOURCE_TAB_ID],
+          focusedTabId: HOME_PRESET_SOURCE_TAB_ID,
+        },
+      },
+      focusedPaneId: HOME_PRESET_SOURCE_PANE_ID,
+      parentTabIdByTabId: {},
+    };
+  }
+  return {
+    root: {
+      kind: "group",
+      group: {
+        id: HOME_PRESET_PREVIEW_SPLIT_GROUP_ID,
+        direction: "horizontal",
+        sizes: [input.sourceRatio, 1 - input.sourceRatio],
+        children: [
+          {
+            kind: "pane",
+            pane: {
+              id: HOME_PRESET_SOURCE_PANE_ID,
+              tabIds: [HOME_PRESET_SOURCE_TAB_ID],
+              focusedTabId: HOME_PRESET_SOURCE_TAB_ID,
+            },
+          },
+          {
+            kind: "pane",
+            pane: {
+              id: HOME_PRESET_PREVIEW_PANE_ID,
+              tabIds: [HOME_PRESET_PREVIEW_TAB_ID],
+              focusedTabId: HOME_PRESET_PREVIEW_TAB_ID,
+            },
+          },
+        ],
+      },
+    },
+    focusedPaneId:
+      input.focusedPaneId === HOME_PRESET_PREVIEW_PANE_ID
+        ? HOME_PRESET_PREVIEW_PANE_ID
+        : HOME_PRESET_SOURCE_PANE_ID,
+    parentTabIdByTabId: {
+      [HOME_PRESET_PREVIEW_TAB_ID]: HOME_PRESET_SOURCE_TAB_ID,
+    },
+  };
+}
+
 type HomeAiCreationIntent =
   | "imagegen"
   | "ppt_creation"
@@ -199,11 +286,7 @@ type HomeAiCreationIntent =
   | "spreadsheet_creation";
 
 const HOME_AI_CREATION_RATIO = "16:9";
-const HOME_AI_CREATION_STYLE = "auto";
-
-const HOME_STYLE_PROMPT_LABELS = {
-  auto: "auto",
-} as const;
+const HOME_AI_CREATION_STYLE: AiCreationVisualStyle = "auto";
 const FIREWORK_PARTICLES = [
   { color: "#f97316", x: -112, y: -72, size: 8, delay: 0 },
   { color: "#facc15", x: -84, y: -118, size: 7, delay: 18 },
@@ -236,6 +319,8 @@ interface HomeAiCreationSubmitContext {
   agentText?: string;
   visibleHistory?: StreamItem[];
   bundledPresetReplayId?: HomePresetReplayId;
+  ratio?: string;
+  style?: AiCreationVisualStyle;
 }
 
 const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
@@ -295,6 +380,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
 ] as const;
 
 const EMPTY_PENDING_PERMISSIONS = new Map<string, PendingPermission>();
+const EMPTY_CLOSING_TAB_IDS = new Set<string>();
 
 function getHomePresetBundledFile(
   id: HomePresetReplayId,
@@ -352,6 +438,15 @@ function decodeHomePresetFileBase64(base64: string): Uint8Array {
 
 function getHomePresetPreviewSlideName(slide: HomePresetSlidePreview, index: number): string {
   return slide.path.split("/").pop() || `slide_${String(index + 1).padStart(2, "0")}.svg`;
+}
+
+function getHomePresetPreviewProjectName(slides: readonly HomePresetSlidePreview[]): string | null {
+  const firstPath = slides[0]?.path.trim();
+  if (!firstPath) {
+    return null;
+  }
+  const match = /^projects\/([^/]+)/u.exec(firstPath);
+  return match?.[1] ?? null;
 }
 
 function escapeInlineScriptJson(value: string): string {
@@ -492,6 +587,71 @@ window.__DOYA_HOME_PRESET_PPT_PREVIEW__ = ${payload};
   );
 
   return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
+
+function getHomePresetInlineSlideSvg(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.includes("<svg") ? value : null;
+  }
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const defaultValue = (value as { default?: unknown }).default;
+  if (typeof defaultValue === "string" && defaultValue.includes("<svg")) {
+    return defaultValue;
+  }
+  return null;
+}
+
+function getHomePresetSlideAssetUrl(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.includes("<svg") ? null : value;
+  }
+  if (value && typeof value === "object") {
+    const record = value as { default?: unknown; uri?: unknown };
+    const defaultUrl = getHomePresetSlideAssetUrl(record.default);
+    if (defaultUrl) {
+      return defaultUrl;
+    }
+    if (typeof record.uri === "string") {
+      return record.uri;
+    }
+  }
+  try {
+    const source = Image.resolveAssetSource(value as ImageSourcePropType);
+    return source?.uri ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveHomePresetSlidePreview(
+  slide: HomePresetSlidePreview,
+): Promise<HomePresetSlidePreview> {
+  const inlineSvg =
+    getHomePresetInlineSlideSvg(slide.svg) ?? getHomePresetInlineSlideSvg(slide.source);
+  if (inlineSvg) {
+    return { ...slide, svg: inlineSvg };
+  }
+
+  if (!isWeb) {
+    return slide;
+  }
+
+  const assetUrl =
+    getHomePresetSlideAssetUrl(slide.source) ?? getHomePresetSlideAssetUrl(slide.svg);
+  if (!assetUrl) {
+    return slide;
+  }
+
+  try {
+    const response = await fetch(assetUrl);
+    const text = await response.text();
+    const svg = getHomePresetInlineSlideSvg(text);
+    return svg ? { ...slide, svg } : slide;
+  } catch {
+    return slide;
+  }
 }
 
 function getHomePresetSlidesConfirmPath(recording: ConversationRecording): string | null {
@@ -1554,16 +1714,24 @@ export function NewSessionDraftScreen({
   return (
     <FileDropZone onFilesDropped={handleFilesDropped}>
       <View style={styles.container}>
-        <NewSessionHomeHeader
-          left={isCompact ? mobileHeaderLeft : undefined}
-          onShare={handleOpenShareModal}
-        />
+        {activePresetReplay ? (
+          <HomePresetWorkspaceHeader
+            left={isCompact ? mobileHeaderLeft : undefined}
+            title={activePresetReplay.prompt}
+          />
+        ) : (
+          <NewSessionHomeHeader
+            left={isCompact ? mobileHeaderLeft : undefined}
+            onShare={handleOpenShareModal}
+          />
+        )}
         <View style={styles.content}>
           {activePresetReplay ? (
             <HomePresetConversation
               serverId={serverId}
               preset={activePresetReplay}
               inputDraft={draft}
+              isAuthenticated={Boolean(accountSession)}
               isSubmitting={isSubmitting}
               commandDraftConfig={composerState?.commandDraftConfig}
               agentControls={agentControlsWithDisabled}
@@ -1664,11 +1832,103 @@ function HomeComposerDock({
   );
 }
 
+interface HomePresetPaneContentContextValue {
+  agent: AgentScreenAgent;
+  agentControls?: ComponentProps<typeof Composer>["agentControls"];
+  commandDraftConfig?: ComponentProps<typeof Composer>["commandDraftConfig"];
+  extraRightContent?: ComponentProps<typeof Composer>["extraRightContent"];
+  filePreview: HomePresetFilePreview | null;
+  inputDraft: HomePresetComposerDraft;
+  isSubmitting: boolean;
+  onAddImages: ComponentProps<typeof Composer>["onAddImages"];
+  onInlineConfirm: () => void;
+  onOpenBundledFile: (request: WorkspaceFileOpenRequest) => void;
+  onOpenReplayPreview: () => void;
+  onSubmitContinuation: (payload: MessagePayload) => Promise<void>;
+  serverId: string;
+  shouldShowSlidesPreviewPane: boolean;
+  slidePreviews: HomePresetSlidePreview[];
+  streamItems: StreamItem[];
+}
+
+const HomePresetPaneContentContext = createContext<HomePresetPaneContentContextValue | null>(null);
+
+function useHomePresetPaneContentContext(): HomePresetPaneContentContextValue {
+  const value = useContext(HomePresetPaneContentContext);
+  if (!value) {
+    throw new Error("HomePresetPaneContentContext is required");
+  }
+  return value;
+}
+
+function HomePresetSourcePaneContent() {
+  const {
+    agent,
+    agentControls,
+    commandDraftConfig,
+    extraRightContent,
+    inputDraft,
+    isSubmitting,
+    onAddImages,
+    onInlineConfirm,
+    onOpenBundledFile,
+    onOpenReplayPreview,
+    onSubmitContinuation,
+    serverId,
+    streamItems,
+  } = useHomePresetPaneContentContext();
+
+  return (
+    <View style={styles.presetConversationMain}>
+      <View style={styles.presetStream}>
+        <AgentStreamView
+          agentId={agent.id}
+          serverId={serverId}
+          agent={agent}
+          streamItems={streamItems}
+          pendingPermissions={EMPTY_PENDING_PERMISSIONS}
+          isAuthoritativeHistoryReady
+          isReplayMode
+          onInlinePptConfirm={onInlineConfirm}
+          onOpenReplayPptPreview={onOpenReplayPreview}
+          onOpenWorkspaceFile={onOpenBundledFile}
+        />
+      </View>
+      <HomeComposerDock
+        agentId={agent.id}
+        serverId={serverId}
+        onSubmitMessage={onSubmitContinuation}
+        isSubmitting={isSubmitting}
+        inputDraft={inputDraft}
+        cwd="."
+        onAddImages={onAddImages}
+        commandDraftConfig={commandDraftConfig}
+        agentControls={agentControls}
+        extraRightContent={extraRightContent}
+      />
+    </View>
+  );
+}
+
+function HomePresetPreviewPaneContent() {
+  const { filePreview, shouldShowSlidesPreviewPane, slidePreviews } =
+    useHomePresetPaneContentContext();
+
+  if (shouldShowSlidesPreviewPane) {
+    return <HomePresetSlidesPreviewPane slides={slidePreviews} />;
+  }
+  if (filePreview) {
+    return <HomePresetFilePreviewPane preview={filePreview} />;
+  }
+  return null;
+}
+
 function HomePresetConversation({
   commandDraftConfig,
   agentControls,
   extraRightContent,
   inputDraft,
+  isAuthenticated,
   isSubmitting,
   onAddImages,
   onClose,
@@ -1680,6 +1940,7 @@ function HomePresetConversation({
   agentControls?: ComponentProps<typeof Composer>["agentControls"];
   extraRightContent?: ComponentProps<typeof Composer>["extraRightContent"];
   inputDraft: HomePresetComposerDraft;
+  isAuthenticated: boolean;
   isSubmitting: boolean;
   onAddImages: ComponentProps<typeof Composer>["onAddImages"];
   onClose: () => void;
@@ -1692,13 +1953,24 @@ function HomePresetConversation({
   };
   serverId: string;
 }) {
-  const { t } = useI18n();
   const [positionMs, setPositionMs] = useState(0);
   const [isConfirmUnlocked, setIsConfirmUnlocked] = useState(false);
   const [isPreviewVisible, setIsPreviewVisible] = useState(false);
   const [filePreview, setFilePreview] = useState<HomePresetFilePreview | null>(null);
-  const isCompact = useIsCompactFormFactor();
+  const [bodyWidth, setBodyWidth] = useState(0);
+  const [focusedPresetPaneId, setFocusedPresetPaneId] = useState(HOME_PRESET_SOURCE_PANE_ID);
+  const [previewSplitRatioOverride, setPreviewSplitRatioOverride] = useState<number | null>(null);
   const lastFrameRef = useRef<number | null>(null);
+  const previewSidebarWasOpenRef = useRef<boolean | null>(null);
+  const isCompact = useIsCompactFormFactor();
+  const sidebarLayoutRef = useRef(isCompact);
+  const isAgentListOpen = usePanelStore((state) => selectIsAgentListOpen(state, { isCompact }));
+  const closeAgentListForLayout = usePanelStore((state) => state.closeAgentListForLayout);
+  const openAgentListForLayout = usePanelStore((state) => state.openAgentListForLayout);
+  const suppressDesktopAgentList = usePanelStore((state) => state.suppressDesktopAgentList);
+  const clearDesktopAgentListSuppression = usePanelStore(
+    (state) => state.clearDesktopAgentListSuppression,
+  );
   const durationMs = useMemo(
     () =>
       projectConversationReplay({
@@ -1813,6 +2085,8 @@ function HomePresetConversation({
     setIsConfirmUnlocked(false);
     setIsPreviewVisible(false);
     setFilePreview(null);
+    setFocusedPresetPaneId(HOME_PRESET_SOURCE_PANE_ID);
+    setPreviewSplitRatioOverride(null);
     lastFrameRef.current = null;
   }, [preset.id]);
 
@@ -1825,12 +2099,15 @@ function HomePresetConversation({
     if (slidePreviews.length > 0) {
       setFilePreview(null);
       setIsPreviewVisible(true);
+      setFocusedPresetPaneId(HOME_PRESET_PREVIEW_PANE_ID);
     }
   }, [slidePreviews.length]);
 
   const handleCloseReplayPreview = useCallback(() => {
     setIsPreviewVisible(false);
     setFilePreview(null);
+    setFocusedPresetPaneId(HOME_PRESET_SOURCE_PANE_ID);
+    setPreviewSplitRatioOverride(null);
   }, []);
   const handleOpenBundledFile = useCallback(
     (request: WorkspaceFileOpenRequest) => {
@@ -1844,17 +2121,205 @@ function HomePresetConversation({
       }
       setIsPreviewVisible(false);
       setFilePreview(preview);
+      setFocusedPresetPaneId(HOME_PRESET_PREVIEW_PANE_ID);
     },
     [preset.id],
   );
   const shouldShowSlidesPreviewPane = isPreviewVisible && slidePreviews.length > 0;
   const shouldShowPreviewPane = shouldShowSlidesPreviewPane || Boolean(filePreview);
-  const conversationMainStyle = useMemo(
-    () => [
-      styles.presetConversationMain,
-      shouldShowPreviewPane && isCompact && styles.presetConversationMainHidden,
+  const previewSourceRatio = useMemo(
+    () => previewSplitRatioOverride ?? resolveHomePresetPreviewSourcePaneRatio(bodyWidth),
+    [bodyWidth, previewSplitRatioOverride],
+  );
+  const paneLayout = useMemo(
+    () =>
+      buildHomePresetPaneLayout({
+        focusedPaneId: focusedPresetPaneId,
+        sourceRatio: previewSourceRatio,
+        shouldShowPreviewPane,
+      }),
+    [focusedPresetPaneId, previewSourceRatio, shouldShowPreviewPane],
+  );
+  const sourceTabTarget = useMemo(
+    () => ({
+      kind: "homePresetConversation" as const,
+      presetId: preset.id,
+      prompt: preset.prompt,
+    }),
+    [preset.id, preset.prompt],
+  );
+  const previewTabTarget = useMemo<WorkspaceTab["target"] | null>(() => {
+    if (shouldShowSlidesPreviewPane) {
+      const projectName = getHomePresetPreviewProjectName(slidePreviews) || preset.prompt;
+      return {
+        kind: "pptPreview",
+        agentId: agent.id,
+        projectName,
+      };
+    }
+    if (filePreview) {
+      return {
+        kind: "file",
+        path: filePreview.file.path,
+        sourceAgentId: agent.id,
+      };
+    }
+    return null;
+  }, [agent.id, filePreview, preset.prompt, shouldShowSlidesPreviewPane, slidePreviews]);
+  const paneTabs = useMemo<WorkspaceTab[]>(() => {
+    const tabs: WorkspaceTab[] = [
+      {
+        tabId: HOME_PRESET_SOURCE_TAB_ID,
+        target: sourceTabTarget,
+        createdAt: preset.startedAtMs,
+      },
+    ];
+    if (previewTabTarget) {
+      tabs.push({
+        tabId: HOME_PRESET_PREVIEW_TAB_ID,
+        target: previewTabTarget,
+        createdAt: preset.startedAtMs,
+      });
+    }
+    return tabs;
+  }, [preset.startedAtMs, previewTabTarget, sourceTabTarget]);
+  const buildPaneContentModel = useCallback(
+    (input: { paneId: string; tab: WorkspaceTabDescriptor }): WorkspacePaneContentModel => ({
+      key: input.tab.tabId,
+      Component:
+        input.tab.tabId === HOME_PRESET_SOURCE_TAB_ID
+          ? HomePresetSourcePaneContent
+          : HomePresetPreviewPaneContent,
+      paneContextValue: {
+        serverId,
+        workspaceId: "home-preset",
+        tabId: input.tab.tabId,
+        target: input.tab.target,
+        openTab: () => {},
+        closeCurrentTab: () => {
+          if (input.tab.tabId === HOME_PRESET_SOURCE_TAB_ID) {
+            onClose();
+            return;
+          }
+          handleCloseReplayPreview();
+        },
+        retargetCurrentTab: () => {},
+        openFileInWorkspace: handleOpenBundledFile,
+        openImportSheet: () => {},
+      },
+    }),
+    [handleCloseReplayPreview, handleOpenBundledFile, onClose, serverId],
+  );
+  const paneContentContextValue = useMemo<HomePresetPaneContentContextValue>(
+    () => ({
+      agent,
+      agentControls,
+      commandDraftConfig,
+      extraRightContent,
+      filePreview,
+      inputDraft,
+      isSubmitting,
+      onAddImages,
+      onInlineConfirm: handleInlineConfirm,
+      onOpenBundledFile: handleOpenBundledFile,
+      onOpenReplayPreview: handleOpenReplayPreview,
+      onSubmitContinuation,
+      serverId,
+      shouldShowSlidesPreviewPane,
+      slidePreviews,
+      streamItems,
+    }),
+    [
+      agent,
+      agentControls,
+      commandDraftConfig,
+      extraRightContent,
+      filePreview,
+      handleInlineConfirm,
+      handleOpenBundledFile,
+      handleOpenReplayPreview,
+      inputDraft,
+      isSubmitting,
+      onAddImages,
+      onSubmitContinuation,
+      serverId,
+      shouldShowSlidesPreviewPane,
+      slidePreviews,
+      streamItems,
     ],
-    [isCompact, shouldShowPreviewPane],
+  );
+  const handleConversationBodyLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    setBodyWidth((current) => (Math.abs(current - nextWidth) > 1 ? nextWidth : current));
+  }, []);
+  const handleResizePresetSplit = useCallback((groupId: string, sizes: number[]) => {
+    if (groupId !== HOME_PRESET_PREVIEW_SPLIT_GROUP_ID) {
+      return;
+    }
+    const sourceRatio = sizes[0];
+    if (typeof sourceRatio !== "number" || !Number.isFinite(sourceRatio)) {
+      return;
+    }
+    setPreviewSplitRatioOverride(Math.min(0.82, Math.max(0.18, sourceRatio)));
+  }, []);
+  const handleClosePaneTab = useCallback(
+    (tabId: string) => {
+      if (tabId === HOME_PRESET_SOURCE_TAB_ID) {
+        onClose();
+        return;
+      }
+      handleCloseReplayPreview();
+    },
+    [handleCloseReplayPreview, onClose],
+  );
+  const handleFocusPresetPane = useCallback((paneId: string) => {
+    setFocusedPresetPaneId(paneId);
+  }, []);
+  const handleNoopPresetPaneAction = useCallback(() => {}, []);
+
+  useEffect(() => {
+    sidebarLayoutRef.current = isCompact;
+  }, [isCompact]);
+
+  useEffect(() => {
+    if (!shouldShowPreviewPane) {
+      if (previewSidebarWasOpenRef.current === true) {
+        openAgentListForLayout({ isCompact });
+      }
+      previewSidebarWasOpenRef.current = null;
+      return;
+    }
+
+    if (previewSidebarWasOpenRef.current !== null) {
+      return;
+    }
+
+    previewSidebarWasOpenRef.current = isAgentListOpen;
+    if (isAgentListOpen) {
+      if (!isCompact && !isAuthenticated) {
+        suppressDesktopAgentList();
+      } else {
+        closeAgentListForLayout({ isCompact });
+      }
+    }
+  }, [
+    closeAgentListForLayout,
+    isAuthenticated,
+    isAgentListOpen,
+    isCompact,
+    openAgentListForLayout,
+    shouldShowPreviewPane,
+    suppressDesktopAgentList,
+  ]);
+
+  useEffect(
+    () => () => {
+      if (previewSidebarWasOpenRef.current === true) {
+        openAgentListForLayout({ isCompact: sidebarLayoutRef.current });
+      }
+      clearDesktopAgentListSuppression();
+    },
+    [clearDesktopAgentListSuppression, openAgentListForLayout],
   );
 
   useEffect(() => {
@@ -1887,94 +2352,76 @@ function HomePresetConversation({
 
   return (
     <View style={styles.presetConversation}>
-      <View style={styles.presetConversationTopBar}>
-        <Pressable accessibilityRole="button" onPress={onClose} style={styles.presetBackButton}>
-          <Text style={styles.presetBackButtonText}>{t("home.newSession.title")}</Text>
-        </Pressable>
-        <Text style={styles.presetConversationTitle} numberOfLines={1}>
-          {preset.prompt}
-        </Text>
-      </View>
-      <View style={styles.presetConversationBody}>
-        <View style={conversationMainStyle}>
-          <View style={styles.presetStream}>
-            <AgentStreamView
-              agentId={agent.id}
-              serverId={serverId}
-              agent={agent}
-              streamItems={streamItems}
-              pendingPermissions={EMPTY_PENDING_PERMISSIONS}
-              isAuthoritativeHistoryReady
-              isReplayMode
-              onInlinePptConfirm={handleInlineConfirm}
-              onOpenReplayPptPreview={handleOpenReplayPreview}
-              onOpenWorkspaceFile={handleOpenBundledFile}
-            />
-          </View>
-          <HomeComposerDock
-            agentId={agent.id}
-            serverId={serverId}
-            onSubmitMessage={onSubmitContinuation}
-            isSubmitting={isSubmitting}
-            inputDraft={inputDraft}
-            cwd="."
-            onAddImages={onAddImages}
-            commandDraftConfig={commandDraftConfig}
-            agentControls={agentControls}
-            extraRightContent={extraRightContent}
+      <View onLayout={handleConversationBodyLayout} style={styles.presetConversationBody}>
+        <HomePresetPaneContentContext.Provider value={paneContentContextValue}>
+          <SplitContainer
+            layout={paneLayout}
+            workspaceKey={`home-preset:${serverId}:${preset.id}`}
+            normalizedServerId={serverId}
+            normalizedWorkspaceId="home-preset"
+            isWorkspaceFocused
+            uiTabs={paneTabs}
+            hoveredCloseTabKey={null}
+            setHoveredCloseTabKey={handleNoopPresetPaneAction}
+            closingTabIds={EMPTY_CLOSING_TAB_IDS}
+            onNavigateTab={handleNoopPresetPaneAction}
+            onCloseTab={handleClosePaneTab}
+            onCopyResumeCommand={handleNoopPresetPaneAction}
+            onCopyAgentId={handleNoopPresetPaneAction}
+            onReloadAgent={handleNoopPresetPaneAction}
+            onRenameTab={handleNoopPresetPaneAction}
+            onCloseTabsToLeft={handleNoopPresetPaneAction}
+            onCloseTabsToRight={handleNoopPresetPaneAction}
+            onCloseOtherTabs={handleNoopPresetPaneAction}
+            onCreateDraftTab={handleNoopPresetPaneAction}
+            onCreateTerminalTab={handleNoopPresetPaneAction}
+            onCreateBrowserTab={handleNoopPresetPaneAction}
+            buildPaneContentModel={buildPaneContentModel}
+            onFocusPane={handleFocusPresetPane}
+            onSplitPane={handleNoopPresetPaneAction}
+            onSplitPaneEmpty={handleNoopPresetPaneAction}
+            onMoveTabToPane={handleNoopPresetPaneAction}
+            onResizeSplit={handleResizePresetSplit}
+            onReorderTabsInPane={handleNoopPresetPaneAction}
+            showPaneSplitActions={false}
           />
-        </View>
-        {shouldShowSlidesPreviewPane ? (
-          <HomePresetSlidesPreviewPane
-            slides={slidePreviews}
-            onClose={handleCloseReplayPreview}
-            isCompact={isCompact}
-          />
-        ) : null}
-        {filePreview ? (
-          <HomePresetFilePreviewPane
-            preview={filePreview}
-            onClose={handleCloseReplayPreview}
-            isCompact={isCompact}
-          />
-        ) : null}
+        </HomePresetPaneContentContext.Provider>
       </View>
     </View>
   );
 }
 
-function HomePresetSlidesPreviewPane({
-  isCompact,
-  onClose,
-  slides,
-}: {
-  isCompact: boolean;
-  onClose: () => void;
-  slides: HomePresetSlidePreview[];
-}) {
+function HomePresetSlidesPreviewPane({ slides }: { slides: HomePresetSlidePreview[] }) {
   const { locale, t } = useI18n();
-  const previewUrl = useMemo(
-    () => buildHomePresetPptPreviewUrl({ locale, slides }),
-    [locale, slides],
+  const [resolvedSlides, setResolvedSlides] = useState(slides);
+
+  useEffect(() => {
+    let isCurrent = true;
+    setResolvedSlides(slides);
+    void Promise.all(slides.map(resolveHomePresetSlidePreview))
+      .then((nextSlides) => {
+        if (isCurrent) {
+          setResolvedSlides(nextSlides);
+        }
+        return undefined;
+      })
+      .catch(() => undefined);
+    return () => {
+      isCurrent = false;
+    };
+  }, [slides]);
+
+  const renderableSlides = useMemo(
+    () => resolvedSlides.filter((slide) => slide.svg.includes("<svg")),
+    [resolvedSlides],
   );
-  const paneStyle = useMemo(
-    () => [styles.presetPreviewPane, isCompact && styles.presetPreviewPaneCompact],
-    [isCompact],
+  const previewUrl = useMemo(
+    () => buildHomePresetPptPreviewUrl({ locale, slides: renderableSlides }),
+    [locale, renderableSlides],
   );
 
   return (
-    <View style={paneStyle}>
-      <View style={styles.presetPreviewPaneHeader}>
-        <Text style={styles.presetPreviewPaneTitle}>{t("ui.slides.preview")}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("ui.close.12tjh4")}
-          onPress={onClose}
-          style={styles.presetPreviewPaneClose}
-        >
-          <X size={16} color="#71717a" />
-        </Pressable>
-      </View>
+    <View style={styles.presetPreviewPane}>
       <View style={styles.presetPreviewFrame}>
         <PptPreviewFrame
           title={t("aiCreation.result.slidesPreviewReady")}
@@ -1987,36 +2434,9 @@ function HomePresetSlidesPreviewPane({
   );
 }
 
-function HomePresetFilePreviewPane({
-  isCompact,
-  onClose,
-  preview,
-}: {
-  isCompact: boolean;
-  onClose: () => void;
-  preview: HomePresetFilePreview;
-}) {
-  const { t } = useI18n();
-  const paneStyle = useMemo(
-    () => [styles.presetPreviewPane, isCompact && styles.presetPreviewPaneCompact],
-    [isCompact],
-  );
-
+function HomePresetFilePreviewPane({ preview }: { preview: HomePresetFilePreview }) {
   return (
-    <View style={paneStyle}>
-      <View style={styles.presetPreviewPaneHeader}>
-        <Text style={styles.presetPreviewPaneTitle} numberOfLines={1}>
-          {preview.file.fileName}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("ui.close.12tjh4")}
-          onPress={onClose}
-          style={styles.presetPreviewPaneClose}
-        >
-          <X size={16} color="#71717a" />
-        </Pressable>
-      </View>
+    <View style={styles.presetPreviewPane}>
       <View style={styles.presetPreviewFrame}>
         <DocumentViewer
           key={preview.file.path}
@@ -2032,6 +2452,41 @@ function HomePresetFilePreviewPane({
 }
 
 function noopHomePresetPptPreviewAction(): void {}
+
+function HomePresetWorkspaceHeader({ left, title }: { left?: ReactNode; title: string }) {
+  const { theme } = useUnistyles();
+  const insets = useSafeAreaInsets();
+  const padding = useWindowControlsPadding("header");
+  const headerStyle = useMemo(() => [styles.homeHeader, { paddingTop: insets.top }], [insets.top]);
+  const rowStyle = useMemo(
+    () => [
+      styles.homePresetWorkspaceHeaderRow,
+      {
+        paddingLeft: HEADER_HORIZONTAL_PADDING + padding.left,
+        paddingRight: HEADER_HORIZONTAL_PADDING + padding.right,
+      },
+    ],
+    [padding.left, padding.right],
+  );
+
+  return (
+    <View style={headerStyle}>
+      <View style={rowStyle}>
+        <TitlebarDragRegion />
+        <View style={styles.homePresetWorkspaceHeaderLeading}>
+          {left ?? <SidebarMenuToggle style={styles.homeHeaderIconButton} />}
+        </View>
+        <View style={styles.homePresetWorkspaceHeaderTitleGroup}>
+          <Text style={styles.homePresetWorkspaceHeaderTitle} numberOfLines={1}>
+            {title}
+          </Text>
+          <MoreHorizontal size={18} color={theme.colors.foregroundMuted} />
+        </View>
+        <View style={styles.homePresetWorkspaceHeaderRight} />
+      </View>
+    </View>
+  );
+}
 
 function NewSessionHomeHeader({ left, onShare }: { left?: ReactNode; onShare: () => void }) {
   const { t } = useI18n();
@@ -2688,6 +3143,8 @@ function resolveHomeSubmitText(
         prompt: displayText,
         referenceCount: payload.attachments.length,
         defaultLocale,
+        ratio: aiCreationContext.ratio,
+        style: aiCreationContext.style,
       }),
     };
   }
@@ -2809,6 +3266,8 @@ function buildHomeAiCreationPrompt(input: {
   prompt: string;
   referenceCount: number;
   defaultLocale: Locale;
+  ratio?: string;
+  style?: AiCreationVisualStyle;
 }): string {
   const baseInput = {
     messageId: input.messageId,
@@ -2818,7 +3277,7 @@ function buildHomeAiCreationPrompt(input: {
   if (input.mode === "slides") {
     return buildHomeAiCreationMarkupPrompt({
       ...baseInput,
-      ratio: HOME_AI_CREATION_RATIO,
+      ratio: input.ratio ?? HOME_AI_CREATION_RATIO,
       sourceCount: input.referenceCount,
       includeExpectedTarget: false,
       defaultLocale: input.defaultLocale,
@@ -2867,12 +3326,14 @@ function buildHomeAiCreationPrompt(input: {
   }
   return buildHomeAiCreationMarkupPrompt({
     ...baseInput,
-    ratio: HOME_AI_CREATION_RATIO,
-    style: HOME_STYLE_PROMPT_LABELS[HOME_AI_CREATION_STYLE],
+    ratio: input.ratio ?? HOME_AI_CREATION_RATIO,
+    style: AI_CREATION_STYLE_PROMPT_LABELS[input.style ?? HOME_AI_CREATION_STYLE],
     sourceCount: input.referenceCount,
     defaultLocale: input.defaultLocale,
     aiInstructions: buildHomeImagegenPrompt({
       prompt: input.prompt,
+      ratio: input.ratio ?? HOME_AI_CREATION_RATIO,
+      style: input.style ?? HOME_AI_CREATION_STYLE,
       referenceCount: input.referenceCount,
     }),
   });
@@ -3010,7 +3471,12 @@ function getHomeAiCreationMarkupConfig(mode: HomeAiCreationMode): {
   };
 }
 
-function buildHomeImagegenPrompt(input: { prompt: string; referenceCount: number }): string {
+function buildHomeImagegenPrompt(input: {
+  prompt: string;
+  ratio: string;
+  style: AiCreationVisualStyle;
+  referenceCount: number;
+}): string {
   const lines = [
     "Use the Codex imagegen skill for this request. Follow the default built-in image_gen workflow unless the user explicitly asks for a CLI fallback.",
     "This is an AI creation surface. Do not explain your reasoning, workflow, skill usage, shell commands, or implementation steps in the final conversation.",
@@ -3019,8 +3485,8 @@ function buildHomeImagegenPrompt(input: { prompt: string; referenceCount: number
     "Create a raster image from this prompt:",
     input.prompt,
     "",
-    `Aspect ratio: ${HOME_AI_CREATION_RATIO}`,
-    `Style: ${HOME_STYLE_PROMPT_LABELS[HOME_AI_CREATION_STYLE]}`,
+    `Aspect ratio: ${input.ratio}`,
+    `Style: ${AI_CREATION_STYLE_PROMPT_LABELS[input.style]}`,
     "Save the final image into the current workspace if a workspace-bound asset is produced.",
     "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](assets/generated-image.png)",
   ];
@@ -3167,6 +3633,32 @@ const styles = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  homePresetWorkspaceHeaderRow: {
+    height: HEADER_INNER_HEIGHT,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  homePresetWorkspaceHeaderLeading: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  homePresetWorkspaceHeaderTitleGroup: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    paddingLeft: theme.spacing[2],
+  },
+  homePresetWorkspaceHeaderTitle: {
+    flex: 1,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.base,
+    lineHeight: 24,
+  },
+  homePresetWorkspaceHeaderRight: {
+    width: 40,
   },
   homeHeaderLeft: {
     width: 160,
@@ -3423,44 +3915,15 @@ const styles = StyleSheet.create((theme) => ({
     width: "100%",
     minHeight: 0,
   },
-  presetConversationTopBar: {
-    minHeight: 44,
-    paddingHorizontal: theme.spacing[4],
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[3],
-  },
-  presetBackButton: {
-    minHeight: 32,
-    justifyContent: "center",
-    paddingHorizontal: theme.spacing[3],
-    borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surface2,
-  },
-  presetBackButtonText: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.xs,
-    fontWeight: theme.fontWeight.medium,
-  },
-  presetConversationTitle: {
-    flex: 1,
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.sm,
-  },
   presetConversationBody: {
     flex: 1,
     minHeight: 0,
     flexDirection: "row",
-    borderTopWidth: theme.borderWidth[1],
-    borderTopColor: theme.colors.border,
   },
   presetConversationMain: {
     flex: 1,
     minWidth: 0,
     minHeight: 0,
-  },
-  presetConversationMainHidden: {
-    display: "none",
   },
   presetStream: {
     flex: 1,
@@ -3468,41 +3931,10 @@ const styles = StyleSheet.create((theme) => ({
     minHeight: 0,
   },
   presetPreviewPane: {
-    width: "68%",
-    minWidth: 620,
-    maxWidth: 1180,
-    minHeight: 0,
-    borderLeftWidth: theme.borderWidth[1],
-    borderLeftColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceWorkspace,
-  },
-  presetPreviewPaneCompact: {
-    width: "100%",
+    flex: 1,
     minWidth: 0,
-    maxWidth: undefined,
-    borderLeftWidth: 0,
-  },
-  presetPreviewPaneHeader: {
-    height: 48,
-    paddingHorizontal: theme.spacing[3],
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderBottomWidth: theme.borderWidth[1],
-    borderBottomColor: theme.colors.border,
-    backgroundColor: theme.colors.surface0,
-  },
-  presetPreviewPaneTitle: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
-  },
-  presetPreviewPaneClose: {
-    width: 32,
-    height: 32,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: theme.borderRadius.md,
+    minHeight: 0,
+    backgroundColor: theme.colors.surfaceWorkspace,
   },
   presetPreviewFrame: {
     flex: 1,

@@ -1,45 +1,51 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
   <defs>
-    <linearGradient id="coverScrim" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#101820" stop-opacity="0.96"/>
-      <stop offset="48%" stop-color="#101820" stop-opacity="0.82"/>
-      <stop offset="100%" stop-color="#101820" stop-opacity="0.34"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0E171D"/>
+      <stop offset="0.55" stop-color="#101820"/>
+      <stop offset="1" stop-color="#142235"/>
     </linearGradient>
-    <radialGradient id="greenGlow" cx="28%" cy="28%" r="55%">
-      <stop offset="0%" stop-color="#2FBF71" stop-opacity="0.24"/>
-      <stop offset="100%" stop-color="#2FBF71" stop-opacity="0"/>
+    <radialGradient id="glow" cx="26%" cy="28%" r="62%">
+      <stop offset="0" stop-color="#2FBF71" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#2FBF71" stop-opacity="0"/>
     </radialGradient>
+    <style>
+      .mono{font-family:Consolas,"Courier New",monospace}.serif{font-family:Georgia,SimSun,serif}.sans{font-family:"Microsoft YaHei",Arial,sans-serif}
+    </style>
   </defs>
-  <g id="background">
-    <rect x="0" y="0" width="1280" height="720" fill="#101820"/>
-    <image href="../images/cover_dashboard.png" x="0" y="0" width="1280" height="720" preserveAspectRatio="xMidYMid slice"/>
-    <rect x="0" y="0" width="1280" height="720" fill="url(#coverScrim)"/>
-    <rect x="0" y="0" width="1280" height="720" fill="url(#greenGlow)"/>
-    <path d="M64 632 H1216" stroke="#33516D" stroke-width="1" stroke-opacity="0.55"/>
+  <rect width="1280" height="720" fill="url(#bg)"/>
+  <rect width="1280" height="720" fill="url(#glow)"/>
+  <g opacity="0.58">
+    <path d="M778 144h330c30 0 54 24 54 54v236c0 30-24 54-54 54H778c-30 0-54-24-54-54V198c0-30 24-54 54-54Z" fill="#142235" stroke="#33516D"/>
+    <path d="M760 230h366M760 310h366M760 390h366M836 184v264M932 184v264M1028 184v264" stroke="#22364D"/>
+    <path d="M784 388c42-58 83-88 126-91 46-4 83 21 124 58 31 28 59 44 92 48" fill="none" stroke="#2FBF71" stroke-width="5" stroke-linecap="round"/>
+    <path d="M784 332c54-17 97-21 130-11 37 11 68 39 101 48 30 9 67 1 111-25" fill="none" stroke="#76D9A0" stroke-width="3" stroke-linecap="round" opacity="0.78"/>
+    <rect x="784" y="184" width="118" height="28" rx="5" fill="#17324D"/>
+    <rect x="922" y="184" width="78" height="28" rx="5" fill="#17324D"/>
+    <rect x="1020" y="184" width="86" height="28" rx="5" fill="#17324D"/>
   </g>
-  <g id="title-block">
-    <text x="72" y="92" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#2FBF71" letter-spacing="2">B2B SAAS ANALYTICS PITCH</text>
-    <text x="72" y="230" font-family="Georgia, SimSun, serif" font-size="70" font-weight="700" fill="#F7F4ED">
+  <path d="M64 632H1216" stroke="#33516D" stroke-opacity="0.55"/>
+  <g>
+    <text x="72" y="92" class="mono" font-size="13" fill="#2FBF71" letter-spacing="2">B2B SAAS ANALYTICS PITCH · 2026</text>
+    <text x="72" y="228" class="serif" font-size="68" font-weight="700" fill="#F7F4ED">
       <tspan x="72" dy="0">数据团队正在从</tspan>
       <tspan x="72" dy="82">报表工厂转向收入引擎</tspan>
     </text>
-    <text x="76" y="386" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="24" fill="#A9B7C7">
-      <tspan x="76" dy="0">面向企业级客户的分析平台，将指标、洞察和行动编排成可复用增长系统。</tspan>
+    <text x="76" y="386" class="sans" font-size="24" fill="#A9B7C7">
+      <tspan x="76" dy="0">面向企业级客户的分析平台，将指标、洞察和行动编排成</tspan>
+      <tspan x="76" dy="34">可复用增长系统。</tspan>
     </text>
   </g>
-  <g id="metric-rail">
-    <rect x="72" y="476" width="248" height="96" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
-    <text x="96" y="512" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">MARKET SHIFT</text>
-    <text x="96" y="550" font-family="Georgia, SimSun, serif" font-size="32" font-weight="700" fill="#2FBF71">决策自动化</text>
-    <rect x="348" y="476" width="248" height="96" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
-    <text x="372" y="512" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">BUYER</text>
-    <text x="372" y="550" font-family="Georgia, SimSun, serif" font-size="32" font-weight="700" fill="#F7F4ED">CFO + RevOps</text>
-    <rect x="624" y="476" width="248" height="96" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
-    <text x="648" y="512" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">MOTION</text>
-    <text x="648" y="550" font-family="Georgia, SimSun, serif" font-size="32" font-weight="700" fill="#7B61FF">PLG to Enterprise</text>
+  <g>
+    <rect x="72" y="476" width="320" height="96" rx="8" fill="#142235" stroke="#33516D"/>
+    <text x="96" y="512" class="mono" font-size="13" fill="#A9B7C7">MARKET SHIFT</text>
+    <text x="96" y="550" class="serif" font-size="29" font-weight="700" fill="#2FBF71">决策自动化</text>
+    <rect x="420" y="476" width="320" height="96" rx="8" fill="#142235" stroke="#33516D"/>
+    <text x="444" y="512" class="mono" font-size="13" fill="#A9B7C7">BUYER</text>
+    <text x="444" y="550" class="serif" font-size="29" font-weight="700" fill="#F7F4ED">CFO + RevOps</text>
+    <rect x="768" y="476" width="320" height="96" rx="8" fill="#142235" stroke="#33516D"/>
+    <text x="792" y="512" class="mono" font-size="13" fill="#A9B7C7">MOTION</text>
+    <text x="792" y="550" class="serif" font-size="29" font-weight="700" fill="#76D9A0">PLG → Enterprise</text>
   </g>
-  <g id="footer">
-    <text x="72" y="666" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="13" fill="#A9B7C7">投资人路演稿 · 10 页 · 2026</text>
-    <use data-icon="tabler-outline/presentation-analytics" x="1164" y="642" width="30" height="30" fill="#2FBF71" stroke-width="2"/>
-  </g>
+  <text x="72" y="666" class="sans" font-size="13" fill="#A9B7C7">投资人路演稿 · 10 页</text>
 </svg>

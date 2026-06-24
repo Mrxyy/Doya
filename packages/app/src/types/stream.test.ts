@@ -780,6 +780,75 @@ describe("stream reducer canonical tool calls", () => {
     assert.strictEqual(message.timestamp.getTime(), optimisticTimestamp.getTime());
   });
 
+  it("keeps uploaded image files as file attachments from canonical timeline", () => {
+    const state = reduceStreamUpdate(
+      [],
+      {
+        type: "timeline",
+        provider: "codex",
+        item: {
+          type: "user_message",
+          text: [
+            "这是什么",
+            "",
+            "Uploaded file: $image,darkModeImage.svg",
+            "MIME type: image/svg+xml",
+            "Workspace path: attachments/dd5687ff-$image,darkModeImage.svg",
+            "Use the workspace path above when the user asks about this file.",
+          ].join("\n"),
+          messageId: "msg-uploaded-svg",
+        },
+      },
+      new Date("2025-01-01T11:11:00Z"),
+    );
+
+    const message = state.find((item) => item.kind === "user_message");
+    assert.ok(message);
+    assert.strictEqual(message.id, "msg-uploaded-svg");
+    assert.strictEqual(message.text, "这是什么");
+    assert.strictEqual(message.images, undefined);
+    assert.strictEqual(message.attachments?.length, 1);
+  });
+
+  it("restores image-picker uploads as workspace image thumbnails from canonical timeline", () => {
+    const state = reduceStreamUpdate(
+      [],
+      {
+        type: "timeline",
+        provider: "codex",
+        item: {
+          type: "user_message",
+          text: [
+            "这是什么",
+            "",
+            "Uploaded file: darkModeImage.svg",
+            "MIME type: image/svg+xml",
+            "Workspace path: attachments/dd5687ff-darkModeImage.svg",
+            "Doya display: image",
+            "Use the workspace path above when the user asks about this file.",
+          ].join("\n"),
+          messageId: "msg-uploaded-image",
+        },
+      },
+      new Date("2025-01-01T11:11:00Z"),
+    );
+
+    const message = state.find((item) => item.kind === "user_message");
+    assert.ok(message);
+    assert.strictEqual(message.id, "msg-uploaded-image");
+    assert.deepStrictEqual(message.images, [
+      {
+        kind: "workspace_image",
+        id: "uploaded-image:attachments/dd5687ff-darkModeImage.svg",
+        path: "attachments/dd5687ff-darkModeImage.svg",
+        mimeType: "image/svg+xml",
+        fileName: "darkModeImage.svg",
+        createdAt: 0,
+      },
+    ]);
+    assert.strictEqual(message.attachments?.length, 1);
+  });
+
   it("keeps canonical assistant/user/assistant order during replay", () => {
     const state: StreamItem[] = [
       {

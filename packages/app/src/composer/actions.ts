@@ -5,6 +5,10 @@ import type {
   UserComposerAttachment,
 } from "@/attachments/types";
 import {
+  buildComposerAiCreationPrompt,
+  type ComposerAiCreationPromptContext,
+} from "@/ai-creation/composer-prompt";
+import {
   materializeWorkspaceAttachmentsToFiles,
   materializeWorkspaceFileAttachments,
   workspaceMaterializedFilesToPromptAttachments,
@@ -156,6 +160,8 @@ export interface DispatchComposerAgentMessageInput {
   agentId: string;
   text: string;
   attachments: ComposerAttachment[];
+  aiCreationContext?: Partial<Pick<ComposerAiCreationPromptContext, "ratio" | "style">> &
+    Pick<ComposerAiCreationPromptContext, "mode" | "displayText">;
   encodeImages: (
     images: AttachmentMetadata[],
   ) => Promise<Array<{ data: string; mimeType: string; fileName?: string }> | undefined>;
@@ -185,9 +191,25 @@ export async function dispatchComposerAgentMessage(
       }),
   });
   const messageId = generateMessageId();
+  const aiCreationContext = input.aiCreationContext
+    ? {
+        mode: input.aiCreationContext.mode,
+        displayText: input.aiCreationContext.displayText,
+        ratio: input.aiCreationContext.ratio ?? "16:9",
+        style: input.aiCreationContext.style ?? "auto",
+      }
+    : null;
+  const agentText = aiCreationContext
+    ? buildComposerAiCreationPrompt({
+        context: aiCreationContext,
+        messageId,
+        attachmentCount: input.attachments.length,
+        defaultLocale: "zh",
+      })
+    : input.text;
   const userMessage = buildOptimisticUserMessage({
     id: messageId,
-    text: input.text,
+    text: agentText,
     timestamp: new Date(),
     images: wirePayload.displayImages,
     attachments: wirePayload.attachments,
@@ -195,7 +217,7 @@ export async function dispatchComposerAgentMessage(
   });
   appendUserMessageToStream(input.agentId, userMessage, input.stream);
   const imagesData = await input.encodeImages(wirePayload.images);
-  await input.client.sendAgentMessage(input.agentId, input.text, {
+  await input.client.sendAgentMessage(input.agentId, agentText, {
     messageId,
     images: imagesData ?? [],
     attachments: wirePayload.attachments,

@@ -85,6 +85,7 @@ type XSpreadsheetFactory = (
 ) => XSpreadsheetInstance;
 interface XSpreadsheetInstance {
   loadData(data: XSpreadsheetSheetData[]): XSpreadsheetInstance;
+  reRender(): XSpreadsheetInstance;
   on(
     eventName: "cell-selected",
     callback: (
@@ -241,6 +242,7 @@ const PDF_SHAPES_ONLY_DISABLED_CATEGORIES = [
   "annotation-redaction",
   "annotation-delete",
   "panel-annotation-style",
+  "panel-comment",
   "stamp",
   "insert",
   "form",
@@ -484,9 +486,18 @@ function createEmbedPdfZhCnLocale(): EmbedPdfLocaleDefinition {
           out: translateNow("ui.pdf.command.zoom.out"),
         },
       },
+      capture: {
+        screenshot: translateNow("ui.pdf.capture.screenshot"),
+      },
       document: {
+        close: translateNow("ui.pdf.document.close"),
         error: translateNow("ui.pdf.document.error"),
+        export: translateNow("ui.pdf.document.export"),
+        fullscreen: translateNow("ui.pdf.document.fullscreen"),
         loading: translateNow("ui.loading.pdf"),
+        open: translateNow("ui.pdf.document.open"),
+        print: translateNow("ui.pdf.document.print"),
+        protect: translateNow("ui.pdf.document.protect"),
       },
       panel: {
         annotations: translateNow("ui.pdf.panel.annotations"),
@@ -496,6 +507,20 @@ function createEmbedPdfZhCnLocale(): EmbedPdfLocaleDefinition {
         outline: translateNow("ui.pdf.panel.outline"),
         search: translateNow("ui.pdf.panel.search"),
         thumbnails: translateNow("ui.pdf.panel.thumbnails"),
+      },
+      page: {
+        horizontal: translateNow("ui.pdf.page.horizontal"),
+        rotation: translateNow("ui.pdf.page.rotation"),
+        scrollLayout: translateNow("ui.pdf.page.scrollLayout"),
+        single: translateNow("ui.pdf.page.single"),
+        spreadMode: translateNow("ui.pdf.page.spreadMode"),
+        twoEven: translateNow("ui.pdf.page.twoEven"),
+        twoOdd: translateNow("ui.pdf.page.twoOdd"),
+        vertical: translateNow("ui.pdf.page.vertical"),
+      },
+      rotate: {
+        clockwise: translateNow("ui.pdf.rotate.clockwise"),
+        counterClockwise: translateNow("ui.pdf.rotate.counterClockwise"),
       },
     },
   };
@@ -2225,6 +2250,20 @@ function XSpreadsheetDocumentViewer({
     }
     const renderHost = host;
     let canceled = false;
+    let spreadsheet: XSpreadsheetInstance | null = null;
+    let resizeFrame: number | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+
+    function refreshSpreadsheetLayout() {
+      if (resizeFrame !== null) {
+        cancelAnimationFrame(resizeFrame);
+      }
+      resizeFrame = requestAnimationFrame(() => {
+        resizeFrame = null;
+        spreadsheet?.reRender();
+      });
+    }
+
     setState({ status: "loading" });
     renderHost.replaceChildren();
 
@@ -2239,7 +2278,7 @@ function XSpreadsheetDocumentViewer({
         if (canceled) {
           return;
         }
-        const spreadsheet = spreadsheetFactory(renderHost, {
+        spreadsheet = spreadsheetFactory(renderHost, {
           mode: "read",
           showBottomBar: true,
           showToolbar: false,
@@ -2250,6 +2289,14 @@ function XSpreadsheetDocumentViewer({
             width: () => renderHost.clientWidth,
           },
         }).loadData(spreadsheetData);
+        const xSpreadsheetElement = renderHost.querySelector<HTMLElement>(".x-spreadsheet");
+        xSpreadsheetElement?.style.setProperty("width", "100%");
+        xSpreadsheetElement?.style.setProperty("height", "100%");
+        refreshSpreadsheetLayout();
+        if (typeof ResizeObserver !== "undefined") {
+          resizeObserver = new ResizeObserver(refreshSpreadsheetLayout);
+          resizeObserver.observe(renderHost);
+        }
         spreadsheet.on("cell-selected", (_cell, rowIndex, columnIndex) => {
           if (!annotationMode) {
             return;
@@ -2283,6 +2330,10 @@ function XSpreadsheetDocumentViewer({
 
     return () => {
       canceled = true;
+      resizeObserver?.disconnect();
+      if (resizeFrame !== null) {
+        cancelAnimationFrame(resizeFrame);
+      }
       renderHost.replaceChildren();
     };
   }, [annotationMode, bytes]);

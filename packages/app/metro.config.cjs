@@ -14,7 +14,14 @@ const customWebPlatform = (process.env.DOYA_WEB_PLATFORM ?? "")
 
 const config = getDefaultConfig(projectRoot);
 const defaultResolveRequest = config.resolver.resolveRequest ?? resolve;
-config.resolver.assetExts = Array.from(new Set([...config.resolver.assetExts, "wasm"]));
+config.transformer = {
+  ...config.transformer,
+  babelTransformerPath: require.resolve("./scripts/svg-raw-transformer.cjs"),
+};
+config.resolver.assetExts = Array.from(
+  new Set([...config.resolver.assetExts.filter((ext) => ext !== "svg"), "wasm"]),
+);
+config.resolver.sourceExts = Array.from(new Set([...config.resolver.sourceExts, "svg"]));
 const escapedAppSrcRoot = appSrcRoot
   .split(path.sep)
   .map((segment) => segment.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&"))

@@ -111,6 +111,20 @@ import {
 import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import { translate } from "@/i18n/translate";
 import type { TranslationKey } from "@/i18n/translations";
+import {
+  AI_CREATION_RATIO_LABEL_KEYS,
+  AI_CREATION_RATIO_OPTIONS,
+  AI_CREATION_SLIDE_RATIO_OPTIONS,
+  AI_CREATION_STYLE_OPTIONS,
+  AI_CREATION_STYLE_PROMPT_LABELS,
+  aiCreationUsesAspectRatio,
+  aiCreationUsesWorkspaceFileReferences,
+  type AiCreationAspectRatio,
+  type AiCreationMode,
+  type AiCreationSurfaceMode,
+  type AiCreationVisualStyle,
+  type AiCreationVisualStyleOption,
+} from "@/ai-creation/options";
 import { usePanelStore } from "@/stores/panel-store";
 import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
@@ -149,8 +163,8 @@ import {
   type UserMessageImageAttachment,
 } from "@/types/stream";
 
-type CreationMode = "image" | "slides" | "pdf" | "word" | "spreadsheet" | "edit";
-type CreationSurfaceMode = Exclude<CreationMode, "edit">;
+type CreationMode = AiCreationMode;
+type CreationSurfaceMode = AiCreationSurfaceMode;
 type AiCreationIntent =
   | "imagegen"
   | "image_edit"
@@ -158,41 +172,8 @@ type AiCreationIntent =
   | "pdf_creation"
   | "word_creation"
   | "spreadsheet_creation";
-type AspectRatio = "1:1" | "2:3" | "3:4" | "4:3" | "9:16" | "16:9";
-type VisualStyle =
-  | "auto"
-  | "portrait"
-  | "cinematic"
-  | "chinese"
-  | "anime"
-  | "render3d"
-  | "cyberpunk"
-  | "cgAnimation"
-  | "ink"
-  | "oil"
-  | "classic"
-  | "watercolor"
-  | "cartoon"
-  | "flatIllustration"
-  | "landscape"
-  | "hongKongAnime"
-  | "pixel"
-  | "neon"
-  | "coloredPencil"
-  | "figurine"
-  | "kidsDrawing"
-  | "abstract"
-  | "sharpIllustration"
-  | "acg"
-  | "inkPrint"
-  | "printmaking"
-  | "monet"
-  | "picasso"
-  | "rembrandt"
-  | "matisse"
-  | "baroque"
-  | "retroAnime"
-  | "pictureBook";
+type AspectRatio = AiCreationAspectRatio;
+type VisualStyle = AiCreationVisualStyle;
 
 interface SelectionPoint {
   x: number;
@@ -269,8 +250,6 @@ interface CreateAiCreationWorkspaceInput {
   setHasHydratedWorkspaces: (serverId: string, hydrated: boolean) => void;
 }
 
-const RATIO_OPTIONS: AspectRatio[] = ["1:1", "2:3", "3:4", "4:3", "9:16", "16:9"];
-const SLIDE_RATIO_OPTIONS: AspectRatio[] = ["16:9", "4:3"];
 const MASK_VIEWBOX_SIZE = 1000;
 const EDIT_CANVAS_MAX_IMAGE_WIDTH = 760;
 const EDIT_CANVAS_STAGE_HORIZONTAL_PADDING = 32;
@@ -287,252 +266,6 @@ const SELECTION_STROKE_COLORS = [
 const SELECTION_BRUSH_SIZE_MIN = 18;
 const SELECTION_BRUSH_SIZE_MAX = 110;
 const SELECTION_BRUSH_SIZE_DEFAULT = 58;
-
-const RATIO_LABEL_KEYS: Record<AspectRatio, TranslationKey> = {
-  "1:1": "aiCreation.ratio.1_1",
-  "2:3": "aiCreation.ratio.2_3",
-  "3:4": "aiCreation.ratio.3_4",
-  "4:3": "aiCreation.ratio.4_3",
-  "9:16": "aiCreation.ratio.9_16",
-  "16:9": "aiCreation.ratio.16_9",
-};
-
-const STYLE_LABEL_KEYS: Record<VisualStyle, TranslationKey> = {
-  auto: "aiCreation.style.auto",
-  portrait: "aiCreation.style.portrait",
-  cinematic: "aiCreation.style.cinematic",
-  chinese: "aiCreation.style.chinese",
-  anime: "aiCreation.style.anime",
-  render3d: "aiCreation.style.render3d",
-  cyberpunk: "aiCreation.style.cyberpunk",
-  cgAnimation: "aiCreation.style.cgAnimation",
-  ink: "aiCreation.style.ink",
-  oil: "aiCreation.style.oil",
-  classic: "aiCreation.style.classic",
-  watercolor: "aiCreation.style.watercolor",
-  cartoon: "aiCreation.style.cartoon",
-  flatIllustration: "aiCreation.style.flatIllustration",
-  landscape: "aiCreation.style.landscape",
-  hongKongAnime: "aiCreation.style.hongKongAnime",
-  pixel: "aiCreation.style.pixel",
-  neon: "aiCreation.style.neon",
-  coloredPencil: "aiCreation.style.coloredPencil",
-  figurine: "aiCreation.style.figurine",
-  kidsDrawing: "aiCreation.style.kidsDrawing",
-  abstract: "aiCreation.style.abstract",
-  sharpIllustration: "aiCreation.style.sharpIllustration",
-  acg: "aiCreation.style.acg",
-  inkPrint: "aiCreation.style.inkPrint",
-  printmaking: "aiCreation.style.printmaking",
-  monet: "aiCreation.style.monet",
-  picasso: "aiCreation.style.picasso",
-  rembrandt: "aiCreation.style.rembrandt",
-  matisse: "aiCreation.style.matisse",
-  baroque: "aiCreation.style.baroque",
-  retroAnime: "aiCreation.style.retroAnime",
-  pictureBook: "aiCreation.style.pictureBook",
-};
-
-const STYLE_PROMPT_LABELS: Record<VisualStyle, string> = {
-  auto: "auto",
-  portrait: "portrait photography",
-  cinematic: "cinematic photography",
-  chinese: "Chinese style",
-  anime: "anime",
-  render3d: "3D render",
-  cyberpunk: "cyberpunk",
-  cgAnimation: "CG animation",
-  ink: "ink wash painting",
-  oil: "oil painting",
-  classic: "classical",
-  watercolor: "watercolor painting",
-  cartoon: "cartoon",
-  flatIllustration: "flat illustration",
-  landscape: "landscape",
-  hongKongAnime: "Hong Kong anime",
-  pixel: "pixel art",
-  neon: "neon painting",
-  coloredPencil: "colored pencil drawing",
-  figurine: "collectible figurine",
-  kidsDrawing: "children's drawing",
-  abstract: "abstract",
-  sharpIllustration: "sharp pen illustration",
-  acg: "ACG",
-  inkPrint: "ink print",
-  printmaking: "printmaking",
-  monet: "Monet",
-  picasso: "Picasso",
-  rembrandt: "Rembrandt",
-  matisse: "Matisse",
-  baroque: "Baroque",
-  retroAnime: "retro anime",
-  pictureBook: "picture book",
-};
-
-const STYLE_OPTIONS: readonly VisualStyleOption[] = [
-  { value: "auto", key: STYLE_LABEL_KEYS.auto },
-  {
-    value: "portrait",
-    key: STYLE_LABEL_KEYS.portrait,
-    source: require("../../assets/ai-creation-style-thumbnails/portrait.webp"),
-  },
-  {
-    value: "cinematic",
-    key: STYLE_LABEL_KEYS.cinematic,
-    source: require("../../assets/ai-creation-style-thumbnails/cinematic.webp"),
-  },
-  {
-    value: "chinese",
-    key: STYLE_LABEL_KEYS.chinese,
-    source: require("../../assets/ai-creation-style-thumbnails/chinese.webp"),
-  },
-  {
-    value: "anime",
-    key: STYLE_LABEL_KEYS.anime,
-    source: require("../../assets/ai-creation-style-thumbnails/anime.webp"),
-  },
-  {
-    value: "render3d",
-    key: STYLE_LABEL_KEYS.render3d,
-    source: require("../../assets/ai-creation-style-thumbnails/render3d.webp"),
-  },
-  {
-    value: "cyberpunk",
-    key: STYLE_LABEL_KEYS.cyberpunk,
-    source: require("../../assets/ai-creation-style-thumbnails/cyberpunk.webp"),
-  },
-  {
-    value: "cgAnimation",
-    key: STYLE_LABEL_KEYS.cgAnimation,
-    source: require("../../assets/ai-creation-style-thumbnails/cg-animation.webp"),
-  },
-  {
-    value: "ink",
-    key: STYLE_LABEL_KEYS.ink,
-    source: require("../../assets/ai-creation-style-thumbnails/ink.webp"),
-  },
-  {
-    value: "oil",
-    key: STYLE_LABEL_KEYS.oil,
-    source: require("../../assets/ai-creation-style-thumbnails/oil.webp"),
-  },
-  {
-    value: "classic",
-    key: STYLE_LABEL_KEYS.classic,
-    source: require("../../assets/ai-creation-style-thumbnails/classic.webp"),
-  },
-  {
-    value: "watercolor",
-    key: STYLE_LABEL_KEYS.watercolor,
-    source: require("../../assets/ai-creation-style-thumbnails/watercolor.webp"),
-  },
-  {
-    value: "cartoon",
-    key: STYLE_LABEL_KEYS.cartoon,
-    source: require("../../assets/ai-creation-style-thumbnails/cartoon.webp"),
-  },
-  {
-    value: "flatIllustration",
-    key: STYLE_LABEL_KEYS.flatIllustration,
-    source: require("../../assets/ai-creation-style-thumbnails/flat-illustration.webp"),
-  },
-  {
-    value: "landscape",
-    key: STYLE_LABEL_KEYS.landscape,
-    source: require("../../assets/ai-creation-style-thumbnails/landscape.webp"),
-  },
-  {
-    value: "hongKongAnime",
-    key: STYLE_LABEL_KEYS.hongKongAnime,
-    source: require("../../assets/ai-creation-style-thumbnails/hong-kong-anime.webp"),
-  },
-  {
-    value: "pixel",
-    key: STYLE_LABEL_KEYS.pixel,
-    source: require("../../assets/ai-creation-style-thumbnails/pixel.webp"),
-  },
-  {
-    value: "neon",
-    key: STYLE_LABEL_KEYS.neon,
-    source: require("../../assets/ai-creation-style-thumbnails/neon.webp"),
-  },
-  {
-    value: "coloredPencil",
-    key: STYLE_LABEL_KEYS.coloredPencil,
-    source: require("../../assets/ai-creation-style-thumbnails/colored-pencil.webp"),
-  },
-  {
-    value: "figurine",
-    key: STYLE_LABEL_KEYS.figurine,
-    source: require("../../assets/ai-creation-style-thumbnails/figurine.webp"),
-  },
-  {
-    value: "kidsDrawing",
-    key: STYLE_LABEL_KEYS.kidsDrawing,
-    source: require("../../assets/ai-creation-style-thumbnails/kids-drawing.webp"),
-  },
-  {
-    value: "abstract",
-    key: STYLE_LABEL_KEYS.abstract,
-    source: require("../../assets/ai-creation-style-thumbnails/abstract.webp"),
-  },
-  {
-    value: "sharpIllustration",
-    key: STYLE_LABEL_KEYS.sharpIllustration,
-    source: require("../../assets/ai-creation-style-thumbnails/sharp-illustration.webp"),
-  },
-  {
-    value: "acg",
-    key: STYLE_LABEL_KEYS.acg,
-    source: require("../../assets/ai-creation-style-thumbnails/acg.webp"),
-  },
-  {
-    value: "inkPrint",
-    key: STYLE_LABEL_KEYS.inkPrint,
-    source: require("../../assets/ai-creation-style-thumbnails/ink-print.webp"),
-  },
-  {
-    value: "printmaking",
-    key: STYLE_LABEL_KEYS.printmaking,
-    source: require("../../assets/ai-creation-style-thumbnails/printmaking.webp"),
-  },
-  {
-    value: "monet",
-    key: STYLE_LABEL_KEYS.monet,
-    source: require("../../assets/ai-creation-style-thumbnails/monet.webp"),
-  },
-  {
-    value: "picasso",
-    key: STYLE_LABEL_KEYS.picasso,
-    source: require("../../assets/ai-creation-style-thumbnails/picasso.webp"),
-  },
-  {
-    value: "rembrandt",
-    key: STYLE_LABEL_KEYS.rembrandt,
-    source: require("../../assets/ai-creation-style-thumbnails/rembrandt.webp"),
-  },
-  {
-    value: "matisse",
-    key: STYLE_LABEL_KEYS.matisse,
-    source: require("../../assets/ai-creation-style-thumbnails/matisse.webp"),
-  },
-  {
-    value: "baroque",
-    key: STYLE_LABEL_KEYS.baroque,
-    source: require("../../assets/ai-creation-style-thumbnails/baroque.webp"),
-  },
-  {
-    value: "retroAnime",
-    key: STYLE_LABEL_KEYS.retroAnime,
-    source: require("../../assets/ai-creation-style-thumbnails/retro-anime.webp"),
-  },
-  {
-    value: "pictureBook",
-    key: STYLE_LABEL_KEYS.pictureBook,
-    source: require("../../assets/ai-creation-style-thumbnails/picture-book.webp"),
-  },
-];
-
 const MODE_ICON_BY_MODE: Record<CreationSurfaceMode, { color: string; icon: LucideIcon }> = {
   image: { icon: ImageIcon, color: "#2563eb" },
   slides: { icon: Presentation, color: "#7c3aed" },
@@ -594,11 +327,7 @@ interface AiCreationFeatureItem {
   pressBackgroundColor: string;
 }
 
-interface VisualStyleOption {
-  key: TranslationKey;
-  source?: ImageSourcePropType;
-  value: VisualStyle;
-}
+type VisualStyleOption = AiCreationVisualStyleOption;
 
 const INITIAL_INSPIRATION_COUNT = 35;
 const INSPIRATION_PAGE_SIZE = 15;
@@ -1294,7 +1023,7 @@ function ensureAiCreationTitleGradientKeyframes() {
 }
 
 function usesWorkspaceFileReferences(mode: CreationMode): boolean {
-  return mode === "slides" || mode === "pdf" || mode === "word" || mode === "spreadsheet";
+  return aiCreationUsesWorkspaceFileReferences(mode);
 }
 
 function getAiCreationIntentForMode(mode: CreationMode): AiCreationIntent {
@@ -1344,7 +1073,7 @@ function isPersistedAssistantWorkspaceImageReference(attachment: UserComposerAtt
 }
 
 function usesAspectRatio(mode: CreationMode): boolean {
-  return mode === "image" || mode === "edit" || mode === "slides";
+  return aiCreationUsesAspectRatio(mode);
 }
 
 function getInspirationPrompt(order: number): string {
@@ -1888,6 +1617,7 @@ export function AiCreationScreen({
             title: "ai-edit-source.png",
             mimeType: submittedEditImage?.mimeType ?? "image/png",
             path: existingEditSourcePath,
+            displayAs: "image",
           })
         : null;
       const initialPrompt = buildAiCreationPrompt({
@@ -1919,8 +1649,12 @@ export function AiCreationScreen({
                 files: editFileInputs,
               })
             : [];
-        const editFileAttachments =
-          workspaceMaterializedFilesToPromptAttachments(editMaterializedFiles);
+        const editFileAttachments = workspaceMaterializedFilesToPromptAttachments(
+          editMaterializedFiles,
+          {
+            displayAs: "image",
+          },
+        );
         const editAttachments = existingEditSourceAttachment
           ? [existingEditSourceAttachment, ...editFileAttachments]
           : editFileAttachments;
@@ -2067,6 +1801,7 @@ export function AiCreationScreen({
         });
         fileAttachments = workspaceMaterializedFilesToPromptAttachments(
           editMaterializedFilesForDisplay,
+          { displayAs: "image" },
         );
       }
       if (existingEditSourceAttachment) {
@@ -2212,28 +1947,29 @@ export function AiCreationScreen({
     selectionPreviewUri,
   ]);
 
-  const modelSelector = composerState && showModelSelector ? (
-    <CombinedModelSelector
-      providers={composerState.modelSelectorProviders}
-      selectedProvider={selectedProvider}
-      selectedModel={selectedModel}
-      onSelect={handleSelectModel}
-      isLoading={composerState.isAllModelsLoading}
-      disabled={isProviderModelLocked}
-      onOpen={composerState.refetchProviderModelsIfStale}
-      onRetryProvider={composerState.refreshProviderModels}
-      isRetryingProvider={composerState.isProviderModelsRefreshing}
-      serverId={serverId}
-      renderTrigger={({ selectedModelLabel }) => (
-        <View style={styles.modelTrigger}>
-          <Sparkles size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
-          <Text style={styles.modelTriggerText} numberOfLines={1}>
-            {selectedModelLabel}
-          </Text>
-        </View>
-      )}
-    />
-  ) : null;
+  const modelSelector =
+    composerState && showModelSelector ? (
+      <CombinedModelSelector
+        providers={composerState.modelSelectorProviders}
+        selectedProvider={selectedProvider}
+        selectedModel={selectedModel}
+        onSelect={handleSelectModel}
+        isLoading={composerState.isAllModelsLoading}
+        disabled={isProviderModelLocked}
+        onOpen={composerState.refetchProviderModelsIfStale}
+        onRetryProvider={composerState.refreshProviderModels}
+        isRetryingProvider={composerState.isProviderModelsRefreshing}
+        serverId={serverId}
+        renderTrigger={({ selectedModelLabel }) => (
+          <View style={styles.modelTrigger}>
+            <Sparkles size={theme.iconSize.sm} color={theme.colors.foregroundMuted} />
+            <Text style={styles.modelTriggerText} numberOfLines={1}>
+              {selectedModelLabel}
+            </Text>
+          </View>
+        )}
+      />
+    ) : null;
   const conversationReplayDraftControls = supportsConversationReplay ? (
     <ConversationReplayDraftControls
       recordConversation={recordConversation}
@@ -2271,8 +2007,8 @@ export function AiCreationScreen({
             <RatioDropdown
               label={t("aiCreation.aspectRatio")}
               value={ratio}
-              options={RATIO_OPTIONS}
-              getLabel={(value) => t(RATIO_LABEL_KEYS[value])}
+              options={AI_CREATION_RATIO_OPTIONS}
+              getLabel={(value) => t(AI_CREATION_RATIO_LABEL_KEYS[value])}
               onChange={setRatio}
             />
             <View style={styles.conversationEditDivider} />
@@ -2501,8 +2237,12 @@ export function AiCreationScreen({
                       <RatioDropdown
                         label={t("aiCreation.aspectRatio")}
                         value={ratio}
-                        options={mode === "slides" ? SLIDE_RATIO_OPTIONS : RATIO_OPTIONS}
-                        getLabel={(value) => t(RATIO_LABEL_KEYS[value])}
+                        options={
+                          mode === "slides"
+                            ? AI_CREATION_SLIDE_RATIO_OPTIONS
+                            : AI_CREATION_RATIO_OPTIONS
+                        }
+                        getLabel={(value) => t(AI_CREATION_RATIO_LABEL_KEYS[value])}
                         onChange={setRatio}
                       />
                     ) : null}
@@ -2510,7 +2250,7 @@ export function AiCreationScreen({
                       <StyleDropdown
                         label={t("aiCreation.style")}
                         value={style}
-                        options={STYLE_OPTIONS}
+                        options={AI_CREATION_STYLE_OPTIONS}
                         getLabel={(option) => t(option.key)}
                         onChange={(nextStyle) => setStyle(nextStyle)}
                       />
@@ -3500,6 +3240,7 @@ function buildWorkspacePathAttachment(input: {
   title: string;
   mimeType: string;
   path: string;
+  displayAs?: "image";
 }): Extract<AgentAttachment, { type: "text" }> {
   return {
     type: "text",
@@ -3509,6 +3250,7 @@ function buildWorkspacePathAttachment(input: {
       `Uploaded file: ${input.title}`,
       `MIME type: ${input.mimeType}`,
       `Workspace path: ${input.path}`,
+      ...(input.displayAs ? [`Doya display: ${input.displayAs}`] : []),
       "Use the workspace path above when the user asks about this file.",
     ].join("\n"),
   };
@@ -3869,7 +3611,7 @@ function buildAiCreationPrompt(input: {
   return buildAiCreationMarkupPrompt({
     ...baseInput,
     ratio: input.ratio,
-    style: STYLE_PROMPT_LABELS[input.style],
+    style: AI_CREATION_STYLE_PROMPT_LABELS[input.style],
     sourceCount: input.referenceCount,
     defaultLocale: input.defaultLocale,
     aiInstructions: buildImagegenPrompt({
@@ -4159,7 +3901,7 @@ function buildImagegenPrompt(input: {
     input.prompt,
     "",
     `Aspect ratio: ${input.ratio}`,
-    `Style: ${STYLE_PROMPT_LABELS[input.style]}`,
+    `Style: ${AI_CREATION_STYLE_PROMPT_LABELS[input.style]}`,
     "Save the final image into the current workspace if a workspace-bound asset is produced.",
     "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](assets/generated-image.png)",
   ];
@@ -4188,7 +3930,7 @@ function buildImageEditPrompt(input: {
       input.prompt,
       "",
       `Aspect ratio: ${input.ratio}`,
-      `Style guidance: ${STYLE_PROMPT_LABELS[input.style]}`,
+      `Style guidance: ${AI_CREATION_STYLE_PROMPT_LABELS[input.style]}`,
       "Use the structured uploaded-file attachment text to find workspace paths.",
       "`ai-edit-source.*` is the exact latest source image to edit.",
       "`ai-edit-selection-guide.png` is a visual guide image made from the source image with the user's selected region drawn over it in the user's chosen brush color. It is not the source image and must not be copied as the output.",
@@ -4217,7 +3959,7 @@ function buildImageEditPrompt(input: {
     input.prompt,
     "",
     `Aspect ratio: ${input.ratio}`,
-    `Style guidance: ${STYLE_PROMPT_LABELS[input.style]}`,
+    `Style guidance: ${AI_CREATION_STYLE_PROMPT_LABELS[input.style]}`,
     "Use the structured uploaded-file attachment text to find workspace paths when files are attached as workspace paths.",
     "`ai-edit-source.*` is the exact latest source image to edit.",
     "Do not inspect the temp attachment directory to choose a different image. Do not use any earlier image from the conversation as the edit source.",
@@ -4556,7 +4298,7 @@ function StyleDropdown({
   const [open, setOpen] = useState(false);
   const handleToggle = useCallback(() => setOpen((current) => !current), []);
   const selectedOption =
-    options.find((option) => option.value === value) ?? options[0] ?? STYLE_OPTIONS[0]!;
+    options.find((option) => option.value === value) ?? options[0] ?? AI_CREATION_STYLE_OPTIONS[0]!;
   return (
     <View style={[styles.choiceGroup, open && styles.choiceGroupOpen]}>
       <Pressable

@@ -78,7 +78,7 @@ import {
 } from "@/runtime/host-runtime";
 import { getDaemonStartService } from "@/runtime/daemon-start-service";
 import { applyAppearance } from "@/screens/settings/appearance/apply-appearance";
-import { usePanelStore } from "@/stores/panel-store";
+import { selectIsAgentListOpen, usePanelStore } from "@/stores/panel-store";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 import { bindControlReferralCode } from "@/control/control-api";
 import { THEME_TO_UNISTYLES } from "@/styles/theme";
@@ -423,10 +423,10 @@ function AppContainer({
   );
   const toggleAgentList = isCompactLayout ? toggleMobileAgentList : toggleDesktopAgentList;
   const toggleDesktopSidebars = useCallback(() => {
-    const { desktop } = usePanelStore.getState();
+    const state = usePanelStore.getState();
     toggleDesktopSidebarsWithCheckoutIntent({
-      isAgentListOpen: desktop.agentListOpen,
-      isFileExplorerOpen: desktop.fileExplorerOpen,
+      isAgentListOpen: selectIsAgentListOpen(state, { isCompact: false }),
+      isFileExplorerOpen: state.desktop.fileExplorerOpen,
       openAgentList: openDesktopAgentList,
       closeAgentList: closeDesktopAgentList,
       closeFileExplorer: closeDesktopFileExplorer,

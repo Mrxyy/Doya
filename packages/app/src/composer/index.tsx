@@ -29,6 +29,14 @@ import {
   Github,
   Paperclip,
   FileText,
+  FileImage,
+  PanelsTopLeft,
+  Presentation,
+  Table2,
+  X,
+  Palette,
+  ChevronDown,
+  Sparkles,
 } from "lucide-react-native";
 import Animated from "react-native-reanimated";
 import { FOOTER_HEIGHT, MAX_CONTENT_WIDTH } from "@/constants/layout";
@@ -101,6 +109,12 @@ import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-ur
 import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
 import { AttachmentPill } from "@/components/attachment-pill";
 import { AttachmentLightbox } from "@/components/attachment-lightbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { useIsDictationReady } from "@/hooks/use-is-dictation-ready";
 import { useGithubSearchQuery } from "@/git/use-github-search-query";
@@ -108,6 +122,17 @@ import { useCheckoutStatusQuery } from "@/git/use-status-query";
 import { useComposerGithubAutoAttach } from "./github/auto-attach";
 import { resolveClientSlashCommand, type ClientSlashCommand } from "@/client-slash-commands";
 import { translateNow } from "@/i18n/i18n";
+import type { TranslationKey } from "@/i18n/translations";
+import {
+  AI_CREATION_STYLE_OPTIONS,
+  aiCreationUsesAspectRatio,
+  getAiCreationRatioOptions,
+  type AiCreationAspectRatio,
+  type AiCreationSurfaceMode,
+  type AiCreationVisualStyle,
+  type AiCreationVisualStyleOption,
+} from "@/ai-creation/options";
+import type { ComposerAiCreationPromptContext } from "@/ai-creation/composer-prompt";
 
 type QueuedMessage = QueuedComposerMessage;
 
@@ -229,14 +254,515 @@ interface RenderLeftContentArgs {
   agentId: string;
   serverId: string;
   focusInput: () => void;
+  showQuickActions: boolean;
+  selectedQuickActionMode: ComposerAiCreationMode | null;
+  onSelectQuickActionMode: (mode: ComposerAiCreationMode | null) => void;
+  quickActionRatio: ComposerAiCreationRatio;
+  onSelectQuickActionRatio: (ratio: ComposerAiCreationRatio) => void;
+  quickActionStyle: ComposerAiCreationStyle;
+  onSelectQuickActionStyle: (style: ComposerAiCreationStyle) => void;
+  onSelectQuickActionReference: () => void;
+  onSelectQuickActionMaterial: () => void;
 }
 
 function renderLeftContent(args: RenderLeftContentArgs): ReactElement {
-  const { agentControls, agentId, serverId, focusInput } = args;
-  if (resolveAgentControlsMode(agentControls) === "draft" && agentControls) {
-    return <DraftAgentControls {...agentControls} />;
+  const {
+    agentControls,
+    agentId,
+    serverId,
+    focusInput,
+    showQuickActions,
+    selectedQuickActionMode,
+    onSelectQuickActionMode,
+    quickActionRatio,
+    onSelectQuickActionRatio,
+    quickActionStyle,
+    onSelectQuickActionStyle,
+    onSelectQuickActionReference,
+    onSelectQuickActionMaterial,
+  } = args;
+  const quickActions = showQuickActions ? (
+    <ComposerQuickActions
+      selectedMode={selectedQuickActionMode}
+      onSelectMode={onSelectQuickActionMode}
+      ratio={quickActionRatio}
+      onSelectRatio={onSelectQuickActionRatio}
+      style={quickActionStyle}
+      onSelectStyle={onSelectQuickActionStyle}
+      onSelectReference={onSelectQuickActionReference}
+      onSelectMaterial={onSelectQuickActionMaterial}
+    />
+  ) : null;
+
+  if (selectedQuickActionMode) {
+    return quickActions ?? <View />;
   }
-  return <AgentControls agentId={agentId} serverId={serverId} onDropdownClose={focusInput} />;
+
+  const controls =
+    resolveAgentControlsMode(agentControls) === "draft" && agentControls ? (
+      <DraftAgentControls {...agentControls} />
+    ) : (
+      <AgentControls agentId={agentId} serverId={serverId} onDropdownClose={focusInput} />
+    );
+
+  return (
+    <>
+      {controls}
+      {quickActions}
+    </>
+  );
+}
+
+type ComposerAiCreationMode = AiCreationSurfaceMode;
+type ComposerAiCreationRatio = AiCreationAspectRatio;
+type ComposerAiCreationStyle = AiCreationVisualStyle;
+
+export interface ComposerAiCreationSubmitContext extends Partial<
+  Pick<ComposerAiCreationPromptContext, "ratio" | "style">
+> {
+  mode: ComposerAiCreationMode;
+  displayText: string;
+}
+
+interface ComposerQuickAction {
+  mode: ComposerAiCreationMode;
+  labelKey:
+    | "composer.quickAction.image"
+    | "composer.quickAction.slides"
+    | "composer.quickAction.pdf"
+    | "composer.quickAction.document"
+    | "composer.quickAction.spreadsheet";
+  selectedLabelKey:
+    | "composer.quickAction.selected.image"
+    | "composer.quickAction.selected.slides"
+    | "composer.quickAction.selected.pdf"
+    | "composer.quickAction.selected.document"
+    | "composer.quickAction.selected.spreadsheet";
+}
+
+const VISIBLE_QUICK_ACTIONS: readonly ComposerQuickAction[] = [
+  {
+    mode: "image",
+    labelKey: "composer.quickAction.image",
+    selectedLabelKey: "composer.quickAction.selected.image",
+  },
+  {
+    mode: "slides",
+    labelKey: "composer.quickAction.slides",
+    selectedLabelKey: "composer.quickAction.selected.slides",
+  },
+  {
+    mode: "pdf",
+    labelKey: "composer.quickAction.pdf",
+    selectedLabelKey: "composer.quickAction.selected.pdf",
+  },
+  {
+    mode: "word",
+    labelKey: "composer.quickAction.document",
+    selectedLabelKey: "composer.quickAction.selected.document",
+  },
+  {
+    mode: "spreadsheet",
+    labelKey: "composer.quickAction.spreadsheet",
+    selectedLabelKey: "composer.quickAction.selected.spreadsheet",
+  },
+];
+
+function ComposerQuickActions({
+  selectedMode,
+  onSelectMode,
+  ratio,
+  onSelectRatio,
+  style,
+  onSelectStyle,
+  onSelectReference,
+  onSelectMaterial,
+}: {
+  selectedMode: ComposerAiCreationMode | null;
+  onSelectMode: (mode: ComposerAiCreationMode | null) => void;
+  ratio: ComposerAiCreationRatio;
+  onSelectRatio: (ratio: ComposerAiCreationRatio) => void;
+  style: ComposerAiCreationStyle;
+  onSelectStyle: (style: ComposerAiCreationStyle) => void;
+  onSelectReference: () => void;
+  onSelectMaterial: () => void;
+}) {
+  const selectedAction = selectedMode
+    ? (VISIBLE_QUICK_ACTIONS.find((action) => action.mode === selectedMode) ?? null)
+    : null;
+  if (selectedAction) {
+    return (
+      <ComposerSelectedQuickAction
+        action={selectedAction}
+        ratio={ratio}
+        onSelectRatio={onSelectRatio}
+        style={style}
+        onSelectStyle={onSelectStyle}
+        onSelectReference={onSelectReference}
+        onSelectMaterial={onSelectMaterial}
+        onClear={onSelectMode}
+      />
+    );
+  }
+
+  return (
+    <View style={styles.quickActions}>
+      {VISIBLE_QUICK_ACTIONS.map((action) => (
+        <ComposerQuickActionButton
+          key={action.mode}
+          action={action}
+          selected={selectedMode === action.mode}
+          onSelect={onSelectMode}
+        />
+      ))}
+    </View>
+  );
+}
+
+function ComposerQuickActionButton({
+  action,
+  selected,
+  onSelect,
+}: {
+  action: ComposerQuickAction;
+  selected: boolean;
+  onSelect: (mode: ComposerAiCreationMode | null) => void;
+}) {
+  const handlePress = useCallback(() => onSelect(action.mode), [action.mode, onSelect]);
+  const pressableStyle = useCallback(
+    (state: PressableStateCallbackType & { hovered?: boolean }) =>
+      quickActionButtonStyle({ ...state, selected }),
+    [selected],
+  );
+  const accessibilityState = useMemo(() => ({ selected }), [selected]);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={pressableStyle}
+      accessibilityRole="button"
+      accessibilityState={accessibilityState}
+      accessibilityLabel={translateNow(action.labelKey)}
+      testID={`composer-quick-action-${action.mode}`}
+    >
+      {renderQuickActionIcon(action.mode, ICON_SIZE.md)}
+      <Text style={styles.quickActionText}>{translateNow(action.labelKey)}</Text>
+    </Pressable>
+  );
+}
+
+function ComposerSelectedQuickAction({
+  action,
+  ratio,
+  onSelectRatio,
+  style,
+  onSelectStyle,
+  onSelectReference,
+  onSelectMaterial,
+  onClear,
+}: {
+  action: ComposerQuickAction;
+  ratio: ComposerAiCreationRatio;
+  onSelectRatio: (ratio: ComposerAiCreationRatio) => void;
+  style: ComposerAiCreationStyle;
+  onSelectStyle: (style: ComposerAiCreationStyle) => void;
+  onSelectReference: () => void;
+  onSelectMaterial: () => void;
+  onClear: (mode: ComposerAiCreationMode | null) => void;
+}) {
+  const handleClear = useCallback(() => onClear(null), [onClear]);
+  const clearAccessibilityLabel = translateNow("composer.quickAction.clearSelected");
+  const sourceLabel =
+    action.mode === "image"
+      ? translateNow("aiCreation.source.reference")
+      : translateNow("aiCreation.source.material");
+  const handleSourcePress = action.mode === "image" ? onSelectReference : onSelectMaterial;
+
+  return (
+    <View style={styles.selectedQuickActionRow}>
+      <View style={styles.selectedQuickAction}>
+        {renderSelectedQuickActionIcon(action.mode, ICON_SIZE.md)}
+        <Text style={styles.selectedQuickActionText}>{translateNow(action.selectedLabelKey)}</Text>
+        <Pressable
+          onPress={handleClear}
+          style={selectedQuickActionClearStyle}
+          accessibilityRole="button"
+          accessibilityLabel={clearAccessibilityLabel}
+          testID={`composer-quick-action-clear-${action.mode}`}
+        >
+          <ThemedX size={ICON_SIZE.md} uniProps={selectedQuickActionIconMapping} />
+        </Pressable>
+      </View>
+      <ComposerQuickActionConfigButton
+        label={sourceLabel}
+        onPress={handleSourcePress}
+        testID={`composer-quick-action-source-${action.mode}`}
+      />
+      {usesComposerAiCreationAspectRatio(action.mode) ? (
+        <ComposerRatioControl mode={action.mode} value={ratio} onSelect={onSelectRatio} />
+      ) : null}
+      {action.mode === "image" ? (
+        <ComposerStyleControl value={style} onSelect={onSelectStyle} />
+      ) : null}
+    </View>
+  );
+}
+
+function ComposerQuickActionConfigButton({
+  label,
+  onPress,
+  testID,
+}: {
+  label: string;
+  onPress: () => void;
+  testID: string;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={quickActionConfigButtonStyle}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      testID={testID}
+    >
+      <ThemedPaperclip size={ICON_SIZE.md} uniProps={quickActionConfigIconMapping} />
+      <Text style={styles.quickActionConfigText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function quickActionConfigButtonStyle({
+  hovered,
+}: PressableStateCallbackType & { hovered?: boolean }) {
+  return [
+    styles.quickActionConfigButton,
+    Boolean(hovered) && styles.quickActionConfigButtonHovered,
+  ];
+}
+
+function ComposerRatioControl({
+  mode,
+  value,
+  onSelect,
+}: {
+  mode: ComposerAiCreationMode;
+  value: ComposerAiCreationRatio;
+  onSelect: (ratio: ComposerAiCreationRatio) => void;
+}) {
+  const options = getAiCreationRatioOptions(mode);
+  const trigger = useCallback(
+    (state: PressableStateCallbackType & { hovered?: boolean }) =>
+      quickActionConfigButtonStyle(state),
+    [],
+  );
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        style={trigger}
+        accessibilityRole="button"
+        accessibilityLabel={translateNow("aiCreation.aspectRatio")}
+        testID="composer-quick-action-ratio"
+      >
+        <ThemedSquare size={ICON_SIZE.md} uniProps={quickActionConfigIconMapping} />
+        <Text style={styles.quickActionConfigText}>
+          {translateNow("aiCreation.aspectRatio")} {value}
+        </Text>
+        <ThemedChevronDown size={ICON_SIZE.sm} uniProps={quickActionConfigIconMapping} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" width={180}>
+        {options.map((ratio) => (
+          <ComposerRatioMenuItem
+            key={ratio}
+            ratio={ratio}
+            selected={ratio === value}
+            onSelect={onSelect}
+          />
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function usesComposerAiCreationAspectRatio(mode: ComposerAiCreationMode): boolean {
+  return aiCreationUsesAspectRatio(mode);
+}
+
+function ComposerRatioMenuItem({
+  ratio,
+  selected,
+  onSelect,
+}: {
+  ratio: ComposerAiCreationRatio;
+  selected: boolean;
+  onSelect: (ratio: ComposerAiCreationRatio) => void;
+}) {
+  const handleSelect = useCallback(() => onSelect(ratio), [onSelect, ratio]);
+  return (
+    <DropdownMenuItem selected={selected} showSelectedCheck onSelect={handleSelect}>
+      {ratio}
+    </DropdownMenuItem>
+  );
+}
+
+function ComposerStyleControl({
+  value,
+  onSelect,
+}: {
+  value: ComposerAiCreationStyle;
+  onSelect: (style: ComposerAiCreationStyle) => void;
+}) {
+  const selectedOption =
+    AI_CREATION_STYLE_OPTIONS.find((option) => option.value === value) ??
+    AI_CREATION_STYLE_OPTIONS[0]!;
+  const trigger = useCallback(
+    (state: PressableStateCallbackType & { hovered?: boolean }) =>
+      quickActionConfigButtonStyle(state),
+    [],
+  );
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        style={trigger}
+        accessibilityRole="button"
+        accessibilityLabel={translateNow("aiCreation.style")}
+        testID="composer-quick-action-style"
+      >
+        <ThemedPalette size={ICON_SIZE.md} uniProps={quickActionConfigIconMapping} />
+        <Text style={styles.quickActionConfigText}>
+          {translateNow("aiCreation.style")} {translateNow(selectedOption.key)}
+        </Text>
+        <ThemedChevronDown size={ICON_SIZE.sm} uniProps={quickActionConfigIconMapping} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" width={260} maxHeight={360} scrollable>
+        {AI_CREATION_STYLE_OPTIONS.map((styleOption) => (
+          <ComposerStyleMenuItem
+            key={styleOption.value}
+            styleOption={styleOption}
+            selected={styleOption.value === value}
+            onSelect={onSelect}
+          />
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ComposerStyleMenuItem({
+  styleOption,
+  selected,
+  onSelect,
+}: {
+  styleOption: AiCreationVisualStyleOption;
+  selected: boolean;
+  onSelect: (style: ComposerAiCreationStyle) => void;
+}) {
+  const handleSelect = useCallback(() => onSelect(styleOption.value), [onSelect, styleOption]);
+  const leading = useMemo(
+    () =>
+      styleOption.source ? (
+        <Image source={styleOption.source} style={styles.quickActionStyleOptionImage} />
+      ) : (
+        <View style={styles.quickActionStyleOptionAuto}>
+          <ThemedSparkles size={ICON_SIZE.sm} uniProps={quickActionConfigIconMapping} />
+        </View>
+      ),
+    [styleOption.source],
+  );
+  return (
+    <DropdownMenuItem
+      selected={selected}
+      showSelectedCheck
+      leading={leading}
+      onSelect={handleSelect}
+    >
+      {translateNow(styleOption.key)}
+    </DropdownMenuItem>
+  );
+}
+
+function selectedQuickActionClearStyle({
+  hovered,
+}: PressableStateCallbackType & { hovered?: boolean }) {
+  return [
+    styles.selectedQuickActionClear,
+    Boolean(hovered) && styles.selectedQuickActionClearHovered,
+  ];
+}
+
+function quickActionButtonStyle({
+  hovered,
+  selected,
+}: PressableStateCallbackType & { hovered?: boolean; selected: boolean }) {
+  return [
+    styles.quickActionButton,
+    selected && styles.quickActionButtonSelected,
+    Boolean(hovered) && styles.iconButtonHovered,
+  ];
+}
+
+function renderQuickActionIcon(mode: ComposerAiCreationMode, size: number): ReactElement {
+  switch (mode) {
+    case "slides":
+      return <ThemedPresentation size={size} uniProps={iconForegroundMapping} />;
+    case "image":
+      return <ThemedFileImage size={size} uniProps={iconForegroundMapping} />;
+    case "pdf":
+      return <ThemedFileText size={size} uniProps={iconForegroundMapping} />;
+    case "word":
+      return <ThemedPanelsTopLeft size={size} uniProps={iconForegroundMapping} />;
+    case "spreadsheet":
+      return <ThemedTable2 size={size} uniProps={iconForegroundMapping} />;
+  }
+}
+
+function renderSelectedQuickActionIcon(mode: ComposerAiCreationMode, size: number): ReactElement {
+  switch (mode) {
+    case "slides":
+      return <ThemedPresentation size={size} uniProps={selectedQuickActionIconMapping} />;
+    case "image":
+      return <ThemedFileImage size={size} uniProps={selectedQuickActionIconMapping} />;
+    case "pdf":
+      return <ThemedFileText size={size} uniProps={selectedQuickActionIconMapping} />;
+    case "word":
+      return <ThemedPanelsTopLeft size={size} uniProps={selectedQuickActionIconMapping} />;
+    case "spreadsheet":
+      return <ThemedTable2 size={size} uniProps={selectedQuickActionIconMapping} />;
+  }
+}
+
+const QUICK_ACTION_PLACEHOLDER_KEYS: Record<ComposerAiCreationMode, TranslationKey> = {
+  image: "aiCreation.prompt.imagePlaceholder",
+  slides: "aiCreation.prompt.slidesPlaceholder",
+  pdf: "aiCreation.prompt.pdfPlaceholder",
+  word: "aiCreation.prompt.wordPlaceholder",
+  spreadsheet: "aiCreation.prompt.spreadsheetPlaceholder",
+};
+
+function shouldShowComposerQuickActions(isMobile: boolean): boolean {
+  return !isMobile;
+}
+
+function resolveComposerPlaceholder(
+  mode: ComposerAiCreationMode | null,
+  isDesktopWebBreakpoint: boolean,
+): string {
+  if (mode) {
+    return translateNow(QUICK_ACTION_PLACEHOLDER_KEYS[mode]);
+  }
+  return resolveMessagePlaceholder(isDesktopWebBreakpoint);
+}
+
+function buildComposerAiCreationSubmitContext(
+  mode: ComposerAiCreationMode | null,
+  text: string,
+  ratio: ComposerAiCreationRatio,
+  style: ComposerAiCreationStyle,
+): ComposerAiCreationSubmitContext | undefined {
+  const displayText = text.trim();
+  if (!mode || !displayText) {
+    return undefined;
+  }
+  return { mode, displayText, ratio, style };
 }
 
 interface RenderAttachmentTrayArgs {
@@ -690,7 +1216,10 @@ interface ComposerProps {
   agentId: string;
   serverId: string;
   isPaneFocused: boolean;
-  onSubmitMessage?: (payload: MessagePayload) => Promise<void>;
+  onSubmitMessage?: (
+    payload: MessagePayload,
+    aiCreationContext?: ComposerAiCreationSubmitContext,
+  ) => Promise<void>;
   onClientSlashCommand?: (command: ClientSlashCommand) => Promise<void>;
   /** When true, the submit button is enabled even without text or images (e.g. external attachment selected). */
   hasExternalContent?: boolean;
@@ -969,7 +1498,21 @@ export function Composer({
 
   const isMobile = useIsCompactFormFactor();
   const isDesktopWebBreakpoint = resolveIsDesktopWebBreakpoint(isMobile);
-  const messagePlaceholder = resolveMessagePlaceholder(isDesktopWebBreakpoint);
+  const showComposerQuickActions = shouldShowComposerQuickActions(isMobile);
+  const [selectedQuickActionMode, setSelectedQuickActionMode] =
+    useState<ComposerAiCreationMode | null>(null);
+  const [quickActionRatio, setQuickActionRatio] = useState<ComposerAiCreationRatio>("16:9");
+  const [quickActionStyle, setQuickActionStyle] = useState<ComposerAiCreationStyle>("auto");
+  const handleSelectQuickActionMode = useCallback((mode: ComposerAiCreationMode | null) => {
+    if (mode === "slides") {
+      setQuickActionRatio("16:9");
+    }
+    setSelectedQuickActionMode(mode);
+  }, []);
+  const messagePlaceholder = resolveComposerPlaceholder(
+    selectedQuickActionMode,
+    isDesktopWebBreakpoint,
+  );
   const userInput = value;
   const setUserInput = onChangeText;
   const {
@@ -1078,7 +1621,13 @@ export function Composer({
   const { pickFiles } = useFileAttachmentPicker();
   const agentIdRef = useRef(agentId);
   const sendAgentMessageRef = useRef<
-    ((agentId: string, text: string, attachments: ComposerAttachment[]) => Promise<void>) | null
+    | ((
+        agentId: string,
+        text: string,
+        attachments: ComposerAttachment[],
+        aiCreationContext?: ComposerAiCreationSubmitContext,
+      ) => Promise<void>)
+    | null
   >(null);
   const onSubmitMessageRef = useRef(onSubmitMessage);
 
@@ -1123,17 +1672,29 @@ export function Composer({
   }, [focusInput, onFocusInput]);
 
   const submitMessage = useCallback(
-    async (text: string, submitAttachments: ComposerAttachment[]) => {
+    async (
+      text: string,
+      submitAttachments: ComposerAttachment[],
+      aiCreationContext?: ComposerAiCreationSubmitContext,
+    ) => {
       await onBeforeSendMessage?.();
       onMessageSent?.();
       if (onSubmitMessageRef.current) {
-        await onSubmitMessageRef.current({ text, attachments: submitAttachments, cwd });
+        await onSubmitMessageRef.current(
+          { text, attachments: submitAttachments, cwd },
+          aiCreationContext,
+        );
         return;
       }
       if (!sendAgentMessageRef.current) {
         throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
       }
-      await sendAgentMessageRef.current(agentIdRef.current, text, submitAttachments);
+      await sendAgentMessageRef.current(
+        agentIdRef.current,
+        text,
+        submitAttachments,
+        aiCreationContext,
+      );
     },
     [cwd, onBeforeSendMessage, onMessageSent],
   );
@@ -1147,6 +1708,7 @@ export function Composer({
       targetAgentId: string,
       text: string,
       sendAttachments: ComposerAttachment[],
+      aiCreationContext?: ComposerAiCreationSubmitContext,
     ) => {
       if (!client) {
         throw new Error(translateNow("ui.host.is.not.connected.n90cm6"));
@@ -1162,6 +1724,7 @@ export function Composer({
         agentId: targetAgentId,
         text,
         attachments: sendAttachments,
+        aiCreationContext,
         encodeImages,
         stream,
       });
@@ -1214,6 +1777,7 @@ export function Composer({
       outgoingMessage: string,
       outgoingAttachments: ComposerAttachment[],
       forceSend?: boolean,
+      aiCreationContext?: ComposerAiCreationSubmitContext,
     ) => {
       const result = await submitAgentInput({
         message: outgoingMessage,
@@ -1230,7 +1794,7 @@ export function Composer({
           queueMessage(queuedText, queuedAttachments);
         },
         submitMessage: async ({ message: submitText, attachments: submitAttachments }) => {
-          await submitMessage(submitText, submitAttachments);
+          await submitMessage(submitText, submitAttachments, aiCreationContext);
         },
         clearDraft,
         setUserInput,
@@ -1276,13 +1840,27 @@ export function Composer({
       if (blurOnSubmit) {
         messageInputRef.current?.blur();
       }
-      void sendMessageWithContent(payload.text, outgoingAttachments, payload.forceSend);
+      const aiCreationContext = buildComposerAiCreationSubmitContext(
+        selectedQuickActionMode,
+        payload.text,
+        quickActionRatio,
+        quickActionStyle,
+      );
+      void sendMessageWithContent(
+        payload.text,
+        outgoingAttachments,
+        payload.forceSend,
+        aiCreationContext,
+      );
     },
     [
       attachments,
       blurOnSubmit,
       buildOutgoingAttachments,
+      quickActionRatio,
+      quickActionStyle,
       runClientSlashCommand,
+      selectedQuickActionMode,
       sendMessageWithContent,
     ],
   );
@@ -1647,8 +2225,35 @@ export function Composer({
   );
 
   const leftContent = useMemo(
-    () => renderLeftContent({ agentControls, agentId, serverId, focusInput }),
-    [agentId, focusInput, serverId, agentControls],
+    () =>
+      renderLeftContent({
+        agentControls,
+        agentId,
+        serverId,
+        focusInput,
+        showQuickActions: showComposerQuickActions,
+        selectedQuickActionMode,
+        onSelectQuickActionMode: handleSelectQuickActionMode,
+        quickActionRatio,
+        onSelectQuickActionRatio: setQuickActionRatio,
+        quickActionStyle,
+        onSelectQuickActionStyle: setQuickActionStyle,
+        onSelectQuickActionReference: handlePickImage,
+        onSelectQuickActionMaterial: handlePickFile,
+      }),
+    [
+      agentControls,
+      agentId,
+      handlePickFile,
+      focusInput,
+      handlePickImage,
+      handleSelectQuickActionMode,
+      quickActionRatio,
+      quickActionStyle,
+      selectedQuickActionMode,
+      serverId,
+      showComposerQuickActions,
+    ],
   );
 
   const handleAttachButtonRef = useCallback((node: View | null) => {
@@ -1791,6 +2396,7 @@ export function Composer({
               disabled={isSubmitLoading}
               isPaneFocused={isPaneFocused}
               leftContent={leftContent}
+              hideAttachmentButton={selectedQuickActionMode !== null}
               beforeVoiceContent={beforeVoiceContent}
               rightContent={rightContent}
               voiceServerId={serverId}
@@ -1915,6 +2521,100 @@ const styles = StyleSheet.create((theme: Theme) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1],
+  },
+  quickActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    marginLeft: theme.spacing[1],
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  quickActionButton: {
+    height: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[2],
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: "transparent",
+  },
+  quickActionButtonSelected: {
+    backgroundColor: theme.colors.surface2,
+  },
+  quickActionText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.normal,
+    lineHeight: theme.fontSize.sm * 1.3,
+  },
+  selectedQuickAction: {
+    height: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    marginLeft: theme.spacing[1],
+    paddingLeft: theme.spacing[2],
+    paddingRight: theme.spacing[1],
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: `${theme.colors.accent}14`,
+  },
+  selectedQuickActionText: {
+    color: theme.colors.accent,
+    fontSize: theme.fontSize.md,
+    fontWeight: theme.fontWeight.medium,
+    lineHeight: theme.fontSize.md * 1.25,
+  },
+  selectedQuickActionClear: {
+    width: 24,
+    height: 24,
+    borderRadius: theme.borderRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selectedQuickActionClearHovered: {
+    backgroundColor: `${theme.colors.accent}20`,
+  },
+  selectedQuickActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+    marginLeft: theme.spacing[1],
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  quickActionConfigButton: {
+    height: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[1],
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: "transparent",
+  },
+  quickActionConfigButtonHovered: {
+    backgroundColor: theme.colors.surface2,
+  },
+  quickActionConfigText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.md,
+    fontWeight: theme.fontWeight.normal,
+    lineHeight: theme.fontSize.md * 1.25,
+  },
+  quickActionStyleOptionImage: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.md,
+  },
+  quickActionStyleOptionAuto: {
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f2efff",
   },
   contextWindowMeterSlot: {
     width: 28,
@@ -2052,7 +2752,18 @@ const ThemedAudioLines = withUnistyles(AudioLines);
 const ThemedPaperclip = withUnistyles(Paperclip);
 const ThemedGithub = withUnistyles(Github);
 const ThemedFileText = withUnistyles(FileText);
+const ThemedFileImage = withUnistyles(FileImage);
+const ThemedPanelsTopLeft = withUnistyles(PanelsTopLeft);
+const ThemedPresentation = withUnistyles(Presentation);
+const ThemedTable2 = withUnistyles(Table2);
+const ThemedX = withUnistyles(X);
+const ThemedPalette = withUnistyles(Palette);
+const ThemedChevronDown = withUnistyles(ChevronDown);
+const ThemedSquare = withUnistyles(Square);
+const ThemedSparkles = withUnistyles(Sparkles);
 
 const iconForegroundMapping = (theme: Theme) => ({ color: theme.colors.foreground });
 const iconForegroundMutedMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
+const selectedQuickActionIconMapping = (theme: Theme) => ({ color: theme.colors.accent });
+const quickActionConfigIconMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
 const iconAccentForegroundMapping = (theme: Theme) => ({ color: theme.colors.accentForeground });

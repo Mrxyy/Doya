@@ -19,6 +19,7 @@ export interface WorkspaceDraftTabSetup {
 
 export type WorkspaceTabTarget =
   | { kind: "draft"; draftId: string; setup?: WorkspaceDraftTabSetup }
+  | { kind: "homePresetConversation"; presetId: string; prompt: string }
   | { kind: "agent"; agentId: string }
   | { kind: "terminal"; terminalId: string }
   | { kind: "browser"; browserId: string }
@@ -496,39 +497,82 @@ function extractMigrationRawSources(persistedState: unknown): MigrationRawSource
   };
 }
 
+type WorkspaceTabTargetCoercer = (raw: Record<string, unknown>) => WorkspaceTabTarget | null;
+
+const WORKSPACE_TAB_TARGET_COERCERS: Record<string, WorkspaceTabTargetCoercer> = {
+  draft: coerceDraftWorkspaceTabTarget,
+  agent: coerceAgentWorkspaceTabTarget,
+  homePresetConversation: coerceHomePresetConversationWorkspaceTabTarget,
+  terminal: coerceTerminalWorkspaceTabTarget,
+  browser: coerceBrowserWorkspaceTabTarget,
+  pptPreview: coercePptPreviewWorkspaceTabTarget,
+  file: coerceWorkspaceFileTabTarget,
+  setup: coerceSetupWorkspaceTabTarget,
+};
+
 function coerceWorkspaceTabTarget(raw: Record<string, unknown>): WorkspaceTabTarget | null {
   const kind = typeof raw.kind === "string" ? raw.kind : null;
-  if (kind === "draft" && typeof raw.draftId === "string") {
-    const setup = normalizeWorkspaceDraftTabSetup(raw.setup);
-    return normalizeWorkspaceTabTarget({
-      kind: "draft",
-      draftId: raw.draftId,
-      ...(setup ? { setup } : {}),
-    });
+  return kind ? (WORKSPACE_TAB_TARGET_COERCERS[kind]?.(raw) ?? null) : null;
+}
+
+function coerceDraftWorkspaceTabTarget(raw: Record<string, unknown>): WorkspaceTabTarget | null {
+  if (typeof raw.draftId !== "string") {
+    return null;
   }
-  if (kind === "agent" && typeof raw.agentId === "string") {
-    return normalizeWorkspaceTabTarget({ kind: "agent", agentId: raw.agentId });
-  }
-  if (kind === "terminal" && typeof raw.terminalId === "string") {
-    return normalizeWorkspaceTabTarget({ kind: "terminal", terminalId: raw.terminalId });
-  }
-  if (kind === "browser" && typeof raw.browserId === "string") {
-    return normalizeWorkspaceTabTarget({ kind: "browser", browserId: raw.browserId });
-  }
-  if (kind === "pptPreview" && typeof raw.agentId === "string" && typeof raw.projectName === "string") {
-    return normalizeWorkspaceTabTarget({
-      kind: "pptPreview",
-      agentId: raw.agentId,
-      projectName: raw.projectName,
-    });
-  }
-  if (kind === "file" && typeof raw.path === "string") {
-    return coerceWorkspaceFileTabTarget(raw);
-  }
-  if (kind === "setup" && typeof raw.workspaceId === "string") {
-    return normalizeWorkspaceTabTarget({ kind: "setup", workspaceId: raw.workspaceId });
-  }
-  return null;
+  const setup = normalizeWorkspaceDraftTabSetup(raw.setup);
+  return normalizeWorkspaceTabTarget({
+    kind: "draft",
+    draftId: raw.draftId,
+    ...(setup ? { setup } : {}),
+  });
+}
+
+function coerceAgentWorkspaceTabTarget(raw: Record<string, unknown>): WorkspaceTabTarget | null {
+  return typeof raw.agentId === "string"
+    ? normalizeWorkspaceTabTarget({ kind: "agent", agentId: raw.agentId })
+    : null;
+}
+
+function coerceHomePresetConversationWorkspaceTabTarget(
+  raw: Record<string, unknown>,
+): WorkspaceTabTarget | null {
+  return typeof raw.presetId === "string" && typeof raw.prompt === "string"
+    ? normalizeWorkspaceTabTarget({
+        kind: "homePresetConversation",
+        presetId: raw.presetId,
+        prompt: raw.prompt,
+      })
+    : null;
+}
+
+function coerceTerminalWorkspaceTabTarget(raw: Record<string, unknown>): WorkspaceTabTarget | null {
+  return typeof raw.terminalId === "string"
+    ? normalizeWorkspaceTabTarget({ kind: "terminal", terminalId: raw.terminalId })
+    : null;
+}
+
+function coerceBrowserWorkspaceTabTarget(raw: Record<string, unknown>): WorkspaceTabTarget | null {
+  return typeof raw.browserId === "string"
+    ? normalizeWorkspaceTabTarget({ kind: "browser", browserId: raw.browserId })
+    : null;
+}
+
+function coercePptPreviewWorkspaceTabTarget(
+  raw: Record<string, unknown>,
+): WorkspaceTabTarget | null {
+  return typeof raw.agentId === "string" && typeof raw.projectName === "string"
+    ? normalizeWorkspaceTabTarget({
+        kind: "pptPreview",
+        agentId: raw.agentId,
+        projectName: raw.projectName,
+      })
+    : null;
+}
+
+function coerceSetupWorkspaceTabTarget(raw: Record<string, unknown>): WorkspaceTabTarget | null {
+  return typeof raw.workspaceId === "string"
+    ? normalizeWorkspaceTabTarget({ kind: "setup", workspaceId: raw.workspaceId })
+    : null;
 }
 
 function coerceWorkspaceFileTabTarget(raw: Record<string, unknown>): WorkspaceTabTarget | null {

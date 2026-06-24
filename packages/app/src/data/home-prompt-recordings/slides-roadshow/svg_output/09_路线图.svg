@@ -1,49 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
-  <g id="background">
-    <rect x="0" y="0" width="1280" height="720" fill="#101820"/>
-    <path d="M64 124 H1216" stroke="#33516D" stroke-width="1" stroke-opacity="0.55"/>
+  <defs><style>.mono{font-family:Consolas,"Courier New",monospace}.serif{font-family:Georgia,SimSun,serif}.sans{font-family:"Microsoft YaHei",Arial,sans-serif}</style></defs>
+  <rect width="1280" height="720" fill="#101820"/>
+  <path d="M64 124H1216" stroke="#33516D" stroke-opacity="0.55"/>
+  <text x="64" y="70" class="mono" font-size="13" fill="#2FBF71" letter-spacing="2">09 · NEXT 18 MONTHS</text>
+  <text x="64" y="111" class="serif" font-size="34" font-weight="700" fill="#F7F4ED">未来 18 个月要把产品验证变成可重复增长机器</text>
+  <rect x="72" y="174" width="808" height="382" rx="8" fill="#142235" stroke="#33516D"/>
+  <line x1="144" y1="368" x2="808" y2="368" stroke="#33516D" stroke-width="3"/>
+  <g>
+    <circle cx="168" cy="368" r="13" fill="#2FBF71"/><text x="138" y="322" class="mono" font-size="13" fill="#A9B7C7">M0-M3</text><text x="116" y="404" class="sans" font-size="17" fill="#F7F4ED">语义层增强</text>
+    <circle cx="328" cy="368" r="13" fill="#2FBF71"/><text x="298" y="322" class="mono" font-size="13" fill="#A9B7C7">M4-M6</text><text x="276" y="404" class="sans" font-size="17" fill="#F7F4ED">可靠性评测</text>
+    <circle cx="488" cy="368" r="13" fill="#76D9A0"/><text x="458" y="322" class="mono" font-size="13" fill="#A9B7C7">M7-M10</text><text x="434" y="404" class="sans" font-size="17" fill="#F7F4ED">企业销售复制</text>
+    <circle cx="648" cy="368" r="13" fill="#F2B84B"/><text x="618" y="322" class="mono" font-size="13" fill="#A9B7C7">M11-M14</text><text x="602" y="404" class="sans" font-size="17" fill="#F7F4ED">客户成功体系</text>
+    <circle cx="808" cy="368" r="13" fill="#2FBF71"/><text x="778" y="322" class="mono" font-size="13" fill="#A9B7C7">M15-M18</text><text x="774" y="404" class="sans" font-size="17" fill="#F7F4ED">安全合规</text>
   </g>
-  <g id="header">
-    <text x="64" y="70" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#2FBF71" letter-spacing="2">08 · NEXT 18 MONTHS</text>
-    <text x="64" y="111" font-family="Georgia, SimSun, serif" font-size="34" font-weight="700" fill="#F7F4ED">未来 18 个月要把产品验证变成可重复增长机器</text>
-  </g>
-  <g id="roadmap">
-    <rect x="72" y="174" width="808" height="382" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
-    <line x1="144" y1="368" x2="808" y2="368" stroke="#33516D" stroke-width="3"/>
-    <circle cx="168" cy="368" r="13" fill="#2FBF71"/>
-    <circle cx="328" cy="368" r="13" fill="#2FBF71"/>
-    <circle cx="488" cy="368" r="13" fill="#7B61FF"/>
-    <circle cx="648" cy="368" r="13" fill="#7B61FF"/>
-    <circle cx="808" cy="368" r="13" fill="#2FBF71"/>
-    <text x="138" y="322" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">M0-M3</text>
-    <text x="116" y="404" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">语义层增强</text>
-    <text x="298" y="322" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">M4-M6</text>
-    <text x="276" y="404" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">可靠性评测</text>
-    <text x="458" y="322" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">M7-M10</text>
-    <text x="434" y="404" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">企业销售复制</text>
-    <text x="618" y="322" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">M11-M14</text>
-    <text x="602" y="404" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">客户成功体系</text>
-    <text x="778" y="322" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">M15-M18</text>
-    <text x="774" y="404" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">安全合规</text>
-    <text x="112" y="496" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#A9B7C7">
-      <tspan x="112" dy="0">节奏原则：先提升产品可靠性和企业交付能力，</tspan>
-      <tspan x="112" dy="28">再扩大销售覆盖，避免用资本掩盖未稳定的交付模型。</tspan>
-    </text>
-  </g>
-  <g id="risk-panel">
-    <rect x="920" y="174" width="296" height="382" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
-    <text x="952" y="220" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">CAPITAL DISCIPLINE</text>
-    <use data-icon="tabler-outline/shield-check" x="952" y="256" width="38" height="38" fill="#2FBF71" stroke-width="2"/>
-    <text x="1008" y="284" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="19" fill="#F7F4ED">风险前置</text>
-    <rect x="952" y="326" width="208" height="1" fill="#33516D"/>
-    <text x="952" y="370" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#A9B7C7">
-      <tspan x="952" dy="0">SOC2 和权限治理</tspan>
-      <tspan x="952" dy="34">AI 输出可靠性</tspan>
-      <tspan x="952" dy="34">客户成功 playbook</tspan>
-      <tspan x="952" dy="34">渠道伙伴验证</tspan>
-    </text>
-  </g>
-  <g id="footer">
-    <text x="64" y="670" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="11" fill="#A9B7C7">P09 · 融资资金集中投向可复制能力，而非过早扩张</text>
-  </g>
+  <text x="112" y="496" class="sans" font-size="17" fill="#A9B7C7"><tspan x="112" dy="0">节奏原则：先提升产品可靠性和企业交付能力，</tspan><tspan x="112" dy="28">再扩大销售覆盖，避免用资本掩盖未稳定的交付模型。</tspan></text>
+  <rect x="920" y="174" width="296" height="382" rx="8" fill="#142235" stroke="#33516D"/>
+  <text x="952" y="220" class="mono" font-size="12" fill="#A9B7C7">CAPITAL DISCIPLINE</text>
+  <circle cx="971" cy="275" r="20" fill="#10251C" stroke="#2FBF71"/><path d="M960 275l8 8 15-18" stroke="#2FBF71" stroke-width="2" fill="none"/>
+  <text x="1008" y="284" class="sans" font-size="19" fill="#F7F4ED">风险前置</text>
+  <rect x="952" y="326" width="208" height="1" fill="#33516D"/>
+  <text x="952" y="370" class="sans" font-size="17" fill="#A9B7C7"><tspan x="952" dy="0">SOC2 和权限治理</tspan><tspan x="952" dy="34">AI 输出可靠性</tspan><tspan x="952" dy="34">客户成功 playbook</tspan><tspan x="952" dy="34">渠道伙伴验证</tspan></text>
+  <text x="64" y="670" class="sans" font-size="11" fill="#A9B7C7">P09 · 融资资金集中投向可复制能力，而非过早扩张</text>
 </svg>

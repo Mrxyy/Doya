@@ -21,6 +21,11 @@ export function normalizeWorkspaceTabTarget(
     const setup = normalizeWorkspaceDraftTabSetup(value.setup);
     return setup ? { kind: "draft", draftId, setup } : { kind: "draft", draftId };
   }
+  if (value.kind === "homePresetConversation") {
+    const presetId = trimNonEmpty(value.presetId);
+    const prompt = trimNonEmpty(value.prompt);
+    return presetId && prompt ? { kind: "homePresetConversation", presetId, prompt } : null;
+  }
   if (value.kind === "agent") {
     const agentId = trimNonEmpty(value.agentId);
     return agentId ? { kind: "agent", agentId } : null;
@@ -80,6 +85,9 @@ export function workspaceTabTargetsEqual(
   if (left.kind === "draft" && right.kind === "draft") {
     return left.draftId === right.draftId && workspaceDraftTabSetupsEqual(left.setup, right.setup);
   }
+  if (left.kind === "homePresetConversation" && right.kind === "homePresetConversation") {
+    return left.presetId === right.presetId && left.prompt === right.prompt;
+  }
   if (left.kind === "agent" && right.kind === "agent") {
     return left.agentId === right.agentId;
   }
@@ -137,6 +145,9 @@ function recordsShallowEqual(
 export function buildDeterministicWorkspaceTabId(target: WorkspaceTabTarget): string {
   if (target.kind === "draft") {
     return target.draftId;
+  }
+  if (target.kind === "homePresetConversation") {
+    return `home_preset_${target.presetId}`;
   }
   if (target.kind === "agent") {
     return `agent_${target.agentId}`;

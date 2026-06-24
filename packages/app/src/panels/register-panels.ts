@@ -2,6 +2,7 @@ import { agentPanelRegistration } from "@/panels/agent-panel";
 import { browserPanelRegistration } from "@/panels/browser-panel";
 import { draftPanelRegistration } from "@/panels/draft-panel";
 import { filePanelRegistration } from "@/panels/file-panel";
+import { homePresetConversationPanelRegistration } from "@/panels/home-preset-conversation-panel";
 import { registerPanel } from "@/panels/panel-registry";
 import { pptPreviewPanelRegistration } from "@/panels/ppt-preview-panel";
 import { setupPanelRegistration } from "@/panels/setup-panel";
@@ -14,6 +15,7 @@ export function ensurePanelsRegistered(): void {
     return;
   }
   registerPanel(draftPanelRegistration);
+  registerPanel(homePresetConversationPanelRegistration);
   registerPanel(agentPanelRegistration);
   registerPanel(setupPanelRegistration);
   registerPanel(terminalPanelRegistration);

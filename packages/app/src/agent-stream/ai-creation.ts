@@ -403,10 +403,15 @@ function normalizeHandshakeTurn(input: {
   if (!finalMarkdown) {
     return { items: normalized, changed: true };
   }
+  const debugFinalItem = {
+    ...finalItem,
+    text: finalMarkdown,
+    debugRawText: finalItem.text,
+  };
   normalized.push(...pptProgressItems);
   normalized.push({
     source: finalTaggedResult.source,
-    item: { ...finalItem, text: finalMarkdown },
+    item: debugFinalItem,
   });
   return { items: normalized, changed: true };
 }

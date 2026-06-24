@@ -16,6 +16,7 @@ export type HomePresetReplayId =
 export interface HomePresetSlidePreview {
   path: string;
   svg: string;
+  source: unknown;
 }
 
 export const HOME_PRESET_REPLAY_SPEED = 4;
@@ -93,7 +94,8 @@ export function getHomePresetBundledSlidePreviews(
   }
   return SlidesRoadshowPreviewSlides.map((slide) => ({
     path: slide.path,
-    svg: slide.svg,
+    source: slide.svg,
+    svg: getHomePresetSlideSvgText(slide.svg) ?? "",
   }));
 }
 
@@ -118,12 +120,14 @@ export async function materializeHomePresetBundledFilesToWorkspace(input: {
     data: file.base64,
     path: file.path,
   }));
-  const slideFiles = getHomePresetBundledSlidePreviews(input.id).map((slide) => ({
-    fileName: slide.path.split("/").pop() ?? "slide.svg",
-    mimeType: "image/svg+xml",
-    data: encodeHomePresetUtf8ToBase64(slide.svg),
-    path: slide.path,
-  }));
+  const slideFiles = getHomePresetBundledSlidePreviews(input.id)
+    .filter((slide) => slide.svg.length > 0)
+    .map((slide) => ({
+      fileName: slide.path.split("/").pop() ?? "slide.svg",
+      mimeType: "image/svg+xml",
+      data: encodeHomePresetUtf8ToBase64(slide.svg),
+      path: slide.path,
+    }));
   const materializedFiles = [...files, ...slideFiles];
   if (materializedFiles.length === 0) {
     return;
@@ -132,6 +136,20 @@ export async function materializeHomePresetBundledFilesToWorkspace(input: {
     cwd: input.cwd,
     files: materializedFiles,
   });
+}
+
+function getHomePresetSlideSvgText(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.includes("<svg") ? value : null;
+  }
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const defaultValue = (value as { default?: unknown }).default;
+  if (typeof defaultValue === "string" && defaultValue.includes("<svg")) {
+    return defaultValue;
+  }
+  return null;
 }
 
 function encodeHomePresetUtf8ToBase64(value: string): string {

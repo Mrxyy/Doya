@@ -8,7 +8,7 @@ import {
   DESKTOP_WINDOW_CONTROLS_HEIGHT,
 } from "@/constants/layout";
 import { getDesktopWindow } from "@/desktop/electron/window";
-import { usePanelStore } from "@/stores/panel-store";
+import { selectIsAgentListOpen, usePanelStore } from "@/stores/panel-store";
 import { isNative } from "@/constants/platform";
 
 interface RawWindowControlsPadding {
@@ -113,7 +113,7 @@ export function useWindowControlsPadding(role: WindowControlsPaddingRole): {
   right: number;
   top: number;
 } {
-  const sidebarOpen = usePanelStore((state) => state.desktop.agentListOpen);
+  const sidebarOpen = usePanelStore((state) => selectIsAgentListOpen(state, { isCompact: false }));
   const explorerOpen = usePanelStore((state) => state.desktop.fileExplorerOpen);
   const focusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
   const rawPadding = useRawWindowControlsPadding();

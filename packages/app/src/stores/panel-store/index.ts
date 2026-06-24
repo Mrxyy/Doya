@@ -66,6 +66,7 @@ export interface PanelState {
 
   // Desktop: independent sidebar toggles
   desktop: DesktopSidebarState;
+  desktopAgentListSuppressed: boolean;
 
   // File explorer settings (shared between mobile/desktop)
   explorerTab: ExplorerTab;
@@ -85,6 +86,8 @@ export interface PanelState {
   openDesktopAgentList: () => void;
   closeDesktopAgentList: () => void;
   toggleDesktopAgentList: () => void;
+  suppressDesktopAgentList: () => void;
+  clearDesktopAgentListSuppression: () => void;
   closeDesktopFileExplorer: () => void;
   openAgentListForLayout: (input: PanelLayoutInput) => void;
   closeAgentListForLayout: (input: PanelLayoutInput) => void;
@@ -118,6 +121,7 @@ export const usePanelStore = create<PanelState>()(
         fileExplorerOpen: false,
         focusModeEnabled: false,
       },
+      desktopAgentListSuppressed: false,
 
       // File explorer defaults
       explorerTab: "changes",
@@ -157,24 +161,51 @@ export const usePanelStore = create<PanelState>()(
 
       openDesktopAgentList: () =>
         set((state) => {
-          if (state.desktop.agentListOpen) {
+          if (state.desktop.agentListOpen && !state.desktopAgentListSuppressed) {
             return state;
           }
-          return { desktop: { ...state.desktop, agentListOpen: true } };
+          return {
+            desktop: { ...state.desktop, agentListOpen: true },
+            desktopAgentListSuppressed: false,
+          };
         }),
 
       closeDesktopAgentList: () =>
         set((state) => {
-          if (!state.desktop.agentListOpen) {
+          if (!state.desktop.agentListOpen && !state.desktopAgentListSuppressed) {
             return state;
           }
-          return { desktop: { ...state.desktop, agentListOpen: false } };
+          return {
+            desktop: { ...state.desktop, agentListOpen: false },
+            desktopAgentListSuppressed: false,
+          };
         }),
 
       toggleDesktopAgentList: () =>
-        set((state) => ({
-          desktop: { ...state.desktop, agentListOpen: !state.desktop.agentListOpen },
-        })),
+        set((state) => {
+          if (state.desktopAgentListSuppressed) {
+            return { desktopAgentListSuppressed: false };
+          }
+          return {
+            desktop: { ...state.desktop, agentListOpen: !state.desktop.agentListOpen },
+          };
+        }),
+
+      suppressDesktopAgentList: () =>
+        set((state) => {
+          if (!state.desktop.agentListOpen || state.desktopAgentListSuppressed) {
+            return state;
+          }
+          return { desktopAgentListSuppressed: true };
+        }),
+
+      clearDesktopAgentListSuppression: () =>
+        set((state) => {
+          if (!state.desktopAgentListSuppressed) {
+            return state;
+          }
+          return { desktopAgentListSuppressed: false };
+        }),
 
       closeDesktopFileExplorer: () =>
         set((state) => {
@@ -191,9 +222,12 @@ export const usePanelStore = create<PanelState>()(
               ? state
               : { mobileView: "agent-list" as const };
           }
-          return state.desktop.agentListOpen
+          return state.desktop.agentListOpen && !state.desktopAgentListSuppressed
             ? state
-            : { desktop: { ...state.desktop, agentListOpen: true } };
+            : {
+                desktop: { ...state.desktop, agentListOpen: true },
+                desktopAgentListSuppressed: false,
+              };
         }),
 
       closeAgentListForLayout: ({ isCompact }) =>
@@ -201,8 +235,11 @@ export const usePanelStore = create<PanelState>()(
           if (isCompact) {
             return state.mobileView === "agent" ? state : { mobileView: "agent" as const };
           }
-          return state.desktop.agentListOpen
-            ? { desktop: { ...state.desktop, agentListOpen: false } }
+          return state.desktop.agentListOpen || state.desktopAgentListSuppressed
+            ? {
+                desktop: { ...state.desktop, agentListOpen: false },
+                desktopAgentListSuppressed: false,
+              }
             : state;
         }),
 
@@ -210,6 +247,9 @@ export const usePanelStore = create<PanelState>()(
         set((state) => {
           if (isCompact) {
             return { mobileView: state.mobileView === "agent-list" ? "agent" : "agent-list" };
+          }
+          if (state.desktopAgentListSuppressed) {
+            return { desktopAgentListSuppressed: false };
           }
           return {
             desktop: { ...state.desktop, agentListOpen: !state.desktop.agentListOpen },

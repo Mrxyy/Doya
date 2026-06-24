@@ -72,7 +72,7 @@ export async function materializeWorkspaceImageAttachmentsForSubmit(input: {
   });
   return {
     images: workspaceMaterializedFilesToUserMessageImages(files),
-    attachments: workspaceMaterializedFilesToPromptAttachments(files),
+    attachments: workspaceMaterializedFilesToPromptAttachments(files, { displayAs: "image" }),
   };
 }
 
@@ -179,6 +179,7 @@ export async function materializeWorkspaceAttachmentsToFiles(input: {
 
 export function workspaceMaterializedFilesToPromptAttachments(
   files: readonly Pick<WorkspaceMaterializedFile, "title" | "mimeType" | "path">[],
+  options: { displayAs?: "image" } = {},
 ): AgentAttachment[] {
   return files.map((file) => ({
     type: "text",
@@ -188,6 +189,7 @@ export function workspaceMaterializedFilesToPromptAttachments(
       `Uploaded file: ${file.title}`,
       `MIME type: ${file.mimeType}`,
       `Workspace path: ${file.path}`,
+      ...(options.displayAs ? [`Doya display: ${options.displayAs}`] : []),
       "Use the workspace path above when the user asks about this file.",
     ].join("\n"),
   }));

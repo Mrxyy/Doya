@@ -48,6 +48,7 @@ import {
   ToolCall,
   TodoListCard,
   CompactionMarker,
+  DoyaRawResponseButton,
   MessageOuterSpacingProvider,
   type AssistantTurnBillingUsage,
   type InlinePathTarget,
@@ -103,6 +104,7 @@ import { setAiCreationEditSource } from "@/stores/ai-creation-edit-source-store"
 import { buildHostAiCreationEditRoute } from "@/utils/host-routes";
 import { buildWorkspacePptConfirmUrl } from "@/workspace/ppt-confirm";
 import { createWorkspacePptPreviewTabTarget } from "@/workspace/ppt-preview";
+import type { WorkspaceTabTarget } from "@/stores/workspace-tabs-store";
 import { useDownloadStore } from "@/stores/download-store";
 import { useHostRuntimeSnapshot, useHosts } from "@/runtime/host-runtime";
 import {
@@ -260,6 +262,12 @@ function extractHomePresetContinuationDisplayText(text: string): string | null {
 interface LiveArtifactProgressGroup {
   isFirst: boolean;
   items: Extract<StreamItem, { kind: "assistant_message" }>[];
+}
+
+function getAssistantDebugRawText(
+  item: Extract<StreamItem, { kind: "assistant_message" }>,
+): string | undefined {
+  return (item as typeof item & { debugRawText?: string }).debugRawText;
 }
 
 const EMPTY_AGENT_TURN_USAGE_BY_ID = new Map<string, AgentTurnUsageRecord>();
@@ -541,6 +549,7 @@ export interface AgentStreamViewProps {
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
   onOpenReplayPptPreview?: (projectName: string) => void;
   onInlinePptConfirm?: () => void;
+  onOpenWorkspaceTab?: (target: WorkspaceTabTarget) => void;
 }
 
 const AGENT_CAPABILITY_FLAG_KEYS: (keyof AgentCapabilityFlags)[] = [
@@ -607,6 +616,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       onOpenWorkspaceFile,
       onOpenReplayPptPreview,
       onInlinePptConfirm,
+      onOpenWorkspaceTab,
     },
     ref,
   ) {
@@ -812,7 +822,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     );
 
     const handleToolCallOpenFile = useStableEvent((filePath: string) => {
-      handleInlinePathPress({ raw: filePath, path: filePath }, "main");
+      handleInlinePathPress({ raw: filePath, path: filePath }, "side");
     });
 
     const handleAttachmentPreviewPath = useStableEvent((filePath: string) => {
@@ -838,10 +848,15 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         openReplayPptPreview(onOpenReplayPptPreview, projectName);
         return;
       }
+      const target = createWorkspacePptPreviewTabTarget({ agentId, projectName });
+      if (onOpenWorkspaceTab) {
+        onOpenWorkspaceTab(target);
+        return;
+      }
       navigateToPreparedWorkspaceTab({
         serverId: resolvedServerId,
         workspaceId,
-        target: createWorkspacePptPreviewTabTarget({ agentId, projectName }),
+        target,
       });
     });
     const canOpenPptPreview = canOpenWorkspaceOrReplayPptPreview({
@@ -1082,6 +1097,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
           messageContent = (
             <AssistantMessage
               message={item.text}
+              rawMessage={getAssistantDebugRawText(item)}
               timestamp={item.timestamp.getTime()}
               workspaceRoot={workspaceRoot}
               serverId={resolvedServerId}
@@ -1469,6 +1485,7 @@ function agentStreamViewPropsEqual(
   }
   if (left.toast !== right.toast) reasons.push("toast");
   if (left.onOpenWorkspaceFile !== right.onOpenWorkspaceFile) reasons.push("onOpenWorkspaceFile");
+  if (left.onOpenWorkspaceTab !== right.onOpenWorkspaceTab) reasons.push("onOpenWorkspaceTab");
   recordRenderProfileReasons(`AgentStreamView:${right.agentId}`, reasons);
   return reasons.length === 0;
 }
@@ -2211,6 +2228,7 @@ function AiCreationLiveArtifactProgressGroup({
       parseDoyaMessageCards(item.text).map((card, index) => ({
         id: `${item.id}:${index}`,
         card,
+        rawMessage: item.text,
       })),
     )
     .filter((row) => isLiveArtifactProgressCard(row.card))
@@ -2249,6 +2267,7 @@ function AiCreationLiveArtifactProgressGroup({
             <AiCreationLiveArtifactProgressRow
               key={row.id}
               card={row.card}
+              rawMessage={row.rawMessage}
               withDivider={index < progressRows.length - 1}
             />
           ))}
@@ -2260,9 +2279,11 @@ function AiCreationLiveArtifactProgressGroup({
 
 function AiCreationLiveArtifactProgressRow({
   card,
+  rawMessage,
   withDivider,
 }: {
   card: DoyaMessageCard;
+  rawMessage: string;
   withDivider: boolean;
 }) {
   const rowStyle = useMemo(
@@ -2283,6 +2304,7 @@ function AiCreationLiveArtifactProgressRow({
           {card.title}
         </Text>
         <Text style={stylesheet.liveArtifactProgressSummary}>{card.summary}</Text>
+        <DoyaRawResponseButton rawMessage={rawMessage} />
       </View>
     </View>
   );

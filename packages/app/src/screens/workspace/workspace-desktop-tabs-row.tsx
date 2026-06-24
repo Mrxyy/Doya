@@ -36,7 +36,7 @@ import type {
   DraggableListDragHandleProps,
   DraggableRenderItemInfo,
 } from "@/components/draggable-list.types";
-import { isNative, isWeb } from "@/constants/platform";
+import { isDev, isNative, isWeb } from "@/constants/platform";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -47,6 +47,7 @@ import {
 import { Shortcut } from "@/components/ui/shortcut";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
+import type { ShortcutKey } from "@/utils/format-shortcut";
 import { WORKSPACE_SECONDARY_HEADER_HEIGHT } from "@/constants/layout";
 import { useWorkspaceTabLayout } from "@/screens/workspace/use-workspace-tab-layout";
 import {
@@ -174,6 +175,132 @@ interface WorkspaceDesktopTabsRowProps {
   activeDragTabId?: string | null;
   tabDropPreviewIndex?: number | null;
   showPaneSplitActions?: boolean;
+}
+
+interface WorkspaceDevelopmentTabActionsProps {
+  onCreateAgentTab: () => void;
+  onCreateTerminal: () => void;
+  onSplitRight: () => void;
+  onSplitDown: () => void;
+  disableCreateTerminal: boolean;
+  isWaitingOnTerminalReadiness: boolean;
+  showPaneSplitActions: boolean;
+}
+
+function ShortcutHint({ chord }: { chord: ShortcutKey[][] | null }) {
+  return chord ? <Shortcut chord={chord} style={styles.newTabTooltipShortcut} /> : null;
+}
+
+function WorkspaceDevelopmentTabActions({
+  onCreateAgentTab,
+  onCreateTerminal,
+  onSplitRight,
+  onSplitDown,
+  disableCreateTerminal,
+  isWaitingOnTerminalReadiness,
+  showPaneSplitActions,
+}: WorkspaceDevelopmentTabActionsProps) {
+  const newTabKeys = useShortcutKeys("workspace-tab-new");
+  const newTerminalKeys = useShortcutKeys("workspace-terminal-new");
+  const splitRightKeys = useShortcutKeys("workspace-pane-split-right");
+  const splitDownKeys = useShortcutKeys("workspace-pane-split-down");
+  const terminalDisabled = disableCreateTerminal || isWaitingOnTerminalReadiness;
+  const newTerminalActionButtonStyle = useCallback(
+    ({ hovered, pressed }: PressableStateCallbackType) => [
+      styles.newTabActionButton,
+      terminalDisabled && styles.newTabActionButtonDisabled,
+      (hovered || pressed) && styles.newTabActionButtonHovered,
+    ],
+    [terminalDisabled],
+  );
+
+  if (!isDev) {
+    return null;
+  }
+
+  return (
+    <>
+      <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+        <TooltipTrigger
+          testID="workspace-new-agent-tab"
+          onPress={onCreateAgentTab}
+          accessibilityRole="button"
+          accessibilityLabel={translateNow("ui.new.agent.tab.45zhp6")}
+          style={newTabActionButtonStyle}
+        >
+          <ThemedSquarePen size={14} uniProps={mutedColorMapping} />
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="center" offset={8}>
+          <View style={styles.newTabTooltipRow}>
+            <Text style={styles.newTabTooltipText}>{translateNow("ui.new.agent.tab.45zhp6")}</Text>
+            <ShortcutHint chord={newTabKeys} />
+          </View>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+        <TooltipTrigger
+          testID="workspace-new-terminal"
+          onPress={onCreateTerminal}
+          disabled={terminalDisabled}
+          accessibilityRole="button"
+          accessibilityLabel={
+            isWaitingOnTerminalReadiness ? "Preparing terminal tab" : "New terminal tab"
+          }
+          style={newTerminalActionButtonStyle}
+        >
+          <ThemedSquareTerminal size={14} uniProps={mutedColorMapping} />
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="center" offset={8}>
+          <View style={styles.newTabTooltipRow}>
+            <Text style={styles.newTabTooltipText}>
+              {isWaitingOnTerminalReadiness ? "Preparing terminal..." : "New terminal tab"}
+            </Text>
+            <ShortcutHint chord={newTerminalKeys} />
+          </View>
+        </TooltipContent>
+      </Tooltip>
+      {showPaneSplitActions ? (
+        <>
+          <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+            <TooltipTrigger
+              onPress={onSplitRight}
+              accessibilityRole="button"
+              accessibilityLabel={translateNow("ui.split.pane.right.wkofgq")}
+              style={newTabActionButtonStyle}
+            >
+              <ThemedColumns2 size={14} uniProps={mutedColorMapping} />
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="center" offset={8}>
+              <View style={styles.newTabTooltipRow}>
+                <Text style={styles.newTabTooltipText}>
+                  {translateNow("ui.split.pane.right.wkofgq")}
+                </Text>
+                <ShortcutHint chord={splitRightKeys} />
+              </View>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
+            <TooltipTrigger
+              onPress={onSplitDown}
+              accessibilityRole="button"
+              accessibilityLabel={translateNow("ui.split.pane.down.q8y2es")}
+              style={newTabActionButtonStyle}
+            >
+              <ThemedRows2 size={14} uniProps={mutedColorMapping} />
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="center" offset={8}>
+              <View style={styles.newTabTooltipRow}>
+                <Text style={styles.newTabTooltipText}>
+                  {translateNow("ui.split.pane.down.q8y2es")}
+                </Text>
+                <ShortcutHint chord={splitDownKeys} />
+              </View>
+            </TooltipContent>
+          </Tooltip>
+        </>
+      ) : null}
+    </>
+  );
 }
 
 function getFallbackTabLabel(tab: WorkspaceTabDescriptor): string {
@@ -492,10 +619,6 @@ export function WorkspaceDesktopTabsRow({
   tabDropPreviewIndex = null,
   showPaneSplitActions = true,
 }: WorkspaceDesktopTabsRowProps) {
-  const newTabKeys = useShortcutKeys("workspace-tab-new");
-  const newTerminalKeys = useShortcutKeys("workspace-terminal-new");
-  const splitRightKeys = useShortcutKeys("workspace-pane-split-right");
-  const splitDownKeys = useShortcutKeys("workspace-pane-split-down");
   const [tabsContainerWidth, setTabsContainerWidth] = useState<number>(0);
   const [tabsActionsWidth, setTabsActionsWidth] = useState<number>(0);
 
@@ -566,16 +689,6 @@ export function WorkspaceDesktopTabsRow({
   const handleCreateBrowser = useCallback(() => {
     onCreateBrowserTab({ paneId });
   }, [onCreateBrowserTab, paneId]);
-
-  const terminalDisabled = disableCreateTerminal || isWaitingOnTerminalReadiness;
-  const newTerminalActionButtonStyle = useCallback(
-    ({ hovered, pressed }: PressableStateCallbackType) => [
-      styles.newTabActionButton,
-      terminalDisabled && styles.newTabActionButtonDisabled,
-      (hovered || pressed) && styles.newTabActionButtonHovered,
-    ],
-    [terminalDisabled],
-  );
 
   const renderTab = useCallback(
     ({
@@ -682,51 +795,15 @@ export function WorkspaceDesktopTabsRow({
         />
       </ScrollView>
       <View style={styles.tabsActions} onLayout={handleTabsActionsLayout}>
-        <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
-          <TooltipTrigger
-            testID="workspace-new-agent-tab"
-            onPress={handleCreateAgentTab}
-            accessibilityRole="button"
-            accessibilityLabel={translateNow("ui.new.agent.tab.45zhp6")}
-            style={newTabActionButtonStyle}
-          >
-            <ThemedSquarePen size={14} uniProps={mutedColorMapping} />
-          </TooltipTrigger>
-          <TooltipContent side="bottom" align="center" offset={8}>
-            <View style={styles.newTabTooltipRow}>
-              <Text style={styles.newTabTooltipText}>
-                {translateNow("ui.new.agent.tab.45zhp6")}
-              </Text>
-              {newTabKeys ? (
-                <Shortcut chord={newTabKeys} style={styles.newTabTooltipShortcut} />
-              ) : null}
-            </View>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
-          <TooltipTrigger
-            testID="workspace-new-terminal"
-            onPress={handleCreateTerminal}
-            disabled={terminalDisabled}
-            accessibilityRole="button"
-            accessibilityLabel={
-              isWaitingOnTerminalReadiness ? "Preparing terminal tab" : "New terminal tab"
-            }
-            style={newTerminalActionButtonStyle}
-          >
-            <ThemedSquareTerminal size={14} uniProps={mutedColorMapping} />
-          </TooltipTrigger>
-          <TooltipContent side="bottom" align="center" offset={8}>
-            <View style={styles.newTabTooltipRow}>
-              <Text style={styles.newTabTooltipText}>
-                {isWaitingOnTerminalReadiness ? "Preparing terminal..." : "New terminal tab"}
-              </Text>
-              {newTerminalKeys ? (
-                <Shortcut chord={newTerminalKeys} style={styles.newTabTooltipShortcut} />
-              ) : null}
-            </View>
-          </TooltipContent>
-        </Tooltip>
+        <WorkspaceDevelopmentTabActions
+          onCreateAgentTab={handleCreateAgentTab}
+          onCreateTerminal={handleCreateTerminal}
+          onSplitRight={onSplitRight}
+          onSplitDown={onSplitDown}
+          disableCreateTerminal={disableCreateTerminal}
+          isWaitingOnTerminalReadiness={isWaitingOnTerminalReadiness}
+          showPaneSplitActions={showPaneSplitActions}
+        />
         {showCreateBrowserTab ? (
           <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
             <TooltipTrigger
@@ -746,50 +823,6 @@ export function WorkspaceDesktopTabsRow({
               </View>
             </TooltipContent>
           </Tooltip>
-        ) : null}
-        {showPaneSplitActions ? (
-          <>
-            <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
-              <TooltipTrigger
-                onPress={onSplitRight}
-                accessibilityRole="button"
-                accessibilityLabel={translateNow("ui.split.pane.right.wkofgq")}
-                style={newTabActionButtonStyle}
-              >
-                <ThemedColumns2 size={14} uniProps={mutedColorMapping} />
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="center" offset={8}>
-                <View style={styles.newTabTooltipRow}>
-                  <Text style={styles.newTabTooltipText}>
-                    {translateNow("ui.split.pane.right.wkofgq")}
-                  </Text>
-                  {splitRightKeys ? (
-                    <Shortcut chord={splitRightKeys} style={styles.newTabTooltipShortcut} />
-                  ) : null}
-                </View>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip delayDuration={0} enabledOnDesktop enabledOnMobile={false}>
-              <TooltipTrigger
-                onPress={onSplitDown}
-                accessibilityRole="button"
-                accessibilityLabel={translateNow("ui.split.pane.down.q8y2es")}
-                style={newTabActionButtonStyle}
-              >
-                <ThemedRows2 size={14} uniProps={mutedColorMapping} />
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="center" offset={8}>
-                <View style={styles.newTabTooltipRow}>
-                  <Text style={styles.newTabTooltipText}>
-                    {translateNow("ui.split.pane.down.q8y2es")}
-                  </Text>
-                  {splitDownKeys ? (
-                    <Shortcut chord={splitDownKeys} style={styles.newTabTooltipShortcut} />
-                  ) : null}
-                </View>
-              </TooltipContent>
-            </Tooltip>
-          </>
         ) : null}
       </View>
     </View>
