@@ -5,11 +5,17 @@ interface PptPreviewFrameProps {
   url: string;
   onApplyAnnotations: () => void;
   applyAnnotationsCompletionToken: number;
+  onConfirm?: () => void;
 }
 
 interface PptPreviewMessage {
   source: "doya-ppt-preview";
   type: "doya:ppt-preview:apply-annotations";
+}
+
+interface PptConfirmMessage {
+  source: "doya-ppt-confirm";
+  type: "doya:ppt-confirm:confirm";
 }
 
 const IFRAME_STYLE = {
@@ -30,11 +36,20 @@ function isPptPreviewApplyMessage(value: unknown): value is PptPreviewMessage {
   );
 }
 
+function isPptConfirmMessage(value: unknown): value is PptConfirmMessage {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const message = value as Partial<PptConfirmMessage>;
+  return message.source === "doya-ppt-confirm" && message.type === "doya:ppt-confirm:confirm";
+}
+
 export function PptPreviewFrame({
   title,
   url,
   onApplyAnnotations,
   applyAnnotationsCompletionToken,
+  onConfirm,
 }: PptPreviewFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -43,15 +58,17 @@ export function PptPreviewFrame({
       if (event.source !== iframeRef.current?.contentWindow) {
         return;
       }
-      if (!isPptPreviewApplyMessage(event.data)) {
-        return;
+      if (isPptPreviewApplyMessage(event.data)) {
+        onApplyAnnotations();
       }
-      onApplyAnnotations();
+      if (isPptConfirmMessage(event.data)) {
+        onConfirm?.();
+      }
     }
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [onApplyAnnotations]);
+  }, [onApplyAnnotations, onConfirm]);
 
   useEffect(() => {
     if (applyAnnotationsCompletionToken === 0) {

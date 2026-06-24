@@ -312,11 +312,17 @@ function mergeCanonicalUserWithOptimistic(
   return {
     kind: "user_message",
     id: canonical.id,
+    ...(canonical.messageId || optimistic.messageId
+      ? { messageId: canonical.messageId ?? optimistic.messageId }
+      : {}),
     text: optimistic.text,
     timestamp: optimistic.timestamp,
     ...(optimistic.images && optimistic.images.length > 0 ? { images: optimistic.images } : {}),
     ...(optimistic.attachments && optimistic.attachments.length > 0
       ? { attachments: optimistic.attachments }
+      : {}),
+    ...("displayAttachments" in optimistic
+      ? { displayAttachments: optimistic.displayAttachments ?? [] }
       : {}),
     ...(optimistic.selectionPreviewUri
       ? { selectionPreviewUri: optimistic.selectionPreviewUri }
@@ -1027,6 +1033,18 @@ export function processAgentStreamEvents(
     if (result.cursorChanged) {
       cursor = result.cursor ?? undefined;
       cursorChanged = true;
+    }
+
+    if (
+      (reducerEvent.event.type === "turn_completed" ||
+        reducerEvent.event.type === "turn_failed" ||
+        reducerEvent.event.type === "turn_canceled") &&
+      cursor
+    ) {
+      sideEffects.push({
+        type: "catch_up",
+        cursor: { epoch: cursor.epoch, endSeq: cursor.endSeq },
+      });
     }
 
     if (result.agentChanged) {

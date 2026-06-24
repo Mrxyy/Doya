@@ -1,0 +1,5627 @@
+{
+  "recordingId": "3736ed16-6daf-459b-b648-16ae4ce88acc",
+  "agentId": "0f704888-f977-4155-bf2f-bc4f0799ae3e",
+  "provider": "codex",
+  "cwd": "/Users/xiongyangyang/.doya/user-workspaces/usr_6bdebd0c-7c5a-4673-a131-b243a7137aa9/sessions/ses_3b267f73-8404-4515-8cc2-7bab5ef4e41b",
+  "startedAt": "2026-06-23T19:41:00.420Z",
+  "stoppedAt": "2026-06-23T19:41:55.769Z",
+  "status": "stopped",
+  "title": "资讯：搜索本周 AI 创业公司融资动态并生成行业情报简报",
+  "events": [
+    {
+      "seq": 1,
+      "recordedAt": "2026-06-23T19:41:00.428Z",
+      "offsetMs": 8,
+      "offsetMsPrecise": 7.48375000001397,
+      "kind": "user_input",
+      "payload": {
+        "source": "create_agent_request.initialPrompt",
+        "requestId": "5d739c2e-7993-4837-a997-817c95e6a2d8",
+        "cwd": "/Users/xiongyangyang/.doya/user-workspaces/usr_6bdebd0c-7c5a-4673-a131-b243a7137aa9/sessions/ses_3b267f73-8404-4515-8cc2-7bab5ef4e41b",
+        "messageId": "msg_1782243659582_5lanicz3m",
+        "text": "资讯：搜索本周 AI 创业公司融资动态并生成行业情报简报"
+      }
+    },
+    {
+      "seq": 2,
+      "recordedAt": "2026-06-23T19:41:00.636Z",
+      "offsetMs": 216,
+      "offsetMsPrecise": 215.8722500000149,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "turn_started",
+          "provider": "codex",
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 3,
+      "recordedAt": "2026-06-23T19:41:05.008Z",
+      "offsetMs": 4588,
+      "offsetMsPrecise": 4587.983583000023,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "user_message",
+            "text": "资讯：搜索本周 AI 创业公司融资动态并生成行业情报简报",
+            "messageId": "c0020053-4a9a-4dac-9296-6be374fd0992"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 4,
+      "recordedAt": "2026-06-23T19:41:07.103Z",
+      "offsetMs": 6683,
+      "offsetMsPrecise": 6683.215708000003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "我",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 5,
+      "recordedAt": "2026-06-23T19:41:07.108Z",
+      "offsetMs": 6688,
+      "offsetMsPrecise": 6687.992415999994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "会",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 6,
+      "recordedAt": "2026-06-23T19:41:07.140Z",
+      "offsetMs": 6720,
+      "offsetMsPrecise": 6719.40179100004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "先",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 7,
+      "recordedAt": "2026-06-23T19:41:07.142Z",
+      "offsetMs": 6722,
+      "offsetMsPrecise": 6722.0962910000235,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "核",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 8,
+      "recordedAt": "2026-06-23T19:41:07.144Z",
+      "offsetMs": 6724,
+      "offsetMsPrecise": 6723.371625000029,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "对",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 9,
+      "recordedAt": "2026-06-23T19:41:07.199Z",
+      "offsetMs": 6779,
+      "offsetMsPrecise": 6778.692625000025,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "“",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 10,
+      "recordedAt": "2026-06-23T19:41:07.199Z",
+      "offsetMs": 6779,
+      "offsetMsPrecise": 6779.184291000012,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "本",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 11,
+      "recordedAt": "2026-06-23T19:41:07.200Z",
+      "offsetMs": 6780,
+      "offsetMsPrecise": 6779.505000000005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "周",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 12,
+      "recordedAt": "2026-06-23T19:41:07.208Z",
+      "offsetMs": 6788,
+      "offsetMsPrecise": 6787.735040999949,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "”的",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 13,
+      "recordedAt": "2026-06-23T19:41:07.249Z",
+      "offsetMs": 6829,
+      "offsetMsPrecise": 6828.395416000043,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "具体",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 14,
+      "recordedAt": "2026-06-23T19:41:07.269Z",
+      "offsetMs": 6849,
+      "offsetMsPrecise": 6848.340666000033,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "时间",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 15,
+      "recordedAt": "2026-06-23T19:41:07.318Z",
+      "offsetMs": 6898,
+      "offsetMsPrecise": 6897.996166000026,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "窗口",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 16,
+      "recordedAt": "2026-06-23T19:41:07.329Z",
+      "offsetMs": 6909,
+      "offsetMsPrecise": 6908.22658300004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "和",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 17,
+      "recordedAt": "2026-06-23T19:41:07.330Z",
+      "offsetMs": 6910,
+      "offsetMsPrecise": 6909.634707999998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "近期",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 18,
+      "recordedAt": "2026-06-23T19:41:07.331Z",
+      "offsetMs": 6911,
+      "offsetMsPrecise": 6910.230083000031,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "融资",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 19,
+      "recordedAt": "2026-06-23T19:41:07.379Z",
+      "offsetMs": 6959,
+      "offsetMsPrecise": 6958.718957999954,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "新闻",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 20,
+      "recordedAt": "2026-06-23T19:41:07.395Z",
+      "offsetMs": 6975,
+      "offsetMsPrecise": 6975.166250000009,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "来源",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 21,
+      "recordedAt": "2026-06-23T19:41:07.397Z",
+      "offsetMs": 6977,
+      "offsetMsPrecise": 6976.509290999966,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "，然后",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 22,
+      "recordedAt": "2026-06-23T19:41:07.446Z",
+      "offsetMs": 7026,
+      "offsetMsPrecise": 7025.358125000028,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "按",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 23,
+      "recordedAt": "2026-06-23T19:41:07.452Z",
+      "offsetMs": 7032,
+      "offsetMsPrecise": 7031.268874999951,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "公司",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 24,
+      "recordedAt": "2026-06-23T19:41:07.498Z",
+      "offsetMs": 7078,
+      "offsetMsPrecise": 7077.947374999989,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 25,
+      "recordedAt": "2026-06-23T19:41:07.509Z",
+      "offsetMs": 7089,
+      "offsetMsPrecise": 7088.884874999989,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "轮",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 26,
+      "recordedAt": "2026-06-23T19:41:07.511Z",
+      "offsetMs": 7091,
+      "offsetMsPrecise": 7090.580083000008,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "次",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 27,
+      "recordedAt": "2026-06-23T19:41:07.511Z",
+      "offsetMs": 7091,
+      "offsetMsPrecise": 7091.03362500004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 28,
+      "recordedAt": "2026-06-23T19:41:07.512Z",
+      "offsetMs": 7092,
+      "offsetMsPrecise": 7091.425540999975,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "金额",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 29,
+      "recordedAt": "2026-06-23T19:41:07.559Z",
+      "offsetMs": 7139,
+      "offsetMsPrecise": 7138.242915999959,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 30,
+      "recordedAt": "2026-06-23T19:41:07.569Z",
+      "offsetMs": 7149,
+      "offsetMsPrecise": 7148.381082999986,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "投资",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 31,
+      "recordedAt": "2026-06-23T19:41:07.571Z",
+      "offsetMs": 7151,
+      "offsetMsPrecise": 7150.498416000046,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "方",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 32,
+      "recordedAt": "2026-06-23T19:41:07.609Z",
+      "offsetMs": 7189,
+      "offsetMsPrecise": 7188.569166000001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 33,
+      "recordedAt": "2026-06-23T19:41:07.618Z",
+      "offsetMs": 7198,
+      "offsetMsPrecise": 7197.851957999985,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "赛",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 34,
+      "recordedAt": "2026-06-23T19:41:07.669Z",
+      "offsetMs": 7249,
+      "offsetMsPrecise": 7248.728000000003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "道",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 35,
+      "recordedAt": "2026-06-23T19:41:07.729Z",
+      "offsetMs": 7309,
+      "offsetMsPrecise": 7309.023874999955,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "和",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 36,
+      "recordedAt": "2026-06-23T19:41:07.743Z",
+      "offsetMs": 7323,
+      "offsetMsPrecise": 7322.254749999964,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "信",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 37,
+      "recordedAt": "2026-06-23T19:41:07.788Z",
+      "offsetMs": 7368,
+      "offsetMsPrecise": 7368.119916000054,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "号",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 38,
+      "recordedAt": "2026-06-23T19:41:07.791Z",
+      "offsetMs": 7371,
+      "offsetMsPrecise": 7370.27908300003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "整理",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 39,
+      "recordedAt": "2026-06-23T19:41:07.791Z",
+      "offsetMs": 7371,
+      "offsetMsPrecise": 7370.726999999955,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "成",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 40,
+      "recordedAt": "2026-06-23T19:41:07.803Z",
+      "offsetMs": 7383,
+      "offsetMsPrecise": 7382.3299579999875,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "简",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 41,
+      "recordedAt": "2026-06-23T19:41:07.804Z",
+      "offsetMs": 7384,
+      "offsetMsPrecise": 7384.19854100002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "报",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 42,
+      "recordedAt": "2026-06-23T19:41:07.806Z",
+      "offsetMs": 7386,
+      "offsetMsPrecise": 7386.006874999963,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "。",
+            "messageId": "msg_06b567eec9b23215016a3ae152fc4c8191997e3a2084362aec"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 43,
+      "recordedAt": "2026-06-23T19:41:08.051Z",
+      "offsetMs": 7631,
+      "offsetMsPrecise": 7630.4065829999745,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "tool_call",
+            "callId": "ws_06b567eec9b23215016a3ae153eef08191a4c3684369a0b66c",
+            "name": "web_search",
+            "detail": {
+              "type": "unknown",
+              "input": {
+                "query": ""
+              },
+              "output": {
+                "type": "other"
+              }
+            },
+            "status": "completed",
+            "error": null
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 44,
+      "recordedAt": "2026-06-23T19:41:19.188Z",
+      "offsetMs": 18768,
+      "offsetMsPrecise": 18768.145249999943,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "tool_call",
+            "callId": "ws_06b567eec9b23215016a3ae153eef08191a4c3684369a0b66c",
+            "name": "web_search",
+            "detail": {
+              "type": "search",
+              "query": "AI startup funding this week June 2026 funding round AI startup",
+              "toolName": "web_search"
+            },
+            "status": "completed",
+            "error": null
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 45,
+      "recordedAt": "2026-06-23T19:41:19.346Z",
+      "offsetMs": 18926,
+      "offsetMsPrecise": 18925.699790999992,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "tool_call",
+            "callId": "ws_06b567eec9b23215016a3ae15f231881919a2d1ec2f3481311",
+            "name": "web_search",
+            "detail": {
+              "type": "unknown",
+              "input": {
+                "query": ""
+              },
+              "output": {
+                "type": "other"
+              }
+            },
+            "status": "completed",
+            "error": null
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 46,
+      "recordedAt": "2026-06-23T19:41:28.918Z",
+      "offsetMs": 28498,
+      "offsetMsPrecise": 28497.959416000056,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "tool_call",
+            "callId": "ws_06b567eec9b23215016a3ae15f231881919a2d1ec2f3481311",
+            "name": "web_search",
+            "detail": {
+              "type": "search",
+              "query": "AI startup raises funding June 22 2026",
+              "toolName": "web_search"
+            },
+            "status": "completed",
+            "error": null
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 47,
+      "recordedAt": "2026-06-23T19:41:29.065Z",
+      "offsetMs": 28645,
+      "offsetMsPrecise": 28644.59133299999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "tool_call",
+            "callId": "ws_06b567eec9b23215016a3ae168f31c81919f15e4d106ac5e3b",
+            "name": "web_search",
+            "detail": {
+              "type": "unknown",
+              "input": {
+                "query": ""
+              },
+              "output": {
+                "type": "other"
+              }
+            },
+            "status": "completed",
+            "error": null
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 48,
+      "recordedAt": "2026-06-23T19:41:31.068Z",
+      "offsetMs": 30648,
+      "offsetMsPrecise": 30647.329125000047,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "tool_call",
+            "callId": "ws_06b567eec9b23215016a3ae168f31c81919f15e4d106ac5e3b",
+            "name": "web_search",
+            "detail": {
+              "type": "search",
+              "query": "https://techstartups.com/2026/06/22/venture-capital-startup-funding-roundup-june-22-2026/",
+              "toolName": "web_search"
+            },
+            "status": "completed",
+            "error": null
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 49,
+      "recordedAt": "2026-06-23T19:41:31.279Z",
+      "offsetMs": 30859,
+      "offsetMsPrecise": 30858.37150000001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "tool_call",
+            "callId": "ws_06b567eec9b23215016a3ae16b28848191a0d8b68713e5e6c2",
+            "name": "web_search",
+            "detail": {
+              "type": "unknown",
+              "input": {
+                "query": ""
+              },
+              "output": {
+                "type": "other"
+              }
+            },
+            "status": "completed",
+            "error": null
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 50,
+      "recordedAt": "2026-06-23T19:41:33.116Z",
+      "offsetMs": 32696,
+      "offsetMsPrecise": 32695.361082999967,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "tool_call",
+            "callId": "ws_06b567eec9b23215016a3ae16b28848191a0d8b68713e5e6c2",
+            "name": "web_search",
+            "detail": {
+              "type": "search",
+              "query": "'Coram AI' in https://www.alleywatch.com/2026/06/the-weekly-notable-startup-funding-report-6-22-26/",
+              "toolName": "web_search"
+            },
+            "status": "completed",
+            "error": null
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 51,
+      "recordedAt": "2026-06-23T19:41:34.051Z",
+      "offsetMs": 33631,
+      "offsetMsPrecise": 33630.937000000034,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "\n\n---\n\n**AI 创业融资",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 52,
+      "recordedAt": "2026-06-23T19:41:34.110Z",
+      "offsetMs": 33690,
+      "offsetMsPrecise": 33689.107624999946,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "情报简报｜本",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 53,
+      "recordedAt": "2026-06-23T19:41:34.174Z",
+      "offsetMs": 33754,
+      "offsetMsPrecise": 33753.45004100003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "周",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 54,
+      "recordedAt": "2026-06-23T19:41:34.234Z",
+      "offsetMs": 33814,
+      "offsetMsPrecise": 33813.54616599996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "观察窗口：2026年6月",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 55,
+      "recordedAt": "2026-06-23T19:41:34.289Z",
+      "offsetMs": 33869,
+      "offsetMsPrecise": 33868.37687499996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "17日-6月24日，",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 56,
+      "recordedAt": "2026-06-23T19:41:34.349Z",
+      "offsetMs": 33929,
+      "offsetMsPrecise": 33928.76066599996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "偏",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 57,
+      "recordedAt": "2026-06-23T19:41:34.419Z",
+      "offsetMs": 33999,
+      "offsetMsPrecise": 33998.22379099997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "重",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 58,
+      "recordedAt": "2026-06-23T19:41:34.486Z",
+      "offsetMs": 34066,
+      "offsetMsPrecise": 34065.47958299995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "已",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 59,
+      "recordedAt": "2026-06-23T19:41:34.540Z",
+      "offsetMs": 34120,
+      "offsetMsPrecise": 34119.194540999946,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "披露",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 60,
+      "recordedAt": "2026-06-23T19:41:34.612Z",
+      "offsetMs": 34192,
+      "offsetMsPrecise": 34191.31649999996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "交易**\n\n**核心判断**\n\n本周",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 61,
+      "recordedAt": "2026-06-23T19:41:34.691Z",
+      "offsetMs": 34271,
+      "offsetMsPrecise": 34270.286208000034,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " AI 融资继续从“模型",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 62,
+      "recordedAt": "2026-06-23T19:41:34.729Z",
+      "offsetMs": 34309,
+      "offsetMsPrecise": 34308.37312500004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "公司",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 63,
+      "recordedAt": "2026-06-23T19:41:34.790Z",
+      "offsetMs": 34370,
+      "offsetMsPrecise": 34369.38408300001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "”向三类",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 64,
+      "recordedAt": "2026-06-23T19:41:34.855Z",
+      "offsetMs": 34435,
+      "offsetMsPrecise": 34434.22262500005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "可",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 65,
+      "recordedAt": "2026-06-23T19:41:34.909Z",
+      "offsetMs": 34489,
+      "offsetMsPrecise": 34488.31579100003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "商业化",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 66,
+      "recordedAt": "2026-06-23T19:41:34.969Z",
+      "offsetMs": 34549,
+      "offsetMsPrecise": 34548.56825000001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "层迁移：AI 基础设施",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 67,
+      "recordedAt": "2026-06-23T19:41:35.038Z",
+      "offsetMs": 34618,
+      "offsetMsPrecise": 34617.88829100004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、Agent",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 68,
+      "recordedAt": "2026-06-23T19:41:35.089Z",
+      "offsetMs": 34669,
+      "offsetMsPrecise": 34668.99645800004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 应用、",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 69,
+      "recordedAt": "2026-06-23T19:41:35.149Z",
+      "offsetMs": 34729,
+      "offsetMsPrecise": 34728.412416000036,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "可验证",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 70,
+      "recordedAt": "2026-06-23T19:41:35.209Z",
+      "offsetMs": 34789,
+      "offsetMsPrecise": 34788.30599999998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "/可信 AI。大额资金",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 71,
+      "recordedAt": "2026-06-23T19:41:35.259Z",
+      "offsetMs": 34839,
+      "offsetMsPrecise": 34839.01912499999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "仍集中在基础设施和",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 72,
+      "recordedAt": "2026-06-23T19:41:35.319Z",
+      "offsetMs": 34899,
+      "offsetMsPrecise": 34898.48595799995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "广告",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 73,
+      "recordedAt": "2026-06-23T19:41:35.379Z",
+      "offsetMs": 34959,
+      "offsetMsPrecise": 34958.47408299998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "/营销",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 74,
+      "recordedAt": "2026-06-23T19:41:35.440Z",
+      "offsetMs": 35020,
+      "offsetMsPrecise": 35019.27708300005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "工作流，",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 75,
+      "recordedAt": "2026-06-23T19:41:35.500Z",
+      "offsetMs": 35080,
+      "offsetMsPrecise": 35079.796250000014,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "早期",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 76,
+      "recordedAt": "2026-06-23T19:41:35.611Z",
+      "offsetMs": 35191,
+      "offsetMsPrecise": 35190.45545799995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "资金则押注“降低 AI",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 77,
+      "recordedAt": "2026-06-23T19:41:35.629Z",
+      "offsetMs": 35209,
+      "offsetMsPrecise": 35208.44299999997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 错误率”和“可审计",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 78,
+      "recordedAt": "2026-06-23T19:41:35.689Z",
+      "offsetMs": 35269,
+      "offsetMsPrecise": 35268.794125000015,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "输出”。\n\n**重点融资动态**\n\n|",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 79,
+      "recordedAt": "2026-06-23T19:41:35.749Z",
+      "offsetMs": 35329,
+      "offsetMsPrecise": 35328.926875000005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 公司 | 金额",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 80,
+      "recordedAt": "2026-06-23T19:41:35.814Z",
+      "offsetMs": 35394,
+      "offsetMsPrecise": 35393.77970800002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "/轮次 | 赛道 |",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 81,
+      "recordedAt": "2026-06-23T19:41:35.879Z",
+      "offsetMs": 35459,
+      "offsetMsPrecise": 35458.48825000005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 投资方/估",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 82,
+      "recordedAt": "2026-06-23T19:41:35.939Z",
+      "offsetMs": 35519,
+      "offsetMsPrecise": 35518.121041000006,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "值 | 情",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 83,
+      "recordedAt": "2026-06-23T19:41:35.999Z",
+      "offsetMs": 35579,
+      "offsetMsPrecise": 35578.14199999999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "报含",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 84,
+      "recordedAt": "2026-06-23T19:41:36.119Z",
+      "offsetMs": 35699,
+      "offsetMsPrecise": 35698.875541000045,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "义 |\n|---|---:|---|---|---|\n| **",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 85,
+      "recordedAt": "2026-06-23T19:41:36.172Z",
+      "offsetMs": 35752,
+      "offsetMsPrecise": 35751.16066599998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "AppsFlyer** | 超",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 86,
+      "recordedAt": "2026-06-23T19:41:36.280Z",
+      "offsetMs": 35860,
+      "offsetMsPrecise": 35859.11737500003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " $10",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 87,
+      "recordedAt": "2026-06-23T19:41:36.349Z",
+      "offsetMs": 35929,
+      "offsetMsPrecise": 35928.47054100002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 亿 Series",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 88,
+      "recordedAt": "2026-06-23T19:41:36.411Z",
+      "offsetMs": 35991,
+      "offsetMsPrecise": 35990.221416000044,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " E | AI",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 89,
+      "recordedAt": "2026-06-23T19:41:36.469Z",
+      "offsetMs": 36049,
+      "offsetMsPrecise": 36048.70975000004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 驱动广告测",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 90,
+      "recordedAt": "2026-06-23T19:41:36.569Z",
+      "offsetMs": 36149,
+      "offsetMsPrecise": 36148.63483300002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "量、营销",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 91,
+      "recordedAt": "2026-06-23T19:41:36.630Z",
+      "offsetMs": 36210,
+      "offsetMsPrecise": 36209.07691599999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "数据基础设施 | Moloco、Google",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 92,
+      "recordedAt": "2026-06-23T19:41:36.679Z",
+      "offsetMs": 36259,
+      "offsetMsPrecise": 36258.36824999994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、Meta、Unity；",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 93,
+      "recordedAt": "2026-06-23T19:41:36.740Z",
+      "offsetMs": 36320,
+      "offsetMsPrecise": 36319.530333,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "投后估值 $27 亿 |",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 94,
+      "recordedAt": "2026-06-23T19:41:36.799Z",
+      "offsetMs": 36379,
+      "offsetMsPrecise": 36378.26720799995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 广告平台",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 95,
+      "recordedAt": "2026-06-23T19:41:36.861Z",
+      "offsetMs": 36441,
+      "offsetMsPrecise": 36440.30362499994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "集体下注",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 96,
+      "recordedAt": "2026-06-23T19:41:36.919Z",
+      "offsetMs": 36499,
+      "offsetMsPrecise": 36498.40195800003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "独立归因与测量",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 97,
+      "recordedAt": "2026-06-23T19:41:36.979Z",
+      "offsetMs": 36559,
+      "offsetMsPrecise": 36558.15483300004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "，因为 AI",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 98,
+      "recordedAt": "2026-06-23T19:41:37.029Z",
+      "offsetMs": 36609,
+      "offsetMsPrecise": 36608.409208000056,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 自动投放会放大",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 99,
+      "recordedAt": "2026-06-23T19:41:37.089Z",
+      "offsetMs": 36669,
+      "offsetMsPrecise": 36668.359832999995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "“",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 100,
+      "recordedAt": "2026-06-23T19:41:37.149Z",
+      "offsetMs": 36729,
+      "offsetMsPrecise": 36728.34341600002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "可信信号",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 101,
+      "recordedAt": "2026-06-23T19:41:37.269Z",
+      "offsetMs": 36849,
+      "offsetMsPrecise": 36848.70066600002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "源”的价值。公司",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 102,
+      "recordedAt": "2026-06-23T19:41:37.331Z",
+      "offsetMs": 36911,
+      "offsetMsPrecise": 36910.27270800003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "称资金",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 103,
+      "recordedAt": "2026-06-23T19:41:37.388Z",
+      "offsetMs": 36968,
+      "offsetMsPrecise": 36967.746958,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "也",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 104,
+      "recordedAt": "2026-06-23T19:41:37.440Z",
+      "offsetMs": 37020,
+      "offsetMsPrecise": 37019.770875000046,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "会",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 105,
+      "recordedAt": "2026-06-23T19:41:37.559Z",
+      "offsetMs": 37139,
+      "offsetMsPrecise": 37138.399915999966,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "推进 agentic workflows。来源：Axios ",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 106,
+      "recordedAt": "2026-06-23T19:41:37.611Z",
+      "offsetMs": 37191,
+      "offsetMsPrecise": 37190.26491599996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "([axios.com](https://www.axios.com/2026/06/22/appsflyer-billion-moloco-google-meta-unity)) |\n|",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 107,
+      "recordedAt": "2026-06-23T19:41:37.669Z",
+      "offsetMs": 37249,
+      "offsetMsPrecise": 37249.025999999954,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " **Upscale AI** | $",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 108,
+      "recordedAt": "2026-06-23T19:41:37.748Z",
+      "offsetMs": 37328,
+      "offsetMsPrecise": 37327.65512500005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "1.9 亿 Series A-1",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 109,
+      "recordedAt": "2026-06-23T19:41:37.789Z",
+      "offsetMs": 37369,
+      "offsetMsPrecise": 37368.88420800003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " | AI 集群网络基础设施 |",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 110,
+      "recordedAt": "2026-06-23T19:41:37.849Z",
+      "offsetMs": 37429,
+      "offsetMsPrecise": 37428.528750000056,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " Prem",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 111,
+      "recordedAt": "2026-06-23T19:41:37.899Z",
+      "offsetMs": 37479,
+      "offsetMsPrecise": 37478.28604100004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "ji Invest 领投，NVIDIA",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 112,
+      "recordedAt": "2026-06-23T19:41:37.960Z",
+      "offsetMs": 37540,
+      "offsetMsPrecise": 37539.15162500006,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、Salesforce Ventures、Temase",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 113,
+      "recordedAt": "2026-06-23T19:41:38.019Z",
+      "offsetMs": 37599,
+      "offsetMsPrecise": 37598.75899999996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "k、",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 114,
+      "recordedAt": "2026-06-23T19:41:38.120Z",
+      "offsetMs": 37700,
+      "offsetMsPrecise": 37699.06099999999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "Tiger Global 等",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 115,
+      "recordedAt": "2026-06-23T19:41:38.179Z",
+      "offsetMs": 37759,
+      "offsetMsPrecise": 37758.323875,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "参投；估值 $20 亿",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 116,
+      "recordedAt": "2026-06-23T19:41:38.239Z",
+      "offsetMs": 37819,
+      "offsetMsPrecise": 37818.39383299998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " | 资本正在",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 117,
+      "recordedAt": "2026-06-23T19:41:38.309Z",
+      "offsetMs": 37889,
+      "offsetMsPrecise": 37888.06133299996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "追逐 AI 算力瓶",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 118,
+      "recordedAt": "2026-06-23T19:41:38.368Z",
+      "offsetMs": 37948,
+      "offsetMsPrecise": 37947.90020799998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "颈，不",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 119,
+      "recordedAt": "2026-06-23T19:41:38.432Z",
+      "offsetMs": 38012,
+      "offsetMsPrecise": 38011.403333000024,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "只是 GPU，还",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 120,
+      "recordedAt": "2026-06-23T19:41:38.488Z",
+      "offsetMs": 38068,
+      "offsetMsPrecise": 38067.64779099997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "包括集群互联、内",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 121,
+      "recordedAt": "2026-06-23T19:41:38.588Z",
+      "offsetMs": 38168,
+      "offsetMsPrecise": 38168.00316600001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "存与存储织",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 122,
+      "recordedAt": "2026-06-23T19:41:38.654Z",
+      "offsetMs": 38234,
+      "offsetMsPrecise": 38233.22499999998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "网。来源：Tech",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 123,
+      "recordedAt": "2026-06-23T19:41:38.718Z",
+      "offsetMs": 38298,
+      "offsetMsPrecise": 38298.02791599999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "Startups",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 124,
+      "recordedAt": "2026-06-23T19:41:38.770Z",
+      "offsetMs": 38350,
+      "offsetMsPrecise": 38349.069625000004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " ",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 125,
+      "recordedAt": "2026-06-23T19:41:38.829Z",
+      "offsetMs": 38409,
+      "offsetMsPrecise": 38408.29270800005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "([techstartups.com](https://techstartups.com/2026/06/22/venture-capital-startup-funding-roundup-june-22-2026/)) |\n|",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 126,
+      "recordedAt": "2026-06-23T19:41:38.880Z",
+      "offsetMs": 38460,
+      "offsetMsPrecise": 38459.547416000045,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " **Baseten** |",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 127,
+      "recordedAt": "2026-06-23T19:41:38.940Z",
+      "offsetMs": 38520,
+      "offsetMsPrecise": 38519.34737500001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 据报",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 128,
+      "recordedAt": "2026-06-23T19:41:38.999Z",
+      "offsetMs": 38579,
+      "offsetMsPrecise": 38578.433165999944,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "接近 $15 亿",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 129,
+      "recordedAt": "2026-06-23T19:41:39.059Z",
+      "offsetMs": 38639,
+      "offsetMsPrecise": 38638.30874999997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "新融资 | AI 推理",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 130,
+      "recordedAt": "2026-06-23T19:41:39.120Z",
+      "offsetMs": 38700,
+      "offsetMsPrecise": 38699.140916000004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "基础设施 |",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 131,
+      "recordedAt": "2026-06-23T19:41:39.179Z",
+      "offsetMs": 38759,
+      "offsetMsPrecise": 38758.83154100005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 据报",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 132,
+      "recordedAt": "2026-06-23T19:41:39.249Z",
+      "offsetMs": 38829,
+      "offsetMsPrecise": 38828.84941599995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "估值约",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 133,
+      "recordedAt": "2026-06-23T19:41:39.309Z",
+      "offsetMs": 38889,
+      "offsetMsPrecise": 38888.16516600002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " $130 亿；Spark、Sands",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 134,
+      "recordedAt": "2026-06-23T19:41:39.369Z",
+      "offsetMs": 38949,
+      "offsetMsPrecise": 38948.56366600003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、Altimeter、Wellington 共同",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 135,
+      "recordedAt": "2026-06-23T19:41:39.470Z",
+      "offsetMs": 39050,
+      "offsetMsPrecise": 39049.633791,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "领投 | 推理层仍是",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 136,
+      "recordedAt": "2026-06-23T19:41:39.529Z",
+      "offsetMs": 39109,
+      "offsetMsPrecise": 39108.482415999984,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " AI 基建",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 137,
+      "recordedAt": "2026-06-23T19:41:39.669Z",
+      "offsetMs": 39249,
+      "offsetMsPrecise": 39248.49875000003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "最热",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 138,
+      "recordedAt": "2026-06-23T19:41:39.671Z",
+      "offsetMs": 39251,
+      "offsetMsPrecise": 39250.47216600005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "区域",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 139,
+      "recordedAt": "2026-06-23T19:41:39.711Z",
+      "offsetMs": 39291,
+      "offsetMsPrecise": 39290.080791000044,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "之一，但",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 140,
+      "recordedAt": "2026-06-23T19:41:39.819Z",
+      "offsetMs": 39399,
+      "offsetMsPrecise": 39398.893500000006,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "报道提到“split-priced round”，说明",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 141,
+      "recordedAt": "2026-06-23T19:41:39.886Z",
+      "offsetMs": 39466,
+      "offsetMsPrecise": 39465.48166599998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "高估值",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 142,
+      "recordedAt": "2026-06-23T19:41:39.949Z",
+      "offsetMs": 39529,
+      "offsetMsPrecise": 39528.50937500002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "融资开始出现结构",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 143,
+      "recordedAt": "2026-06-23T19:41:39.999Z",
+      "offsetMs": 39579,
+      "offsetMsPrecise": 39578.166958000045,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "化",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 144,
+      "recordedAt": "2026-06-23T19:41:40.059Z",
+      "offsetMs": 39639,
+      "offsetMsPrecise": 39638.340958000044,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "定价。来源：TechCrunch",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 145,
+      "recordedAt": "2026-06-23T19:41:40.109Z",
+      "offsetMs": 39689,
+      "offsetMsPrecise": 39688.197000000044,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " ",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 146,
+      "recordedAt": "2026-06-23T19:41:40.171Z",
+      "offsetMs": 39751,
+      "offsetMsPrecise": 39750.412291000015,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "([techcrunch.com](https://techcrunch.com/2026/06/18/ai-inference-startup-baseten-reportedly-raising-1-5b-months-after-its-last-mega-round/)) |\n|",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 147,
+      "recordedAt": "2026-06-23T19:41:40.239Z",
+      "offsetMs": 39819,
+      "offsetMsPrecise": 39818.09212499997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " **Gradial** | $6,",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 148,
+      "recordedAt": "2026-06-23T19:41:40.299Z",
+      "offsetMs": 39879,
+      "offsetMsPrecise": 39878.281707999995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "500 万 Series C | 企业营销 Agent",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 149,
+      "recordedAt": "2026-06-23T19:41:40.359Z",
+      "offsetMs": 39939,
+      "offsetMsPrecise": 39938.45183299994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " | Insight Partners 领投；估值",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 150,
+      "recordedAt": "2026-06-23T19:41:40.449Z",
+      "offsetMs": 40029,
+      "offsetMsPrecise": 40028.75104100001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " $6.75 亿 | Agent",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 151,
+      "recordedAt": "2026-06-23T19:41:40.519Z",
+      "offsetMs": 40099,
+      "offsetMsPrecise": 40098.61100000003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 落地正在从“聊天助手”转",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 152,
+      "recordedAt": "2026-06-23T19:41:40.588Z",
+      "offsetMs": 40168,
+      "offsetMsPrecise": 40167.865499999956,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "向跨 Adobe、",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 153,
+      "recordedAt": "2026-06-23T19:41:40.639Z",
+      "offsetMs": 40219,
+      "offsetMsPrecise": 40218.85250000004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "Salesforce、ServiceNow 等",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 154,
+      "recordedAt": "2026-06-23T19:41:40.699Z",
+      "offsetMs": 40279,
+      "offsetMsPrecise": 40279.02249999996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "系统的流程执行。客户",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 155,
+      "recordedAt": "2026-06-23T19:41:40.759Z",
+      "offsetMs": 40339,
+      "offsetMsPrecise": 40338.36712499999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "集中在金融",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 156,
+      "recordedAt": "2026-06-23T19:41:40.859Z",
+      "offsetMs": 40439,
+      "offsetMsPrecise": 40438.20604099997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、医疗等强合规行业，说明",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 157,
+      "recordedAt": "2026-06-23T19:41:40.921Z",
+      "offsetMs": 40501,
+      "offsetMsPrecise": 40500.90166600002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "可控",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 158,
+      "recordedAt": "2026-06-23T19:41:40.981Z",
+      "offsetMs": 40561,
+      "offsetMsPrecise": 40560.48754100001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "流程",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 159,
+      "recordedAt": "2026-06-23T19:41:41.030Z",
+      "offsetMs": 40610,
+      "offsetMsPrecise": 40609.55241600005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "自动化是",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 160,
+      "recordedAt": "2026-06-23T19:41:41.085Z",
+      "offsetMs": 40665,
+      "offsetMsPrecise": 40664.36508300004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "买",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 161,
+      "recordedAt": "2026-06-23T19:41:41.149Z",
+      "offsetMs": 40729,
+      "offsetMsPrecise": 40728.32204100001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "单",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 162,
+      "recordedAt": "2026-06-23T19:41:41.210Z",
+      "offsetMs": 40790,
+      "offsetMsPrecise": 40789.35837499995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "点。来源：Axios",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 163,
+      "recordedAt": "2026-06-23T19:41:41.269Z",
+      "offsetMs": 40849,
+      "offsetMsPrecise": 40848.46112500003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " ",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 164,
+      "recordedAt": "2026-06-23T19:41:41.319Z",
+      "offsetMs": 40899,
+      "offsetMsPrecise": 40898.20066600002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "([axios.com](https://www.axios.com/2026/06/18/gradial-ai-agents-marketing)) |\n|",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 165,
+      "recordedAt": "2026-06-23T19:41:41.379Z",
+      "offsetMs": 40959,
+      "offsetMsPrecise": 40958.11245799996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " **Sarvam AI** | $2",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 166,
+      "recordedAt": "2026-06-23T19:41:41.439Z",
+      "offsetMs": 41019,
+      "offsetMsPrecise": 41018.21525000001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": ".34 亿",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 167,
+      "recordedAt": "2026-06-23T19:41:41.502Z",
+      "offsetMs": 41082,
+      "offsetMsPrecise": 41081.98095799994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "进行中融资",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 168,
+      "recordedAt": "2026-06-23T19:41:41.549Z",
+      "offsetMs": 41129,
+      "offsetMsPrecise": 41128.18270799995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " | 印度",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 169,
+      "recordedAt": "2026-06-23T19:41:41.689Z",
+      "offsetMs": 41269,
+      "offsetMsPrecise": 41268.91487500002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "本土大模型/",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 170,
+      "recordedAt": "2026-06-23T19:41:41.692Z",
+      "offsetMs": 41272,
+      "offsetMsPrecise": 41271.57204100001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "AI 平台 | HCLTech ",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 171,
+      "recordedAt": "2026-06-23T19:41:41.729Z",
+      "offsetMs": 41309,
+      "offsetMsPrecise": 41308.36325000005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "领投",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 172,
+      "recordedAt": "2026-06-23T19:41:41.780Z",
+      "offsetMs": 41360,
+      "offsetMsPrecise": 41359.627125,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "/战略投资，",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 173,
+      "recordedAt": "2026-06-23T19:41:41.838Z",
+      "offsetMs": 41418,
+      "offsetMsPrecise": 41417.82224999997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "Bessemer、Khosla",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 174,
+      "recordedAt": "2026-06-23T19:41:41.898Z",
+      "offsetMs": 41478,
+      "offsetMsPrecise": 41477.95983299997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、Peak",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 175,
+      "recordedAt": "2026-06-23T19:41:41.959Z",
+      "offsetMs": 41539,
+      "offsetMsPrecise": 41538.604166000034,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " XV 参投；估值",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 176,
+      "recordedAt": "2026-06-23T19:41:42.011Z",
+      "offsetMs": 41591,
+      "offsetMsPrecise": 41590.55000000005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " $15 亿 |",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 177,
+      "recordedAt": "2026-06-23T19:41:42.069Z",
+      "offsetMs": 41649,
+      "offsetMsPrecise": 41648.36687499995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 主权 AI",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 178,
+      "recordedAt": "2026-06-23T19:41:42.129Z",
+      "offsetMs": 41709,
+      "offsetMsPrecise": 41708.342166000046,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、本地语言模型和",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 179,
+      "recordedAt": "2026-06-23T19:41:42.189Z",
+      "offsetMs": 41769,
+      "offsetMsPrecise": 41768.872124999994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "国家级",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 180,
+      "recordedAt": "2026-06-23T19:41:42.249Z",
+      "offsetMs": 41829,
+      "offsetMsPrecise": 41828.53979099996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "企业",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 181,
+      "recordedAt": "2026-06-23T19:41:42.314Z",
+      "offsetMs": 41894,
+      "offsetMsPrecise": 41894.00291599997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "客户",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 182,
+      "recordedAt": "2026-06-23T19:41:42.359Z",
+      "offsetMs": 41939,
+      "offsetMsPrecise": 41938.315375000006,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "仍",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 183,
+      "recordedAt": "2026-06-23T19:41:42.429Z",
+      "offsetMs": 42009,
+      "offsetMsPrecise": 42008.70525,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "能吸引大额资本。",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 184,
+      "recordedAt": "2026-06-23T19:41:42.479Z",
+      "offsetMs": 42059,
+      "offsetMsPrecise": 42058.97616600001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "该轮",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 185,
+      "recordedAt": "2026-06-23T19:41:42.549Z",
+      "offsetMs": 42129,
+      "offsetMsPrecise": 42128.90549999999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "占印度",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 186,
+      "recordedAt": "2026-06-23T19:41:42.610Z",
+      "offsetMs": 42190,
+      "offsetMsPrecise": 42189.424,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "当周创业",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 187,
+      "recordedAt": "2026-06-23T19:41:42.720Z",
+      "offsetMs": 42300,
+      "offsetMsPrecise": 42299.41845799994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "融资近六成。来源：Economic Times",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 188,
+      "recordedAt": "2026-06-23T19:41:42.769Z",
+      "offsetMs": 42349,
+      "offsetMsPrecise": 42348.61166599998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " ",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 189,
+      "recordedAt": "2026-06-23T19:41:42.832Z",
+      "offsetMs": 42412,
+      "offsetMsPrecise": 42411.95779100002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "([m.economictimes.com](https://m.economictimes.com/tech/funding/ettech-deals-digest-sarvam-mega-round-lifts-startup-funding-to-403-million-this-week-up-36-on-year/articleshow/131862366.cms)) |\n|",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 190,
+      "recordedAt": "2026-06-23T19:41:42.939Z",
+      "offsetMs": 42519,
+      "offsetMsPrecise": 42518.03454100003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " **Pramaana Labs** | $",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 191,
+      "recordedAt": "2026-06-23T19:41:43.009Z",
+      "offsetMs": 42589,
+      "offsetMsPrecise": 42588.28537499998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "2,700 万 Seed | 可",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 192,
+      "recordedAt": "2026-06-23T19:41:43.133Z",
+      "offsetMs": 42713,
+      "offsetMsPrecise": 42712.92533300002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "验证 AI、",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 193,
+      "recordedAt": "2026-06-23T19:41:43.236Z",
+      "offsetMs": 42816,
+      "offsetMsPrecise": 42815.120250000036,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "形式化证明 | Khosla Ventures 领投，Accel、",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 194,
+      "recordedAt": "2026-06-23T19:41:43.369Z",
+      "offsetMs": 42949,
+      "offsetMsPrecise": 42948.12679100002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "Nexus、Premji",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 195,
+      "recordedAt": "2026-06-23T19:41:43.459Z",
+      "offsetMs": 43039,
+      "offsetMsPrecise": 43038.676749999984,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 等参投 | “",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 196,
+      "recordedAt": "2026-06-23T19:41:43.570Z",
+      "offsetMs": 43150,
+      "offsetMsPrecise": 43149.859582999954,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "数学可验证”“",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 197,
+      "recordedAt": "2026-06-23T19:41:43.639Z",
+      "offsetMs": 43219,
+      "offsetMsPrecise": 43218.68758300005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "不猜测”的 AI",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 198,
+      "recordedAt": "2026-06-23T19:41:43.688Z",
+      "offsetMs": 43268,
+      "offsetMsPrecise": 43267.87720800005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 答案成为",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 199,
+      "recordedAt": "2026-06-23T19:41:43.799Z",
+      "offsetMs": 43379,
+      "offsetMsPrecise": 43378.10400000005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "新投资",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 200,
+      "recordedAt": "2026-06-23T19:41:43.869Z",
+      "offsetMs": 43449,
+      "offsetMsPrecise": 43448.165958,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "主题，尤其面",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 201,
+      "recordedAt": "2026-06-23T19:41:43.969Z",
+      "offsetMs": 43549,
+      "offsetMsPrecise": 43548.630957999965,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "向税务、医疗、网络安全、金融合规等",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 202,
+      "recordedAt": "2026-06-23T19:41:44.094Z",
+      "offsetMs": 43674,
+      "offsetMsPrecise": 43673.38966600003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "高风险场景。来源：Economic Times",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 203,
+      "recordedAt": "2026-06-23T19:41:44.164Z",
+      "offsetMs": 43744,
+      "offsetMsPrecise": 43743.74745799997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " ",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 204,
+      "recordedAt": "2026-06-23T19:41:44.211Z",
+      "offsetMs": 43791,
+      "offsetMsPrecise": 43790.15329100005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "([m.economictimes.com](https://m.economictimes.com/tech/funding/ai-startup-pramaana-labs-raises-27-million-in-seed-funding-led-by-khosla-ventures/articleshow/131805503.cms)) |\n| **",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 205,
+      "recordedAt": "2026-06-23T19:41:44.309Z",
+      "offsetMs": 43889,
+      "offsetMsPrecise": 43888.237208000035,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "Probably** | $900 万 Seed | 可靠 AI / 幻觉",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 206,
+      "recordedAt": "2026-06-23T19:41:44.429Z",
+      "offsetMs": 44009,
+      "offsetMsPrecise": 44008.26029100001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "防护 | Andreessen Horowitz",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 207,
+      "recordedAt": "2026-06-23T19:41:44.499Z",
+      "offsetMs": 44079,
+      "offsetMsPrecise": 44078.37804099999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " | 小",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 208,
+      "recordedAt": "2026-06-23T19:41:44.600Z",
+      "offsetMs": 44180,
+      "offsetMsPrecise": 44179.517165999976,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "额早期轮",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 209,
+      "recordedAt": "2026-06-23T19:41:44.659Z",
+      "offsetMs": 44239,
+      "offsetMsPrecise": 44239.00145800004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "也在围",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 210,
+      "recordedAt": "2026-06-23T19:41:44.769Z",
+      "offsetMs": 44349,
+      "offsetMsPrecise": 44348.79541599995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "绕“AI",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 211,
+      "recordedAt": "2026-06-23T19:41:44.879Z",
+      "offsetMs": 44459,
+      "offsetMsPrecise": 44458.19412500004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 输出可信度”展开，产品",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 212,
+      "recordedAt": "2026-06-23T19:41:44.949Z",
+      "offsetMs": 44529,
+      "offsetMsPrecise": 44528.792166,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "从数据",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 213,
+      "recordedAt": "2026-06-23T19:41:45.009Z",
+      "offsetMs": 44589,
+      "offsetMsPrecise": 44588.276915999944,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "科学问答切入",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 214,
+      "recordedAt": "2026-06-23T19:41:45.120Z",
+      "offsetMs": 44700,
+      "offsetMsPrecise": 44699.572916000034,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "，强调引用和审计轨迹。来源：TechCrunch",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 215,
+      "recordedAt": "2026-06-23T19:41:45.169Z",
+      "offsetMs": 44749,
+      "offsetMsPrecise": 44748.799457999994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " ([techcrunch.com](https://techcrunch.com/2026/06/16/probably-raises-9m-to-build-a-more-reliable-kind-of-ai/))",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 216,
+      "recordedAt": "2026-06-23T19:41:45.239Z",
+      "offsetMs": 44819,
+      "offsetMsPrecise": 44818.24320799997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " |\n\n**行业",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 217,
+      "recordedAt": "2026-06-23T19:41:45.349Z",
+      "offsetMs": 44929,
+      "offsetMsPrecise": 44928.91920799995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "信号**\n\n1. **AI 基建融资仍在",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 218,
+      "recordedAt": "2026-06-23T19:41:45.473Z",
+      "offsetMs": 45053,
+      "offsetMsPrecise": 45052.91975,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "升级**\n   资金不只流向模型",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 219,
+      "recordedAt": "2026-06-23T19:41:45.519Z",
+      "offsetMs": 45099,
+      "offsetMsPrecise": 45098.53658299998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "训练，而",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 220,
+      "recordedAt": "2026-06-23T19:41:45.629Z",
+      "offsetMs": 45209,
+      "offsetMsPrecise": 45208.84254099999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "是更",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 221,
+      "recordedAt": "2026-06-23T19:41:45.679Z",
+      "offsetMs": 45259,
+      "offsetMsPrecise": 45258.51458299998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "细",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 222,
+      "recordedAt": "2026-06-23T19:41:45.739Z",
+      "offsetMs": 45319,
+      "offsetMsPrecise": 45318.39662500005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "分地流向推理、网络",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 223,
+      "recordedAt": "2026-06-23T19:41:45.800Z",
+      "offsetMs": 45380,
+      "offsetMsPrecise": 45379.261540999985,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、集群互联",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 224,
+      "recordedAt": "2026-06-23T19:41:45.859Z",
+      "offsetMs": 45439,
+      "offsetMsPrecise": 45438.33808300004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 225,
+      "recordedAt": "2026-06-23T19:41:45.910Z",
+      "offsetMs": 45490,
+      "offsetMsPrecise": 45489.601333,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "测量与数据",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 226,
+      "recordedAt": "2026-06-23T19:41:45.979Z",
+      "offsetMs": 45559,
+      "offsetMsPrecise": 45558.50420800003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "信号层",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 227,
+      "recordedAt": "2026-06-23T19:41:46.040Z",
+      "offsetMs": 45620,
+      "offsetMsPrecise": 45619.336374999955,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "。Ups",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 228,
+      "recordedAt": "2026-06-23T19:41:46.099Z",
+      "offsetMs": 45679,
+      "offsetMsPrecise": 45678.232541000005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "cale AI 和 Baseten 的交易",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 229,
+      "recordedAt": "2026-06-23T19:41:46.199Z",
+      "offsetMs": 45779,
+      "offsetMsPrecise": 45778.558457999956,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "显示，投资人认为",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 230,
+      "recordedAt": "2026-06-23T19:41:46.259Z",
+      "offsetMs": 45839,
+      "offsetMsPrecise": 45838.78891600005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " AI",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 231,
+      "recordedAt": "2026-06-23T19:41:46.369Z",
+      "offsetMs": 45949,
+      "offsetMsPrecise": 45948.724874999956,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 成本、",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 232,
+      "recordedAt": "2026-06-23T19:41:46.429Z",
+      "offsetMs": 46009,
+      "offsetMsPrecise": 46008.41650000005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "延迟",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 233,
+      "recordedAt": "2026-06-23T19:41:46.490Z",
+      "offsetMs": 46070,
+      "offsetMsPrecise": 46069.41249999998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "和",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 234,
+      "recordedAt": "2026-06-23T19:41:46.551Z",
+      "offsetMs": 46131,
+      "offsetMsPrecise": 46130.02904099994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "吞吐",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 235,
+      "recordedAt": "2026-06-23T19:41:46.690Z",
+      "offsetMs": 46270,
+      "offsetMsPrecise": 46269.46320799994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "瓶颈还",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 236,
+      "recordedAt": "2026-06-23T19:41:46.769Z",
+      "offsetMs": 46349,
+      "offsetMsPrecise": 46348.805041000014,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "远未解决。\n\n2. **Agent 应",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 237,
+      "recordedAt": "2026-06-23T19:41:46.789Z",
+      "offsetMs": 46369,
+      "offsetMsPrecise": 46368.52658299997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "用进入“工作流系统",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 238,
+      "recordedAt": "2026-06-23T19:41:46.849Z",
+      "offsetMs": 46429,
+      "offsetMsPrecise": 46428.38366599998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "”阶段**\n   Gradial、Apps",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 239,
+      "recordedAt": "2026-06-23T19:41:46.901Z",
+      "offsetMs": 46481,
+      "offsetMsPrecise": 46480.635332999984,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "Flyer 这类公司",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 240,
+      "recordedAt": "2026-06-23T19:41:47.009Z",
+      "offsetMs": 46589,
+      "offsetMsPrecise": 46588.82991600002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "不是卖",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 241,
+      "recordedAt": "2026-06-23T19:41:47.120Z",
+      "offsetMs": 46700,
+      "offsetMsPrecise": 46699.25104100001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "通用 Agent，而是嵌入",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 242,
+      "recordedAt": "2026-06-23T19:41:47.180Z",
+      "offsetMs": 46760,
+      "offsetMsPrecise": 46759.42179099994,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "营销、广告、审批、",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 243,
+      "recordedAt": "2026-06-23T19:41:47.228Z",
+      "offsetMs": 46808,
+      "offsetMsPrecise": 46807.734958000015,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "归因",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 244,
+      "recordedAt": "2026-06-23T19:41:47.288Z",
+      "offsetMs": 46868,
+      "offsetMsPrecise": 46867.87991599995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "等高频",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 245,
+      "recordedAt": "2026-06-23T19:41:47.360Z",
+      "offsetMs": 46940,
+      "offsetMsPrecise": 46939.54850000003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "企业流程。买",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 246,
+      "recordedAt": "2026-06-23T19:41:47.418Z",
+      "offsetMs": 46998,
+      "offsetMsPrecise": 46997.99333299999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "方更看重能否接入",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 247,
+      "recordedAt": "2026-06-23T19:41:47.468Z",
+      "offsetMs": 47048,
+      "offsetMsPrecise": 47047.89541600004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "现有系统、保",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 248,
+      "recordedAt": "2026-06-23T19:41:47.529Z",
+      "offsetMs": 47109,
+      "offsetMsPrecise": 47108.71074999997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "留合",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 249,
+      "recordedAt": "2026-06-23T19:41:47.588Z",
+      "offsetMs": 47168,
+      "offsetMsPrecise": 47167.870083000045,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "规控制",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 250,
+      "recordedAt": "2026-06-23T19:41:47.651Z",
+      "offsetMs": 47231,
+      "offsetMsPrecise": 47230.59716600005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、减少人工执行时间。\n\n3. **",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 251,
+      "recordedAt": "2026-06-23T19:41:47.698Z",
+      "offsetMs": 47278,
+      "offsetMsPrecise": 47277.79120800004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "可信 AI 成",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 252,
+      "recordedAt": "2026-06-23T19:41:47.758Z",
+      "offsetMs": 47338,
+      "offsetMsPrecise": 47337.987915999955,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "为早期融资关键词",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 253,
+      "recordedAt": "2026-06-23T19:41:47.819Z",
+      "offsetMs": 47399,
+      "offsetMsPrecise": 47398.686583,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "**\n   Pramaana Labs 和 Probably",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 254,
+      "recordedAt": "2026-06-23T19:41:47.878Z",
+      "offsetMs": 47458,
+      "offsetMsPrecise": 47457.94079100003,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 都围绕“防幻觉、可证明、可审",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 255,
+      "recordedAt": "2026-06-23T19:41:47.978Z",
+      "offsetMs": 47558,
+      "offsetMsPrecise": 47557.747208000044,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "计”融资。说明",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 256,
+      "recordedAt": "2026-06-23T19:41:48.088Z",
+      "offsetMs": 47668,
+      "offsetMsPrecise": 47667.69829099998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "市场已",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 257,
+      "recordedAt": "2026-06-23T19:41:48.159Z",
+      "offsetMs": 47739,
+      "offsetMsPrecise": 47738.013832999975,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "从“生成",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 258,
+      "recordedAt": "2026-06-23T19:41:48.279Z",
+      "offsetMs": 47859,
+      "offsetMsPrecise": 47858.16641599999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "能力”转向“可",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 259,
+      "recordedAt": "2026-06-23T19:41:48.370Z",
+      "offsetMs": 47950,
+      "offsetMsPrecise": 47949.118875000044,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "在关键业务中承担",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 260,
+      "recordedAt": "2026-06-23T19:41:48.439Z",
+      "offsetMs": 48019,
+      "offsetMsPrecise": 48018.29108300002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "责任”。\n\n4. **",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 261,
+      "recordedAt": "2026-06-23T19:41:48.548Z",
+      "offsetMs": 48128,
+      "offsetMsPrecise": 48127.724832999986,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "区域 AI ",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 262,
+      "recordedAt": "2026-06-23T19:41:48.618Z",
+      "offsetMs": 48198,
+      "offsetMsPrecise": 48197.63612499996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "叙事增强**\n   Sarvam AI",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 263,
+      "recordedAt": "2026-06-23T19:41:48.709Z",
+      "offsetMs": 48289,
+      "offsetMsPrecise": 48288.678166000056,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 的大额融资说明印度等",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 264,
+      "recordedAt": "2026-06-23T19:41:48.783Z",
+      "offsetMs": 48363,
+      "offsetMsPrecise": 48362.74333299999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "市场正在形成",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 265,
+      "recordedAt": "2026-06-23T19:41:48.878Z",
+      "offsetMs": 48458,
+      "offsetMsPrecise": 48457.72012499999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "“本土模型",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 266,
+      "recordedAt": "2026-06-23T19:41:48.988Z",
+      "offsetMs": 48568,
+      "offsetMsPrecise": 48567.64479100006,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "+本土企业",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 267,
+      "recordedAt": "2026-06-23T19:41:49.058Z",
+      "offsetMs": 48638,
+      "offsetMsPrecise": 48637.74637499999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "/政府需求",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 268,
+      "recordedAt": "2026-06-23T19:41:49.159Z",
+      "offsetMs": 48739,
+      "offsetMsPrecise": 48738.18508299999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "”的融资逻辑。主权 AI ",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 269,
+      "recordedAt": "2026-06-23T19:41:49.218Z",
+      "offsetMs": 48798,
+      "offsetMsPrecise": 48797.94962500001,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "不是短",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 270,
+      "recordedAt": "2026-06-23T19:41:49.328Z",
+      "offsetMs": 48908,
+      "offsetMsPrecise": 48907.76408300002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "期概念，可能继续带",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 271,
+      "recordedAt": "2026-06-23T19:41:49.398Z",
+      "offsetMs": 48978,
+      "offsetMsPrecise": 48977.789207999944,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "动语言",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 272,
+      "recordedAt": "2026-06-23T19:41:49.489Z",
+      "offsetMs": 49069,
+      "offsetMsPrecise": 49068.57125000004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、数据、合规和部署层",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 273,
+      "recordedAt": "2026-06-23T19:41:49.559Z",
+      "offsetMs": 49139,
+      "offsetMsPrecise": 49138.033666,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "创业公司融资。\n\n5. **机器人/",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 274,
+      "recordedAt": "2026-06-23T19:41:49.621Z",
+      "offsetMs": 49201,
+      "offsetMsPrecise": 49200.621958,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "具身智能仍是全年主",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 275,
+      "recordedAt": "2026-06-23T19:41:49.719Z",
+      "offsetMs": 49299,
+      "offsetMsPrecise": 49298.37258299999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "线**\n   Crunchbase 统计",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 276,
+      "recordedAt": "2026-06-23T19:41:49.779Z",
+      "offsetMs": 49359,
+      "offsetMsPrecise": 49358.37045799999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "称，202",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 277,
+      "recordedAt": "2026-06-23T19:41:49.839Z",
+      "offsetMs": 49419,
+      "offsetMsPrecise": 49418.20233300002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "6 年全球机器人创业公司融资已",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 278,
+      "recordedAt": "2026-06-23T19:41:50.212Z",
+      "offsetMs": 49792,
+      "offsetMsPrecise": 49791.61800000002,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "达 $188 亿，",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 279,
+      "recordedAt": "2026-06-23T19:41:50.215Z",
+      "offsetMs": 49795,
+      "offsetMsPrecise": 49793.98879099998,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "超过 2025 全年 $150 亿；投资人尤其",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 280,
+      "recordedAt": "2026-06-23T19:41:50.320Z",
+      "offsetMs": 49900,
+      "offsetMsPrecise": 49899.07724999997,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "关注具身 AI。",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 281,
+      "recordedAt": "2026-06-23T19:41:50.399Z",
+      "offsetMs": 49979,
+      "offsetMsPrecise": 49978.42587499996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "([news.crunchbase.com](https://news.crunchbase.com/robotics/startup-venture-funding-surges-2026-data/))\n",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 282,
+      "recordedAt": "2026-06-23T19:41:50.510Z",
+      "offsetMs": 50090,
+      "offsetMsPrecise": 50089.08541599999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "\n**一句话结论**\n\n本周 AI",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 283,
+      "recordedAt": "2026-06-23T19:41:50.559Z",
+      "offsetMs": 50139,
+      "offsetMsPrecise": 50138.505957999965,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " 融资的主线不是“",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 284,
+      "recordedAt": "2026-06-23T19:41:50.659Z",
+      "offsetMs": 50239,
+      "offsetMsPrecise": 50238.128000000026,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "谁又做了一个大模型”，而",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 285,
+      "recordedAt": "2026-06-23T19:41:50.729Z",
+      "offsetMs": 50309,
+      "offsetMsPrecise": 50308.37037500006,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "是资本继续押注 AI 商业化的瓶",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 286,
+      "recordedAt": "2026-06-23T19:41:50.829Z",
+      "offsetMs": 50409,
+      "offsetMsPrecise": 50408.16054099996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "颈层：算力",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 287,
+      "recordedAt": "2026-06-23T19:41:50.889Z",
+      "offsetMs": 50469,
+      "offsetMsPrecise": 50468.28312499996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "网络、推理成本",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 288,
+      "recordedAt": "2026-06-23T19:41:50.998Z",
+      "offsetMs": 50578,
+      "offsetMsPrecise": 50577.95029099996,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "、广告测量、企业",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 289,
+      "recordedAt": "2026-06-23T19:41:51.059Z",
+      "offsetMs": 50639,
+      "offsetMsPrecise": 50638.30704099999,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": " Agent 工作",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 290,
+      "recordedAt": "2026-06-23T19:41:51.149Z",
+      "offsetMs": 50729,
+      "offsetMsPrecise": 50728.25904100004,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "timeline",
+          "provider": "codex",
+          "item": {
+            "type": "assistant_message",
+            "text": "流，以及可验证输出。",
+            "messageId": "msg_06b567eec9b23215016a3ae16de3648191aefd03a7f6464a54"
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 291,
+      "recordedAt": "2026-06-23T19:41:51.487Z",
+      "offsetMs": 51067,
+      "offsetMsPrecise": 51066.78225000005,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "usage_updated",
+          "provider": "codex",
+          "usage": {
+            "inputTokens": 48610,
+            "cachedInputTokens": 18816,
+            "outputTokens": 1756,
+            "contextWindowMaxTokens": 258400,
+            "contextWindowUsedTokens": 50366
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    },
+    {
+      "seq": 292,
+      "recordedAt": "2026-06-23T19:41:51.517Z",
+      "offsetMs": 51097,
+      "offsetMsPrecise": 51096.09487499995,
+      "kind": "agent_stream_raw",
+      "payload": {
+        "event": {
+          "type": "turn_completed",
+          "provider": "codex",
+          "usage": {
+            "inputTokens": 48610,
+            "cachedInputTokens": 18816,
+            "outputTokens": 1756,
+            "contextWindowMaxTokens": 258400,
+            "contextWindowUsedTokens": 50366
+          },
+          "turnId": "codex-turn-0"
+        }
+      }
+    }
+  ],
+  "edits": {}
+}

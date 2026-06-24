@@ -38,8 +38,8 @@ function normalizeMetadata(
     : value.images;
   return {
     ...(images && images.length > 0 ? { images } : {}),
-    ...(value.displayAttachments && value.displayAttachments.length > 0
-      ? { displayAttachments: value.displayAttachments }
+    ...("displayAttachments" in value
+      ? { displayAttachments: value.displayAttachments ?? [] }
       : {}),
     ...(value.selectionPreviewUri ? { selectionPreviewUri: value.selectionPreviewUri } : {}),
     ...(value.selectionImageSource ? { selectionImageSource: value.selectionImageSource } : {}),

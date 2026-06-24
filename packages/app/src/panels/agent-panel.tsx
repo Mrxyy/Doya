@@ -79,6 +79,15 @@ import { loadAccountBootstrapSession } from "@/account/account-api";
 import { getControlSessionIdFromLabels } from "@/control/control-agent-labels";
 import { preflightControlBilling } from "@/control/control-api";
 import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
+import {
+  selectHomePresetAgentHistory,
+  useHomePresetAgentHistoryStore,
+} from "@/stores/home-preset-agent-history-store";
+import {
+  buildHomePresetVisibleHistory,
+  HOME_PRESET_REPLAY_ID_LABEL,
+  isHomePresetReplayId,
+} from "@/data/home-prompt-recordings/home-preset-recordings";
 import { getBillingUpgradeReason, translateBillingError } from "@/utils/billing-errors";
 import {
   projectConversationReplay,
@@ -96,6 +105,8 @@ interface ChatAgentStateShape {
   cwd: string | null;
   capabilities?: Agent["capabilities"];
   lastError?: Agent["lastError"] | null;
+  createdAt?: Date | null;
+  labels?: Record<string, string>;
 }
 
 interface ChatAgentSelectedState extends ChatAgentStateShape {
@@ -109,6 +120,50 @@ interface ActiveConversationReplay {
   positionMs: number;
   isPlaying: boolean;
   speed: ConversationReplaySpeed;
+}
+
+function prependHomePresetHistory(input: {
+  history: StreamItem[];
+  streamItems: StreamItem[];
+}): StreamItem[] {
+  if (input.history.length === 0) {
+    return normalizeHomePresetContinuationMessages(input.streamItems);
+  }
+  const firstHistoryItem = input.history[0];
+  const normalizedStreamItems = normalizeHomePresetContinuationMessages(input.streamItems);
+  if (firstHistoryItem && normalizedStreamItems.some((item) => item.id === firstHistoryItem.id)) {
+    return normalizedStreamItems;
+  }
+  return [...input.history, ...normalizedStreamItems];
+}
+
+function normalizeHomePresetContinuationMessages(streamItems: StreamItem[]): StreamItem[] {
+  let changed = false;
+  const normalized = streamItems.map((item) => {
+    if (item.kind !== "user_message") {
+      return item;
+    }
+    const text = extractHomePresetContinuationUserMessage(item.text);
+    if (!text) {
+      return item;
+    }
+    changed = true;
+    return { ...item, text };
+  });
+  return changed ? normalized : streamItems;
+}
+
+function extractHomePresetContinuationUserMessage(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("Continue from this conversation context.")) {
+    return null;
+  }
+  const marker = "User's new message:";
+  const markerIndex = trimmed.lastIndexOf(marker);
+  if (markerIndex < 0) {
+    return null;
+  }
+  return trimmed.slice(markerIndex + marker.length).trim() || null;
 }
 
 function resolveChatAgentFromSession(
@@ -146,6 +201,8 @@ function selectChatAgentState(
     cwd: agent.cwd,
     capabilities: agent.capabilities,
     lastError: agent.lastError ?? null,
+    createdAt: agent.createdAt,
+    labels: agent.labels,
     archivedAt: agent.archivedAt ?? null,
     requiresAttention: agent.requiresAttention ?? false,
     attentionReason: agent.attentionReason ?? null,
@@ -166,6 +223,8 @@ function buildChatAgentFromState(
     cwd: state.cwd,
     capabilities: state.capabilities,
     lastError: state.lastError ?? null,
+    createdAt: state.createdAt ?? undefined,
+    labels: state.labels,
     projectPlacement,
   };
 }
@@ -547,20 +606,7 @@ function AgentPanelBody({
     (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b),
   );
   const agentState = useSessionStore(
-    useShallow((state) => {
-      const session = state.sessions[serverId];
-      const agent = agentId
-        ? (session?.agents?.get(agentId) ?? session?.agentDetails?.get(agentId) ?? null)
-        : null;
-      return {
-        serverId: agent?.serverId ?? null,
-        id: agent?.id ?? null,
-        status: agent?.status ?? null,
-        cwd: agent?.cwd ?? null,
-        lastError: agent?.lastError ?? null,
-        archivedAt: agent?.archivedAt ?? null,
-      };
-    }),
+    useShallow((state) => selectChatAgentState(state, serverId, agentId)),
   );
   const [lookupState, setLookupState] = useState<AgentLookupState>({ tag: "idle" });
   const lookupAttemptTokenRef = useRef(0);
@@ -650,6 +696,8 @@ function AgentPanelBody({
           status: agentState.status,
           cwd: agentState.cwd,
           lastError: agentState.lastError ?? null,
+          createdAt: agentState.createdAt ?? undefined,
+          labels: agentState.labels,
           projectPlacement,
         }
       : null;
@@ -1394,18 +1442,43 @@ const AgentStreamSection = memo(function AgentStreamSection({
     agentId ? state.sessions[serverId]?.agentStreamTail?.get(agentId) : undefined,
   );
   const streamItems = streamItemsRaw ?? EMPTY_STREAM_ITEMS;
+  const inMemoryHomePresetHistory =
+    useHomePresetAgentHistoryStore((state) =>
+      selectHomePresetAgentHistory(state, { serverId, agentId }),
+    ) ?? EMPTY_STREAM_ITEMS;
+  const homePresetHistory = useMemo(() => {
+    if (inMemoryHomePresetHistory.length > 0) {
+      return inMemoryHomePresetHistory;
+    }
+    const replayId = agent.labels?.[HOME_PRESET_REPLAY_ID_LABEL];
+    if (!isHomePresetReplayId(replayId)) {
+      return EMPTY_STREAM_ITEMS;
+    }
+    return buildHomePresetVisibleHistory({
+      id: replayId,
+      startedAtMs: agent.createdAt?.getTime() ?? 0,
+    });
+  }, [agent.createdAt, agent.labels, inMemoryHomePresetHistory]);
+  const streamItemsWithPresetHistory = useMemo(
+    () =>
+      prependHomePresetHistory({
+        history: homePresetHistory,
+        streamItems,
+      }),
+    [homePresetHistory, streamItems],
+  );
   const replayProjection = useMemo(
     () =>
       replayRecording
         ? projectConversationTimelineReplay({
-            baselineItems: streamItems,
+            baselineItems: streamItemsWithPresetHistory,
             recording: replayRecording,
             positionMs: replayPositionMs ?? 0,
           })
         : null,
-    [replayPositionMs, replayRecording, streamItems],
+    [replayPositionMs, replayRecording, streamItemsWithPresetHistory],
   );
-  const displayStreamItems = replayProjection?.items ?? streamItems;
+  const displayStreamItems = replayProjection?.items ?? streamItemsWithPresetHistory;
   const pendingPermissionList = useStoreWithEqualityFn(
     useSessionStore,
     (state) => {

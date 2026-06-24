@@ -12,6 +12,28 @@
             "inbox": false,
             "outbox": false
           }
+        },
+        "inbox": {
+          "header": "Authorization",
+          "inBody": false
+        },
+        "outbox": {
+          "header": "Authorization",
+          "inBody": false
+        }
+      },
+      "secret": {
+        "inbox": {
+          "string": ""
+        },
+        "outbox": {
+          "string": ""
+        },
+        "session": {
+          "string": ""
+        },
+        "browser": {
+          "string": ""
         }
       }
     }

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
 import {
   Animated,
   Image,
@@ -11,9 +19,10 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import * as Clipboard from "expo-clipboard";
+import type { ConversationRecording } from "@getdoya/protocol/messages";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { Check, Copy, Download, Link2, Share2, Sparkles } from "lucide-react-native";
+import { Check, Copy, Download, Link2, Share2, Sparkles, X } from "lucide-react-native";
 import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import type { AgentProvider } from "@getdoya/protocol/agent-types";
 import { saveAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
@@ -61,11 +70,21 @@ import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
+import { useHomePresetAgentHistoryStore } from "@/stores/home-preset-agent-history-store";
 import { getBillingUpgradeReason } from "@/utils/billing-errors";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
+import { DocumentViewer, type DocumentViewerKind } from "@/components/document-viewer";
+import { PptPreviewFrame } from "@/components/ppt-preview-frame";
 import { ConversationReplayDraftControls } from "@/replay/conversation-replay-composer-controls";
+import { listReplayEvents, projectConversationReplay } from "@/replay/conversation-replay";
+import { advanceReplayClock } from "@/replay/conversation-replay-controls";
+import { AgentStreamView } from "@/agent-stream/view";
+import { extractAiCreationPptConfirmPath } from "@/agent-stream/ai-creation";
+import type { PendingPermission } from "@/types/shared";
+import type { StreamItem } from "@/types/stream";
+import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
 import {
   appendControlSessionMessage,
   allocateControlSessionWorkDir,
@@ -83,6 +102,27 @@ import {
 import { buildControlAgentLabels as buildBaseControlAgentLabels } from "@/control/control-agent-labels";
 import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
+import {
+  PptPreviewStaticAppJs,
+  PptPreviewStaticIndexHtml,
+  PptPreviewStaticStyleCss,
+} from "@/data/home-prompt-recordings/ppt-preview-static";
+import {
+  HomePresetBundledFiles,
+  type HomePresetBundledFile,
+} from "@/data/home-prompt-recordings/home-preset-files";
+import {
+  buildHomePresetVisibleHistory,
+  getHomePresetBundledSlidePreviews,
+  getHomePresetReplayRecording,
+  HOME_PRESET_REPLAY_ID_LABEL,
+  HOME_PRESET_REPLAY_SPEED,
+  materializeHomePresetBundledFilesToWorkspace,
+  type HomePresetReplayId,
+  type HomePresetSlidePreview,
+} from "@/data/home-prompt-recordings/home-preset-recordings";
+import { resolveDocumentViewerKind } from "@/utils/document-viewer-kind";
+import type { WorkspaceFileOpenRequest } from "@/workspace/file-open";
 
 const MAX_SESSION_TITLE_LENGTH = 60;
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
@@ -98,6 +138,9 @@ const HOME_SEARCH_ICON_SOURCE = require("../../assets/images/new-session-icon-se
 const SHARE_MODAL_SNAP_POINTS = ["58%", "86%"];
 const HOME_TITLE_GRADIENT_KEYFRAME_ID = "doya-home-title-gradient-keyframes";
 const HOME_TITLE_GRADIENT_ANIMATION_NAME = "doya-home-title-gradient";
+const HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS = 12_000;
+const HOME_PRESET_CONTEXT_MAX_CHARS = 24_000;
+const HOME_PRESET_CONTEXT_ITEM_MAX_CHARS = 1_200;
 const HOME_TITLE_GRADIENT_KEYFRAME_CSS = `
   @keyframes ${HOME_TITLE_GRADIENT_ANIMATION_NAME} {
     0% {
@@ -111,8 +154,43 @@ const HOME_TITLE_GRADIENT_KEYFRAME_CSS = `
     }
   }
 `;
+const HOME_PRESET_BASE64_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const HOME_PRESET_PPT_READONLY_CSS = `
+#panel-right,
+#inspector-sidebar-toggle,
+.inspector-sidebar-toggle,
+#rubber-band-overlay {
+  display: none !important;
+}
+#panel-center {
+  width: 100vw !important;
+  flex: 1 1 auto !important;
+}
+#svg-content {
+  pointer-events: none !important;
+}
+.svg-selectable,
+.svg-selected,
+.svg-annotated {
+  cursor: default !important;
+  outline: none !important;
+}
+`;
 
 type HomeAiCreationMode = "image" | "slides" | "pdf" | "word" | "spreadsheet";
+
+interface HomePresetFilePreview {
+  bytes: Uint8Array;
+  file: HomePresetBundledFile;
+  kind: DocumentViewerKind;
+}
+
+interface HomePresetSyntheticConfirm {
+  continueOffsetMs: number;
+  item: Extract<StreamItem, { kind: "assistant_message" }>;
+}
+
 type HomeAiCreationIntent =
   | "imagegen"
   | "ppt_creation"
@@ -148,11 +226,16 @@ interface HomePromptSuggestion {
   accentColor: string;
   borderColor: string;
   aiCreationMode?: HomeAiCreationMode;
+  presetReplayId?: HomePresetReplayId;
 }
 
 interface HomeAiCreationSubmitContext {
-  mode: HomeAiCreationMode;
+  mode?: HomeAiCreationMode;
   displayText: string;
+  titleText?: string;
+  agentText?: string;
+  visibleHistory?: StreamItem[];
+  bundledPresetReplayId?: HomePresetReplayId;
 }
 
 const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
@@ -163,6 +246,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     accentColor: "#8b5cf6",
     borderColor: "rgba(139, 92, 246, 0.22)",
     aiCreationMode: "image",
+    presetReplayId: "image-landing",
   },
   {
     id: "slides-roadshow",
@@ -171,6 +255,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     accentColor: "#f97316",
     borderColor: "rgba(249, 115, 22, 0.22)",
     aiCreationMode: "slides",
+    presetReplayId: "slides-roadshow",
   },
   {
     id: "pdf-brief",
@@ -179,6 +264,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     accentColor: "#ef4444",
     borderColor: "rgba(239, 68, 68, 0.22)",
     aiCreationMode: "pdf",
+    presetReplayId: "pdf-brief",
   },
   {
     id: "document-prd",
@@ -187,6 +273,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     accentColor: "#2563eb",
     borderColor: "rgba(37, 99, 235, 0.22)",
     aiCreationMode: "word",
+    presetReplayId: "document-prd",
   },
   {
     id: "sheet-budget",
@@ -195,6 +282,7 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     accentColor: "#16a34a",
     borderColor: "rgba(22, 163, 74, 0.22)",
     aiCreationMode: "spreadsheet",
+    presetReplayId: "sheet-budget",
   },
   {
     id: "search-ai-funding",
@@ -202,8 +290,520 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
     iconSource: HOME_SEARCH_ICON_SOURCE,
     accentColor: "#0891b2",
     borderColor: "rgba(8, 145, 178, 0.22)",
+    presetReplayId: "search-ai-funding",
   },
 ] as const;
+
+const EMPTY_PENDING_PERMISSIONS = new Map<string, PendingPermission>();
+
+function getHomePresetBundledFile(
+  id: HomePresetReplayId,
+  filePath: string,
+): HomePresetBundledFile | null {
+  const normalizedPath = normalizeHomePresetBundledFilePath(filePath);
+  return (
+    HomePresetBundledFiles.find(
+      (file) =>
+        file.presetId === id && normalizeHomePresetBundledFilePath(file.path) === normalizedPath,
+    ) ?? null
+  );
+}
+
+function normalizeHomePresetBundledFilePath(filePath: string): string {
+  return filePath.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+function buildHomePresetFilePreview(file: HomePresetBundledFile): HomePresetFilePreview | null {
+  const kind = resolveDocumentViewerKind({
+    path: file.path,
+    mimeType: file.mimeType,
+  });
+  if (!kind) {
+    return null;
+  }
+  return {
+    bytes: decodeHomePresetFileBase64(file.base64),
+    file,
+    kind,
+  };
+}
+
+function decodeHomePresetFileBase64(base64: string): Uint8Array {
+  let buffer = 0;
+  let bits = 0;
+  const bytes: number[] = [];
+  for (const char of base64.replace(/[^A-Za-z0-9+/=]/g, "")) {
+    if (char === "=") {
+      break;
+    }
+    const value = HOME_PRESET_BASE64_ALPHABET.indexOf(char);
+    if (value < 0) {
+      continue;
+    }
+    buffer = (buffer << 6) | value;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >> bits) & 0xff);
+    }
+  }
+  return Uint8Array.from(bytes);
+}
+
+function getHomePresetPreviewSlideName(slide: HomePresetSlidePreview, index: number): string {
+  return slide.path.split("/").pop() || `slide_${String(index + 1).padStart(2, "0")}.svg`;
+}
+
+function escapeInlineScriptJson(value: string): string {
+  return value
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+function escapeInlineScriptText(value: string): string {
+  return value.replace(/<\/script/gi, "<\\/script");
+}
+
+function buildHomePresetPptPreviewAppJs(): string {
+  return PptPreviewStaticAppJs.replace(
+    "var EMBEDDED_LANG = readEmbeddedLang();",
+    `var EMBEDDED_LANG = (function () {
+    try {
+      var preview = window.__DOYA_HOME_PRESET_PPT_PREVIEW__;
+      var locale = preview && String(preview.locale || "");
+      if (locale.indexOf("zh") === 0) return "zh";
+      if (locale.indexOf("en") === 0) return "en";
+    } catch (e) {
+      /* ignore */
+    }
+    return readEmbeddedLang();
+  })();`,
+  );
+}
+
+function buildHomePresetPptPreviewUrl(input: {
+  locale: Locale;
+  slides: HomePresetSlidePreview[];
+}): string {
+  const slides = input.slides.map((slide, index) => ({
+    name: getHomePresetPreviewSlideName(slide, index),
+    content: slide.svg,
+    mtime: index + 1,
+    ok: true,
+    annotation_count: 0,
+  }));
+  const payload = escapeInlineScriptJson(JSON.stringify({ locale: input.locale, slides }));
+  const apiShim = `
+window.__DOYA_HOME_PRESET_PPT_PREVIEW__ = ${payload};
+(function () {
+  const preview = window.__DOYA_HOME_PRESET_PPT_PREVIEW__;
+  const slides = preview.slides;
+  const locale = String(preview.locale || "").indexOf("zh") === 0 ? "zh" : "en";
+
+  try {
+    window.localStorage.setItem("ppt_lang", locale);
+  } catch (error) {
+    // Ignore opaque-origin storage errors in data-url previews.
+  }
+
+  function response(body, init) {
+    const status = init && init.status ? init.status : 200;
+    const ok = status >= 200 && status < 300;
+    return Promise.resolve({
+      ok,
+      status,
+      json: function () {
+        return Promise.resolve(body);
+      },
+      text: function () {
+        return Promise.resolve(JSON.stringify(body));
+      }
+    });
+  }
+
+  window.fetch = function (input) {
+    const url = String(input);
+    if (url === "/api/config") {
+      return response({ live: false });
+    }
+    if (url === "/api/static-version") {
+      return response({ files: {} });
+    }
+    if (url === "/api/slides") {
+      return response({
+        slides: slides.map(function (slide) {
+          return {
+            name: slide.name,
+            mtime: slide.mtime,
+            ok: slide.ok,
+            annotation_count: slide.annotation_count
+          };
+        })
+      });
+    }
+
+    const slideMatch = /^\\/api\\/slide\\/([^/]+)$/.exec(url);
+    if (slideMatch) {
+      const name = decodeURIComponent(slideMatch[1]);
+      const slide = slides.find(function (candidate) {
+        return candidate.name === name;
+      });
+      if (!slide) {
+        return response({ error: "Slide not found" }, { status: 404 });
+      }
+      return response({
+        content: slide.content,
+        annotations: [],
+        edit_count: 0,
+        undo_depth: 0,
+        warnings: [],
+        mtime: slide.mtime
+      });
+    }
+
+    if (/^\\/api\\/slide\\/[^/]+\\/annotate(?:\\/[^/]+)?$/.test(url)) {
+      return response({ error: "Read-only preview" }, { status: 403 });
+    }
+    if (/^\\/api\\/slide\\/[^/]+\\/undo$/.test(url)) {
+      return response({ status: "empty", undo_depth: 0 });
+    }
+    if (/^\\/api\\/slide\\/[^/]+\\/edit$/.test(url)) {
+      return response({ error: "Read-only preview" }, { status: 403 });
+    }
+    if (url === "/api/save-all") {
+      return response({ ok: true });
+    }
+
+    return response({ ok: true });
+  };
+
+  document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";
+})();
+`;
+  const html = PptPreviewStaticIndexHtml.replace(
+    '<link rel="stylesheet" href="/static/style.css" />',
+    `<style>${PptPreviewStaticStyleCss}\n#btn-lang-toggle { display: none !important; }\n${HOME_PRESET_PPT_READONLY_CSS}</style>`,
+  ).replace(
+    '<script src="/static/app.js"></script>',
+    `<script>${escapeInlineScriptText(apiShim)}</script><script>${escapeInlineScriptText(
+      buildHomePresetPptPreviewAppJs(),
+    )}</script>`,
+  );
+
+  return `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
+}
+
+function getHomePresetSlidesConfirmPath(recording: ConversationRecording): string | null {
+  for (const event of recording.events) {
+    if (event.kind !== "agent_stream_raw") {
+      continue;
+    }
+    const item = event.payload.event.type === "timeline" ? event.payload.event.item : null;
+    if (item?.type !== "tool_call") {
+      continue;
+    }
+    const detail = item.detail;
+    if (detail?.type !== "edit") {
+      continue;
+    }
+    const detailRecord = detail as Record<string, unknown>;
+    const filePath = typeof detailRecord.filePath === "string" ? detailRecord.filePath : "";
+    if (filePath.endsWith("/confirm_ui/recommendations.json")) {
+      return filePath.replace(/recommendations\.json$/u, "");
+    }
+  }
+  return null;
+}
+
+function getHomePresetSlidesConfirmDataJson(recording: ConversationRecording): string | null {
+  for (const event of recording.events) {
+    if (event.kind !== "agent_stream_raw") {
+      continue;
+    }
+    const item = event.payload.event.type === "timeline" ? event.payload.event.item : null;
+    if (item?.type !== "assistant_message") {
+      continue;
+    }
+    const value =
+      /<doya-field\b[^>]*\bname=(?:"|')confirm_data_json(?:"|')[^>]*>([\s\S]*?)(?:<\/doya-field>|<\/|$)/u.exec(
+        item.text,
+      )?.[1] ?? null;
+    if (value) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function buildConfirmedHomePresetSyntheticConfirmItem(
+  item: Extract<StreamItem, { kind: "assistant_message" }>,
+): Extract<StreamItem, { kind: "assistant_message" }> {
+  const text = markHomePresetConfirmDataConfirmed(item.text);
+  if (text === item.text) {
+    return item;
+  }
+  return { ...item, text };
+}
+
+function markHomePresetConfirmDataConfirmed(text: string): string {
+  return text.replace(
+    /(<doya-field\b[^>]*\bname=(?:"|')confirm_data_json(?:"|')[^>]*>)([\s\S]*?)(<\/doya-field>)/u,
+    (match, open: string, value: string, close: string) => {
+      try {
+        const parsed = JSON.parse(value) as Record<string, unknown>;
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          return match;
+        }
+        const recommendations =
+          parsed.recommendations &&
+          typeof parsed.recommendations === "object" &&
+          !Array.isArray(parsed.recommendations)
+            ? { ...parsed.recommendations, _already_confirmed: true }
+            : undefined;
+        return `${open}${JSON.stringify({
+          ...parsed,
+          ...(recommendations ? { recommendations } : {}),
+          _already_confirmed: true,
+        })}${close}`;
+      } catch {
+        return match;
+      }
+    },
+  );
+}
+
+function getHomePresetConfirmContinuationOffsetMs(recording: ConversationRecording): number {
+  const continuationEvent = listReplayEvents(recording.events, recording.edits).find(
+    (entry) =>
+      !entry.hidden &&
+      entry.event.kind === "agent_stream_raw" &&
+      entry.event.payload.event.type === "timeline" &&
+      entry.event.payload.event.item.type === "tool_call" &&
+      entry.event.payload.event.item.detail?.type === "shell" &&
+      entry.event.payload.event.item.detail.command.includes("confirm_ui/result.json"),
+  );
+  return continuationEvent?.scheduledOffsetMs ?? HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS;
+}
+
+function buildHomePresetSyntheticConfirm(input: {
+  recording: ConversationRecording;
+  startedAtMs: number;
+}): HomePresetSyntheticConfirm | null {
+  const confirmPath = getHomePresetSlidesConfirmPath(input.recording);
+  const confirmDataJson = getHomePresetSlidesConfirmDataJson(input.recording);
+  if (!confirmPath || !confirmDataJson) {
+    return null;
+  }
+  const text = `<doya-ui version="1" kind="ai_creation.slides.progress" render="status" visibility="summary" id="home_preset_slides_confirm" desc="Human-visible PPT confirmation progress."><doya-ui-content><doya-title>幻灯片确认</doya-title><doya-summary>请确认路演稿的画布、页数、风格和项目设定。</doya-summary><doya-field name="confirm_path" label="确认目录">${confirmPath}</doya-field><doya-field name="confirm_data_json" label="确认数据">${confirmDataJson}</doya-field></doya-ui-content></doya-ui>`;
+  return {
+    continueOffsetMs: getHomePresetConfirmContinuationOffsetMs(input.recording),
+    item: {
+      kind: "assistant_message",
+      id: "home_preset_slides_confirm",
+      messageId: "home_preset_slides_confirm",
+      text,
+      timestamp: new Date(
+        input.startedAtMs + HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS / HOME_PRESET_REPLAY_SPEED,
+      ),
+    },
+  };
+}
+
+function mapHomePresetReplaySourcePosition(input: {
+  isConfirmUnlocked: boolean;
+  positionMs: number;
+  syntheticConfirm: HomePresetSyntheticConfirm | null;
+}): number {
+  if (!input.isConfirmUnlocked || !input.syntheticConfirm) {
+    return input.positionMs;
+  }
+  return (
+    input.syntheticConfirm.continueOffsetMs +
+    Math.max(0, input.positionMs - HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS)
+  );
+}
+
+function getHomePresetReplayClockDuration(input: {
+  durationMs: number;
+  syntheticConfirm: HomePresetSyntheticConfirm | null;
+}): number {
+  if (!input.syntheticConfirm) {
+    return input.durationMs;
+  }
+  return (
+    HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS +
+    Math.max(0, input.durationMs - input.syntheticConfirm.continueOffsetMs)
+  );
+}
+
+function filterHomePresetReplayItems(input: {
+  isConfirmUnlocked: boolean;
+  items: readonly StreamItem[];
+  syntheticConfirm: HomePresetSyntheticConfirm | null;
+}): StreamItem[] {
+  if (!input.syntheticConfirm) {
+    return [...input.items];
+  }
+  return input.items.filter((item) => !isBrokenHomePresetSlidesConfirmItem(item));
+}
+
+function isBrokenHomePresetSlidesConfirmItem(item: StreamItem): boolean {
+  if (item.kind !== "assistant_message") {
+    return false;
+  }
+  const text = item.text.trim();
+  return (
+    text === "确认" ||
+    Boolean(extractAiCreationPptConfirmPath(text)) ||
+    text.includes("confirm_ui/") ||
+    text.includes("confirm_path") ||
+    text.includes("confirm_data_json")
+  );
+}
+
+function sanitizeHomePresetContextText(text: string): string {
+  return text
+    .replace(/<doya-ui[\s\S]*?<\/doya-ui>/g, "[rendered UI omitted]")
+    .replace(/!\[[^\]]*]\([^)]*\)/g, "[image omitted]")
+    .replace(/data:[^)\s]+/g, "[embedded data omitted]")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncateHomePresetContextText(text: string, maxChars: number): string {
+  if (text.length <= maxChars) {
+    return text;
+  }
+  return `${text.slice(0, Math.max(0, maxChars - 24)).trimEnd()}... [truncated]`;
+}
+
+function extractHomePresetArtifactPaths(text: string): string[] {
+  const paths = new Set<string>();
+  const pattern =
+    /(?:^|[\s([])((?:projects\/[^)\]\s]+\/(?:exports|svg_output)\/|output\/(?:documents|spreadsheets|exports|images)\/)[^)\]\s]+?\.(?:pptx|pdf|docx|xlsx|csv|png|jpg|jpeg|svg))/gi;
+  for (const match of text.matchAll(pattern)) {
+    const path = match[1]?.trim();
+    if (path) {
+      paths.add(path);
+    }
+  }
+  return [...paths];
+}
+
+function formatPresetReplayContextItem(item: StreamItem): string | null {
+  if (item.kind === "user_message") {
+    const text = sanitizeHomePresetContextText(item.text);
+    return text
+      ? `User: ${truncateHomePresetContextText(text, HOME_PRESET_CONTEXT_ITEM_MAX_CHARS)}`
+      : null;
+  }
+  if (item.kind === "assistant_message") {
+    const text = sanitizeHomePresetContextText(item.text);
+    return text
+      ? `Assistant: ${truncateHomePresetContextText(text, HOME_PRESET_CONTEXT_ITEM_MAX_CHARS)}`
+      : null;
+  }
+  if (item.kind === "thought") {
+    const text = sanitizeHomePresetContextText(item.text);
+    return text ? `Assistant reasoning: ${truncateHomePresetContextText(text, 400)}` : null;
+  }
+  if (item.kind === "tool_call") {
+    if (item.payload.source === "agent") {
+      return `Tool call: ${item.payload.data.name} (${item.payload.data.status})`;
+    }
+    return `Tool call: ${item.payload.data.toolName} (${item.payload.data.status})`;
+  }
+  if (item.kind === "todo_list") {
+    const todos = item.items.map(
+      (entry) => `${entry.completed ? "[x]" : "[ ]"} ${sanitizeHomePresetContextText(entry.text)}`,
+    );
+    return `Todo list:\n${truncateHomePresetContextText(todos.join("\n"), 800)}`;
+  }
+  if (item.kind === "activity_log") {
+    const message = sanitizeHomePresetContextText(item.message);
+    return message ? `Activity: ${truncateHomePresetContextText(message, 400)}` : null;
+  }
+  return null;
+}
+
+function buildHomePresetContextTranscript(items: readonly StreamItem[]): string {
+  const lines: string[] = [];
+  let remaining = HOME_PRESET_CONTEXT_MAX_CHARS;
+  for (const item of items) {
+    const formatted = formatPresetReplayContextItem(item);
+    if (!formatted) {
+      continue;
+    }
+    const next = truncateHomePresetContextText(formatted, remaining);
+    if (!next) {
+      break;
+    }
+    lines.push(next);
+    remaining -= next.length + 2;
+    if (remaining <= 0) {
+      lines.push("[Earlier preset context truncated to stay within input limits.]");
+      break;
+    }
+  }
+  return lines.join("\n\n");
+}
+
+function buildHomePresetArtifactSummary(items: readonly StreamItem[]): string {
+  const paths = new Set<string>();
+  for (const item of items) {
+    if (item.kind !== "assistant_message" && item.kind !== "user_message") {
+      continue;
+    }
+    for (const path of extractHomePresetArtifactPaths(item.text)) {
+      paths.add(path);
+    }
+  }
+  if (paths.size === 0) {
+    return "";
+  }
+  return [
+    "Artifacts produced in the prior conversation:",
+    ...[...paths].map((path) => `- ${path}`),
+  ].join("\n");
+}
+
+function buildHomePresetContinuationPrompt(input: {
+  recording: ConversationRecording;
+  userText: string;
+}): string {
+  const replay = projectConversationReplay({
+    events: input.recording.events,
+    edits: input.recording.edits,
+    positionMs: Number.POSITIVE_INFINITY,
+  });
+  const transcript = buildHomePresetContextTranscript(replay.items);
+  const artifacts = buildHomePresetArtifactSummary(replay.items);
+  const title = input.recording.title?.trim() || "Preset conversation";
+  return [
+    "Continue from this conversation context. Treat it as prior chat history, not as a replay.",
+    "The context below is intentionally summarized and excludes rendered UI payloads, SVGs, images, and embedded file data.",
+    `Conversation title: ${title}`,
+    artifacts,
+    "",
+    "<conversation_so_far>",
+    transcript,
+    "</conversation_so_far>",
+    "",
+    "User's new message:",
+    input.userText,
+  ].join("\n");
+}
+
+function buildInitialVisibleAgentTail(input: {
+  visibleHistory: StreamItem[] | undefined;
+  userMessage: StreamItem;
+}): StreamItem[] | null {
+  if (!input.visibleHistory || input.visibleHistory.length === 0) {
+    return null;
+  }
+  return [...input.visibleHistory, input.userMessage];
+}
 
 function ensureHomeTitleGradientKeyframes() {
   if (!isWeb || typeof document === "undefined") {
@@ -374,10 +974,11 @@ async function ensureRuntimeClientForNode(
     endpoint: directEndpoint.endpoint,
     useTls: directEndpoint.useTls,
     label: node.id,
-    password: findDirectHostRuntimeAuthToken({
-      serverId: node.id,
-      endpoint: directEndpoint.endpoint,
-    }),
+    password:
+      findDirectHostRuntimeAuthToken({
+        serverId: node.id,
+        endpoint: directEndpoint.endpoint,
+      }) ?? undefined,
   });
   await store.ensureStarted(node.id);
 
@@ -464,12 +1065,19 @@ export function NewSessionDraftScreen({
   const appendOptimisticUserMessageToAgentStream = useSessionStore(
     (state) => state.appendOptimisticUserMessageToAgentStream,
   );
+  const setAgentStreamState = useSessionStore((state) => state.setAgentStreamState);
   const supportsConversationReplay = useSessionStore(
     (state) => state.sessions[serverId]?.serverInfo?.features?.conversationReplay === true,
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
   const [recordConversation, setRecordConversation] = useState(false);
+  const [activePresetReplay, setActivePresetReplay] = useState<{
+    id: HomePresetReplayId;
+    prompt: string;
+    recording: ConversationRecording;
+    startedAtMs: number;
+  } | null>(null);
   const accountWorkspaceCwd = accountSession?.workspace.runtime?.cwd ?? "";
   const draft = useAgentInputDraft({
     draftKey: `new-session:${serverId}`,
@@ -545,7 +1153,7 @@ export function NewSessionDraftScreen({
           return;
         }
         const sessionTitle = buildNewSessionTitle({
-          text: submitText.displayText,
+          text: submitText.titleText,
           attachments: payload.attachments,
           fallback: t("account.project.defaultName"),
           t,
@@ -587,30 +1195,36 @@ export function NewSessionDraftScreen({
             modelId: runtime.agentConfig.model ?? null,
             selectionReason: runtime.selectionReason,
           });
-          const openPayload = await runtime.client.openProject(sessionWorkDir.runtime.workspaceDir);
+          const openPayload = await runtimeClient.openProject(sessionWorkDir.runtime.workspaceDir);
           if (openPayload.error || !openPayload.workspace) {
             throw new Error(openPayload.error ?? t("openProject.error.createProject"));
           }
           const workspace = normalizeWorkspaceDescriptor(openPayload.workspace);
           mergeWorkspaces(runtime.serverId, [workspace]);
           setHasHydratedWorkspaces(runtime.serverId, true);
-
+          if (effectiveAiCreationContext?.bundledPresetReplayId) {
+            await materializeHomePresetBundledFilesToWorkspace({
+              client: runtimeClient,
+              cwd: workspace.workspaceDirectory,
+              id: effectiveAiCreationContext.bundledPresetReplayId,
+            });
+          }
           const wirePayload = await splitComposerAttachmentsForSubmit(payload.attachments, {
             materializeImages: (images) =>
               materializeWorkspaceImageAttachmentsForSubmit({
-                client: runtime.client,
+                client: runtimeClient,
                 cwd: workspace.workspaceDirectory,
                 images,
               }),
             materializeFiles: (files) =>
               materializeWorkspaceFileAttachments({
-                client: runtime.client,
+                client: runtimeClient,
                 cwd: workspace.workspaceDirectory,
                 files,
               }),
           });
           const images = await encodeImages(wirePayload.images);
-          const agent = await runtime.client.createAgent({
+          const agent = await runtimeClient.createAgent({
             config: buildWorkspaceDraftAgentConfig({
               provider: provider as AgentProvider,
               cwd: workspace.workspaceDirectory,
@@ -668,7 +1282,7 @@ export function NewSessionDraftScreen({
             serverId: runtime.serverId,
             agentId: agent.id,
             messageId: clientMessageId,
-            text: submitText.agentText,
+            text: submitText.displayText,
             metadata: {
               images: wirePayload.displayImages,
               displayAttachments: wirePayload.displayAttachments,
@@ -676,19 +1290,33 @@ export function NewSessionDraftScreen({
           }).catch((error) => {
             console.warn("[NewSessionDraft] Failed to persist message display metadata", error);
           });
-          appendOptimisticUserMessageToAgentStream(
-            runtime.serverId,
-            agent.id,
-            buildOptimisticUserMessage({
-              id: clientMessageId,
-              text: submitText.agentText,
-              timestamp: new Date(),
-              images: wirePayload.displayImages,
-              attachments: wirePayload.attachments,
-              displayAttachments: wirePayload.displayAttachments,
-            }),
-            { placement: "tail" },
-          );
+          const optimisticUserMessage = buildOptimisticUserMessage({
+            id: clientMessageId,
+            text: submitText.displayText,
+            timestamp: new Date(),
+            images: wirePayload.displayImages,
+            attachments: wirePayload.attachments,
+            displayAttachments: wirePayload.displayAttachments,
+          });
+          const initialVisibleTail = buildInitialVisibleAgentTail({
+            visibleHistory: effectiveAiCreationContext?.visibleHistory,
+            userMessage: optimisticUserMessage,
+          });
+          if (initialVisibleTail) {
+            useHomePresetAgentHistoryStore.getState().setHistory({
+              serverId: runtime.serverId,
+              agentId: agent.id,
+              items: effectiveAiCreationContext?.visibleHistory ?? [],
+            });
+            setAgentStreamState(runtime.serverId, agent.id, { tail: initialVisibleTail });
+          } else {
+            appendOptimisticUserMessageToAgentStream(
+              runtime.serverId,
+              agent.id,
+              optimisticUserMessage,
+              { placement: "tail" },
+            );
+          }
           await composerState.persistFormPreferences();
           draft.clear("sent");
           router.replace(buildHostAgentDetailRoute(runtime.serverId, agent.id));
@@ -720,7 +1348,13 @@ export function NewSessionDraftScreen({
         });
         mergeWorkspaces(runtimeServerId, [workspace]);
         setHasHydratedWorkspaces(runtimeServerId, true);
-
+        if (effectiveAiCreationContext?.bundledPresetReplayId) {
+          await materializeHomePresetBundledFilesToWorkspace({
+            client: runtimeClient,
+            cwd: workspace.workspaceDirectory,
+            id: effectiveAiCreationContext.bundledPresetReplayId,
+          });
+        }
         const wirePayload = await splitComposerAttachmentsForSubmit(payload.attachments, {
           materializeImages: (images) =>
             materializeWorkspaceImageAttachmentsForSubmit({
@@ -761,7 +1395,7 @@ export function NewSessionDraftScreen({
           serverId: runtimeServerId,
           agentId: agent.id,
           messageId: clientMessageId,
-          text: submitText.agentText,
+          text: submitText.displayText,
           metadata: {
             images: wirePayload.displayImages,
             displayAttachments: wirePayload.displayAttachments,
@@ -769,19 +1403,33 @@ export function NewSessionDraftScreen({
         }).catch((error) => {
           console.warn("[NewSessionDraft] Failed to persist message display metadata", error);
         });
-        appendOptimisticUserMessageToAgentStream(
-          runtimeServerId,
-          agent.id,
-          buildOptimisticUserMessage({
-            id: clientMessageId,
-            text: submitText.agentText,
-            timestamp: new Date(),
-            images: wirePayload.displayImages,
-            attachments: wirePayload.attachments,
-            displayAttachments: wirePayload.displayAttachments,
-          }),
-          { placement: "tail" },
-        );
+        const optimisticUserMessage = buildOptimisticUserMessage({
+          id: clientMessageId,
+          text: submitText.displayText,
+          timestamp: new Date(),
+          images: wirePayload.displayImages,
+          attachments: wirePayload.attachments,
+          displayAttachments: wirePayload.displayAttachments,
+        });
+        const initialVisibleTail = buildInitialVisibleAgentTail({
+          visibleHistory: effectiveAiCreationContext?.visibleHistory,
+          userMessage: optimisticUserMessage,
+        });
+        if (initialVisibleTail) {
+          useHomePresetAgentHistoryStore.getState().setHistory({
+            serverId: runtimeServerId,
+            agentId: agent.id,
+            items: effectiveAiCreationContext?.visibleHistory ?? [],
+          });
+          setAgentStreamState(runtimeServerId, agent.id, { tail: initialVisibleTail });
+        } else {
+          appendOptimisticUserMessageToAgentStream(
+            runtimeServerId,
+            agent.id,
+            optimisticUserMessage,
+            { placement: "tail" },
+          );
+        }
         await composerState.persistFormPreferences();
         draft.clear("sent");
         router.replace(buildHostAgentDetailRoute(runtimeServerId, agent.id));
@@ -814,6 +1462,7 @@ export function NewSessionDraftScreen({
       openAccountLogin,
       recordConversation,
       serverId,
+      setAgentStreamState,
       setAgents,
       setHasHydratedWorkspaces,
       t,
@@ -836,6 +1485,15 @@ export function NewSessionDraftScreen({
   }, []);
   const handleCapabilitySelect = useCallback(
     (suggestion: HomePromptSuggestion, text: string) => {
+      if (!accountSession && suggestion.presetReplayId) {
+        setActivePresetReplay({
+          id: suggestion.presetReplayId,
+          prompt: text,
+          recording: getHomePresetReplayRecording(suggestion.presetReplayId),
+          startedAtMs: Date.now(),
+        });
+        return;
+      }
       void handleSubmit(
         {
           text,
@@ -850,7 +1508,37 @@ export function NewSessionDraftScreen({
           : undefined,
       );
     },
-    [accountWorkspaceCwd, handleSubmit],
+    [accountSession, accountWorkspaceCwd, handleSubmit],
+  );
+  const handleClosePresetReplay = useCallback(() => {
+    setActivePresetReplay(null);
+  }, []);
+  const handleSubmitPresetContinuation = useCallback(
+    async (payload: MessagePayload) => {
+      if (!activePresetReplay) {
+        return;
+      }
+      await handleSubmit(
+        {
+          ...payload,
+          attachments: payload.attachments,
+        },
+        {
+          displayText: payload.text,
+          titleText: activePresetReplay.prompt,
+          agentText: buildHomePresetContinuationPrompt({
+            recording: activePresetReplay.recording,
+            userText: payload.text,
+          }),
+          visibleHistory: buildHomePresetVisibleHistory({
+            id: activePresetReplay.id,
+            startedAtMs: activePresetReplay.startedAtMs,
+          }),
+          bundledPresetReplayId: activePresetReplay.id,
+        },
+      );
+    },
+    [activePresetReplay, handleSubmit],
   );
   const conversationReplayDraftControls = useMemo(
     () =>
@@ -871,31 +1559,36 @@ export function NewSessionDraftScreen({
           onShare={handleOpenShareModal}
         />
         <View style={styles.content}>
-          <NewSessionHomeHero disabled={isSubmitting} onSelectPrompt={handleCapabilitySelect} />
-          <View style={styles.composerDock}>
-            <View style={styles.centered}>
-              <Composer
+          {activePresetReplay ? (
+            <HomePresetConversation
+              serverId={serverId}
+              preset={activePresetReplay}
+              inputDraft={draft}
+              isSubmitting={isSubmitting}
+              commandDraftConfig={composerState?.commandDraftConfig}
+              agentControls={agentControlsWithDisabled}
+              extraRightContent={conversationReplayDraftControls}
+              onAddImages={handleAddImagesCallback}
+              onClose={handleClosePresetReplay}
+              onSubmitContinuation={handleSubmitPresetContinuation}
+            />
+          ) : (
+            <>
+              <NewSessionHomeHero disabled={isSubmitting} onSelectPrompt={handleCapabilitySelect} />
+              <HomeComposerDock
                 agentId={`new-session:${serverId}`}
                 serverId={serverId}
-                isPaneFocused={true}
                 onSubmitMessage={handleSubmit}
-                isSubmitLoading={isSubmitting}
-                submitBehavior="preserve-and-lock"
-                blurOnSubmit={true}
-                value={draft.text}
-                onChangeText={draft.setText}
-                attachments={draft.attachments}
-                onChangeAttachments={draft.setAttachments}
+                isSubmitting={isSubmitting}
+                inputDraft={draft}
                 cwd={accountWorkspaceCwd}
-                clearDraft={draft.clear}
                 onAddImages={handleAddImagesCallback}
-                autoFocus
                 commandDraftConfig={composerState?.commandDraftConfig}
                 agentControls={agentControlsWithDisabled}
                 extraRightContent={conversationReplayDraftControls}
               />
-            </View>
-          </View>
+            </>
+          )}
         </View>
         <ShareLinkModal visible={isShareModalVisible} onClose={handleCloseShareModal} />
       </View>
@@ -909,6 +1602,436 @@ function hasHomeSubmitContent(
 ): boolean {
   return Boolean(submitText.displayText || attachments.length > 0);
 }
+
+interface HomePresetComposerDraft {
+  text: string;
+  setText: (text: string) => void;
+  attachments: ComponentProps<typeof Composer>["attachments"];
+  setAttachments: ComponentProps<typeof Composer>["onChangeAttachments"];
+  clear: ComponentProps<typeof Composer>["clearDraft"];
+}
+
+interface HomeComposerDockProps {
+  agentId: string;
+  serverId: string;
+  onSubmitMessage: ComponentProps<typeof Composer>["onSubmitMessage"];
+  isSubmitting: boolean;
+  inputDraft: HomePresetComposerDraft;
+  cwd: string;
+  onAddImages: ComponentProps<typeof Composer>["onAddImages"];
+  commandDraftConfig?: ComponentProps<typeof Composer>["commandDraftConfig"];
+  agentControls?: ComponentProps<typeof Composer>["agentControls"];
+  extraRightContent?: ComponentProps<typeof Composer>["extraRightContent"];
+}
+
+function HomeComposerDock({
+  agentId,
+  serverId,
+  onSubmitMessage,
+  isSubmitting,
+  inputDraft,
+  cwd,
+  onAddImages,
+  commandDraftConfig,
+  agentControls,
+  extraRightContent,
+}: HomeComposerDockProps) {
+  return (
+    <View style={styles.composerDock}>
+      <View style={styles.centered}>
+        <Composer
+          agentId={agentId}
+          serverId={serverId}
+          isPaneFocused
+          onSubmitMessage={onSubmitMessage}
+          isSubmitLoading={isSubmitting}
+          submitBehavior="preserve-and-lock"
+          blurOnSubmit
+          value={inputDraft.text}
+          onChangeText={inputDraft.setText}
+          attachments={inputDraft.attachments}
+          onChangeAttachments={inputDraft.setAttachments}
+          cwd={cwd}
+          clearDraft={inputDraft.clear}
+          onAddImages={onAddImages}
+          autoFocus
+          commandDraftConfig={commandDraftConfig}
+          agentControls={agentControls}
+          extraRightContent={extraRightContent}
+        />
+      </View>
+    </View>
+  );
+}
+
+function HomePresetConversation({
+  commandDraftConfig,
+  agentControls,
+  extraRightContent,
+  inputDraft,
+  isSubmitting,
+  onAddImages,
+  onClose,
+  onSubmitContinuation,
+  preset,
+  serverId,
+}: {
+  commandDraftConfig?: ComponentProps<typeof Composer>["commandDraftConfig"];
+  agentControls?: ComponentProps<typeof Composer>["agentControls"];
+  extraRightContent?: ComponentProps<typeof Composer>["extraRightContent"];
+  inputDraft: HomePresetComposerDraft;
+  isSubmitting: boolean;
+  onAddImages: ComponentProps<typeof Composer>["onAddImages"];
+  onClose: () => void;
+  onSubmitContinuation: (payload: MessagePayload) => Promise<void>;
+  preset: {
+    id: HomePresetReplayId;
+    prompt: string;
+    recording: ConversationRecording;
+    startedAtMs: number;
+  };
+  serverId: string;
+}) {
+  const { t } = useI18n();
+  const [positionMs, setPositionMs] = useState(0);
+  const [isConfirmUnlocked, setIsConfirmUnlocked] = useState(false);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+  const [filePreview, setFilePreview] = useState<HomePresetFilePreview | null>(null);
+  const isCompact = useIsCompactFormFactor();
+  const lastFrameRef = useRef<number | null>(null);
+  const durationMs = useMemo(
+    () =>
+      projectConversationReplay({
+        events: preset.recording.events,
+        edits: preset.recording.edits,
+        positionMs: Number.POSITIVE_INFINITY,
+      }).durationMs,
+    [preset.recording],
+  );
+  const slidePreviews = useMemo(() => getHomePresetBundledSlidePreviews(preset.id), [preset.id]);
+  const syntheticConfirm = useMemo(
+    () =>
+      preset.id === "slides-roadshow"
+        ? buildHomePresetSyntheticConfirm({
+            recording: preset.recording,
+            startedAtMs: preset.startedAtMs,
+          })
+        : null,
+    [preset.id, preset.recording, preset.startedAtMs],
+  );
+  const replayClockDurationMs = useMemo(
+    () =>
+      getHomePresetReplayClockDuration({
+        durationMs,
+        syntheticConfirm,
+      }),
+    [durationMs, syntheticConfirm],
+  );
+  const sourcePositionMs = useMemo(
+    () =>
+      mapHomePresetReplaySourcePosition({
+        isConfirmUnlocked,
+        positionMs,
+        syntheticConfirm,
+      }),
+    [isConfirmUnlocked, positionMs, syntheticConfirm],
+  );
+  const replayProjection = useMemo(
+    () =>
+      projectConversationReplay({
+        events: preset.recording.events,
+        edits: preset.recording.edits,
+        positionMs: sourcePositionMs,
+        timestampBaseMs: preset.startedAtMs,
+        timestampScale: 1 / HOME_PRESET_REPLAY_SPEED,
+      }),
+    [preset.recording, preset.startedAtMs, sourcePositionMs],
+  );
+  const preConfirmProjection = useMemo(
+    () =>
+      projectConversationReplay({
+        events: preset.recording.events,
+        edits: preset.recording.edits,
+        positionMs: HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS,
+        timestampBaseMs: preset.startedAtMs,
+        timestampScale: 1 / HOME_PRESET_REPLAY_SPEED,
+      }),
+    [preset.recording, preset.startedAtMs],
+  );
+  const shouldShowSyntheticConfirm =
+    !isConfirmUnlocked &&
+    Boolean(syntheticConfirm) &&
+    positionMs >= HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS;
+  const isWaitingForInlineConfirm = !isConfirmUnlocked && shouldShowSyntheticConfirm;
+  const streamItems = useMemo(() => {
+    const projectedItems = filterHomePresetReplayItems({
+      isConfirmUnlocked,
+      items: replayProjection.items,
+      syntheticConfirm,
+    });
+    if (!syntheticConfirm || positionMs < HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS) {
+      return projectedItems;
+    }
+    if (!isConfirmUnlocked) {
+      return [...projectedItems, syntheticConfirm.item];
+    }
+    const confirmedSyntheticConfirmItem = buildConfirmedHomePresetSyntheticConfirmItem(
+      syntheticConfirm.item,
+    );
+    const preConfirmItems = filterHomePresetReplayItems({
+      isConfirmUnlocked: false,
+      items: preConfirmProjection.items,
+      syntheticConfirm,
+    });
+    const preConfirmItemIds = new Set(preConfirmItems.map((item) => item.id));
+    return [
+      ...preConfirmItems,
+      confirmedSyntheticConfirmItem,
+      ...projectedItems.filter((item) => !preConfirmItemIds.has(item.id)),
+    ];
+  }, [
+    isConfirmUnlocked,
+    positionMs,
+    preConfirmProjection.items,
+    replayProjection.items,
+    syntheticConfirm,
+  ]);
+  const agent = useMemo<AgentScreenAgent>(
+    () => ({
+      serverId,
+      id: `home-preset:${preset.id}`,
+      status: positionMs < replayClockDurationMs ? "running" : "idle",
+      cwd: ".",
+      lastError: null,
+      projectPlacement: null,
+    }),
+    [positionMs, preset.id, replayClockDurationMs, serverId],
+  );
+
+  useEffect(() => {
+    setPositionMs(0);
+    setIsConfirmUnlocked(false);
+    setIsPreviewVisible(false);
+    setFilePreview(null);
+    lastFrameRef.current = null;
+  }, [preset.id]);
+
+  const handleInlineConfirm = useCallback(() => {
+    setIsConfirmUnlocked(true);
+    lastFrameRef.current = null;
+  }, []);
+
+  const handleOpenReplayPreview = useCallback(() => {
+    if (slidePreviews.length > 0) {
+      setFilePreview(null);
+      setIsPreviewVisible(true);
+    }
+  }, [slidePreviews.length]);
+
+  const handleCloseReplayPreview = useCallback(() => {
+    setIsPreviewVisible(false);
+    setFilePreview(null);
+  }, []);
+  const handleOpenBundledFile = useCallback(
+    (request: WorkspaceFileOpenRequest) => {
+      const bundledFile = getHomePresetBundledFile(preset.id, request.location.path);
+      if (!bundledFile) {
+        return;
+      }
+      const preview = buildHomePresetFilePreview(bundledFile);
+      if (!preview) {
+        return;
+      }
+      setIsPreviewVisible(false);
+      setFilePreview(preview);
+    },
+    [preset.id],
+  );
+  const shouldShowSlidesPreviewPane = isPreviewVisible && slidePreviews.length > 0;
+  const shouldShowPreviewPane = shouldShowSlidesPreviewPane || Boolean(filePreview);
+  const conversationMainStyle = useMemo(
+    () => [
+      styles.presetConversationMain,
+      shouldShowPreviewPane && isCompact && styles.presetConversationMainHidden,
+    ],
+    [isCompact, shouldShowPreviewPane],
+  );
+
+  useEffect(() => {
+    if (isWaitingForInlineConfirm || positionMs >= replayClockDurationMs) {
+      lastFrameRef.current = null;
+      return;
+    }
+    let frame: ReturnType<typeof requestAnimationFrame> | null = null;
+    const tick = (now: number) => {
+      const next = advanceReplayClock({
+        positionMs,
+        lastFrameMs: lastFrameRef.current,
+        frameMs: now,
+        speed: HOME_PRESET_REPLAY_SPEED,
+        durationMs: replayClockDurationMs,
+      });
+      lastFrameRef.current = next.lastFrameMs;
+      setPositionMs(next.positionMs);
+      if (next.isPlaying) {
+        frame = requestAnimationFrame(tick);
+      }
+    };
+    frame = requestAnimationFrame(tick);
+    return () => {
+      if (frame) {
+        cancelAnimationFrame(frame);
+      }
+    };
+  }, [isWaitingForInlineConfirm, positionMs, replayClockDurationMs]);
+
+  return (
+    <View style={styles.presetConversation}>
+      <View style={styles.presetConversationTopBar}>
+        <Pressable accessibilityRole="button" onPress={onClose} style={styles.presetBackButton}>
+          <Text style={styles.presetBackButtonText}>{t("home.newSession.title")}</Text>
+        </Pressable>
+        <Text style={styles.presetConversationTitle} numberOfLines={1}>
+          {preset.prompt}
+        </Text>
+      </View>
+      <View style={styles.presetConversationBody}>
+        <View style={conversationMainStyle}>
+          <View style={styles.presetStream}>
+            <AgentStreamView
+              agentId={agent.id}
+              serverId={serverId}
+              agent={agent}
+              streamItems={streamItems}
+              pendingPermissions={EMPTY_PENDING_PERMISSIONS}
+              isAuthoritativeHistoryReady
+              isReplayMode
+              onInlinePptConfirm={handleInlineConfirm}
+              onOpenReplayPptPreview={handleOpenReplayPreview}
+              onOpenWorkspaceFile={handleOpenBundledFile}
+            />
+          </View>
+          <HomeComposerDock
+            agentId={agent.id}
+            serverId={serverId}
+            onSubmitMessage={onSubmitContinuation}
+            isSubmitting={isSubmitting}
+            inputDraft={inputDraft}
+            cwd="."
+            onAddImages={onAddImages}
+            commandDraftConfig={commandDraftConfig}
+            agentControls={agentControls}
+            extraRightContent={extraRightContent}
+          />
+        </View>
+        {shouldShowSlidesPreviewPane ? (
+          <HomePresetSlidesPreviewPane
+            slides={slidePreviews}
+            onClose={handleCloseReplayPreview}
+            isCompact={isCompact}
+          />
+        ) : null}
+        {filePreview ? (
+          <HomePresetFilePreviewPane
+            preview={filePreview}
+            onClose={handleCloseReplayPreview}
+            isCompact={isCompact}
+          />
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function HomePresetSlidesPreviewPane({
+  isCompact,
+  onClose,
+  slides,
+}: {
+  isCompact: boolean;
+  onClose: () => void;
+  slides: HomePresetSlidePreview[];
+}) {
+  const { locale, t } = useI18n();
+  const previewUrl = useMemo(
+    () => buildHomePresetPptPreviewUrl({ locale, slides }),
+    [locale, slides],
+  );
+  const paneStyle = useMemo(
+    () => [styles.presetPreviewPane, isCompact && styles.presetPreviewPaneCompact],
+    [isCompact],
+  );
+
+  return (
+    <View style={paneStyle}>
+      <View style={styles.presetPreviewPaneHeader}>
+        <Text style={styles.presetPreviewPaneTitle}>{t("ui.slides.preview")}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("ui.close.12tjh4")}
+          onPress={onClose}
+          style={styles.presetPreviewPaneClose}
+        >
+          <X size={16} color="#71717a" />
+        </Pressable>
+      </View>
+      <View style={styles.presetPreviewFrame}>
+        <PptPreviewFrame
+          title={t("aiCreation.result.slidesPreviewReady")}
+          url={previewUrl}
+          onApplyAnnotations={noopHomePresetPptPreviewAction}
+          applyAnnotationsCompletionToken={0}
+        />
+      </View>
+    </View>
+  );
+}
+
+function HomePresetFilePreviewPane({
+  isCompact,
+  onClose,
+  preview,
+}: {
+  isCompact: boolean;
+  onClose: () => void;
+  preview: HomePresetFilePreview;
+}) {
+  const { t } = useI18n();
+  const paneStyle = useMemo(
+    () => [styles.presetPreviewPane, isCompact && styles.presetPreviewPaneCompact],
+    [isCompact],
+  );
+
+  return (
+    <View style={paneStyle}>
+      <View style={styles.presetPreviewPaneHeader}>
+        <Text style={styles.presetPreviewPaneTitle} numberOfLines={1}>
+          {preview.file.fileName}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("ui.close.12tjh4")}
+          onPress={onClose}
+          style={styles.presetPreviewPaneClose}
+        >
+          <X size={16} color="#71717a" />
+        </Pressable>
+      </View>
+      <View style={styles.presetPreviewFrame}>
+        <DocumentViewer
+          key={preview.file.path}
+          kind={preview.kind}
+          bytes={preview.bytes}
+          mimeType={preview.file.mimeType}
+          fileName={preview.file.fileName}
+          sourceUrl={null}
+        />
+      </View>
+    </View>
+  );
+}
+
+function noopHomePresetPptPreviewAction(): void {}
 
 function NewSessionHomeHeader({ left, onShare }: { left?: ReactNode; onShare: () => void }) {
   const { t } = useI18n();
@@ -1543,20 +2666,35 @@ function resolveHomeSubmitText(
   aiCreationContext: HomeAiCreationSubmitContext | undefined,
   messageId: string,
   defaultLocale: Locale,
-): { agentText: string; displayText: string } {
+): { agentText: string; displayText: string; titleText: string } {
   const rawText = payload.text.trim();
   const displayText = aiCreationContext?.displayText.trim() || rawText;
+  const titleText = aiCreationContext?.titleText?.trim() || displayText;
+  const explicitAgentText = aiCreationContext?.agentText?.trim();
+  if (explicitAgentText) {
+    return {
+      displayText,
+      titleText,
+      agentText: explicitAgentText,
+    };
+  }
+  if (aiCreationContext?.mode) {
+    return {
+      displayText,
+      titleText,
+      agentText: buildHomeAiCreationPrompt({
+        messageId,
+        mode: aiCreationContext.mode,
+        prompt: displayText,
+        referenceCount: payload.attachments.length,
+        defaultLocale,
+      }),
+    };
+  }
   return {
     displayText,
-    agentText: aiCreationContext
-      ? buildHomeAiCreationPrompt({
-          messageId,
-          mode: aiCreationContext.mode,
-          prompt: displayText,
-          referenceCount: payload.attachments.length,
-          defaultLocale,
-        })
-      : rawText,
+    titleText,
+    agentText: rawText,
   };
 }
 
@@ -1568,17 +2706,50 @@ function resolveHomeAiCreationContext(
 }
 
 function buildHomeAiCreationLabels(aiCreationContext: HomeAiCreationSubmitContext | undefined): {
-  labels?: { surface: "ai_creation"; intent: HomeAiCreationIntent };
+  labels?: Record<string, string>;
 } {
   if (!aiCreationContext) {
     return {};
   }
+  const mode =
+    aiCreationContext.mode ??
+    getHomeAiCreationModeForPresetReplay(aiCreationContext.bundledPresetReplayId);
+  const labels: Record<string, string> = {};
+  if (mode) {
+    labels.surface = "ai_creation";
+    labels.intent = getHomeAiCreationIntentForMode(mode);
+  }
+  if (aiCreationContext.bundledPresetReplayId) {
+    labels[HOME_PRESET_REPLAY_ID_LABEL] = aiCreationContext.bundledPresetReplayId;
+  }
+  if (Object.keys(labels).length === 0) {
+    return {};
+  }
   return {
-    labels: {
-      surface: "ai_creation",
-      intent: getHomeAiCreationIntentForMode(aiCreationContext.mode),
-    },
+    labels,
   };
+}
+
+function getHomeAiCreationModeForPresetReplay(
+  replayId: HomePresetReplayId | undefined,
+): HomeAiCreationMode | null {
+  switch (replayId) {
+    case "image-landing":
+      return "image";
+    case "slides-roadshow":
+      return "slides";
+    case "pdf-brief":
+      return "pdf";
+    case "document-prd":
+      return "word";
+    case "sheet-budget":
+      return "spreadsheet";
+    case "search-ai-funding":
+    case undefined:
+      return null;
+  }
+  const exhaustive: never = replayId;
+  return exhaustive;
 }
 
 function getHomeAiCreationIntentForMode(mode: HomeAiCreationMode): HomeAiCreationIntent {
@@ -2246,6 +3417,99 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     justifyContent: "space-between",
     minHeight: 0,
+  },
+  presetConversation: {
+    flex: 1,
+    width: "100%",
+    minHeight: 0,
+  },
+  presetConversationTopBar: {
+    minHeight: 44,
+    paddingHorizontal: theme.spacing[4],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+  },
+  presetBackButton: {
+    minHeight: 32,
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing[3],
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface2,
+  },
+  presetBackButtonText: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.xs,
+    fontWeight: theme.fontWeight.medium,
+  },
+  presetConversationTitle: {
+    flex: 1,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
+  },
+  presetConversationBody: {
+    flex: 1,
+    minHeight: 0,
+    flexDirection: "row",
+    borderTopWidth: theme.borderWidth[1],
+    borderTopColor: theme.colors.border,
+  },
+  presetConversationMain: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+  },
+  presetConversationMainHidden: {
+    display: "none",
+  },
+  presetStream: {
+    flex: 1,
+    width: "100%",
+    minHeight: 0,
+  },
+  presetPreviewPane: {
+    width: "68%",
+    minWidth: 620,
+    maxWidth: 1180,
+    minHeight: 0,
+    borderLeftWidth: theme.borderWidth[1],
+    borderLeftColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceWorkspace,
+  },
+  presetPreviewPaneCompact: {
+    width: "100%",
+    minWidth: 0,
+    maxWidth: undefined,
+    borderLeftWidth: 0,
+  },
+  presetPreviewPaneHeader: {
+    height: 48,
+    paddingHorizontal: theme.spacing[3],
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: theme.borderWidth[1],
+    borderBottomColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+  },
+  presetPreviewPaneTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+    fontWeight: theme.fontWeight.medium,
+  },
+  presetPreviewPaneClose: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius.md,
+  },
+  presetPreviewFrame: {
+    flex: 1,
+    width: "100%",
+    minHeight: 0,
+    overflow: "hidden",
+    backgroundColor: "#1a1a2e",
   },
   hero: {
     flex: 1,

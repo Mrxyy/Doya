@@ -68,6 +68,7 @@ import { WorkspaceScriptsButton } from "@/screens/workspace/workspace-scripts-bu
 import { ImportSessionSheet } from "@/components/import-session-sheet";
 import { ExplorerSidebarAnimationProvider } from "@/contexts/explorer-sidebar-animation-context";
 import { useToast } from "@/contexts/toast-context";
+import { isDev } from "@/constants/platform";
 import { useExplorerOpenGesture } from "@/hooks/use-explorer-open-gesture";
 import { useI18n, translateNow } from "@/i18n/i18n";
 import { selectIsFileExplorerOpen, usePanelStore } from "@/stores/panel-store";
@@ -1119,28 +1120,30 @@ function WorkspaceHeaderTitleBar({
         </View>
       )}
       <View style={styles.compactHeaderMenuCluster}>
-        <WorkspaceHeaderMenu
-          normalizedWorkspaceId={normalizedWorkspaceId}
-          currentBranchName={currentBranchName}
-          showWorkspaceSetup={showWorkspaceSetup}
-          showCreateBrowserTab={showCreateBrowserTab}
-          isMobile={isMobile}
-          createTerminalDisabled={createTerminalDisabled}
-          importAgentDisabled={importAgentDisabled}
-          menuNewAgentIcon={menuNewAgentIcon}
-          menuNewTerminalIcon={menuNewTerminalIcon}
-          menuNewBrowserIcon={menuNewBrowserIcon}
-          menuImportIcon={menuImportIcon}
-          menuCopyIcon={menuCopyIcon}
-          menuSettingsIcon={menuSettingsIcon}
-          onCreateDraftTab={onCreateDraftTab}
-          onCreateTerminal={onCreateTerminal}
-          onCreateBrowser={onCreateBrowser}
-          onOpenImportSheet={onOpenImportSheet}
-          onCopyWorkspacePath={onCopyWorkspacePath}
-          onCopyBranchName={onCopyBranchName}
-          onOpenSetupTab={onOpenSetupTab}
-        />
+        {isDev ? (
+          <WorkspaceHeaderMenu
+            normalizedWorkspaceId={normalizedWorkspaceId}
+            currentBranchName={currentBranchName}
+            showWorkspaceSetup={showWorkspaceSetup}
+            showCreateBrowserTab={showCreateBrowserTab}
+            isMobile={isMobile}
+            createTerminalDisabled={createTerminalDisabled}
+            importAgentDisabled={importAgentDisabled}
+            menuNewAgentIcon={menuNewAgentIcon}
+            menuNewTerminalIcon={menuNewTerminalIcon}
+            menuNewBrowserIcon={menuNewBrowserIcon}
+            menuImportIcon={menuImportIcon}
+            menuCopyIcon={menuCopyIcon}
+            menuSettingsIcon={menuSettingsIcon}
+            onCreateDraftTab={onCreateDraftTab}
+            onCreateTerminal={onCreateTerminal}
+            onCreateBrowser={onCreateBrowser}
+            onOpenImportSheet={onOpenImportSheet}
+            onCopyWorkspacePath={onCopyWorkspacePath}
+            onCopyBranchName={onCopyBranchName}
+            onOpenSetupTab={onOpenSetupTab}
+          />
+        ) : null}
         {isMobile && workspaceScripts.length > 0 ? (
           <WorkspaceScriptsButton
             serverId={normalizedServerId}

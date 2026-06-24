@@ -12,6 +12,12 @@ import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
 import { buildOptimisticUserMessage, generateMessageId } from "@/types/stream";
 import {
+  getHomePresetReplayIdForProjectName,
+  HOME_PRESET_REPLAY_ID_LABEL,
+  isHomePresetReplayId,
+  materializeHomePresetBundledFilesToWorkspace,
+} from "@/data/home-prompt-recordings/home-preset-recordings";
+import {
   buildDoyaMessageMeta,
   buildDoyaResponseLanguageInstruction,
   escapeDoyaMarkupText,
@@ -130,6 +136,7 @@ function PptPreviewPanel() {
   const activeConnection = runtimeSnapshot?.activeConnection ?? null;
   const client = runtimeSnapshot?.client ?? null;
   const toast = useToast();
+  const [materializeRefreshToken, setMaterializeRefreshToken] = useState(0);
   const appendOptimisticUserMessageToAgentStream = useSessionStore(
     (state) => state.appendOptimisticUserMessageToAgentStream,
   );
@@ -141,18 +148,53 @@ function PptPreviewPanel() {
       session?.agents.get(agentId)?.status ?? session?.agentDetails.get(agentId)?.status ?? null
     );
   });
+  const homePresetMaterializeKey = useSessionStore((state) => {
+    const session = state.sessions[serverId];
+    const agent = session?.agents.get(agentId) ?? session?.agentDetails.get(agentId) ?? null;
+    if (!agent?.cwd) {
+      return null;
+    }
+
+    const labelReplayId = agent.labels?.[HOME_PRESET_REPLAY_ID_LABEL];
+    let replayId = isHomePresetReplayId(labelReplayId) ? labelReplayId : null;
+    if (
+      !replayId &&
+      agent.labels?.surface === "ai_creation" &&
+      agent.labels?.intent === "ppt_creation"
+    ) {
+      replayId = getHomePresetReplayIdForProjectName(projectName);
+    }
+    if (!replayId) {
+      return null;
+    }
+
+    return `${agent.cwd}\u0000${replayId}`;
+  });
+  const homePresetMaterializeTarget = useMemo(() => {
+    if (!homePresetMaterializeKey) {
+      return null;
+    }
+    const [cwd, replayId] = homePresetMaterializeKey.split("\u0000");
+    if (!cwd || !isHomePresetReplayId(replayId)) {
+      return null;
+    }
+    return { cwd, replayId };
+  }, [homePresetMaterializeKey]);
   const [applyPhase, setApplyPhase] = useState<"idle" | "waiting" | "running">("idle");
   const [applyCompletionToken, setApplyCompletionToken] = useState(0);
-  const previewUrl = useMemo(
-    () =>
-      buildWorkspacePptPreviewUrl({
-        activeConnection,
-        agentId,
-        locale,
-        projectName,
-      }),
-    [activeConnection, agentId, locale, projectName],
-  );
+  const previewUrl = useMemo(() => {
+    const url = buildWorkspacePptPreviewUrl({
+      activeConnection,
+      agentId,
+      locale,
+      projectName,
+    });
+    if (materializeRefreshToken === 0) {
+      return url;
+    }
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}presetRefresh=${materializeRefreshToken}`;
+  }, [activeConnection, agentId, locale, materializeRefreshToken, projectName]);
   const handleApplyAnnotations = useCallback(() => {
     const activeClient = client;
     if (!activeClient) {
@@ -214,6 +256,33 @@ function PptPreviewPanel() {
       setApplyCompletionToken((token) => token + 1);
     }
   }, [agentStatus, applyPhase]);
+
+  useEffect(() => {
+    const activeClient = client;
+    const materializeTarget = homePresetMaterializeTarget;
+    if (!activeClient || !materializeTarget) {
+      return;
+    }
+    let cancelled = false;
+    async function materializeBundledFiles(): Promise<void> {
+      try {
+        await materializeHomePresetBundledFilesToWorkspace({
+          client: activeClient,
+          cwd: materializeTarget.cwd,
+          id: materializeTarget.replayId,
+        });
+        if (!cancelled) {
+          setMaterializeRefreshToken((token) => token + 1);
+        }
+      } catch {
+        // The preview endpoint still handles unavailable files with its normal empty state.
+      }
+    }
+    void materializeBundledFiles();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, homePresetMaterializeTarget]);
 
   if (!previewUrl) {
     return (

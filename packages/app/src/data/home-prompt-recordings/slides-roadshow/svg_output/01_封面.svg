@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <linearGradient id="coverScrim" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#101820" stop-opacity="0.96"/>
+      <stop offset="48%" stop-color="#101820" stop-opacity="0.82"/>
+      <stop offset="100%" stop-color="#101820" stop-opacity="0.34"/>
+    </linearGradient>
+    <radialGradient id="greenGlow" cx="28%" cy="28%" r="55%">
+      <stop offset="0%" stop-color="#2FBF71" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#2FBF71" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g id="background">
+    <rect x="0" y="0" width="1280" height="720" fill="#101820"/>
+    <image href="../images/cover_dashboard.png" x="0" y="0" width="1280" height="720" preserveAspectRatio="xMidYMid slice"/>
+    <rect x="0" y="0" width="1280" height="720" fill="url(#coverScrim)"/>
+    <rect x="0" y="0" width="1280" height="720" fill="url(#greenGlow)"/>
+    <path d="M64 632 H1216" stroke="#33516D" stroke-width="1" stroke-opacity="0.55"/>
+  </g>
+  <g id="title-block">
+    <text x="72" y="92" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#2FBF71" letter-spacing="2">B2B SAAS ANALYTICS PITCH</text>
+    <text x="72" y="230" font-family="Georgia, SimSun, serif" font-size="70" font-weight="700" fill="#F7F4ED">
+      <tspan x="72" dy="0">数据团队正在从</tspan>
+      <tspan x="72" dy="82">报表工厂转向收入引擎</tspan>
+    </text>
+    <text x="76" y="386" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="24" fill="#A9B7C7">
+      <tspan x="76" dy="0">面向企业级客户的分析平台，将指标、洞察和行动编排成可复用增长系统。</tspan>
+    </text>
+  </g>
+  <g id="metric-rail">
+    <rect x="72" y="476" width="248" height="96" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="96" y="512" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">MARKET SHIFT</text>
+    <text x="96" y="550" font-family="Georgia, SimSun, serif" font-size="32" font-weight="700" fill="#2FBF71">决策自动化</text>
+    <rect x="348" y="476" width="248" height="96" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="372" y="512" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">BUYER</text>
+    <text x="372" y="550" font-family="Georgia, SimSun, serif" font-size="32" font-weight="700" fill="#F7F4ED">CFO + RevOps</text>
+    <rect x="624" y="476" width="248" height="96" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="648" y="512" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">MOTION</text>
+    <text x="648" y="550" font-family="Georgia, SimSun, serif" font-size="32" font-weight="700" fill="#7B61FF">PLG to Enterprise</text>
+  </g>
+  <g id="footer">
+    <text x="72" y="666" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="13" fill="#A9B7C7">投资人路演稿 · 10 页 · 2026</text>
+    <use data-icon="tabler-outline/presentation-analytics" x="1164" y="642" width="30" height="30" fill="#2FBF71" stroke-width="2"/>
+  </g>
+</svg>

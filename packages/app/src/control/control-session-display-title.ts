@@ -5,14 +5,14 @@ export function getControlSessionDisplayTitle(input: {
   session: Pick<ControlSessionRecord, "id" | "title">;
   agentTitle?: string | null;
 }): string {
-  const agentTitle = input.agentTitle?.trim() ?? "";
-  if (agentTitle && !isGeneratedControlSessionTitle(agentTitle, input.session.id)) {
-    return agentTitle;
-  }
-
   const sessionTitle = input.session.title.trim();
   if (sessionTitle && !isGeneratedControlSessionTitle(sessionTitle, input.session.id)) {
     return sessionTitle;
+  }
+
+  const agentTitle = input.agentTitle?.trim() ?? "";
+  if (agentTitle && !isGeneratedControlSessionTitle(agentTitle, input.session.id)) {
+    return agentTitle;
   }
 
   return translateNow("account.project.defaultName");

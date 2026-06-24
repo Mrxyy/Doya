@@ -12,7 +12,7 @@ services:
       SECURE_LINK_SECRET: "doya-onlyoffice-local"
     volumes:
       - ./packages/server/docker/onlyoffice-entrypoint.sh:/usr/local/bin/doya-onlyoffice-entrypoint.sh:ro
-      - ./packages/server/docker/onlyoffice-local.json:/etc/onlyoffice/documentserver/doya-local-template.json:ro
+      - ./packages/server/docker/onlyoffice-local.json:/tmp/doya-onlyoffice-local.json:ro
     entrypoint:
       - /bin/bash
       - /usr/local/bin/doya-onlyoffice-entrypoint.sh

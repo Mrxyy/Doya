@@ -201,9 +201,17 @@ export async function sendPromptToAgent(
     await params.agentManager.setAgentMode(params.agentId, params.sessionMode);
   }
 
+  const runOptions: AgentRunOptions | undefined =
+    params.runOptions || params.messageId
+      ? {
+          ...(params.runOptions ?? {}),
+          ...(params.messageId ? { messageId: params.messageId } : {}),
+        }
+      : undefined;
+
   return startAgentRun(params.agentManager, params.agentId, params.prompt, params.logger, {
     replaceRunning: true,
-    runOptions: params.runOptions,
+    runOptions,
   });
 }
 

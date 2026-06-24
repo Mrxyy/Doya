@@ -263,6 +263,7 @@ export interface WorkspaceAttachmentMaterializeInput {
     mimeType: string;
     data?: string;
     sourcePath?: string;
+    path?: string;
   }>;
 }
 

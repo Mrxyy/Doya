@@ -13,6 +13,7 @@ import {
   type ControlSessionRecord,
 } from "@/control/control-api";
 import { buildControlAgentLabels } from "@/control/control-agent-labels";
+import { isGeneratedControlSessionTitle } from "@/control/control-session-display-title";
 import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { getHostRuntimeStore, type HostMutations } from "@/runtime/host-runtime";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
@@ -110,6 +111,10 @@ export async function restoreControlSessionToAgent(
           sessionId: input.sessionId,
         })),
     });
+  }
+  const sessionTitle = session.title.trim();
+  if (sessionTitle && !isGeneratedControlSessionTitle(sessionTitle, session.id)) {
+    await client.updateAgent(binding.agentId, { name: sessionTitle });
   }
   return { nodeId: node.id, agentId: binding.agentId };
 }

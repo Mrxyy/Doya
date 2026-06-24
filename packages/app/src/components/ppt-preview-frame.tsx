@@ -6,6 +6,7 @@ interface PptPreviewFrameProps {
   url: string;
   onApplyAnnotations: () => void;
   applyAnnotationsCompletionToken: number;
+  onConfirm?: () => void;
 }
 
 const WEBVIEW_STYLE = { flex: 1 } as const;
@@ -19,6 +20,18 @@ function isApplyAnnotationsMessage(data: string): boolean {
     return (
       message.source === "doya-ppt-preview" && message.type === "doya:ppt-preview:apply-annotations"
     );
+  } catch {
+    return false;
+  }
+}
+
+function isConfirmMessage(data: string): boolean {
+  try {
+    const message = JSON.parse(data) as {
+      source?: string;
+      type?: string;
+    };
+    return message.source === "doya-ppt-confirm" && message.type === "doya:ppt-confirm:confirm";
   } catch {
     return false;
   }
@@ -40,6 +53,7 @@ export function PptPreviewFrame({
   url,
   onApplyAnnotations,
   applyAnnotationsCompletionToken,
+  onConfirm,
 }: PptPreviewFrameProps) {
   const webViewRef = useRef<WebView>(null);
   const source = useMemo(() => ({ uri: url }), [url]);
@@ -48,8 +62,11 @@ export function PptPreviewFrame({
       if (isApplyAnnotationsMessage(event.nativeEvent.data)) {
         onApplyAnnotations();
       }
+      if (isConfirmMessage(event.nativeEvent.data)) {
+        onConfirm?.();
+      }
     },
-    [onApplyAnnotations],
+    [onApplyAnnotations, onConfirm],
   );
 
   useEffect(() => {

@@ -131,9 +131,19 @@ export function projectConversationReplay(input: {
   events: readonly ConversationRecordingEvent[];
   edits: ConversationRecordingEdits;
   positionMs: number;
+  timestampBaseMs?: number;
+  timestampScale?: number;
 }): ReplayProjection {
   const ordered = listReplayEvents(input.events, input.edits);
   const visibleEvents = ordered.filter((entry) => !entry.hidden);
+  const firstVisibleEvent = visibleEvents[0];
+  const recordedTimestampBaseMs = firstVisibleEvent
+    ? Date.parse(firstVisibleEvent.event.recordedAt) - firstVisibleEvent.scheduledOffsetMs
+    : 0;
+  const timestampBaseMs =
+    input.timestampBaseMs ??
+    (Number.isFinite(recordedTimestampBaseMs) ? recordedTimestampBaseMs : 0);
+  const timestampScale = input.timestampScale ?? 1;
   const durationMs = visibleEvents.reduce(
     (max, entry) =>
       isReplayProjectedEvent(entry.event) ? Math.max(max, entry.scheduledOffsetMs) : max,
@@ -146,7 +156,7 @@ export function projectConversationReplay(input: {
       break;
     }
     const event = entry.event;
-    const timestamp = new Date(event.recordedAt);
+    const timestamp = new Date(timestampBaseMs + entry.scheduledOffsetMs * timestampScale);
     if (event.kind === "user_input") {
       tail.push({
         kind: "user_message",

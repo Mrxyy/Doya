@@ -52,6 +52,7 @@ import {
   FileImage,
   FileSpreadsheet,
   FileSymlink,
+  Eye,
   Pencil,
   Presentation,
   Sparkles,
@@ -119,6 +120,7 @@ import type { AgentCapabilityFlags } from "@getdoya/protocol/agent-types";
 import { RewindMenu, type RewindMode } from "@/components/rewind/rewind-menu";
 import { useRewindAgentMutation } from "@/components/rewind/use-rewind-agent-mutation";
 import { translateNow } from "@/i18n/i18n";
+import { resolveDocumentViewerKind } from "@/utils/document-viewer-kind";
 export type { InlinePathTarget } from "@/assistant-file-links";
 
 type MarkdownStyles = Record<string, TextStyle & ViewStyle & { [key: string]: unknown }>;
@@ -140,6 +142,7 @@ interface UserMessageProps {
   isFirstInGroup?: boolean;
   isLastInGroup?: boolean;
   disableOuterSpacing?: boolean;
+  onOpenAttachmentPreviewPath?: (path: string) => void;
 }
 
 const MessageOuterSpacingContext = createContext(false);
@@ -501,6 +504,14 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     fontSize: theme.fontSize.xs,
     fontWeight: theme.fontWeight.semibold,
     lineHeight: 14,
+  },
+  structuredAttachmentPreviewButton: {
+    width: 26,
+    height: 26,
+    borderRadius: theme.borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(244, 244, 245, 0.86)",
   },
   doyaCard: {
     width: 620,
@@ -1219,6 +1230,17 @@ function getAttachmentOriginalMimeType(attachment: AgentAttachment): string {
   return attachment.mimeType;
 }
 
+function getAttachmentWorkspacePath(attachment: AgentAttachment): string | null {
+  if (attachment.type === "file") {
+    return attachment.sourcePath ?? null;
+  }
+  if (attachment.type === "text") {
+    const match = attachment.text.match(/^Workspace path:\s*(.+)$/m);
+    return match?.[1]?.trim() || null;
+  }
+  return null;
+}
+
 function getAttachmentExtension(title: string): string {
   const cleanTitle = title.trim().replace(/[?#].*$/, "");
   const extension = cleanTitle.includes(".") ? cleanTitle.split(".").pop()?.trim() : "";
@@ -1280,10 +1302,38 @@ function getUserMessageAttachmentVisual(attachment: AgentAttachment): {
   return { Icon: File, color: "#71717a", backgroundColor: "#f4f4f5", badge: extension };
 }
 
-function UserMessageStructuredAttachment({ attachment }: { attachment: AgentAttachment }) {
+function userMessageAttachmentHasViewer(attachment: AgentAttachment): boolean {
+  if (attachment.type !== "file" && attachment.type !== "text") {
+    return false;
+  }
+
+  const path = getAttachmentWorkspacePath(attachment) ?? attachment.title ?? "";
+  const mimeType = getAttachmentOriginalMimeType(attachment);
+  if (mimeType.toLowerCase().startsWith("image/")) {
+    return true;
+  }
+
+  return resolveDocumentViewerKind({ path, mimeType }) !== null;
+}
+
+function UserMessageStructuredAttachment({
+  attachment,
+  onOpenPreviewPath,
+}: {
+  attachment: AgentAttachment;
+  onOpenPreviewPath?: (path: string) => void;
+}) {
   const label = getUserMessageAttachmentLabel(attachment);
   const visual = getUserMessageAttachmentVisual(attachment);
   const Icon = visual.Icon;
+  const previewPath = getAttachmentWorkspacePath(attachment);
+  const showPreviewButton =
+    userMessageAttachmentHasViewer(attachment) && Boolean(previewPath && onOpenPreviewPath);
+  const handlePreviewPress = useCallback(() => {
+    if (previewPath) {
+      onOpenPreviewPath?.(previewPath);
+    }
+  }, [onOpenPreviewPath, previewPath]);
   const iconBoxStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
       userMessageStylesheet.structuredAttachmentIconBox,
@@ -1304,6 +1354,17 @@ function UserMessageStructuredAttachment({ attachment }: { attachment: AgentAtta
           {visual.badge}
         </Text>
       </View>
+      {showPreviewButton ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={translateNow("composer.attachment.preview")}
+          hitSlop={8}
+          onPress={handlePreviewPress}
+          style={userMessageStylesheet.structuredAttachmentPreviewButton}
+        >
+          <Eye size={14} color="#71717a" strokeWidth={2.2} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -1940,6 +2001,7 @@ export const UserMessage = memo(function UserMessage({
   isFirstInGroup = true,
   isLastInGroup = true,
   disableOuterSpacing,
+  onOpenAttachmentPreviewPath,
 }: UserMessageProps) {
   const isCompact = useIsCompactFormFactor();
   const [isHovered, setIsHovered] = useState(false);
@@ -2065,7 +2127,10 @@ export const UserMessage = memo(function UserMessage({
                 <View
                   key={`${attachment.type}:${"number" in attachment ? attachment.number : index}`}
                 >
-                  <UserMessageStructuredAttachment attachment={attachment} />
+                  <UserMessageStructuredAttachment
+                    attachment={attachment}
+                    onOpenPreviewPath={onOpenAttachmentPreviewPath}
+                  />
                 </View>
               ))}
             </View>

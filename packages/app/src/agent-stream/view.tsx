@@ -61,6 +61,7 @@ import type {
   AgentPermissionAction,
   AgentPermissionResponse,
 } from "@getdoya/protocol/agent-types";
+import type { AgentAttachment } from "@getdoya/protocol/messages";
 import type { AgentScreenAgent } from "@/hooks/use-agent-screen-state-machine";
 import { useSessionStore } from "@/stores/session-store";
 import type { AgentTurnUsageRecord } from "@/stores/session-store";
@@ -127,6 +128,134 @@ import {
   escapeDoyaMarkupText,
   parseDoyaMessageCards,
 } from "@/utils/doya-message-markup";
+import {
+  loadAiCreationMessageDisplayMetadata,
+  type AiCreationMessageDisplayEntry,
+} from "@/stores/ai-creation-message-display-store";
+import {
+  PptConfirmStaticAppJs,
+  PptConfirmStaticCatalogs,
+  PptConfirmStaticStyleCss,
+} from "@/data/home-prompt-recordings/ppt-confirm-static";
+
+function resolveDisplayAttachmentPreviewSource(input: {
+  displayAttachment: AgentAttachment;
+  attachments: readonly AgentAttachment[];
+}): AgentAttachment {
+  const { displayAttachment, attachments } = input;
+  if (displayAttachment.type !== "file") {
+    return displayAttachment;
+  }
+
+  const title = displayAttachment.title ?? null;
+  const mimeType = displayAttachment.mimeType;
+  const sourceAttachment = attachments.find(
+    (attachment) =>
+      getAttachmentTitle(attachment) === title &&
+      getAttachmentOriginalMimeType(attachment) === mimeType,
+  );
+  return sourceAttachment ?? displayAttachment;
+}
+
+function resolveUserMessageDisplayAttachments(item: Extract<StreamItem, { kind: "user_message" }>) {
+  if (!item.displayAttachments) {
+    return item.attachments ?? [];
+  }
+  return item.displayAttachments.map((displayAttachment) =>
+    resolveDisplayAttachmentPreviewSource({
+      displayAttachment,
+      attachments: item.attachments ?? [],
+    }),
+  );
+}
+
+function getAttachmentTitle(attachment: AgentAttachment): string | null {
+  return "title" in attachment ? (attachment.title ?? null) : null;
+}
+
+function getAttachmentOriginalMimeType(attachment: AgentAttachment): string {
+  if (attachment.type === "text") {
+    const match = attachment.text.match(/^MIME type:\s*(.+)$/m);
+    return match?.[1]?.trim() || attachment.mimeType;
+  }
+  return attachment.mimeType;
+}
+
+type UserMessageStreamItem = Extract<StreamItem, { kind: "user_message" }>;
+
+function buildAiCreationDisplayMetadataMap(
+  entries: readonly AiCreationMessageDisplayEntry[],
+): Map<string, AiCreationMessageDisplayEntry> {
+  const map = new Map<string, AiCreationMessageDisplayEntry>();
+  for (const entry of entries) {
+    map.set(entry.messageId, entry);
+  }
+  return map;
+}
+
+function applyAiCreationMessageDisplayMetadata(input: {
+  items: readonly StreamItem[];
+  metadataByMessageId: Map<string, AiCreationMessageDisplayEntry>;
+}): StreamItem[] {
+  let changed = false;
+  const items = input.items.map((item) => {
+    if (item.kind !== "user_message") {
+      return item;
+    }
+    const metadata =
+      (item.messageId ? input.metadataByMessageId.get(item.messageId) : undefined) ??
+      input.metadataByMessageId.get(item.id);
+    if (metadata) {
+      changed = true;
+      return applyUserMessageDisplayMetadata({ item, metadata });
+    }
+    const presetContinuationDisplayText = extractHomePresetContinuationDisplayText(item.text);
+    if (presetContinuationDisplayText) {
+      changed = true;
+      return {
+        ...item,
+        text: presetContinuationDisplayText,
+      };
+    }
+    return item;
+  });
+  return changed ? items : [...input.items];
+}
+
+function applyUserMessageDisplayMetadata(input: {
+  item: UserMessageStreamItem;
+  metadata: AiCreationMessageDisplayEntry;
+}): UserMessageStreamItem {
+  return {
+    ...input.item,
+    ...(input.metadata.text ? { text: input.metadata.text } : {}),
+    ...(input.metadata.images ? { images: input.metadata.images } : {}),
+    ...("displayAttachments" in input.metadata
+      ? { displayAttachments: input.metadata.displayAttachments ?? [] }
+      : {}),
+    ...(input.metadata.selectionPreviewUri
+      ? { selectionPreviewUri: input.metadata.selectionPreviewUri }
+      : {}),
+    ...(input.metadata.selectionImageSource
+      ? { selectionImageSource: input.metadata.selectionImageSource }
+      : {}),
+    ...(input.metadata.selectionImage ? { selectionImage: input.metadata.selectionImage } : {}),
+  };
+}
+
+function extractHomePresetContinuationDisplayText(text: string): string | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("Continue from this conversation context.")) {
+    return null;
+  }
+  const marker = "User's new message:";
+  const markerIndex = trimmed.lastIndexOf(marker);
+  if (markerIndex < 0) {
+    return null;
+  }
+  const displayText = trimmed.slice(markerIndex + marker.length).trim();
+  return displayText || null;
+}
 
 interface LiveArtifactProgressGroup {
   isFirst: boolean;
@@ -410,6 +539,8 @@ export interface AgentStreamViewProps {
   isReplayMode?: boolean;
   toast?: ToastApi | null;
   onOpenWorkspaceFile?: (request: WorkspaceFileOpenRequest) => void;
+  onOpenReplayPptPreview?: (projectName: string) => void;
+  onInlinePptConfirm?: () => void;
 }
 
 const AGENT_CAPABILITY_FLAG_KEYS: (keyof AgentCapabilityFlags)[] = [
@@ -446,6 +577,20 @@ const IMAGE_FILE_ICON_SVG =
 const DEFAULT_AI_CREATION_FILE_ICON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#64748b" d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zm0 2.8L17.2 9H13z"/></svg>';
 
+function canOpenWorkspaceOrReplayPptPreview(input: {
+  onOpenReplayPptPreview?: (projectName: string) => void;
+  workspaceId: string | null | undefined;
+}): boolean {
+  return Boolean(input.workspaceId) || Boolean(input.onOpenReplayPptPreview);
+}
+
+function openReplayPptPreview(
+  onOpenReplayPptPreview: ((projectName: string) => void) | undefined,
+  projectName: string,
+): void {
+  onOpenReplayPptPreview?.(projectName);
+}
+
 const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamViewProps>(
   function AgentStreamView(
     {
@@ -460,6 +605,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       isReplayMode,
       toast,
       onOpenWorkspaceFile,
+      onOpenReplayPptPreview,
+      onInlinePptConfirm,
     },
     ref,
   ) {
@@ -529,11 +676,40 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     const [expandedInlineToolCallIds, setExpandedInlineToolCallIds] = useState<Set<string>>(
       new Set(),
     );
+    const [aiCreationDisplayMetadata, setAiCreationDisplayMetadata] = useState<
+      AiCreationMessageDisplayEntry[]
+    >([]);
     const openFileExplorerForCheckout = usePanelStore((state) => state.openFileExplorerForCheckout);
     const setExplorerTabForCheckout = usePanelStore((state) => state.setExplorerTabForCheckout);
 
     // Get serverId (fallback to agent's serverId if not provided)
     const resolvedServerId = serverId ?? agent.serverId ?? "";
+
+    useEffect(() => {
+      let cancelled = false;
+      setAiCreationDisplayMetadata([]);
+      if (!resolvedServerId || !agentId) {
+        return;
+      }
+      void loadAiCreationMessageDisplayMetadata({
+        serverId: resolvedServerId,
+        agentId,
+      })
+        .then((entries) => {
+          if (!cancelled) {
+            setAiCreationDisplayMetadata(entries);
+          }
+          return undefined;
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setAiCreationDisplayMetadata([]);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [agentId, resolvedServerId]);
 
     const client = useSessionStore((state) => state.sessions[resolvedServerId]?.client ?? null);
     const activeConnection = useAgentStreamActiveConnection(resolvedServerId);
@@ -639,6 +815,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
       handleInlinePathPress({ raw: filePath, path: filePath }, "main");
     });
 
+    const handleAttachmentPreviewPath = useStableEvent((filePath: string) => {
+      handleInlinePathPress({ raw: filePath, path: filePath }, "main");
+    });
+
     const handleEditAiCreationImage = useStableEvent(
       (image: AttachmentMetadata, previewUri: string, source: string) => {
         setAiCreationEditSource({
@@ -655,6 +835,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
 
     const handleOpenPptPreview = useStableEvent((projectName: string) => {
       if (!workspaceId) {
+        openReplayPptPreview(onOpenReplayPptPreview, projectName);
         return;
       }
       navigateToPreparedWorkspaceTab({
@@ -662,6 +843,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         workspaceId,
         target: createWorkspacePptPreviewTabTarget({ agentId, projectName }),
       });
+    });
+    const canOpenPptPreview = canOpenWorkspaceOrReplayPptPreview({
+      onOpenReplayPptPreview,
+      workspaceId,
     });
 
     const handleDownloadPptx = useStableEvent((path: string) => {
@@ -692,16 +877,36 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
     }, [agent.status, effectiveStreamHead, streamItems]);
     const visibleStreamItems = visibleAiCreationStream?.tail ?? streamItems;
     const visibleStreamHead = visibleAiCreationStream?.head ?? effectiveStreamHead;
+    const aiCreationDisplayMetadataByMessageId = useMemo(
+      () => buildAiCreationDisplayMetadataMap(aiCreationDisplayMetadata),
+      [aiCreationDisplayMetadata],
+    );
+    const displayStreamItems = useMemo(
+      () =>
+        applyAiCreationMessageDisplayMetadata({
+          items: visibleStreamItems,
+          metadataByMessageId: aiCreationDisplayMetadataByMessageId,
+        }),
+      [aiCreationDisplayMetadataByMessageId, visibleStreamItems],
+    );
+    const displayStreamHead = useMemo(
+      () =>
+        applyAiCreationMessageDisplayMetadata({
+          items: visibleStreamHead,
+          metadataByMessageId: aiCreationDisplayMetadataByMessageId,
+        }),
+      [aiCreationDisplayMetadataByMessageId, visibleStreamHead],
+    );
 
     const baseRenderModel = useMemo(() => {
       return buildAgentStreamRenderModel({
         agentStatus: agent.status,
-        tail: visibleStreamItems,
-        head: visibleStreamHead,
+        tail: displayStreamItems,
+        head: displayStreamHead,
         platform: isWeb ? "web" : "native",
         isMobileBreakpoint: isMobile,
       });
-    }, [agent.status, isMobile, visibleStreamHead, visibleStreamItems]);
+    }, [agent.status, displayStreamHead, displayStreamItems, isMobile]);
     const streamLayout = useMemo(
       () =>
         layoutStream({
@@ -756,6 +961,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
 
     const renderUserMessageItem = useCallback(
       (layoutItem: StreamLayoutItem, item: Extract<StreamItem, { kind: "user_message" }>) => {
+        const attachments = resolveUserMessageDisplayAttachments(item);
         return (
           <UserMessage
             serverId={resolvedServerId}
@@ -764,19 +970,27 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             workspaceRoot={workspaceRoot}
             message={item.text}
             images={item.images}
-            attachments={item.displayAttachments ?? item.attachments}
+            attachments={attachments}
             selectionPreviewUri={item.selectionPreviewUri}
             selectionImageSource={item.selectionImageSource}
             selectionImage={item.selectionImage}
             timestamp={item.timestamp.getTime()}
             capabilities={agent.capabilities}
             client={client}
+            onOpenAttachmentPreviewPath={handleAttachmentPreviewPath}
             isFirstInGroup={layoutItem.isFirstInUserGroup}
             isLastInGroup={layoutItem.isLastInUserGroup}
           />
         );
       },
-      [agent.capabilities, agentId, client, resolvedServerId, workspaceRoot],
+      [
+        agent.capabilities,
+        agentId,
+        client,
+        handleAttachmentPreviewPath,
+        resolvedServerId,
+        workspaceRoot,
+      ],
     );
 
     const renderAssistantMessageItem = useCallback(
@@ -796,10 +1010,11 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
             <AiCreationLiveArtifactProgressGroup
               activeConnection={activeConnection}
               agentId={agentId}
-              canOpenPreview={Boolean(workspaceId)}
+              canOpenPreview={canOpenPptPreview}
               client={client}
               items={liveArtifactGroup.items}
               allowConfirmSideEffects={!isReplayMode}
+              onInlineConfirm={onInlinePptConfirm}
               onOpenPreview={handleOpenPptPreview}
               serverId={resolvedServerId}
               toast={toast}
@@ -808,6 +1023,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         }
         const pptxPath = extractAiCreationFinalPptxPath(item.text);
         const pptConfirmPath = extractAiCreationPptConfirmPath(item.text);
+        const pptConfirmData = extractAiCreationPptConfirmInlineData(item.text);
         const pptPreviewPath = extractAiCreationPptPreviewPath(item.text);
         const documentAnnotationResult = extractDocumentAnnotationResultDisplay(item.text);
         const documentPath = extractAiCreationFinalDocumentPath(item.text);
@@ -815,7 +1031,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         if (pptxPath) {
           messageContent = (
             <AiCreationSlidesResultCard
-              canOpenPreview={Boolean(workspaceId)}
+              canOpenPreview={canOpenPptPreview}
               path={pptxPath}
               onDownload={handleDownloadPptx}
               onOpenPreview={handleOpenPptPreview}
@@ -848,6 +1064,8 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
               client={client}
               allowSideEffects={!isReplayMode}
               path={pptConfirmPath}
+              inlineData={pptConfirmData}
+              onInlineConfirm={onInlinePptConfirm}
               serverId={resolvedServerId}
               toast={toast}
             />
@@ -855,7 +1073,7 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         } else if (pptPreviewPath) {
           messageContent = (
             <AiCreationSlidesPreviewCard
-              canOpenPreview={Boolean(workspaceId)}
+              canOpenPreview={canOpenPptPreview}
               path={pptPreviewPath}
               onOpenPreview={handleOpenPptPreview}
             />
@@ -894,8 +1112,10 @@ const AgentStreamViewComponent = forwardRef<AgentStreamViewHandle, AgentStreamVi
         handleInlinePathPress,
         handleDownloadPptx,
         handleOpenPptPreview,
+        canOpenPptPreview,
         resolvedServerId,
         isReplayMode,
+        onInlinePptConfirm,
         toast,
         workspaceId,
         workspaceRoot,
@@ -1960,6 +2180,7 @@ function AiCreationLiveArtifactProgressGroup({
   canOpenPreview,
   client,
   items,
+  onInlineConfirm,
   onOpenPreview,
   serverId,
   toast,
@@ -1970,11 +2191,20 @@ function AiCreationLiveArtifactProgressGroup({
   canOpenPreview: boolean;
   client: DaemonClient | null;
   items: Extract<StreamItem, { kind: "assistant_message" }>[];
+  onInlineConfirm?: () => void;
   onOpenPreview: (projectName: string) => void;
   serverId: string;
   toast: ToastApi;
 }) {
-  const confirmPath = items.map((item) => extractAiCreationPptConfirmPath(item.text)).find(Boolean);
+  const confirmCandidates = allowConfirmSideEffects
+    ? items
+    : items.filter((item) => extractAiCreationPptConfirmInlineData(item.text));
+  const confirmPath = confirmCandidates
+    .map((item) => extractAiCreationPptConfirmPath(item.text))
+    .find(Boolean);
+  const confirmData = confirmCandidates
+    .map((item) => extractAiCreationPptConfirmInlineData(item.text))
+    .find(Boolean);
   const previewPath = items.map((item) => extractAiCreationPptPreviewPath(item.text)).find(Boolean);
   const progressRows = items
     .flatMap((item) =>
@@ -1996,6 +2226,8 @@ function AiCreationLiveArtifactProgressGroup({
             allowSideEffects={allowConfirmSideEffects}
             canOpenConfirm={canOpenPreview}
             client={client}
+            inlineData={confirmData}
+            onInlineConfirm={onInlineConfirm}
             path={confirmPath}
             serverId={serverId}
             toast={toast}
@@ -2151,12 +2383,46 @@ interface PptConfirmRecommendations {
   _confirmed_at?: unknown;
 }
 
+interface InlinePptConfirmData {
+  recommendations: PptConfirmRecommendations & Record<string, unknown>;
+}
+
+function extractAiCreationPptConfirmInlineData(text: string): InlinePptConfirmData | null {
+  const value = parseDoyaMessageCards(text)
+    .flatMap((card) => card.fields)
+    .find((field) => field.name === "confirm_data_json")?.value;
+  const rawFieldValue =
+    /<doya-field\b[^>]*\bname=(?:"|')confirm_data_json(?:"|')[^>]*>([\s\S]*?)(?:<\/doya-field>|<\/|$)/u.exec(
+      text,
+    )?.[1] ?? null;
+  return parsePptConfirmInlineDataValue(value ?? rawFieldValue);
+}
+
+function parsePptConfirmInlineDataValue(
+  value: string | null | undefined,
+): InlinePptConfirmData | null {
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return { recommendations: parsed as PptConfirmRecommendations & Record<string, unknown> };
+  } catch {
+    return null;
+  }
+}
+
 function AiCreationSlidesConfirmCard({
   activeConnection,
   agentId,
   allowSideEffects,
   canOpenConfirm,
   client,
+  inlineData,
+  onInlineConfirm,
   path,
   serverId,
   toast,
@@ -2166,6 +2432,8 @@ function AiCreationSlidesConfirmCard({
   allowSideEffects: boolean;
   canOpenConfirm: boolean;
   client: DaemonClient | null;
+  inlineData?: InlinePptConfirmData | null;
+  onInlineConfirm?: () => void;
   path: string;
   serverId: string;
   toast: ToastApi;
@@ -2185,6 +2453,15 @@ function AiCreationSlidesConfirmCard({
     const lang = locale === "zh" ? "zh" : "en";
     return `${confirmBaseUrl}?embed=1&lang=${lang}`;
   }, [confirmBaseUrl, locale]);
+  const inlineConfirmUrl = useMemo(() => {
+    if (!inlineData) {
+      return null;
+    }
+    return buildInlinePptConfirmDataUrl({
+      locale,
+      recommendations: inlineData.recommendations,
+    });
+  }, [inlineData, locale]);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "confirmed">("loading");
   const sawUnconfirmedStateRef = useRef(false);
   const visual = getAiCreationFileVisual("preview.pptx");
@@ -2214,6 +2491,37 @@ function AiCreationSlidesConfirmCard({
     () => [stylesheet.aiCreationSlidesTypeBadgeText, { color: visual.accent }],
     [visual.accent],
   );
+  let confirmBody: ReactNode;
+  if (inlineConfirmUrl) {
+    confirmBody = (
+      <View style={stylesheet.aiCreationConfirmFrameWrap}>
+        <PptPreviewFrame
+          applyAnnotationsCompletionToken={0}
+          onConfirm={onInlineConfirm}
+          onApplyAnnotations={noopConfirmFrameAction}
+          title={translateNow("ui.slides.confirm.title", { name: projectName ?? "" })}
+          url={inlineConfirmUrl}
+        />
+      </View>
+    );
+  } else if (confirmUrl && status !== "error") {
+    confirmBody = (
+      <View style={stylesheet.aiCreationConfirmFrameWrap}>
+        <PptPreviewFrame
+          applyAnnotationsCompletionToken={0}
+          onApplyAnnotations={noopConfirmFrameAction}
+          title={translateNow("ui.slides.confirm.title", { name: projectName ?? "" })}
+          url={confirmUrl}
+        />
+      </View>
+    );
+  } else {
+    confirmBody = (
+      <Text style={stylesheet.aiCreationConfirmHint}>
+        {translateNow("ui.slides.confirm.loadFailed")}
+      </Text>
+    );
+  }
 
   const notifyAgentConfirmed = useCallback(async (): Promise<void> => {
     if (!allowSideEffects) {
@@ -2257,6 +2565,10 @@ function AiCreationSlidesConfirmCard({
   }, [agentId, allowSideEffects, client, locale, projectName, serverId, toast]);
 
   useEffect(() => {
+    if (inlineData) {
+      setStatus(inlineData.recommendations._already_confirmed === true ? "confirmed" : "ready");
+      return;
+    }
     if (!confirmBaseUrl || !canOpenConfirm) {
       setStatus("error");
       return;
@@ -2303,7 +2615,7 @@ function AiCreationSlidesConfirmCard({
         clearTimeout(timeout);
       }
     };
-  }, [canOpenConfirm, confirmBaseUrl, notifyAgentConfirmed]);
+  }, [canOpenConfirm, confirmBaseUrl, inlineData, notifyAgentConfirmed]);
 
   return (
     <View style={cardStyle}>
@@ -2334,22 +2646,138 @@ function AiCreationSlidesConfirmCard({
           </View>
         ) : null}
       </View>
-      {confirmUrl && status !== "error" ? (
-        <View style={stylesheet.aiCreationConfirmFrameWrap}>
-          <PptPreviewFrame
-            applyAnnotationsCompletionToken={0}
-            onApplyAnnotations={noopConfirmFrameAction}
-            title={translateNow("ui.slides.confirm.title", { name: projectName ?? "" })}
-            url={confirmUrl}
-          />
-        </View>
-      ) : (
-        <Text style={stylesheet.aiCreationConfirmHint}>
-          {translateNow("ui.slides.confirm.loadFailed")}
-        </Text>
-      )}
+      {confirmBody}
     </View>
   );
+}
+
+function buildInlinePptConfirmDataUrl(input: {
+  locale: Locale;
+  recommendations: PptConfirmRecommendations & Record<string, unknown>;
+}): string {
+  return `data:text/html;charset=utf-8,${encodeURIComponent(buildInlinePptConfirmHtml(input))}`;
+}
+
+function buildInlinePptConfirmHtml({
+  locale,
+  recommendations,
+}: {
+  locale: Locale;
+  recommendations: PptConfirmRecommendations & Record<string, unknown>;
+}): string {
+  const catalogsJson = escapeInlineScriptJson(JSON.stringify(PptConfirmStaticCatalogs));
+  const recommendationsJson = escapeInlineScriptJson(JSON.stringify(recommendations));
+  const lang = locale === "zh" ? "zh" : "en";
+  const confirmAppJs = escapeInlineScriptText(
+    PptConfirmStaticAppJs.replace(
+      'var EMBEDDED_IN_DOYA = queryParam("embed") === "1";',
+      "var EMBEDDED_IN_DOYA = true;",
+    )
+      .replace('var value = queryParam("lang");', `var value = ${JSON.stringify(lang)};`)
+      .replace(
+        "setConfirmedReadonly(REC._already_confirmed);\n        renderAll();",
+        "renderAll();\n        setConfirmedReadonly(REC._already_confirmed);",
+      ),
+  );
+  return `<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PPT Master - Confirm Design</title>
+  <style>${PptConfirmStaticStyleCss}</style>
+</head>
+<body>
+  <header id="topbar">
+    <div id="topbar-inner">
+      <div class="topbar-titles">
+        <h1 data-i18n="page_title">PPT Master - Confirm Design</h1>
+        <p id="topbar-hint" data-i18n="topbar_hint">After confirming, return to the chat and say “done”.</p>
+      </div>
+      <div class="topbar-art" aria-hidden="true">
+        <div class="art-slide">
+          <span class="art-line art-line-main"></span>
+          <span class="art-line art-line-soft"></span>
+          <span class="art-bar art-bar-a"></span>
+          <span class="art-bar art-bar-b"></span>
+          <span class="art-bar art-bar-c"></span>
+        </div>
+        <div class="art-control">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+      <div id="actionbar" style="display:none;">
+        <span id="confirm-status"></span>
+        <button id="btn-confirm" data-i18n="btn_confirm">Confirm</button>
+      </div>
+      <button id="btn-lang-toggle" class="btn-lang-toggle" title="Switch language">中</button>
+    </div>
+  </header>
+
+  <main id="form">
+    <div id="loading" data-i18n="loading">Loading recommendations…</div>
+    <div id="error" style="display:none;"></div>
+    <div id="sections" style="display:none;"></div>
+  </main>
+
+  <div id="confirmed-overlay" style="display:none;">
+    <div class="cf-card">
+      <div class="cf-title">✓ Confirmed</div>
+      <div class="cf-hint">Your choices are saved. You can close this page.</div>
+    </div>
+  </div>
+
+  <script>
+    window.__DOYA_INLINE_CONFIRM_CATALOGS__ = ${catalogsJson};
+    window.__DOYA_INLINE_CONFIRM_RECOMMENDATIONS__ = ${recommendationsJson};
+    const doyaInlineConfirmResponse = (body) => ({
+      ok: true,
+      json: () => Promise.resolve(body),
+      text: () => Promise.resolve(JSON.stringify(body)),
+    });
+    window.fetch = (url, options) => {
+      const href = String(url);
+      if (href === "/api/catalogs" || href === "/static/catalogs.json") {
+        return Promise.resolve(doyaInlineConfirmResponse(window.__DOYA_INLINE_CONFIRM_CATALOGS__));
+      }
+      if (href === "/api/recommendations") {
+        return Promise.resolve(
+          doyaInlineConfirmResponse(window.__DOYA_INLINE_CONFIRM_RECOMMENDATIONS__),
+        );
+      }
+      if (href === "/api/confirm") {
+        window.__DOYA_INLINE_CONFIRM_LAST_RESULT__ = options && options.body;
+        const message = { source: "doya-ppt-confirm", type: "doya:ppt-confirm:confirm" };
+        window.parent.postMessage(message, "*");
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify(message));
+        }
+        return Promise.resolve(doyaInlineConfirmResponse({ ok: true }));
+      }
+      if (href === "/api/shutdown") {
+        return Promise.resolve(doyaInlineConfirmResponse({ ok: true }));
+      }
+      return Promise.resolve({
+        ok: false,
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve(""),
+      });
+    };
+  </script>
+  <script>${confirmAppJs}</script>
+</body>
+</html>`;
+}
+
+function escapeInlineScriptJson(value: string): string {
+  return value
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+function escapeInlineScriptText(value: string): string {
+  return value.replace(/<\/script/gi, "<\\/script");
 }
 
 function noopConfirmFrameAction(): void {}

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <g id="background">
+    <rect x="0" y="0" width="1280" height="720" fill="#101820"/>
+    <path d="M64 124 H1216" stroke="#33516D" stroke-width="1" stroke-opacity="0.55"/>
+  </g>
+  <g id="header">
+    <text x="64" y="70" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#2FBF71" letter-spacing="2">04 · TRACTION</text>
+    <text x="64" y="111" font-family="Georgia, SimSun, serif" font-size="34" font-weight="700" fill="#F7F4ED">牵引力来自更快上线、更高留存和更多扩展</text>
+  </g>
+  <g id="chartArea">
+    <rect x="70" y="164" width="760" height="430" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <line x1="136" y1="520" x2="772" y2="520" stroke="#33516D" stroke-width="2"/>
+    <line x1="136" y1="220" x2="136" y2="520" stroke="#33516D" stroke-width="2"/>
+    <line x1="136" y1="445" x2="772" y2="445" stroke="#22364D" stroke-width="1" stroke-dasharray="5 7"/>
+    <line x1="136" y1="370" x2="772" y2="370" stroke="#22364D" stroke-width="1" stroke-dasharray="5 7"/>
+    <line x1="136" y1="295" x2="772" y2="295" stroke="#22364D" stroke-width="1" stroke-dasharray="5 7"/>
+    <line x1="136" y1="220" x2="772" y2="220" stroke="#22364D" stroke-width="1" stroke-dasharray="5 7"/>
+    <!-- chart-plot-area: 136,220,772,520 -->
+    <polyline points="136,488 242,454 348,418 454,362 560,306 666,270 772,226" fill="none" stroke="#2FBF71" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="136,504 242,486 348,458 454,424 560,388 666,348 772,304" fill="none" stroke="#7B61FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="136" cy="488" r="6" fill="#2FBF71"/><circle cx="242" cy="454" r="6" fill="#2FBF71"/><circle cx="348" cy="418" r="6" fill="#2FBF71"/><circle cx="454" cy="362" r="6" fill="#2FBF71"/><circle cx="560" cy="306" r="6" fill="#2FBF71"/><circle cx="666" cy="270" r="6" fill="#2FBF71"/><circle cx="772" cy="226" r="6" fill="#2FBF71"/>
+    <circle cx="136" cy="504" r="6" fill="#7B61FF"/><circle cx="242" cy="486" r="6" fill="#7B61FF"/><circle cx="348" cy="458" r="6" fill="#7B61FF"/><circle cx="454" cy="424" r="6" fill="#7B61FF"/><circle cx="560" cy="388" r="6" fill="#7B61FF"/><circle cx="666" cy="348" r="6" fill="#7B61FF"/><circle cx="772" cy="304" r="6" fill="#7B61FF"/>
+    <text x="136" y="552" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">Q1</text>
+    <text x="242" y="552" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">Q2</text>
+    <text x="348" y="552" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">Q3</text>
+    <text x="454" y="552" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">Q4</text>
+    <text x="560" y="552" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">Q5</text>
+    <text x="666" y="552" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">Q6</text>
+    <text x="772" y="552" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">Q7</text>
+    <rect x="154" y="188" width="12" height="12" rx="2" fill="#2FBF71"/>
+    <text x="174" y="199" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="14" fill="#F7F4ED">ARR 指数</text>
+    <rect x="262" y="188" width="12" height="12" rx="2" fill="#7B61FF"/>
+    <text x="282" y="199" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="14" fill="#F7F4ED">付费客户指数</text>
+  </g>
+  <g id="kpi-rail">
+    <rect x="872" y="164" width="344" height="430" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="904" y="210" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">OPERATING SIGNALS</text>
+    <text x="904" y="272" font-family="Georgia, SimSun, serif" font-size="46" font-weight="700" fill="#2FBF71">118%</text>
+    <text x="1030" y="272" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#A9B7C7">目标 NRR</text>
+    <rect x="904" y="308" width="254" height="1" fill="#33516D"/>
+    <text x="904" y="362" font-family="Georgia, SimSun, serif" font-size="46" font-weight="700" fill="#F7F4ED">21 天</text>
+    <text x="1030" y="362" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#A9B7C7">部署周期</text>
+    <rect x="904" y="398" width="254" height="1" fill="#33516D"/>
+    <text x="904" y="452" font-family="Georgia, SimSun, serif" font-size="46" font-weight="700" fill="#7B61FF">4.2x</text>
+    <text x="1030" y="452" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#A9B7C7">多团队扩展</text>
+    <text x="904" y="526" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="16" fill="#A9B7C7">
+      <tspan x="904" dy="0">这不是下载量故事，</tspan>
+      <tspan x="904" dy="24">而是企业采用曲线开始</tspan>
+      <tspan x="904" dy="24">出现复利信号。</tspan>
+    </text>
+  </g>
+  <g id="footer">
+    <text x="64" y="670" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="11" fill="#A9B7C7">P05 · 指标为路演模型占位，可替换为实际经营数据</text>
+  </g>
+</svg>

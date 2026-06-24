@@ -1759,6 +1759,7 @@ export const WorkspaceAttachmentMaterializeFileSchema = z.object({
   mimeType: z.string(),
   data: z.string().optional(),
   sourcePath: z.string().optional(),
+  path: z.string().optional(),
 });
 
 export const WorkspaceAttachmentsMaterializeRequestSchema = z.object({

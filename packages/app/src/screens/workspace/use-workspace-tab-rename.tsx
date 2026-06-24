@@ -2,7 +2,9 @@ import { useCallback, useState } from "react";
 import { type QueryClient } from "@tanstack/react-query";
 import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import type { ListTerminalsResponse } from "@getdoya/protocol/messages";
+import { loadAccountBootstrapSession } from "@/account/account-api";
 import { AdaptiveRenameModal } from "@/components/rename-modal";
+import { updateControlSession } from "@/control/control-api";
 import { useSessionStore } from "@/stores/session-store";
 import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-types";
 import { translateNow } from "@/i18n/i18n";
@@ -11,6 +13,7 @@ interface RenamingTabState {
   kind: "terminal" | "agent";
   id: string;
   currentTitle: string;
+  controlSessionId?: string | null;
 }
 
 interface UseWorkspaceTabRenameInput {
@@ -45,10 +48,15 @@ export function useWorkspaceTabRename(
       }
       if (tab.target.kind === "agent") {
         const { agentId } = tab.target;
-        const agent =
-          useSessionStore.getState().sessions[normalizedServerId]?.agents?.get(agentId) ?? null;
+        const session = useSessionStore.getState().sessions[normalizedServerId];
+        const agent = session?.agents.get(agentId) ?? session?.agentDetails.get(agentId) ?? null;
         const currentTitle = agent?.title ?? "";
-        setRenamingTab({ kind: "agent", id: agentId, currentTitle });
+        setRenamingTab({
+          kind: "agent",
+          id: agentId,
+          currentTitle,
+          controlSessionId: agent?.labels?.["doya.control.sessionId"] ?? null,
+        });
       }
     },
     [normalizedServerId, terminalsData],
@@ -73,6 +81,17 @@ export function useWorkspaceTabRename(
         return;
       }
       await client.updateAgent(renamingTab.id, { name: trimmed });
+      if (renamingTab.controlSessionId) {
+        const accountSession = await loadAccountBootstrapSession();
+        if (!accountSession) {
+          throw new Error(translateNow("ui.login.required.short"));
+        }
+        await updateControlSession({
+          accountSession,
+          sessionId: renamingTab.controlSessionId,
+          title: trimmed,
+        });
+      }
       void queryClient.invalidateQueries({
         queryKey: ["sidebarAgentsList", normalizedServerId],
       });
@@ -106,7 +125,10 @@ export function WorkspaceTabRenameModal({
   onClose,
   onSubmit,
 }: WorkspaceTabRenameModalProps) {
-  const title = renamingTab?.kind === "terminal" ? "Rename terminal" : "Rename agent";
+  const title =
+    renamingTab?.kind === "terminal"
+      ? translateNow("ui.rename.terminal")
+      : translateNow("ui.rename.agent");
   const initialValue = renamingTab?.currentTitle ?? "";
   const testID = renamingTab
     ? `workspace-tab-rename-modal-${renamingTab.kind}-${renamingTab.id}`

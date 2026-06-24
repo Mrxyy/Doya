@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <radialGradient id="closeGlow" cx="74%" cy="38%" r="54%">
+      <stop offset="0%" stop-color="#2FBF71" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#2FBF71" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g id="background">
+    <rect x="0" y="0" width="1280" height="720" fill="#101820"/>
+    <rect x="0" y="0" width="1280" height="720" fill="url(#closeGlow)"/>
+    <path d="M64 616 H1216" stroke="#33516D" stroke-width="1" stroke-opacity="0.55"/>
+  </g>
+  <g id="title-block">
+    <text x="72" y="88" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#2FBF71" letter-spacing="2">09 · FINANCING ASK</text>
+    <text x="72" y="208" font-family="Georgia, SimSun, serif" font-size="66" font-weight="700" fill="#F7F4ED">
+      <tspan x="72" dy="0">本轮融资买的是</tspan>
+      <tspan x="72" dy="78">可验证的增长拐点</tspan>
+    </text>
+    <text x="76" y="344" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="22" fill="#A9B7C7">
+      <tspan x="76" dy="0">资金用于把已经出现的产品牵引力，转化为可复制的收入增长</tspan>
+      <tspan x="76" dy="34">和企业级交付能力。融资金额可按实际计划替换。</tspan>
+    </text>
+  </g>
+  <g id="use-of-funds">
+    <rect x="812" y="116" width="332" height="332" rx="166" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <path d="M978 282 L978 124 A158 158 0 0 1 1120 350 Z" fill="#2FBF71"/>
+    <path d="M978 282 L1120 350 A158 158 0 0 1 872 408 Z" fill="#7B61FF"/>
+    <path d="M978 282 L872 408 A158 158 0 0 1 842 204 Z" fill="#F7F4ED"/>
+    <path d="M978 282 L842 204 A158 158 0 0 1 978 124 Z" fill="#33516D"/>
+    <circle cx="978" cy="282" r="86" fill="#101820" stroke="#33516D" stroke-width="1"/>
+    <text x="978" y="274" text-anchor="middle" font-family="Georgia, SimSun, serif" font-size="30" font-weight="700" fill="#F7F4ED">资金用途</text>
+    <text x="978" y="306" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#A9B7C7">18 MONTH RUNWAY</text>
+  </g>
+  <g id="legend">
+    <rect x="800" y="490" width="16" height="16" rx="3" fill="#2FBF71"/><text x="828" y="504" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="16" fill="#F7F4ED">45% 产品与 AI 研发</text>
+    <rect x="800" y="526" width="16" height="16" rx="3" fill="#7B61FF"/><text x="828" y="540" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="16" fill="#F7F4ED">30% 销售与市场</text>
+    <rect x="800" y="562" width="16" height="16" rx="3" fill="#F7F4ED"/><text x="828" y="576" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="16" fill="#F7F4ED">15% 客户成功</text>
+    <rect x="800" y="598" width="16" height="16" rx="3" fill="#33516D"/><text x="828" y="612" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="16" fill="#F7F4ED">10% 安全合规</text>
+  </g>
+  <g id="milestones">
+    <rect x="72" y="456" width="580" height="104" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <use data-icon="tabler-outline/target" x="104" y="488" width="36" height="36" fill="#2FBF71" stroke-width="2"/>
+    <text x="160" y="498" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">MILESTONES</text>
+    <text x="160" y="530" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="19" fill="#F7F4ED">ARR、NRR、企业客户数、安全合规与可复制销售模型</text>
+  </g>
+  <g id="footer">
+    <text x="72" y="664" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="13" fill="#A9B7C7">谢谢 · 联系方式和融资条款可在此处替换</text>
+    <use data-icon="tabler-outline/rocket" x="1164" y="642" width="30" height="30" fill="#2FBF71" stroke-width="2"/>
+  </g>
+</svg>

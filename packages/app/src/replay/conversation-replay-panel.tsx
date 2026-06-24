@@ -6,6 +6,7 @@ import type {
 import {
   Check,
   Clapperboard,
+  Download,
   Eye,
   EyeOff,
   ListTree,
@@ -325,6 +326,33 @@ export function ConversationReplayPanel({
         });
     },
     [agent.id, client, onStartReplay, selectedRecording],
+  );
+
+  const handleDownloadRecordingJsonl = useCallback(
+    async (recordingId: string) => {
+      setError(null);
+      try {
+        let recording = selectedRecording?.recordingId === recordingId ? selectedRecording : null;
+        if (!recording) {
+          if (!client) {
+            setError(t("replay.error.loadRecording"));
+            return;
+          }
+          recording = await client.getConversationRecording(agent.id, recordingId);
+        }
+        const didDownload = downloadConversationRecordingJsonl(recording);
+        if (!didDownload) {
+          setError(t("replay.error.downloadUnsupported"));
+        }
+      } catch (downloadError) {
+        setError(
+          downloadError instanceof Error
+            ? downloadError.message
+            : t("replay.error.downloadRecording"),
+        );
+      }
+    },
+    [agent.id, client, selectedRecording, t],
   );
 
   const selectRecording = useCallback(
@@ -1057,8 +1085,10 @@ export function ConversationReplayPanel({
                     selected={selectedRecording?.recordingId === recording.recordingId}
                     onSelect={selectRecording}
                     onReplay={handleStartRecordingReplay}
+                    onDownloadJsonl={handleDownloadRecordingJsonl}
                     fallbackTitle={t("replay.recording.untitled")}
                     replayLabel={t("replay.action.replay")}
+                    downloadJsonlLabel={t("replay.action.downloadJsonl")}
                   />
                 ))}
               </ScrollView>
@@ -1172,15 +1202,19 @@ function RecordingRow({
   selected,
   onSelect,
   onReplay,
+  onDownloadJsonl,
   fallbackTitle,
   replayLabel,
+  downloadJsonlLabel,
 }: {
   recording: ConversationRecordingSummary;
   selected: boolean;
   onSelect: (recordingId: string) => void;
   onReplay: (recordingId: string) => void;
+  onDownloadJsonl: (recordingId: string) => void;
   fallbackTitle: string;
   replayLabel: string;
+  downloadJsonlLabel: string;
 }) {
   const handlePress = useCallback(() => {
     void onSelect(recording.recordingId);
@@ -1188,6 +1222,9 @@ function RecordingRow({
   const handleReplay = useCallback(() => {
     onReplay(recording.recordingId);
   }, [onReplay, recording.recordingId]);
+  const handleDownloadJsonl = useCallback(() => {
+    onDownloadJsonl(recording.recordingId);
+  }, [onDownloadJsonl, recording.recordingId]);
   const rowStyle = selected ? styles.recordingRowSelected : styles.recordingRow;
   return (
     <Pressable style={rowStyle} onPress={handlePress}>
@@ -1200,19 +1237,99 @@ function RecordingRow({
             {recording.status} · {formatRecordingTime(recording.startedAt)}
           </Text>
         </View>
-        <Button
-          variant="secondary"
-          size="xs"
-          leftIcon={Play}
-          onPress={handleReplay}
-          style={styles.recordingReplayButton}
-          textStyle={styles.recordingReplayText}
-        >
-          {replayLabel}
-        </Button>
+        <View style={styles.recordingActions}>
+          <Button
+            variant="ghost"
+            size="xs"
+            leftIcon={Download}
+            onPress={handleDownloadJsonl}
+            style={styles.recordingDownloadButton}
+            textStyle={styles.recordingDownloadText}
+          >
+            {downloadJsonlLabel}
+          </Button>
+          <Button
+            variant="secondary"
+            size="xs"
+            leftIcon={Play}
+            onPress={handleReplay}
+            style={styles.recordingReplayButton}
+            textStyle={styles.recordingReplayText}
+          >
+            {replayLabel}
+          </Button>
+        </View>
       </View>
     </Pressable>
   );
+}
+
+function downloadConversationRecordingJsonl(recording: ConversationRecording) {
+  if (
+    !isWeb ||
+    typeof document === "undefined" ||
+    typeof Blob === "undefined" ||
+    typeof URL === "undefined" ||
+    typeof URL.createObjectURL !== "function"
+  ) {
+    return false;
+  }
+
+  const blob = new Blob([buildConversationRecordingJsonl(recording)], {
+    type: "application/x-ndjson;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = buildRecordingJsonlFileName(recording);
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  return true;
+}
+
+function buildConversationRecordingJsonl(recording: ConversationRecording) {
+  const lines = [
+    {
+      kind: "recording_metadata",
+      recording: {
+        recordingId: recording.recordingId,
+        agentId: recording.agentId,
+        provider: recording.provider,
+        cwd: recording.cwd,
+        title: recording.title,
+        status: recording.status,
+        startedAt: recording.startedAt,
+        stoppedAt: recording.stoppedAt,
+        edits: recording.edits,
+      },
+    },
+    ...recording.events.map((event) => ({
+      kind: "recording_event",
+      event,
+    })),
+  ];
+  return `${lines.map((line) => JSON.stringify(line)).join("\n")}\n`;
+}
+
+function buildRecordingJsonlFileName(recording: ConversationRecording) {
+  const title = sanitizeDownloadFileName(recording.title ?? "recording");
+  const id = sanitizeDownloadFileName(recording.recordingId).slice(0, 12);
+  return `${title || "recording"}-${id || "recording"}.jsonl`;
+}
+
+function sanitizeDownloadFileName(value: string) {
+  const withoutControlCharacters = Array.from(value.trim())
+    .filter((character) => (character.codePointAt(0) ?? 0) >= 32)
+    .join("");
+  return withoutControlCharacters
+    .replace(/[<>:"/\\|?*]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
 }
 
 function formatRecordingTime(value: string) {
@@ -2716,6 +2833,21 @@ const styles = StyleSheet.create((theme) => ({
   },
   recordingTitle: { fontSize: 13, fontWeight: "800", color: theme.colors.foreground },
   recordingMeta: { fontSize: 11, color: theme.colors.mutedForeground },
+  recordingActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  recordingDownloadButton: {
+    minHeight: 30,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  recordingDownloadText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: theme.colors.mutedForeground,
+  },
   recordingReplayButton: {
     minWidth: 66,
     minHeight: 30,

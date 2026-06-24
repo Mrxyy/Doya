@@ -8,6 +8,8 @@ export interface AgentScreenAgent {
   cwd: string;
   capabilities?: AgentCapabilityFlags;
   lastError?: string | null;
+  createdAt?: Date;
+  labels?: Record<string, string>;
   projectPlacement?: {
     checkout?: {
       cwd?: string;

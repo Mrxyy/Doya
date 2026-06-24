@@ -5,7 +5,7 @@ import pMemoize from "p-memoize";
 import { realpathSync } from "node:fs";
 import { copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import type { FSWatcher } from "node:fs";
-import { basename, join, relative, resolve, sep } from "path";
+import { basename, dirname, join, relative, resolve, sep } from "path";
 import { homedir } from "node:os";
 import { z } from "zod";
 import type { ToolSet } from "ai";
@@ -6391,11 +6391,20 @@ export class Session {
         throw new Error(`Attachment workspace is not a directory: ${cwd}`);
       }
       const attachmentDir = join(cwd, "attachments");
-      await mkdir(attachmentDir, { recursive: true });
       const files: Array<{ title: string; mimeType: string; path: string }> = [];
       for (const file of request.files) {
         const title = file.fileName?.trim() || "attached-file";
-        const filePath = join(attachmentDir, buildWorkspaceAttachmentFileName(title));
+        const targetPath = file.path?.trim()
+          ? resolveWorkspaceMaterializedFilePath({
+              cwd,
+              requestedPath: file.path,
+            })
+          : null;
+        if (!targetPath) {
+          await mkdir(attachmentDir, { recursive: true });
+        }
+        const filePath = targetPath ?? join(attachmentDir, buildWorkspaceAttachmentFileName(title));
+        await mkdir(dirname(filePath), { recursive: true });
         if (file.sourcePath?.trim()) {
           await copyFile(file.sourcePath.trim(), filePath);
         } else if (file.data) {
@@ -9813,6 +9822,22 @@ function buildWorkspaceAttachmentFileName(fileName: string): string {
     .replace(/^\.+/u, "")
     .replace(/^-+|-+$/gu, "");
   return `${uuidv4()}-${safeName || "attached-file"}`;
+}
+
+function resolveWorkspaceMaterializedFilePath(input: {
+  cwd: string;
+  requestedPath: string;
+}): string {
+  const normalized = input.requestedPath.trim().replace(/\\/g, "/").replace(/^\/+/u, "");
+  if (!normalized || normalized === "." || normalized.split("/").includes("..")) {
+    throw new Error(`Invalid workspace file path: ${input.requestedPath}`);
+  }
+  const workspaceRoot = resolve(input.cwd);
+  const filePath = resolve(workspaceRoot, normalized);
+  if (filePath !== workspaceRoot && !filePath.startsWith(`${workspaceRoot}${sep}`)) {
+    throw new Error(`Workspace file path escapes workspace: ${input.requestedPath}`);
+  }
+  return filePath;
 }
 
 function normalizeWorkspaceRelativePath(path: string): string {

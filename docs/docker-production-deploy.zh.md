@@ -3,19 +3,21 @@
 这份文档描述当前 Doya 生产部署方式：
 
 - 本地构建并推送 Docker 镜像到 Docker Hub。
-- 服务器只拉镜像并用 `docker-compose.deploy.yml` 启动服务。
+- 服务器只拉镜像并用 `docker-compose.deploy.yml` 启动主服务，用
+  `docker-compose.onlyoffice.yml` 启动 ONLYOFFICE。
 - 宿主机 nginx 只做入口反向代理，不重新打包、不拷贝前端静态文件。
 - control 使用内部 daemon 地址调用服务，浏览器使用公开 HTTPS/WSS 地址连接 daemon。
 
 ## 服务结构
 
-生产环境有三个常驻容器和一个一次性注册容器：
+生产环境有四个常驻容器和一个一次性注册容器：
 
 | 服务                    | 容器端口 | 宿主端口 | 用途                                 |
 | ----------------------- | -------- | -------- | ------------------------------------ |
 | `app`                   | `80`     | `8080`   | Web 前端                             |
 | `server`                | `6767`   | `6767`   | Doya daemon、WebSocket、agent 运行时 |
 | `control`               | `6777`   | `6777`   | 登录、短信、支付、节点调度、后台接口 |
+| `onlyoffice-document-server` | `80` | `8082` | ONLYOFFICE 文档预览                  |
 | `runtime-node-register` | 无       | 无       | 一次性把 daemon 节点注册到 control   |
 
 nginx 对外暴露域名，例如：
@@ -34,7 +36,11 @@ https://www.codexppt.com/control-api/ -> control 容器 6777
 ```text
 /opt/doya/
   docker-compose.deploy.yml
+  docker-compose.onlyoffice.yml
   docker/.env
+  packages/server/docker/
+    onlyoffice-entrypoint.sh
+    onlyoffice-local.json
   workspaces/
 ```
 
@@ -126,6 +132,10 @@ cd /opt/doya
 
 ```bash
 scp docker-compose.deploy.yml root@64.83.17.170:/opt/doya/docker-compose.deploy.yml
+scp docker-compose.onlyoffice.yml root@64.83.17.170:/opt/doya/docker-compose.onlyoffice.yml
+ssh root@64.83.17.170 'mkdir -p /opt/doya/packages/server/docker'
+scp packages/server/docker/onlyoffice-entrypoint.sh root@64.83.17.170:/opt/doya/packages/server/docker/onlyoffice-entrypoint.sh
+scp packages/server/docker/onlyoffice-local.json root@64.83.17.170:/opt/doya/packages/server/docker/onlyoffice-local.json
 scp docker/.env root@64.83.17.170:/opt/doya/docker/.env
 ```
 
@@ -134,7 +144,9 @@ scp docker/.env root@64.83.17.170:/opt/doya/docker/.env
 ```bash
 cd /opt/doya
 docker compose -f docker-compose.deploy.yml --env-file docker/.env pull
+docker compose -f docker-compose.onlyoffice.yml pull
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up -d
+docker compose -f docker-compose.onlyoffice.yml up -d
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up --force-recreate runtime-node-register
 ```
 
@@ -145,7 +157,9 @@ docker compose -f docker-compose.deploy.yml --env-file docker/.env up --force-re
 ```bash
 cd /opt/doya
 docker compose -f docker-compose.deploy.yml --env-file docker/.env pull
+docker compose -f docker-compose.onlyoffice.yml pull
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up -d
+docker compose -f docker-compose.onlyoffice.yml up -d
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up --force-recreate runtime-node-register
 ```
 
@@ -282,6 +296,7 @@ wss://node2.example.com/ws -> 这台机器的 127.0.0.1:6767/ws
 ```bash
 cd /opt/doya
 docker compose -f docker-compose.deploy.yml --env-file docker/.env ps
+docker compose -f docker-compose.onlyoffice.yml ps
 ```
 
 检查 app：

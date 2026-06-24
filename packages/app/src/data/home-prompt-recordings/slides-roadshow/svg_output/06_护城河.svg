@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <defs>
+    <marker id="arrowGreenSmall" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#2FBF71"/>
+    </marker>
+    <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#7B61FF" stop-opacity="0.38"/>
+      <stop offset="100%" stop-color="#7B61FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g id="background">
+    <rect x="0" y="0" width="1280" height="720" fill="#101820"/>
+    <circle cx="656" cy="364" r="290" fill="url(#coreGlow)"/>
+  </g>
+  <g id="header">
+    <text x="64" y="70" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#2FBF71" letter-spacing="2">05 · MOAT</text>
+    <text x="64" y="112" font-family="Georgia, SimSun, serif" font-size="34" font-weight="700" fill="#F7F4ED">护城河来自语义数据层和反馈飞轮</text>
+  </g>
+  <g id="flywheel">
+    <circle cx="640" cy="372" r="128" fill="#142235" stroke="#7B61FF" stroke-width="2"/>
+    <text x="640" y="350" text-anchor="middle" font-family="Georgia, SimSun, serif" font-size="40" font-weight="700" fill="#F7F4ED">复利飞轮</text>
+    <text x="640" y="392" text-anchor="middle" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#A9B7C7">客户语境越多，洞察越准</text>
+    <path d="M640 174 C796 174 916 272 930 414" fill="none" stroke="#2FBF71" stroke-width="4" marker-end="url(#arrowGreenSmall)"/>
+    <path d="M887 508 C780 636 582 652 462 542" fill="none" stroke="#2FBF71" stroke-width="4" marker-end="url(#arrowGreenSmall)"/>
+    <path d="M390 451 C332 296 436 180 582 174" fill="none" stroke="#2FBF71" stroke-width="4" marker-end="url(#arrowGreenSmall)"/>
+  </g>
+  <g id="wheel-labels">
+    <text x="578" y="164" text-anchor="middle" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="20" fill="#F7F4ED">语义资产沉淀</text>
+    <text x="934" y="444" text-anchor="middle" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="20" fill="#F7F4ED">行动结果反馈</text>
+    <text x="410" y="552" text-anchor="middle" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="20" fill="#F7F4ED">行业模板复用</text>
+  </g>
+  <g id="thesis">
+    <text x="86" y="278" font-family="Georgia, SimSun, serif" font-size="56" font-weight="700" fill="#2FBF71">不是模型本身，</text>
+    <text x="86" y="344" font-family="Georgia, SimSun, serif" font-size="56" font-weight="700" fill="#F7F4ED">而是客户语境。</text>
+    <text x="90" y="414" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="19" fill="#A9B7C7">
+      <tspan x="90" dy="0">每一次指标定义、洞察确认和业务动作，</tspan>
+      <tspan x="90" dy="30">都会让平台更理解企业如何经营。</tspan>
+    </text>
+  </g>
+  <g id="proof-points">
+    <rect x="982" y="208" width="190" height="54" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="1004" y="242" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">指标定义库</text>
+    <rect x="982" y="294" width="190" height="54" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="1004" y="328" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">洞察评价样本</text>
+    <rect x="982" y="380" width="190" height="54" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="1004" y="414" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">动作模板库</text>
+    <rect x="982" y="466" width="190" height="54" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="1004" y="500" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">权限和治理</text>
+  </g>
+  <g id="footer">
+    <text x="64" y="670" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="11" fill="#A9B7C7">P06 · 低密度叙事页：解释为什么竞争壁垒会随客户使用加深</text>
+  </g>
+</svg>

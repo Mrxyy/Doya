@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <g id="background">
+    <rect x="0" y="0" width="1280" height="720" fill="#101820"/>
+    <path d="M64 124 H1216" stroke="#33516D" stroke-width="1" stroke-opacity="0.55"/>
+  </g>
+  <g id="header">
+    <text x="64" y="70" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#2FBF71" letter-spacing="2">06 · GO TO MARKET</text>
+    <text x="64" y="111" font-family="Georgia, SimSun, serif" font-size="34" font-weight="700" fill="#F7F4ED">GTM 从高痛点团队切入，再向企业标准化扩展</text>
+  </g>
+  <g id="chartArea">
+    <rect x="72" y="166" width="690" height="430" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <!-- chart-plot-area: 166,218,668,532 -->
+    <path d="M166,218 L668,218 L626,280 L208,280 Z" fill="#2FBF71" fill-opacity="0.88"/>
+    <text x="418" y="254" text-anchor="middle" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="20" font-weight="700" fill="#101820">目标账户 · 1,200</text>
+    <path d="M208,312 L626,312 L580,374 L254,374 Z" fill="#2FBF71" fill-opacity="0.64"/>
+    <text x="418" y="348" text-anchor="middle" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="20" font-weight="700" fill="#F7F4ED">业务团队试点 · 280</text>
+    <path d="M254,406 L580,406 L532,468 L302,468 Z" fill="#7B61FF" fill-opacity="0.76"/>
+    <text x="418" y="442" text-anchor="middle" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="20" font-weight="700" fill="#F7F4ED">付费部署 · 72</text>
+    <path d="M302,500 L532,500 L494,562 L340,562 Z" fill="#7B61FF"/>
+    <text x="418" y="536" text-anchor="middle" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="20" font-weight="700" fill="#F7F4ED">企业扩展 · 24</text>
+    <use data-icon="tabler-outline/chart-funnel" x="104" y="188" width="36" height="36" fill="#2FBF71" stroke-width="2"/>
+    <text x="152" y="210" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">LAND AND EXPAND FUNNEL</text>
+  </g>
+  <g id="motion-panel">
+    <rect x="806" y="166" width="410" height="430" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="838" y="214" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">EXPANSION MOTION</text>
+    <text x="838" y="268" font-family="Georgia, SimSun, serif" font-size="42" font-weight="700" fill="#2FBF71">先赢一个团队，</text>
+    <text x="838" y="320" font-family="Georgia, SimSun, serif" font-size="42" font-weight="700" fill="#F7F4ED">再成为指标标准。</text>
+    <rect x="838" y="364" width="318" height="1" fill="#33516D"/>
+    <use data-icon="tabler-outline/target" x="838" y="398" width="28" height="28" fill="#2FBF71" stroke-width="2"/>
+    <text x="884" y="420" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">RevOps、增长、财务分析作为切入口</text>
+    <use data-icon="tabler-outline/circle-check" x="838" y="456" width="28" height="28" fill="#2FBF71" stroke-width="2"/>
+    <text x="884" y="478" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">用业务结果证明价值，而非功能清单</text>
+    <use data-icon="tabler-outline/rocket" x="838" y="514" width="28" height="28" fill="#7B61FF" stroke-width="2"/>
+    <text x="884" y="536" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">治理、权限、模板驱动企业级扩展</text>
+  </g>
+  <g id="footer">
+    <text x="64" y="670" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="11" fill="#A9B7C7">P07 · 漏斗数据为 GTM 模型占位，可替换为 CRM 实际转化率</text>
+  </g>
+</svg>

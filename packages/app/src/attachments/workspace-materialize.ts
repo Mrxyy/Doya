@@ -26,6 +26,7 @@ interface WorkspaceAttachmentMaterializeClient {
       mimeType: string;
       data?: string;
       sourcePath?: string;
+      path?: string;
     }>;
   }): Promise<{
     cwd?: string;

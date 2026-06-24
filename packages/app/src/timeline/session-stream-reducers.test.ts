@@ -1720,6 +1720,10 @@ describe("processAgentStreamEvents", () => {
       updatedAt: new Date(3000),
       lastActivityAt: new Date(3000),
     });
+    expect(result.sideEffects).toContainEqual({
+      type: "catch_up",
+      cursor: { epoch: "epoch-1", endSeq: 1 },
+    });
   });
 
   it("keeps a live Claude assistant paragraph contiguous when init tail hydration lands mid-stream", () => {

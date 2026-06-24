@@ -80,6 +80,7 @@ import { useI18n, translateNow } from "@/i18n/i18n";
 import { projectIconQueryKey, projectIconToDataUri } from "@/hooks/use-project-icon-query";
 import {
   buildHostAgentDetailRoute,
+  buildHostHomeRoute,
   buildHostNewWorkspaceRoute,
   buildProjectSettingsRoute,
   parseHostAgentRouteFromPathname,
@@ -1019,13 +1020,18 @@ function ProjectKebabMenu({
   onRemoveProject: () => void;
   removeProjectStatus: "idle" | "pending" | "success";
 }) {
+  const [open, setOpen] = useState(false);
   const handleOpenProjectSettings = useCallback(() => {
     if (projectKey.trim().length === 0) return;
     router.navigate(buildProjectSettingsRoute(projectKey));
   }, [projectKey]);
+  const handleRenameProject = useCallback(() => {
+    onRenameProject?.();
+    setOpen(false);
+  }, [onRenameProject]);
   const canOpenProjectSettings = projectKey.trim().length > 0;
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         hitSlop={8}
         style={projectKebabStyle}
@@ -1060,7 +1066,8 @@ function ProjectKebabMenu({
             <DropdownMenuItem
               testID={`sidebar-project-menu-rename-${projectKey}`}
               leading={renameLeadingIcon}
-              onSelect={onRenameProject}
+              onSelect={handleRenameProject}
+              closeOnSelect={false}
               disabled={!onRenameProject}
             >
               {translateNow("ui.rename.14f8jfi")}
@@ -2826,6 +2833,13 @@ function ProjectBlock({
   const controlSessionId = project.controlSessionId ?? null;
   const hosts = useHosts();
   const { upsertDirectConnection } = useHostMutations();
+  const navigateToNewConversationIfActive = useCallback(() => {
+    if (!active || !serverId) {
+      return;
+    }
+    router.replace(buildHostHomeRoute(serverId) as Href);
+    onWorkspacePress?.();
+  }, [active, onWorkspacePress, serverId]);
 
   const handleRemoveProject = useCallback(() => {
     if (isRemovingProject || !serverId) {
@@ -2863,6 +2877,7 @@ function ProjectBlock({
               accountSession,
               sessionId: controlSessionId,
             });
+            navigateToNewConversationIfActive();
             onProjectMutated?.();
             return;
           }
@@ -2877,6 +2892,7 @@ function ProjectBlock({
             ...accountSession,
             projects,
           });
+          navigateToNewConversationIfActive();
           onProjectMutated?.();
 
           if (client && project.workspaces.length > 0) {
@@ -2901,6 +2917,7 @@ function ProjectBlock({
     accountSession,
     controlSessionId,
     isRemovingProject,
+    navigateToNewConversationIfActive,
     onProjectMutated,
     serverId,
     displayName,
@@ -2936,6 +2953,13 @@ function ProjectBlock({
           sessionId: controlSessionId,
           title: nextDisplayName,
         });
+        const controlAgentNodeId = project.controlAgentNodeId ?? serverId;
+        if (controlAgentNodeId && project.controlAgentId) {
+          const client = getHostRuntimeStore().getClient(controlAgentNodeId);
+          if (client) {
+            await client.updateAgent(project.controlAgentId, { name: nextDisplayName });
+          }
+        }
         onProjectMutated?.();
         toast.show(translateNow("ui.project.renamed.1rzcbzz"), { variant: "success" });
         return;
@@ -2954,7 +2978,16 @@ function ProjectBlock({
       onProjectMutated?.();
       toast.show(translateNow("ui.project.renamed.1rzcbzz"), { variant: "success" });
     },
-    [accountSession, controlSessionId, onProjectMutated, project.projectKey, toast],
+    [
+      accountSession,
+      controlSessionId,
+      onProjectMutated,
+      project.controlAgentId,
+      project.controlAgentNodeId,
+      project.projectKey,
+      serverId,
+      toast,
+    ],
   );
 
   const validateConversationName = useCallback((value: string): string | null => {

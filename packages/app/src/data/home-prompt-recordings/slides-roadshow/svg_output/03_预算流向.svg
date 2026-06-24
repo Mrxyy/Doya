@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720">
+  <g id="background">
+    <rect x="0" y="0" width="1280" height="720" fill="#101820"/>
+    <path d="M64 124 H1216" stroke="#33516D" stroke-width="1" stroke-opacity="0.55"/>
+  </g>
+  <g id="header">
+    <text x="64" y="70" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="13" fill="#2FBF71" letter-spacing="2">02 · MARKET PULL</text>
+    <text x="64" y="111" font-family="Georgia, SimSun, serif" font-size="34" font-weight="700" fill="#F7F4ED">预算正在流向“能证明业务结果”的分析层</text>
+  </g>
+  <g id="chartArea">
+    <rect x="64" y="160" width="760" height="456" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <line x1="350" y1="224" x2="350" y2="548" stroke="#33516D" stroke-width="1"/>
+    <line x1="482" y1="224" x2="482" y2="548" stroke="#22364D" stroke-width="1" stroke-dasharray="5 7"/>
+    <line x1="614" y1="224" x2="614" y2="548" stroke="#22364D" stroke-width="1" stroke-dasharray="5 7"/>
+    <line x1="746" y1="224" x2="746" y2="548" stroke="#22364D" stroke-width="1" stroke-dasharray="5 7"/>
+    <!-- chart-plot-area: 350,224,746,548 -->
+    <text x="96" y="206" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">PAIN INTENSITY INDEX</text>
+    <text x="336" y="575" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">0</text>
+    <text x="482" y="575" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">35</text>
+    <text x="614" y="575" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">70</text>
+    <text x="746" y="575" text-anchor="middle" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">100</text>
+    <text x="96" y="265" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">决策延迟影响收入节奏</text>
+    <rect x="350" y="242" width="356" height="28" rx="4" fill="#2FBF71"/>
+    <text x="724" y="263" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="15" fill="#F7F4ED">90</text>
+    <text x="96" y="327" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">指标口径争议拖慢协作</text>
+    <rect x="350" y="304" width="318" height="28" rx="4" fill="#2FBF71" fill-opacity="0.86"/>
+    <text x="686" y="325" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="15" fill="#F7F4ED">80</text>
+    <text x="96" y="389" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">分析请求堆积，人力扩张低效</text>
+    <rect x="350" y="366" width="286" height="28" rx="4" fill="#7B61FF"/>
+    <text x="654" y="387" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="15" fill="#F7F4ED">72</text>
+    <text x="96" y="451" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">增长动作无法复盘</text>
+    <rect x="350" y="428" width="254" height="28" rx="4" fill="#7B61FF" fill-opacity="0.86"/>
+    <text x="622" y="449" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="15" fill="#F7F4ED">64</text>
+    <text x="96" y="513" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="17" fill="#F7F4ED">工具总拥有成本继续上升</text>
+    <rect x="350" y="490" width="226" height="28" rx="4" fill="#A9B7C7"/>
+    <text x="594" y="511" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="15" fill="#F7F4ED">57</text>
+  </g>
+  <g id="buyer-panel">
+    <rect x="864" y="160" width="352" height="456" rx="6" fill="#142235" stroke="#33516D" stroke-width="1"/>
+    <text x="896" y="206" font-family="Consolas, &quot;Courier New&quot;, monospace" font-size="12" fill="#A9B7C7">WHO PAYS</text>
+    <use data-icon="tabler-outline/building-skyscraper" x="896" y="238" width="42" height="42" fill="#2FBF71" stroke-width="2"/>
+    <text x="958" y="268" font-family="Georgia, SimSun, serif" font-size="30" font-weight="700" fill="#F7F4ED">企业业务线</text>
+    <text x="896" y="326" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="18" fill="#A9B7C7">
+      <tspan x="896" dy="0">付费理由不是“多一个看板”，</tspan>
+      <tspan x="896" dy="30">而是减少决策延迟、证明动作</tspan>
+      <tspan x="896" dy="30">效果，并降低分析交付成本。</tspan>
+    </text>
+    <rect x="896" y="438" width="260" height="1" fill="#33516D"/>
+    <text x="896" y="490" font-family="Georgia, SimSun, serif" font-size="48" font-weight="700" fill="#7B61FF">CFO</text>
+    <text x="1012" y="490" font-family="Georgia, SimSun, serif" font-size="48" font-weight="700" fill="#2FBF71">RevOps</text>
+    <text x="896" y="538" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="16" fill="#A9B7C7">从成本中心预算转向增长效率预算。</text>
+  </g>
+  <g id="footer">
+    <text x="64" y="670" font-family="&quot;Microsoft YaHei&quot;, Arial, sans-serif" font-size="11" fill="#A9B7C7">P03 · 排名为路演假设，用于表达优先级，可替换为客户调研数据</text>
+  </g>
+</svg>

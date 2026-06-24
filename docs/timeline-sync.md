@@ -61,3 +61,7 @@ surface:
   recording offsets.
 - Replay edits (`offsetMs`, `hidden`) affect playback only and never rewrite the
   source event log or agent timeline.
+
+The home screen can bundle selected recordings as public preset conversations.
+See [home prompt presets](home-prompt-presets.md) for the product contract,
+asset layout, and code wiring.

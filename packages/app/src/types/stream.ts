@@ -70,6 +70,7 @@ export type UserMessageImageAttachment =
 export interface UserMessageItem {
   kind: "user_message";
   id: string;
+  messageId?: string;
   text: string;
   timestamp: Date;
   optimistic?: true;
@@ -227,6 +228,7 @@ function buildUserMessageItem(input: {
     return {
       kind: "user_message",
       id: input.id,
+      ...(input.optimistic.messageId ? { messageId: input.optimistic.messageId } : {}),
       text: input.optimistic.text,
       timestamp: input.optimistic.timestamp,
       ...(input.optimistic.images && input.optimistic.images.length > 0
@@ -252,6 +254,7 @@ function buildUserMessageItem(input: {
   return {
     kind: "user_message",
     id: input.id,
+    ...(input.id ? { messageId: input.id } : {}),
     text: parsed.text,
     timestamp: input.timestamp,
     ...(parsed.attachments.length > 0 ? { attachments: parsed.attachments } : {}),
@@ -348,6 +351,7 @@ export function buildOptimisticUserMessage(input: OptimisticUserMessageInput): U
   return {
     kind: "user_message",
     id: input.id,
+    messageId: input.id,
     text: input.text,
     timestamp: input.timestamp,
     optimistic: true,
