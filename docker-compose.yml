@@ -7,8 +7,8 @@ services:
       context: .
       target: server
       args:
-        EXPO_PUBLIC_LOCAL_DAEMON: ${DOYA_PUBLIC_DAEMON:-localhost:6767}
-        EXPO_PUBLIC_CONTROL_API_URL: ${DOYA_PUBLIC_CONTROL_API_URL:-http://localhost:6777}
+        EXPO_PUBLIC_LOCAL_DAEMON: ${DOYA_PUBLIC_DAEMON-localhost:6767}
+        EXPO_PUBLIC_CONTROL_API_URL: ${DOYA_PUBLIC_CONTROL_API_URL-http://localhost:6777}
     environment:
       DOYA_CORS_ORIGINS: ${DOYA_CORS_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
       DOYA_HOME: /data/doya
@@ -30,8 +30,8 @@ services:
       context: .
       target: control
       args:
-        EXPO_PUBLIC_LOCAL_DAEMON: ${DOYA_PUBLIC_DAEMON:-localhost:6767}
-        EXPO_PUBLIC_CONTROL_API_URL: ${DOYA_PUBLIC_CONTROL_API_URL:-http://localhost:6777}
+        EXPO_PUBLIC_LOCAL_DAEMON: ${DOYA_PUBLIC_DAEMON-localhost:6767}
+        EXPO_PUBLIC_CONTROL_API_URL: ${DOYA_PUBLIC_CONTROL_API_URL-http://localhost:6777}
     environment:
       DOYA_CONTROL_HOME: /data/control
       DOYA_CONTROL_HOST: 0.0.0.0
@@ -60,8 +60,8 @@ services:
       context: .
       target: app
       args:
-        EXPO_PUBLIC_LOCAL_DAEMON: ${DOYA_PUBLIC_DAEMON:-localhost:6767}
-        EXPO_PUBLIC_CONTROL_API_URL: ${DOYA_PUBLIC_CONTROL_API_URL:-http://localhost:6777}
+        EXPO_PUBLIC_LOCAL_DAEMON: ${DOYA_PUBLIC_DAEMON-localhost:6767}
+        EXPO_PUBLIC_CONTROL_API_URL: ${DOYA_PUBLIC_CONTROL_API_URL-http://localhost:6777}
     depends_on:
       - control
       - server

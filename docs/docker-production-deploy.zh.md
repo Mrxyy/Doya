@@ -91,6 +91,11 @@ DOYA_RUNTIME_NODE_ENDPOINT=http://server:6767
 DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT=https://www.codexppt.com
 ```
 
+daemon 会校验 HTTP `Host`，所以 `DOYA_RUNTIME_NODE_ENDPOINT` 使用的主机名也必须出现在
+`DOYA_HOSTNAMES` 里。这里用的是 Docker 内部服务名 `server`，因此
+`DOYA_HOSTNAMES` 必须包含 `server`；否则 control 创建 session workdir 时会被
+daemon 拒绝，报 `{"error":"Invalid Host header"}`。
+
 短信和支付配置也放在同一个文件里：
 
 ```env
@@ -288,7 +293,7 @@ curl -fsS https://www.codexppt.com/healthz
 检查 control：
 
 ```bash
-curl -fsS https://www.codexppt.com/control-api/health
+curl -fsS https://www.codexppt.com/control-api/api/health
 ```
 
 检查 scheduler 返回公开地址：

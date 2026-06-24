@@ -1,10 +1,7 @@
+import type { McpHttpServerConfig, McpServerConfig } from "./agent/agent-sdk-types.js";
+
 const VOICE_PROMPT_BLOCK_START = "<doya_voice_mode>";
 const VOICE_PROMPT_BLOCK_END = "</doya_voice_mode>";
-
-interface HttpMcpServerConfig {
-  type: "http";
-  url: string;
-}
 
 const VOICE_AGENT_SYSTEM_INSTRUCTION = [
   "Doya voice mode is now on.",
@@ -64,23 +61,24 @@ export function wrapSpokenInput(text: string): string {
   return `<spoken-input>\n${text}\n</spoken-input>\n<instruction>This message was spoken by the user. Respond using the speak tool only, not normal messages, because the user may not be looking at the chat.</instruction>`;
 }
 
-export function buildVoiceOnlyMcpServers<T extends Record<string, unknown>>(
+export function buildVoiceOnlyMcpServers(
   baseUrl: string | null,
   agentId: string,
-  existing?: T,
-): (T & { doya_voice: HttpMcpServerConfig }) | T | undefined {
+  existing?: Record<string, McpServerConfig>,
+): Record<string, McpServerConfig> | undefined {
   if (!baseUrl) {
     return existing;
   }
   const url = new URL(baseUrl);
   url.searchParams.set("callerAgentId", agentId);
   url.searchParams.set("voiceOnly", "1");
+  const voiceServer: McpHttpServerConfig = {
+    type: "http",
+    url: url.toString(),
+  };
   return {
     ...existing,
-    doya_voice: {
-      type: "http",
-      url: url.toString(),
-    },
+    doya_voice: voiceServer,
   };
 }
 

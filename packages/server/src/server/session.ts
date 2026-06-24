@@ -1449,14 +1449,13 @@ export class Session {
     }
 
     if (event.event.type === "turn_completed") {
-      void this.handleVoiceTurnCompletedFallback(event.agentId, event.event.turnId).catch(
-        (error) => {
-          this.sessionLogger.warn(
-            { err: error, agentId: event.agentId, turnId: event.event.turnId },
-            "Failed to play voice fallback for completed turn",
-          );
-        },
-      );
+      const turnId = event.event.turnId;
+      void this.handleVoiceTurnCompletedFallback(event.agentId, turnId).catch((error) => {
+        this.sessionLogger.warn(
+          { err: error, agentId: event.agentId, turnId },
+          "Failed to play voice fallback for completed turn",
+        );
+      });
     }
   }
 

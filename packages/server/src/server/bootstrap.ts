@@ -202,7 +202,9 @@ function createAgentMcpBaseUrl(listenTarget: ListenTarget | null): string | null
   ).toString();
 }
 
-function readLockedProviderModel(value: unknown): DoyaDaemonConfig["lockedProviderModel"] {
+function readLockedProviderModel(
+  value: unknown,
+): NonNullable<DoyaDaemonConfig["lockedProviderModel"]> | null {
   if (!isPlainRecord(value)) {
     return null;
   }
