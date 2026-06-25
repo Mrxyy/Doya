@@ -109,6 +109,10 @@ packages/server
 - 前端打开的是 Doya URL，例如 `/ppt-preview/:agentId/:projectId`，不是 `localhost:5050`。
 - 移动端、桌面端、relay 远程访问都走 Doya 现有认证和传输。
 - 预览服务读取 `svg_output/`，所以 agent 每生成一页 SVG，预览即可刷新看到。
+- 预览服务返回给浏览器的 SVG 不是磁盘原文：必须像 PPT Master 原版
+  `svg_editor/server.py` 一样，把 `<use data-icon="...">` 从项目
+  `icons/` 或内置 `templates/icons/` 临时展开成真实 SVG 图形；磁盘上的
+  `svg_output/*.svg` 继续保留占位符，供后续导出链路使用。
 - agent 在 Step 2 项目初始化后必须立即发送一次
   `ai_creation.slides.progress` 协议块，字段
   `preview_path=projects/<project>/svg_output/`；Doya 将其渲染成预览入口。

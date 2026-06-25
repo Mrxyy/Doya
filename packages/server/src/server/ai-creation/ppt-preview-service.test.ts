@@ -24,6 +24,7 @@ describe("ppt preview service", () => {
         '<svg width="1600" height="900" xmlns="http://www.w3.org/2000/svg">',
         '<rect x="0" y="0" width="100" height="100" />',
         '<text x="10" y="20">Hello</text>',
+        '<use data-icon="tabler-outline/cpu" x="20" y="30" width="32" height="32" fill="#1A365D"/>',
         "</svg>",
       ].join(""),
       "utf8",
@@ -87,6 +88,19 @@ describe("ppt preview service", () => {
       /<rect x="0" y="0" width="100" height="100"\s+id="_edit_0"\s*\/>/,
     );
     expect(slide.content).not.toContain("/ id=");
+  });
+
+  it("expands PPT Master data-icon placeholders in preview responses", async () => {
+    const slideResponse = await fetch(
+      `${baseUrl}/ppt-preview/agent-1/demo/api/slide/${encodeURIComponent(slideName)}`,
+    );
+    expect(slideResponse.status).toBe(200);
+    const slide = (await slideResponse.json()) as { content: string };
+    expect(slide.content).not.toContain("<use");
+    expect(slide.content).toContain("<!-- icon: tabler-outline/cpu -->");
+    expect(slide.content).toContain('data-icon="tabler-outline/cpu"');
+    expect(slide.content).toContain('stroke="#1A365D"');
+    expect(slide.content).toContain('transform="translate(20, 30) scale(1.33333333333)"');
   });
 
   it("stages annotations and writes them back on save-all", async () => {

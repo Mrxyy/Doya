@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +17,19 @@ const EDITABLE_ATTR_RE = /^[A-Za-z_][A-Za-z0-9_.:-]*$/;
 const PROTECTED_ATTRS = new Set(["id", "class", "data-edit-target", "data-edit-annotation"]);
 const PROTECTED_ATTR_SUFFIXES = ["href", ":href"];
 const STATIC_ASSET_VERSION = "20260621-annotation-tip-x";
+const USE_ICON_RE = /<use\s+[^>]*data-icon="[^"]*"[^>]*\/>/g;
+const ATTR_RE = /\s([A-Za-z_:][A-Za-z0-9_.:-]*)="([^"]*)"/g;
+const ICON_SHAPE_RE =
+  /<(path|circle|rect|line|polyline|polygon|ellipse)(\s[^>]*)?(?:\/>|><\/\1>)/gs;
+const ICON_BASE_SIZES: Record<string, number> = {
+  "chunk-filled": 16,
+  chunk: 16,
+  "tabler-filled": 24,
+  "tabler-outline": 24,
+  "phosphor-duotone": 256,
+  "simple-icons": 24,
+};
+const DEFAULT_ICON_BASE_SIZE = 24;
 
 interface PptPreviewServiceOptions {
   agentManager: AgentManager;
@@ -39,6 +52,7 @@ interface ResolvedPreviewProject {
   svgOutputPath: string;
   imagesPath: string;
   assetsPath: string;
+  iconsPath: string;
 }
 
 export function createPptPreviewRouter(options: PptPreviewServiceOptions): express.Router {
@@ -206,12 +220,13 @@ class PptPreviewService {
   private async handleSlide(req: express.Request, res: express.Response): Promise<void> {
     const resolved = await this.readSlide(req, res);
     if (!resolved) return;
-    const { content, mtime, slideName } = resolved;
+    const { content, mtime, project, slideName } = resolved;
     const state = this.getSessionState(req);
     const pendingEdits = state.pendingEdits.get(slideName) ?? [];
     const { content: previewContent, annotations } = buildPreviewSvg({
       content,
       basePath: this.previewBasePath(req),
+      projectIconsPath: project.iconsPath,
       memoryAnnotations: state.annotations.get(slideName),
       pendingEdits,
     });
@@ -340,7 +355,12 @@ class PptPreviewService {
   private async readSlide(
     req: express.Request,
     res: express.Response,
-  ): Promise<{ content: string; mtime: number; slideName: string } | null> {
+  ): Promise<{
+    content: string;
+    mtime: number;
+    project: ResolvedPreviewProject;
+    slideName: string;
+  } | null> {
     const project = this.resolvePreviewProject(req, res);
     if (!project) return null;
     const slideName = req.params.slideName;
@@ -354,7 +374,7 @@ class PptPreviewService {
       return null;
     }
     const [content, svgStat] = await Promise.all([readFile(slidePath, "utf8"), stat(slidePath)]);
-    return { content, mtime: svgStat.mtimeMs, slideName };
+    return { content, mtime: svgStat.mtimeMs, project, slideName };
   }
 
   private resolvePreviewProject(
@@ -386,6 +406,7 @@ class PptPreviewService {
       svgOutputPath: path.join(projectPath, "svg_output"),
       imagesPath: path.join(projectPath, "images"),
       assetsPath: path.join(projectPath, "assets"),
+      iconsPath: path.join(projectPath, "icons"),
     };
   }
 
@@ -409,6 +430,7 @@ class PptPreviewService {
 function buildPreviewSvg(input: {
   content: string;
   basePath: string;
+  projectIconsPath: string | undefined;
   memoryAnnotations: Map<string, string> | undefined;
   pendingEdits: readonly StagedEdit[];
 }): {
@@ -420,6 +442,7 @@ function buildPreviewSvg(input: {
   for (const edit of input.pendingEdits) {
     content = applyEditToSvg(content, edit);
   }
+  content = inlineIconPlaceholders(content, input.projectIconsPath);
   content = content.replace(SVG_TAG_RE, (match, tagName: string, attrs = "", slash = "") => {
     const id = ID_ATTR_RE.exec(attrs)?.[1];
     if (!id) return match;
@@ -512,6 +535,228 @@ function applyEditToSvg(content: string, edit: StagedEdit): string {
   return withAttrs.replace(elementRe, (_match, open: string, _body: string, close: string) => {
     return `${open}${escapeXml(edit.text ?? "")}${close}`;
   });
+}
+
+function inlineIconPlaceholders(content: string, projectIconsPath: string | undefined): string {
+  if (!content.includes("data-icon=")) {
+    return content;
+  }
+  return content.replace(USE_ICON_RE, (useElement) => {
+    const attrs = parseXmlAttrs(useElement);
+    const iconName = attrs["data-icon"];
+    if (!iconName) {
+      return useElement;
+    }
+    const icon = loadPreviewIcon(iconName, projectIconsPath);
+    if (!icon || icon.elements.length === 0) {
+      return useElement;
+    }
+    return generatePreviewIconGroup(attrs, icon);
+  });
+}
+
+function parseXmlAttrs(element: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  for (const match of element.matchAll(ATTR_RE)) {
+    attrs[match[1]] = unescapeXml(match[2]);
+  }
+  return attrs;
+}
+
+interface PreviewIcon {
+  elements: string[];
+  style: "fill" | "stroke" | "preserve";
+  viewBox: { minX: number; minY: number; width: number; height: number };
+}
+
+function loadPreviewIcon(
+  iconName: string,
+  projectIconsPath: string | undefined,
+): PreviewIcon | null {
+  const resolved = resolvePreviewIconPath(iconName, projectIconsPath);
+  if (!resolved) {
+    return null;
+  }
+  const content = readFileSync(resolved.iconPath, "utf8");
+  const viewBox = parseSvgViewBox(content) ?? {
+    minX: 0,
+    minY: 0,
+    width: resolved.baseSize,
+    height: resolved.baseSize,
+  };
+  if (content.includes('data-icon-style="preserve-color"')) {
+    const body = /<svg\b[^>]*>([\s\S]*)<\/svg>\s*$/.exec(content)?.[1]?.trim();
+    return { elements: body ? [body] : [], style: "preserve", viewBox };
+  }
+  const style =
+    content.includes('stroke="currentColor"') && content.includes('fill="none"')
+      ? "stroke"
+      : "fill";
+  const elements = [...content.matchAll(ICON_SHAPE_RE)].map((match) => {
+    const tagName = match[1];
+    const rawAttrs = match[2] ?? "";
+    const cleanAttrs = rawAttrs
+      .replace(/\s*fill="(?:currentColor|#[0-9a-fA-F]{3,8}|none)"/g, "")
+      .replace(/\s*stroke="(?:currentColor|#[0-9a-fA-F]{3,8}|none)"/g, "")
+      .replace(/\s*stroke-width="[^"]*"/g, "");
+    return `<${tagName}${cleanAttrs}/>`;
+  });
+  return { elements, style, viewBox };
+}
+
+function resolvePreviewIconPath(
+  iconName: string,
+  projectIconsPath: string | undefined,
+): { iconPath: string; baseSize: number } | null {
+  const candidates = [
+    projectIconsPath ? resolveIconPathInDir(iconName, projectIconsPath) : null,
+    resolveIconPathInDir(iconName, resolveBundledIconLibraryPath()),
+  ].filter((candidate): candidate is { iconPath: string; baseSize: number } => Boolean(candidate));
+  return candidates.find((candidate) => existsSync(candidate.iconPath)) ?? null;
+}
+
+function resolveIconPathInDir(
+  iconName: string,
+  iconsDir: string,
+): { iconPath: string; baseSize: number } | null {
+  if (iconName.includes("\0") || iconName.includes("\\") || iconName.includes("..")) {
+    return null;
+  }
+  if (iconName.includes("/")) {
+    const [rawLibrary, rawName] = iconName.split("/", 2);
+    if (!isSafeLocalName(rawLibrary) || !isSafeLocalName(rawName)) {
+      return null;
+    }
+    const library = rawLibrary === "chunk" ? "chunk-filled" : rawLibrary;
+    return {
+      iconPath: path.join(iconsDir, library, `${rawName}.svg`),
+      baseSize: ICON_BASE_SIZES[library] ?? DEFAULT_ICON_BASE_SIZE,
+    };
+  }
+  if (!isSafeLocalName(iconName)) {
+    return null;
+  }
+  const chunkIconPath = path.join(iconsDir, "chunk-filled", `${iconName}.svg`);
+  if (existsSync(chunkIconPath)) {
+    return { iconPath: chunkIconPath, baseSize: ICON_BASE_SIZES["chunk-filled"] };
+  }
+  return { iconPath: path.join(iconsDir, `${iconName}.svg`), baseSize: ICON_BASE_SIZES.chunk };
+}
+
+function parseSvgViewBox(content: string): PreviewIcon["viewBox"] | null {
+  const match = /viewBox=["']([^"']+)["']/.exec(content);
+  if (!match) {
+    return null;
+  }
+  const parts = match[1]
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
+  if (parts.length < 4 || parts.some((value) => !Number.isFinite(value))) {
+    return null;
+  }
+  const minX = parts[0] ?? 0;
+  const minY = parts[1] ?? 0;
+  const width = parts[2] ?? 0;
+  const height = parts[3] ?? 0;
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+  return { minX, minY, width, height };
+}
+
+function generatePreviewIconGroup(attrs: Record<string, string>, icon: PreviewIcon): string {
+  const x = parseSvgNumber(attrs.x, 0);
+  const y = parseSvgNumber(attrs.y, 0);
+  const width = parseSvgNumber(attrs.width, icon.viewBox.width);
+  const height = parseSvgNumber(attrs.height, icon.viewBox.height);
+  const scaleX = width / icon.viewBox.width;
+  const scaleY = height / icon.viewBox.height;
+  const transform = attrs.transform ?? buildPreviewIconTransform({ x, y, scaleX, scaleY });
+  const previewAttrs = [
+    attrs.id ? `id="${escapeXml(attrs.id)}"` : "",
+    `data-icon="${escapeXml(attrs["data-icon"] ?? "")}"`,
+    attrs.x ? `data-use-x="${escapeXml(attrs.x)}"` : "",
+    attrs.y ? `data-use-y="${escapeXml(attrs.y)}"` : "",
+    attrs.width ? `data-use-width="${escapeXml(attrs.width)}"` : "",
+    attrs.height ? `data-use-height="${escapeXml(attrs.height)}"` : "",
+    attrs.transform ? 'data-use-has-transform="1"' : "",
+  ].filter(Boolean);
+  const color = resolvePreviewIconColor(attrs, icon.style);
+  const colorAttrs = buildPreviewIconColorAttrs({ attrs, color, style: icon.style });
+  let elements = icon.elements.join("\n    ");
+  if (icon.style === "preserve" && (icon.viewBox.minX || icon.viewBox.minY)) {
+    elements = `<g transform="translate(${formatSvgNumber(-icon.viewBox.minX)}, ${formatSvgNumber(
+      -icon.viewBox.minY,
+    )})">\n    ${elements}\n    </g>`;
+  }
+  return `<!-- icon: ${escapeXml(attrs["data-icon"] ?? "unknown")} -->
+  <g ${previewAttrs.join(" ")} transform="${escapeXml(transform)}"${colorAttrs}>
+    ${elements}
+  </g>`;
+}
+
+function buildPreviewIconColorAttrs(input: {
+  attrs: Record<string, string>;
+  color: string;
+  style: PreviewIcon["style"];
+}): string {
+  if (input.style === "preserve") {
+    return "";
+  }
+  if (input.style === "stroke") {
+    return ` fill="none" stroke="${escapeXml(input.color)}" stroke-width="${escapeXml(
+      input.attrs["stroke-width"] ?? "2",
+    )}"`;
+  }
+  return ` fill="${escapeXml(input.color)}"`;
+}
+
+function buildPreviewIconTransform(input: {
+  x: number;
+  y: number;
+  scaleX: number;
+  scaleY: number;
+}): string {
+  const translate = `translate(${formatSvgNumber(input.x)}, ${formatSvgNumber(input.y)})`;
+  if (Math.abs(input.scaleX - 1) < 1e-6 && Math.abs(input.scaleY - 1) < 1e-6) {
+    return translate;
+  }
+  if (Math.abs(input.scaleX - input.scaleY) < 1e-6) {
+    return `${translate} scale(${formatSvgNumber(input.scaleX)})`;
+  }
+  return `${translate} scale(${formatSvgNumber(input.scaleX)}, ${formatSvgNumber(input.scaleY)})`;
+}
+
+function resolvePreviewIconColor(
+  attrs: Record<string, string>,
+  style: PreviewIcon["style"],
+): string {
+  if (style === "preserve") {
+    return "preserve";
+  }
+  const fill = attrs.fill?.trim() ?? "";
+  const stroke = attrs.stroke?.trim() ?? "";
+  if (style === "stroke") {
+    if (fill && fill !== "none") return fill;
+    if (stroke && stroke !== "none") return stroke;
+    return "#000000";
+  }
+  if (fill) return fill;
+  if (stroke && stroke !== "none") return stroke;
+  return "#000000";
+}
+
+function parseSvgNumber(value: string | undefined, fallback: number): number {
+  if (value === undefined) {
+    return fallback;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function formatSvgNumber(value: number): string {
+  return Number.isInteger(value) ? String(value) : String(Number(value.toPrecision(12)));
 }
 
 function parseAnnotationCount(content: string): number {
@@ -618,4 +863,19 @@ function resolveBundledSvgEditorStaticPath(): string {
   }
 
   throw new Error("Bundled ppt-master SVG editor static assets are missing.");
+}
+
+function resolveBundledIconLibraryPath(): string {
+  const candidates = [
+    new URL("../../../assets/skills/ppt-master/templates/icons", import.meta.url),
+    new URL("../../assets/skills/ppt-master/templates/icons", import.meta.url),
+  ].map((url) => fileURLToPath(url));
+
+  for (const candidate of candidates) {
+    if (existsSync(path.join(candidate, "tabler-outline"))) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Bundled ppt-master icon assets are missing.");
 }
