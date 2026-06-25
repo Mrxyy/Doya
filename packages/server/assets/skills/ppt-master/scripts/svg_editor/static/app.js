@@ -313,6 +313,7 @@
     isInspectorSidebarExpanded = expanded;
     updateInspectorSidebarToggle();
     trackAnnotationTipTransition();
+    scheduleSelectedElementIntoView();
   }
 
   function toggleInspectorSidebar() {
@@ -647,6 +648,7 @@
 
         editStackCount[name] = data.undo_depth || 0;
         setupSvgInteraction();
+        centerCanvasOnSlide();
         refreshAnnotationVisuals();
         updateAnnotationList();
         updateUndoButton();
@@ -1018,6 +1020,144 @@
       count > 1 ? t("placeholder_annotation_multi", { count: count }) : t("placeholder_annotation");
     annotationText.value =
       count === 1 ? slideAnnotations[selectedElementIds.values().next().value] || "" : "";
+    scheduleSelectedElementIntoView();
+  }
+
+  function scheduleSelectedElementIntoView() {
+    if (selectedElementIds.size === 0) return;
+    window.requestAnimationFrame(function () {
+      scrollSelectedElementIntoEditableCanvas();
+    });
+  }
+
+  function scrollSelectedElementIntoEditableCanvas() {
+    var svgContainer = document.getElementById("svg-container");
+    if (!svgContainer || selectedElementIds.size === 0) return;
+    var selectedEl = getPrimarySelectedElement();
+    if (!selectedEl) return;
+
+    var containerRect = svgContainer.getBoundingClientRect();
+    var safeRect = getEditableCanvasSafeRect(containerRect);
+    var selectedRect = selectedEl.getBoundingClientRect();
+    if (selectedRect.width === 0 && selectedRect.height === 0) return;
+
+    var margin = 32;
+    var dx = 0;
+    var dy = 0;
+    if (selectedRect.right > safeRect.right - margin) {
+      dx = selectedRect.right - (safeRect.right - margin);
+    } else if (selectedRect.left < safeRect.left + margin) {
+      dx = selectedRect.left - (safeRect.left + margin);
+    }
+    if (selectedRect.bottom > safeRect.bottom - margin) {
+      dy = selectedRect.bottom - (safeRect.bottom - margin);
+    } else if (selectedRect.top < safeRect.top + margin) {
+      dy = selectedRect.top - (safeRect.top + margin);
+    }
+
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    setCanvasOffset(canvasOffsetX - dx, canvasOffsetY - dy);
+  }
+
+  function getPrimarySelectedElement() {
+    var firstId = selectedElementIds.values().next().value;
+    if (!firstId) return null;
+    return svgContent.querySelector("#" + CSS.escape(firstId));
+  }
+
+  function getEditableCanvasSafeRect(containerRect) {
+    var safeRight = containerRect.right;
+    var panel = document.getElementById("panel-right");
+    if (isInspectorSidebarExpanded && panel) {
+      var panelRect = panel.getBoundingClientRect();
+      if (panelRect.width > 0 && panelRect.left > containerRect.left) {
+        safeRight = Math.min(safeRight, panelRect.left);
+      }
+    }
+    return {
+      left: containerRect.left,
+      top: containerRect.top,
+      right: safeRight,
+      bottom: containerRect.bottom,
+    };
+  }
+
+  function centerCanvasOnSlide() {
+    var svgContainer = document.getElementById("svg-container");
+    if (!svgContainer) return;
+    var attempts = 0;
+    function settle() {
+      attempts += 1;
+      fitSlideToViewport(svgContainer);
+      centerSlideInViewport(svgContainer);
+      scheduleAnnotationTipRender();
+      if (attempts < 4) {
+        window.requestAnimationFrame(settle);
+      }
+    }
+    window.requestAnimationFrame(settle);
+  }
+
+  function centerSlideInViewport(svgContainer) {
+    var safeViewport = getEditableCanvasSafeViewport(svgContainer);
+    var contentWidth = svgContent.offsetWidth;
+    var contentHeight = svgContent.offsetHeight;
+    if (contentWidth === 0 || contentHeight === 0) return;
+    var targetLeft = safeViewport.left + (safeViewport.width - contentWidth) / 2;
+    var targetTop = safeViewport.top + (safeViewport.height - contentHeight) / 2;
+    setCanvasOffset(targetLeft, targetTop);
+  }
+
+  function getEditableCanvasSafeViewport(svgContainer) {
+    var left = 0;
+    var width = svgContainer.clientWidth;
+    var height = svgContainer.clientHeight;
+    var panel = document.getElementById("panel-right");
+    if (isInspectorSidebarExpanded && panel) {
+      var containerRect = svgContainer.getBoundingClientRect();
+      var panelRect = panel.getBoundingClientRect();
+      if (panelRect.width > 0 && panelRect.left > containerRect.left) {
+        width = Math.max(0, panelRect.left - containerRect.left);
+      }
+    }
+    return { left: left, top: 0, width: width, height: height };
+  }
+
+  function fitSlideToViewport(svgContainer) {
+    var svg = svgContent.querySelector("svg");
+    if (!svg) return;
+    var size = getSvgNaturalSize(svg);
+    if (!size) return;
+    var safeViewport = getEditableCanvasSafeViewport(svgContainer);
+    var availableWidth = safeViewport.width - 64;
+    var availableHeight = safeViewport.height - 64;
+    if (availableWidth <= 0 || availableHeight <= 0) return;
+    var fitScale = Math.min(1, availableWidth / size.width, availableHeight / size.height);
+    var displayWidth = Math.max(1, Math.floor(size.width * fitScale));
+    var displayHeight = Math.max(1, Math.floor(size.height * fitScale));
+    svg.style.width = displayWidth + "px";
+    svg.style.height = displayHeight + "px";
+  }
+
+  function getSvgNaturalSize(svg) {
+    var viewBox = svg.viewBox && svg.viewBox.baseVal;
+    if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
+      return { width: viewBox.width, height: viewBox.height };
+    }
+    var width = parseFloat(svg.getAttribute("width") || "");
+    var height = parseFloat(svg.getAttribute("height") || "");
+    if (width > 0 && height > 0) {
+      return { width: width, height: height };
+    }
+    return null;
+  }
+
+  function setCanvasOffset(x, y) {
+    canvasOffsetX = x;
+    canvasOffsetY = y;
+    svgContent.style.transform =
+      "translate(" + Math.round(x) + "px, " + Math.round(y) + "px)";
+    scheduleAnnotationTipRender();
   }
 
   // ---- Rubber band selection ----
@@ -1026,6 +1166,10 @@
   var rubberBandUsed = false;
   var suppressNextSvgClick = false;
   var RUBBER_BAND_THRESHOLD = 5;
+  var isCanvasPanReady = false;
+  var canvasPanStart = null;
+  var canvasOffsetX = 0;
+  var canvasOffsetY = 0;
 
   // ---- Drag-to-move (direct geometry edit on the canvas) ----
   // Pressing on an already-selected element drags the whole selection. Frames
@@ -1231,6 +1375,44 @@
     document.body.classList.remove("svg-dragging");
   }
 
+  function isTypingTarget(target) {
+    return (
+      target &&
+      (target === annotationText ||
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT")
+    );
+  }
+
+  function setCanvasPanReady(ready) {
+    isCanvasPanReady = ready;
+    document.body.classList.toggle("canvas-pan-ready", ready);
+  }
+
+  function beginCanvasPan(e, container) {
+    canvasPanStart = {
+      x: e.clientX,
+      y: e.clientY,
+      offsetX: canvasOffsetX,
+      offsetY: canvasOffsetY,
+    };
+    document.body.classList.add("canvas-panning");
+  }
+
+  function updateCanvasPan(e) {
+    if (!canvasPanStart) return;
+    setCanvasOffset(
+      canvasPanStart.offsetX + (e.clientX - canvasPanStart.x),
+      canvasPanStart.offsetY + (e.clientY - canvasPanStart.y),
+    );
+  }
+
+  function endCanvasPan() {
+    canvasPanStart = null;
+    document.body.classList.remove("canvas-panning");
+  }
+
   // Per-element nudge staging is serialized: a held arrow key fires many
   // keydowns, each sending an *absolute* position. Without ordering, the
   // unlocked backend could coalesce them out of order and leave the staged
@@ -1408,6 +1590,12 @@
     var container = document.getElementById("svg-container");
 
     container.addEventListener("mousedown", function (e) {
+      if (e.button === 1 || (e.button === 0 && isCanvasPanReady)) {
+        e.preventDefault();
+        beginCanvasPan(e, container);
+        return;
+      }
+
       // Only left mouse button
       if (e.button !== 0) return;
 
@@ -1428,7 +1616,22 @@
       rubberBandUsed = false;
     });
 
+    container.addEventListener(
+      "wheel",
+      function (e) {
+        e.preventDefault();
+        var dx = e.shiftKey && Math.abs(e.deltaX) < Math.abs(e.deltaY) ? e.deltaY : e.deltaX;
+        var dy = e.shiftKey && Math.abs(e.deltaX) < Math.abs(e.deltaY) ? 0 : e.deltaY;
+        setCanvasOffset(canvasOffsetX - dx, canvasOffsetY - dy);
+      },
+      { passive: false },
+    );
+
     document.addEventListener("mousemove", function (e) {
+      if (canvasPanStart) {
+        updateCanvasPan(e);
+        return;
+      }
       if (dragStart) {
         var ddx = e.clientX - dragStart.x;
         var ddy = e.clientY - dragStart.y;
@@ -1476,6 +1679,10 @@
     });
 
     document.addEventListener("mouseup", function (e) {
+      if (canvasPanStart) {
+        endCanvasPan();
+        return;
+      }
       if (dragStart) {
         if (dragMoved) {
           commitDrag(e.clientX - dragStart.x, e.clientY - dragStart.y);
@@ -1552,6 +1759,18 @@
         closeOverlapPicker();
       }
     });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== " " || e.repeat || isTypingTarget(document.activeElement)) return;
+      e.preventDefault();
+      setCanvasPanReady(true);
+    });
+
+    document.addEventListener("keyup", function (e) {
+      if (e.key !== " ") return;
+      setCanvasPanReady(false);
+      if (canvasPanStart) endCanvasPan();
+    });
   }
 
   function cancelRubberBand() {
@@ -1564,6 +1783,8 @@
     if (ov) ov.classList.remove("active");
     suppressNextSvgClick = false;
     endDrag();
+    endCanvasPan();
+    setCanvasPanReady(false);
     closeOverlapPicker();
   }
 
@@ -1675,6 +1896,7 @@
       // Slide navigation: ArrowLeft/Right + Home/End (skip while typing)
       if (document.activeElement === annotationText) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === " " && isCanvasPanReady) return;
 
       if ((e.key === " " || e.key === "Enter") && revealNextAnimationTarget()) {
         e.preventDefault();

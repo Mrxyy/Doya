@@ -4,6 +4,7 @@ import {
   Text,
   ActivityIndicator,
   Image,
+  type LayoutChangeEvent,
   type PressableStateCallbackType,
 } from "react-native";
 import {
@@ -36,6 +37,7 @@ import {
   X,
   Palette,
   ChevronDown,
+  Grid2x2,
   Sparkles,
 } from "lucide-react-native";
 import Animated from "react-native-reanimated";
@@ -367,6 +369,8 @@ const VISIBLE_QUICK_ACTIONS: readonly ComposerQuickAction[] = [
     selectedLabelKey: "composer.quickAction.selected.spreadsheet",
   },
 ];
+const COMPOSER_QUICK_ACTION_GAP = 4;
+const EMPTY_QUICK_ACTIONS: readonly ComposerQuickAction[] = [];
 
 function ComposerQuickActions({
   selectedMode,
@@ -405,9 +409,68 @@ function ComposerQuickActions({
     );
   }
 
+  return <ComposerQuickActionRow selectedMode={selectedMode} onSelectMode={onSelectMode} />;
+}
+
+function ComposerQuickActionRow({
+  selectedMode,
+  onSelectMode,
+}: {
+  selectedMode: ComposerAiCreationMode | null;
+  onSelectMode: (mode: ComposerAiCreationMode | null) => void;
+}) {
+  const [rowWidth, setRowWidth] = useState(0);
+  const [moreWidth, setMoreWidth] = useState(0);
+  const [measuredWidths, setMeasuredWidths] = useState<Record<string, number>>({});
+  const visibleCount = getVisibleComposerQuickActionCount({
+    itemGap: COMPOSER_QUICK_ACTION_GAP,
+    measuredWidths,
+    moreWidth,
+    rowWidth,
+    actions: VISIBLE_QUICK_ACTIONS,
+  });
+  const visibleActions = VISIBLE_QUICK_ACTIONS.slice(0, visibleCount);
+  const overflowActions = VISIBLE_QUICK_ACTIONS.slice(visibleCount);
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setRowWidth(event.nativeEvent.layout.width);
+  }, []);
+  const handleMeasureMore = useCallback((event: LayoutChangeEvent) => {
+    setMoreWidth(event.nativeEvent.layout.width);
+  }, []);
+  const handleMeasureAction = useCallback((mode: ComposerAiCreationMode, width: number) => {
+    setMeasuredWidths((current) => {
+      if (current[mode] === width) {
+        return current;
+      }
+      return { ...current, [mode]: width };
+    });
+  }, []);
+
   return (
-    <View style={styles.quickActions}>
-      {VISIBLE_QUICK_ACTIONS.map((action) => (
+    <View style={styles.quickActions} onLayout={handleLayout}>
+      <View
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        pointerEvents="none"
+        style={styles.quickActionsMeasureLayer}
+      >
+        {VISIBLE_QUICK_ACTIONS.map((action) => (
+          <ComposerQuickActionButton
+            key={action.mode}
+            action={action}
+            selected={selectedMode === action.mode}
+            onSelect={onSelectMode}
+            includeTestID={false}
+            onMeasure={handleMeasureAction}
+          />
+        ))}
+        <ComposerQuickActionMoreButton
+          actions={EMPTY_QUICK_ACTIONS}
+          onMeasure={handleMeasureMore}
+          onSelect={onSelectMode}
+        />
+      </View>
+      {visibleActions.map((action) => (
         <ComposerQuickActionButton
           key={action.mode}
           action={action}
@@ -415,20 +478,77 @@ function ComposerQuickActions({
           onSelect={onSelectMode}
         />
       ))}
+      {overflowActions.length > 0 ? (
+        <ComposerQuickActionMoreButton actions={overflowActions} onSelect={onSelectMode} />
+      ) : null}
     </View>
   );
 }
 
+interface ComposerQuickActionLayoutInput {
+  actions: readonly ComposerQuickAction[];
+  itemGap: number;
+  measuredWidths: Record<string, number>;
+  moreWidth: number;
+  rowWidth: number;
+}
+
+function getVisibleComposerQuickActionCount({
+  actions,
+  itemGap,
+  measuredWidths,
+  moreWidth,
+  rowWidth,
+}: ComposerQuickActionLayoutInput): number {
+  if (rowWidth <= 0 || moreWidth <= 0) {
+    return actions.length;
+  }
+  const allWidths = actions.map((action) => measuredWidths[action.mode] ?? 0);
+  if (allWidths.some((width) => width <= 0)) {
+    return actions.length;
+  }
+  const totalWidth = allWidths.reduce(
+    (sum, width, index) => sum + width + (index > 0 ? itemGap : 0),
+    0,
+  );
+  if (totalWidth <= rowWidth) {
+    return actions.length;
+  }
+
+  const availableWidth = rowWidth - moreWidth - itemGap;
+  let usedWidth = 0;
+  let visibleCount = 0;
+  for (const width of allWidths) {
+    const nextWidth = usedWidth + width + (visibleCount > 0 ? itemGap : 0);
+    if (nextWidth > availableWidth) {
+      break;
+    }
+    usedWidth = nextWidth;
+    visibleCount += 1;
+  }
+  return visibleCount;
+}
+
 function ComposerQuickActionButton({
   action,
+  includeTestID = true,
+  onMeasure,
   selected,
   onSelect,
 }: {
   action: ComposerQuickAction;
+  includeTestID?: boolean;
+  onMeasure?: (mode: ComposerAiCreationMode, width: number) => void;
   selected: boolean;
   onSelect: (mode: ComposerAiCreationMode | null) => void;
 }) {
   const handlePress = useCallback(() => onSelect(action.mode), [action.mode, onSelect]);
+  const handleLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      onMeasure?.(action.mode, event.nativeEvent.layout.width);
+    },
+    [action.mode, onMeasure],
+  );
   const pressableStyle = useCallback(
     (state: PressableStateCallbackType & { hovered?: boolean }) =>
       quickActionButtonStyle({ ...state, selected }),
@@ -443,11 +563,72 @@ function ComposerQuickActionButton({
       accessibilityRole="button"
       accessibilityState={accessibilityState}
       accessibilityLabel={translateNow(action.labelKey)}
-      testID={`composer-quick-action-${action.mode}`}
+      onLayout={handleLayout}
+      testID={includeTestID ? `composer-quick-action-${action.mode}` : undefined}
     >
       {renderQuickActionIcon(action.mode, ICON_SIZE.md)}
       <Text style={styles.quickActionText}>{translateNow(action.labelKey)}</Text>
     </Pressable>
+  );
+}
+
+function ComposerQuickActionMoreButton({
+  actions,
+  onMeasure,
+  onSelect,
+}: {
+  actions: readonly ComposerQuickAction[];
+  onMeasure?: (event: LayoutChangeEvent) => void;
+  onSelect: (mode: ComposerAiCreationMode | null) => void;
+}) {
+  const label = translateNow("ui.more.options.1o79fcj");
+  const visibleLabel = translateNow("composer.quickAction.more");
+  const triggerStyle = useCallback(
+    ({ hovered, open }: PressableStateCallbackType & { hovered?: boolean; open: boolean }) =>
+      quickActionMoreButtonStyle({ hovered, open }),
+    [],
+  );
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        disabled={actions.length === 0}
+        onLayout={onMeasure}
+        style={triggerStyle}
+        testID={actions.length > 0 ? "composer-quick-action-more" : undefined}
+      >
+        <ThemedGrid2x2 size={ICON_SIZE.md} uniProps={iconForegroundMapping} />
+        <Text style={styles.quickActionText}>{visibleLabel}</Text>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="end" minWidth={180} maxWidth={260}>
+        {actions.map((action) => (
+          <ComposerQuickActionMenuItem key={action.mode} action={action} onSelect={onSelect} />
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ComposerQuickActionMenuItem({
+  action,
+  onSelect,
+}: {
+  action: ComposerQuickAction;
+  onSelect: (mode: ComposerAiCreationMode | null) => void;
+}) {
+  const handleSelect = useCallback(() => onSelect(action.mode), [action.mode, onSelect]);
+  const leading = useMemo(() => renderQuickActionIcon(action.mode, ICON_SIZE.md), [action.mode]);
+
+  return (
+    <DropdownMenuItem
+      leading={leading}
+      onSelect={handleSelect}
+      testID={`composer-quick-action-overflow-${action.mode}`}
+    >
+      {translateNow(action.labelKey)}
+    </DropdownMenuItem>
   );
 }
 
@@ -697,6 +878,17 @@ function quickActionButtonStyle({
     styles.quickActionButton,
     selected && styles.quickActionButtonSelected,
     Boolean(hovered) && styles.iconButtonHovered,
+  ];
+}
+
+function quickActionMoreButtonStyle({
+  hovered,
+  open,
+}: PressableStateCallbackType & { hovered?: boolean; open: boolean }) {
+  return [
+    styles.quickActionButton,
+    styles.quickActionMoreButton,
+    (Boolean(hovered) || open) && styles.iconButtonHovered,
   ];
 }
 
@@ -2523,15 +2715,30 @@ const styles = StyleSheet.create((theme: Theme) => ({
     gap: theme.spacing[1],
   },
   quickActions: {
+    position: "relative",
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[1],
     marginLeft: theme.spacing[1],
     minWidth: 0,
+    flexBasis: 0,
+    flexGrow: 1,
     flexShrink: 1,
+    overflow: "hidden",
+  },
+  quickActionsMeasureLayer: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    opacity: 0,
+    zIndex: -1,
   },
   quickActionButton: {
     height: 28,
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -2542,6 +2749,9 @@ const styles = StyleSheet.create((theme: Theme) => ({
   },
   quickActionButtonSelected: {
     backgroundColor: theme.colors.surface2,
+  },
+  quickActionMoreButton: {
+    paddingHorizontal: theme.spacing[1.5],
   },
   quickActionText: {
     color: theme.colors.foreground,
@@ -2759,6 +2969,7 @@ const ThemedTable2 = withUnistyles(Table2);
 const ThemedX = withUnistyles(X);
 const ThemedPalette = withUnistyles(Palette);
 const ThemedChevronDown = withUnistyles(ChevronDown);
+const ThemedGrid2x2 = withUnistyles(Grid2x2);
 const ThemedSquare = withUnistyles(Square);
 const ThemedSparkles = withUnistyles(Sparkles);
 
