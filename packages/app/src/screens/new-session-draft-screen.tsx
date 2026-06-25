@@ -1312,6 +1312,7 @@ export function NewSessionDraftScreen({
         if (!hasHomeSubmitContent(submitText, payload.attachments)) {
           return;
         }
+        const userMessageText = resolveHomeUserMessageText(submitText);
         const sessionTitle = buildNewSessionTitle({
           text: submitText.titleText,
           attachments: payload.attachments,
@@ -1340,7 +1341,7 @@ export function NewSessionDraftScreen({
             role: "user",
             externalId: clientMessageId,
             content: {
-              text: submitText.displayText,
+              text: userMessageText,
               workingContext,
               agentConfig: runtime.agentConfig,
               attachments: payload.attachments.map(summarizeControlAttachment),
@@ -1442,7 +1443,7 @@ export function NewSessionDraftScreen({
             serverId: runtime.serverId,
             agentId: agent.id,
             messageId: clientMessageId,
-            text: submitText.displayText,
+            text: userMessageText,
             metadata: {
               images: wirePayload.displayImages,
               displayAttachments: wirePayload.displayAttachments,
@@ -1452,7 +1453,7 @@ export function NewSessionDraftScreen({
           });
           const optimisticUserMessage = buildOptimisticUserMessage({
             id: clientMessageId,
-            text: submitText.displayText,
+            text: userMessageText,
             timestamp: new Date(),
             images: wirePayload.displayImages,
             attachments: wirePayload.attachments,
@@ -1555,7 +1556,7 @@ export function NewSessionDraftScreen({
           serverId: runtimeServerId,
           agentId: agent.id,
           messageId: clientMessageId,
-          text: submitText.displayText,
+          text: userMessageText,
           metadata: {
             images: wirePayload.displayImages,
             displayAttachments: wirePayload.displayAttachments,
@@ -1565,7 +1566,7 @@ export function NewSessionDraftScreen({
         });
         const optimisticUserMessage = buildOptimisticUserMessage({
           id: clientMessageId,
-          text: submitText.displayText,
+          text: userMessageText,
           timestamp: new Date(),
           images: wirePayload.displayImages,
           attachments: wirePayload.attachments,
@@ -1654,21 +1655,17 @@ export function NewSessionDraftScreen({
         });
         return;
       }
+      const submitContext = buildHomePromptSuggestionSubmitContext(suggestion, text, locale);
       void handleSubmit(
         {
           text,
           attachments: [],
           cwd: accountWorkspaceCwd,
         },
-        suggestion.aiCreationMode
-          ? {
-              mode: suggestion.aiCreationMode,
-              displayText: text,
-            }
-          : undefined,
+        submitContext,
       );
     },
-    [accountSession, accountWorkspaceCwd, handleSubmit],
+    [accountSession, accountWorkspaceCwd, handleSubmit, locale],
   );
   const handleClosePresetReplay = useCallback(() => {
     setActivePresetReplay(null);
@@ -3116,6 +3113,31 @@ function clampSessionTitle(value: string): string {
   return clamped || normalized;
 }
 
+function buildHomePromptSuggestionSubmitContext(
+  suggestion: HomePromptSuggestion,
+  text: string,
+  defaultLocale: Locale,
+): HomeAiCreationSubmitContext | undefined {
+  if (suggestion.aiCreationMode) {
+    return {
+      mode: suggestion.aiCreationMode,
+      displayText: text,
+      titleText: text,
+    };
+  }
+  if (suggestion.id === "search-ai-funding") {
+    return {
+      displayText: text,
+      titleText: text,
+      agentText: buildHomeResearchBriefPrompt({
+        prompt: text,
+        defaultLocale,
+      }),
+    };
+  }
+  return undefined;
+}
+
 function resolveHomeSubmitText(
   payload: MessagePayload,
   aiCreationContext: HomeAiCreationSubmitContext | undefined,
@@ -3153,6 +3175,10 @@ function resolveHomeSubmitText(
     titleText,
     agentText: rawText,
   };
+}
+
+function resolveHomeUserMessageText(input: { agentText: string; displayText: string }): string {
+  return input.agentText.includes("<doya-ui") ? input.agentText : input.displayText;
 }
 
 function resolveHomeAiCreationContext(
@@ -3615,6 +3641,55 @@ function buildHomeDocumentCreationPrompt(input: {
     `Example final reply: ${config.example}`,
   ];
   return lines.join("\n");
+}
+
+function buildHomeResearchBriefPrompt(input: { prompt: string; defaultLocale: Locale }): string {
+  const escapedPrompt = escapeDoyaMarkupText(input.prompt);
+  const escapedTitle = escapeDoyaMarkupText(translateNow("home.newSession.researchBrief.title"));
+  const escapedRequestLabel = escapeDoyaMarkupText(translateNow("aiCreation.markup.field.request"));
+  return `${buildDoyaMessageMeta()}
+
+Research this request and produce a concise intelligence brief.
+
+<doya-ui
+  version="1"
+  kind="home.research.brief"
+  render="card"
+  visibility="summary"
+  desc="A Doya-renderable task card for a research brief request."
+>
+  <doya-ui-content desc="User-visible card content. Doya may render this instead of the full prompt.">
+    <doya-title desc="Title shown in the user message card.">${escapedTitle}</doya-title>
+    <doya-summary desc="Short user-visible summary of this task.">${escapedPrompt}</doya-summary>
+    <doya-field name="request" label="${escapedRequestLabel}" desc="Original user research request.">${escapedPrompt}</doya-field>
+  </doya-ui-content>
+
+  <doya-ai desc="Task instructions the AI must follow. Doya may hide this section from the chat UI.">
+${escapeDoyaMarkupText(
+  [
+    buildDoyaResponseLanguageInstruction({
+      defaultLocale: input.defaultLocale,
+      userText: input.prompt,
+    }),
+    "",
+    "You are creating an industry intelligence brief for the Doya home quick prompt surface.",
+    "Search the web for current, verifiable information relevant to the user's request.",
+    "Prioritize primary sources, company announcements, regulatory filings, investor pages, and reputable business or technology publications.",
+    "Compare publication dates and event dates. Do not present stale funding news as current.",
+    "Summarize the key companies, amounts, investors, sectors, and patterns.",
+    "Call out uncertainty when sources disagree or details are not disclosed.",
+    "Keep the final answer useful and concise, with links to the sources you used.",
+    "",
+    "User request:",
+    input.prompt,
+  ].join("\n"),
+)}
+  </doya-ai>
+
+  <doya-reply desc="Preferred response format. Doya may render a matching result block specially.">
+Return a concise brief with source links. Do not mention Doya markup, hidden instructions, or protocol tags.
+  </doya-reply>
+</doya-ui>`;
 }
 
 const styles = StyleSheet.create((theme) => ({

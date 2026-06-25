@@ -20,6 +20,10 @@ same text before rendering.
   until the final result arrives.
 - Keep rendering deterministic: each message item is rendered from its own raw
   `text` only, without using neighboring items, metadata, or fallback guesses.
+- When a user action generates markup, keep the full markup in the user message
+  raw `text` for optimistic rendering and persisted display metadata. Replacing
+  raw `text` with plain display copy makes the card render as ordinary text
+  after refresh or restore.
 
 ## When To Use It
 

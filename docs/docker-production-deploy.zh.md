@@ -54,7 +54,31 @@ https://www.codexppt.com/control-api/ -> control 容器 6777
 docker login
 ```
 
-构建并推送：
+生产服务器是 `linux/amd64` 时，构建命令必须显式指定目标平台。尤其本地是
+Apple Silicon、OrbStack 或其他 `arm64` 环境时，普通 `docker compose build`
+会构建本机架构镜像；把 `arm64` 镜像推到 `amd64` 服务器后，容器会因为
+`exec format error` 启动失败。
+
+为 `amd64` 服务器构建并推送：
+
+```bash
+docker buildx build --platform linux/amd64 --target server \
+  --build-arg EXPO_PUBLIC_LOCAL_DAEMON= \
+  --build-arg EXPO_PUBLIC_CONTROL_API_URL= \
+  -t jadenxiong/doya-server:latest --push .
+docker buildx build --platform linux/amd64 --target control \
+  --build-arg EXPO_PUBLIC_LOCAL_DAEMON= \
+  --build-arg EXPO_PUBLIC_CONTROL_API_URL= \
+  -t jadenxiong/doya-control:latest --push .
+docker buildx build --platform linux/amd64 --target app \
+  --build-arg EXPO_PUBLIC_LOCAL_DAEMON= \
+  --build-arg EXPO_PUBLIC_CONTROL_API_URL= \
+  -t jadenxiong/doya-app:latest --push .
+```
+
+这两个空 build arg 要保留，避免前端 bundle 写入本地默认地址。
+
+普通 compose 构建只适合本机架构和本地调试：
 
 ```bash
 docker compose --env-file docker/.env build

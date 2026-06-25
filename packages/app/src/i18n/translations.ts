@@ -428,6 +428,7 @@ export const en = {
     "Generate a quarterly restaurant budget spreadsheet with formulas and charts",
   "home.newSession.prompt.searchAiFunding":
     "News: search this week’s AI startup funding and generate an industry intelligence brief",
+  "home.newSession.researchBrief.title": "Research brief",
   "home.newSession.share.accessibility": "Share",
   "home.newSession.share.title": "Share {brand}",
   "home.newSession.share.subtitle": "Share your AI workspace with friends",
@@ -2237,6 +2238,7 @@ export const zh: Record<keyof typeof en, string> = {
   "home.newSession.prompt.sheetBudget": "生成一份带公式和图表的预算表格",
   "home.newSession.prompt.sheetRestaurantBudget": "生成一份含公式和图表的餐厅季度预算表",
   "home.newSession.prompt.searchAiFunding": "资讯：搜索本周 AI 创业公司融资动态并生成行业情报简报",
+  "home.newSession.researchBrief.title": "资讯简报",
   "home.newSession.share.accessibility": "分享",
   "home.newSession.share.title": "分享{brand}",
   "home.newSession.share.subtitle": "把你的 AI 工作台分享给朋友",
