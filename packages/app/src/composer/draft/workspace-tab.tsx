@@ -45,7 +45,7 @@ import {
   useWorkspaceAttachmentScopeKey,
 } from "@/attachments/workspace-attachments-store";
 import { MAX_CONTENT_WIDTH, useIsCompactFormFactor } from "@/constants/layout";
-import { isWeb } from "@/constants/platform";
+import { isDev, isWeb } from "@/constants/platform";
 import type { WorkspaceDraftTabSetup } from "@/stores/workspace-tabs-store";
 import { translateNow } from "@/i18n/i18n";
 import { ConversationReplayDraftControls } from "@/replay/conversation-replay-composer-controls";
@@ -670,7 +670,7 @@ export function WorkspaceDraftAgentTab({
   const handleDropdownCloseFocus = useCallback(() => {
     focusInputRef.current?.();
   }, []);
-  const importPillPress = resolveImportPillPress(onOpenImportSheet, isSubmitting);
+  const importPillPress = isDev ? resolveImportPillPress(onOpenImportSheet, isSubmitting) : null;
   const composerAgentControls = useMemo(
     () => ({
       ...composerState.agentControls,

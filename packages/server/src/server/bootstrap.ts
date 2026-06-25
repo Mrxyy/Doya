@@ -202,6 +202,13 @@ function createAgentMcpBaseUrl(listenTarget: ListenTarget | null): string | null
   ).toString();
 }
 
+function getRequestPublicBaseUrl(req: express.Request): string {
+  const forwardedProto = req.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  const protocol =
+    forwardedProto === "https" || forwardedProto === "http" ? forwardedProto : req.protocol;
+  return `${protocol}://${req.get("host") ?? "localhost"}`;
+}
+
 function readLockedProviderModel(
   value: unknown,
 ): NonNullable<DoyaDaemonConfig["lockedProviderModel"]> | null {
@@ -899,7 +906,7 @@ export async function createDoyaDaemon(
     const accessToken =
       typeof req.query.access_token === "string" ? req.query.access_token.trim() : "";
     const version = typeof req.query.v === "string" ? req.query.v.trim() : "";
-    const baseUrl = `${req.protocol}://${req.get("host") ?? "localhost"}`;
+    const baseUrl = getRequestPublicBaseUrl(req);
     const pluginBaseUrl = `${baseUrl}/api/onlyoffice/doya-selection-plugin/`;
     const url = new URL("index.html", pluginBaseUrl);
     url.searchParams.set("document_key", documentKey);
@@ -940,7 +947,7 @@ export async function createDoyaDaemon(
     const accessToken =
       typeof req.query.access_token === "string" ? req.query.access_token.trim() : "";
     const version = typeof req.query.v === "string" ? req.query.v.trim() : "";
-    const baseUrl = `${req.protocol}://${req.get("host") ?? "localhost"}`;
+    const baseUrl = getRequestPublicBaseUrl(req);
     const scriptUrl = new URL("/api/onlyoffice/doya-selection-plugin/plugin.js", baseUrl);
     scriptUrl.searchParams.set("document_key", documentKey);
     if (version) {
@@ -969,7 +976,7 @@ export async function createDoyaDaemon(
       typeof req.query.document_key === "string" ? req.query.document_key.trim() : "";
     const accessToken =
       typeof req.query.access_token === "string" ? req.query.access_token.trim() : "";
-    const baseUrl = `${req.protocol}://${req.get("host") ?? "localhost"}`;
+    const baseUrl = getRequestPublicBaseUrl(req);
     const captureUrl = new URL("/api/onlyoffice/selection-capture", baseUrl);
     captureUrl.searchParams.set("document_key", documentKey);
     if (accessToken) {

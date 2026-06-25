@@ -65,6 +65,9 @@ When using `doya.json` service orchestration, the `control` service and app env
 are wired together by the service config. The daemon remains the runtime node;
 control owns account/session/history state.
 
+For local SMS login testing, the control service loads `docker/.env` when the
+file exists. Values already exported in the shell take precedence over the file.
+
 Paid plan upgrades are created by the control service. Configure the real
 gateway with a private `$DOYA_CONTROL_HOME/payment.json` file, or with
 environment variables for deploys. Never put the merchant key in app code.
@@ -390,7 +393,7 @@ The compose stack stores daemon state in the `doya_home` Docker volume, control
 state in the `doya_control_home` Docker volume, and mounts `./workspaces` at
 `/workspaces` for projects. Agent provider CLIs and their auth still need to
 exist inside the server container or be added by extending the server image.
-SMS login credentials (`DOYA_DOTSMS_*`) and payment credentials (`DOYA_PAYMENT_*`)
+SMS login credentials (`DOYA_SMS_*`) and payment credentials (`DOYA_PAYMENT_*`)
 are passed to the control service.
 
 Runtime node registration keeps two daemon addresses when needed:
@@ -435,8 +438,13 @@ Start the local ONLYOFFICE stack with:
 npm run onlyoffice:up
 ```
 
-This runs `onlyoffice/documentserver` on `http://127.0.0.1:8082`. When the
-document server downloads a file, it cannot use the host machine's
+This runs `onlyoffice/documentserver` on `http://127.0.0.1:8082`. Local
+development uses that address by default. Production web builds use
+ONLYOFFICE only when `EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL` is set to the
+browser-visible document server URL; otherwise XLSX files fall back to Doya's
+built-in table preview.
+
+When the document server downloads a file, it cannot use the host machine's
 `localhost:6767`, so the app rewrites local file URLs to
 `host.docker.internal:6767`. The compose file maps `host.docker.internal` to the
 Docker host gateway for Linux-compatible runtimes.

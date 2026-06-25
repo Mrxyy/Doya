@@ -86,23 +86,18 @@ npm run dev:control
 secret：
 
 ```bash
-DOYA_DOTSMS_APIKEY=...
-DOYA_DOTSMS_SECRET=...
-DOYA_DOTSMS_SIGN_ID=...
-DOYA_DOTSMS_TEMPLATE_ID=...
+DOYA_SMS_ACCOUNT=...
+DOYA_SMS_PASSWORD=...
+DOYA_SMS_URL=...
 ```
 
-默认使用点信模板短信接口 `https://api.dotsms.cn/sms/template`。如需调试或切换网关，可用
-`DOYA_DOTSMS_URL` 覆盖。
+默认使用梦网通道接口 `http://mxthk.weiwebs.cn/msg/HttpVarSM`。如需调试或切换网关，可用
+`DOYA_SMS_URL` 覆盖。
 
-`DOYA_DOTSMS_TEMPLATE_ID` 必须指向点信后台已审核通过的完整验证码模板。根据
-[点信模板短信文档](https://www.dotsms.cn/devs/dev24.html)，`content` 是模板变量值，
-多个变量用 `||` 按顺序分隔，不是完整短信正文。代码只把 6 位验证码作为模板变量传给
-网关；短信签名由 `DOYA_DOTSMS_SIGN_ID` 生成，正文由模板 ID 决定。当前期望模板正文是：
+短信服务使用表单 POST，发送 `account`、`pswd`、`msg`、`params`、`needstatus`、
+`resptype`。`msg` 保持模板变量 `{$var}`，`params` 按 `手机号,验证码` 传入。当前期望
+短信正文是：
 
 ```text
-您的验证码是:{验证码}，感谢您的使用，请不要向他人分享验证码。
+【本地宝】您的验证码是：{验证码}，感谢您的使用，请不要向他人分享验证码。
 ```
-
-如果 `DOYA_DOTSMS_URL` 覆盖为普通短信接口 `https://api.dotsms.cn/sms/send`，
-`content` 是完整短信内容，代码会发送同等正文并且不传 `template_id`。

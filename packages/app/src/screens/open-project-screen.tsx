@@ -711,7 +711,7 @@ function EmailLoginForm({
         accessibilityLabel={t("openProject.accountAuth.email")}
         value={accountEmail}
         onChangeText={onEmailChange}
-        placeholder="you@example.com"
+        placeholder={t("openProject.accountAuth.emailPlaceholder")}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"

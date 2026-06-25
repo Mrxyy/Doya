@@ -139,7 +139,6 @@ import {
   useControlSessions,
   type ControlSessionAgentBindingSummary,
 } from "@/control/use-control-sessions";
-import { useArchiveAgent } from "@/hooks/use-archive-agent";
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { createWorkspaceBrowser, useBrowserStore } from "@/stores/browser-store";
 import { getDesktopHost } from "@/desktop/host";
@@ -197,7 +196,6 @@ import {
   classifyBulkClosableTabs,
   closeBulkWorkspaceTabs,
 } from "@/screens/workspace/workspace-bulk-close";
-import { resolveCloseAgentTabPolicy } from "@/subagents";
 import { findAdjacentPane } from "@/utils/split-navigation";
 import { isAbsolutePath } from "@/utils/path";
 import { useIsCompactFormFactor, supportsDesktopPaneSplits } from "@/constants/layout";
@@ -1951,8 +1949,6 @@ function WorkspaceScreenContent({
     onWorkspacePathUnavailable: handleWorkspacePathUnavailable,
     onTerminalCreateQueued: handleTerminalCreateQueued,
   });
-  const { archiveAgent } = useArchiveAgent();
-
   const { checkoutQuery, isCheckoutStatusLoading } = useWorkspaceCheckoutStatus({
     client,
     isConnected,
@@ -2988,28 +2984,6 @@ function WorkspaceScreenContent({
     async (input: { tabId: string; agentId: string }) => {
       const { tabId, agentId } = input;
       await closeTab(tabId, async () => {
-        if (!normalizedServerId) {
-          return;
-        }
-
-        const agent =
-          useSessionStore.getState().sessions[normalizedServerId]?.agents?.get(agentId) ?? null;
-        const closePolicy = resolveCloseAgentTabPolicy(agent);
-        const isRunning = agent?.status === "running" || agent?.status === "initializing";
-
-        if (isRunning && closePolicy.kind === "archive-on-close") {
-          const confirmed = await confirmDialog({
-            title: translateNow("ui.archive.running.agent.1jcvxcp"),
-            message: translateNow("ui.this.agent.is.still.running.archiving.it.will.1nvj0yv"),
-            confirmLabel: translateNow("ui.archive.f5ovxe"),
-            cancelLabel: translateNow("ui.cancel.x9d2fu"),
-            destructive: true,
-          });
-          if (!confirmed) {
-            return;
-          }
-        }
-
         setHoveredCloseTabKey((current) => (current === tabId ? null : current));
         if (persistenceKey) {
           closeWorkspaceTabWithCleanup({
@@ -3017,16 +2991,9 @@ function WorkspaceScreenContent({
             target: { kind: "agent", agentId },
           });
         }
-
-        if (closePolicy.kind === "layout-only") {
-          return;
-        }
-
-        // Errors (e.g. timeout) are handled by the mutation's onSettled callback
-        void archiveAgent({ serverId: normalizedServerId, agentId }).catch(() => {});
       });
     },
-    [archiveAgent, closeTab, closeWorkspaceTabWithCleanup, normalizedServerId, persistenceKey],
+    [closeTab, closeWorkspaceTabWithCleanup, persistenceKey],
   );
 
   const handleCloseDraftOrFileTab = useCallback(

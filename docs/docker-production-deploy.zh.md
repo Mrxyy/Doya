@@ -12,13 +12,13 @@
 
 生产环境有四个常驻容器和一个一次性注册容器：
 
-| 服务                    | 容器端口 | 宿主端口 | 用途                                 |
-| ----------------------- | -------- | -------- | ------------------------------------ |
-| `app`                   | `80`     | `8080`   | Web 前端                             |
-| `server`                | `6767`   | `6767`   | Doya daemon、WebSocket、agent 运行时 |
-| `control`               | `6777`   | `6777`   | 登录、短信、支付、节点调度、后台接口 |
-| `onlyoffice-document-server` | `80` | `8082` | ONLYOFFICE 文档预览                  |
-| `runtime-node-register` | 无       | 无       | 一次性把 daemon 节点注册到 control   |
+| 服务                         | 容器端口 | 宿主端口 | 用途                                 |
+| ---------------------------- | -------- | -------- | ------------------------------------ |
+| `app`                        | `80`     | `8080`   | Web 前端                             |
+| `server`                     | `6767`   | `6767`   | Doya daemon、WebSocket、agent 运行时 |
+| `control`                    | `6777`   | `6777`   | 登录、短信、支付、节点调度、后台接口 |
+| `onlyoffice-document-server` | `80`     | `8082`   | ONLYOFFICE 文档预览                  |
+| `runtime-node-register`      | 无       | 无       | 一次性把 daemon 节点注册到 control   |
 
 nginx 对外暴露域名，例如：
 
@@ -55,47 +55,35 @@ docker login
 ```
 
 生产服务器是 `linux/amd64` 时，构建命令必须显式指定目标平台。尤其本地是
-Apple Silicon、OrbStack 或其他 `arm64` 环境时，普通 `docker compose build`
-会构建本机架构镜像；把 `arm64` 镜像推到 `amd64` 服务器后，容器会因为
-`exec format error` 启动失败。
+Apple Silicon、OrbStack 或其他 `arm64` 环境时，compose 构建要设置
+`DOCKER_DEFAULT_PLATFORM=linux/amd64`；否则会构建本机架构镜像，把 `arm64` 镜像推到
+`amd64` 服务器后，容器会因为 `exec format error` 启动失败。
 
 为 `amd64` 服务器构建并推送：
 
 ```bash
-docker buildx build --platform linux/amd64 --target server \
-  --build-arg EXPO_PUBLIC_LOCAL_DAEMON= \
-  --build-arg EXPO_PUBLIC_CONTROL_API_URL= \
-  -t jadenxiong/doya-server:latest --push .
-docker buildx build --platform linux/amd64 --target control \
-  --build-arg EXPO_PUBLIC_LOCAL_DAEMON= \
-  --build-arg EXPO_PUBLIC_CONTROL_API_URL= \
-  -t jadenxiong/doya-control:latest --push .
-docker buildx build --platform linux/amd64 --target app \
-  --build-arg EXPO_PUBLIC_LOCAL_DAEMON= \
-  --build-arg EXPO_PUBLIC_CONTROL_API_URL= \
-  -t jadenxiong/doya-app:latest --push .
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose --env-file docker/.env build server control app
+docker compose --env-file docker/.env push server control app
 ```
 
-这两个空 build arg 要保留，避免前端 bundle 写入本地默认地址。
-
-普通 compose 构建只适合本机架构和本地调试：
-
-```bash
-docker compose --env-file docker/.env build
-docker compose --env-file docker/.env push
-```
+这会使用 `docker-compose.yml` 里的 build args，并从 `docker/.env` 读取实际值。
+`DOYA_PUBLIC_DAEMON` 和 `DOYA_PUBLIC_CONTROL_API_URL` 可以在 env 里留空，避免前端 bundle
+写入本地默认 daemon/control 地址。
+`EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL` 是浏览器直接加载的 ONLYOFFICE Docs 地址。
+非域名访问使用这个变量，例如 `http://64.83.17.170:8082`；域名访问时前端会优先使用当前域名的
+`/onlyoffice` 代理，避免 HTTPS 页面嵌入 HTTP 服务。
 
 如果只改了前端，也可以只推 app 镜像：
 
 ```bash
-docker compose --env-file docker/.env build app
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose --env-file docker/.env build app
 docker compose --env-file docker/.env push app
 ```
 
 如果只改了 control，也可以只推 control 镜像：
 
 ```bash
-docker compose --env-file docker/.env build control
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose --env-file docker/.env build control
 docker compose --env-file docker/.env push control
 ```
 
@@ -119,6 +107,9 @@ DOYA_RUNTIME_NODE_ENDPOINT=http://server:6767
 
 # 浏览器访问 daemon 用，scheduler 会把这个地址返回给前端。
 DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT=https://www.codexppt.com
+
+# 前端 XLSX 预览使用的 ONLYOFFICE Docs 地址。
+EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL=http://64.83.17.170:8082
 ```
 
 daemon 会校验 HTTP `Host`，所以 `DOYA_RUNTIME_NODE_ENDPOINT` 使用的主机名也必须出现在
@@ -129,11 +120,9 @@ daemon 拒绝，报 `{"error":"Invalid Host header"}`。
 短信和支付配置也放在同一个文件里：
 
 ```env
-DOYA_DOTSMS_APIKEY=...
-DOYA_DOTSMS_SECRET=...
-DOYA_DOTSMS_SIGN_ID=...
-DOYA_DOTSMS_TEMPLATE_ID=...
-DOYA_DOTSMS_URL=...
+DOYA_SMS_ACCOUNT=...
+DOYA_SMS_PASSWORD=...
+DOYA_SMS_URL=http://mxthk.weiwebs.cn/msg/HttpVarSM
 
 DOYA_PAYMENT_MERCHANT_ID=...
 DOYA_PAYMENT_MERCHANT_KEY=...
@@ -160,6 +149,7 @@ scp docker-compose.onlyoffice.yml root@64.83.17.170:/opt/doya/docker-compose.onl
 ssh root@64.83.17.170 'mkdir -p /opt/doya/packages/server/docker'
 scp packages/server/docker/onlyoffice-entrypoint.sh root@64.83.17.170:/opt/doya/packages/server/docker/onlyoffice-entrypoint.sh
 scp packages/server/docker/onlyoffice-local.json root@64.83.17.170:/opt/doya/packages/server/docker/onlyoffice-local.json
+scp docker/nginx-production.conf root@64.83.17.170:/opt/doya/docker/nginx-production.conf
 scp docker/.env root@64.83.17.170:/opt/doya/docker/.env
 ```
 
@@ -170,8 +160,20 @@ cd /opt/doya
 docker compose -f docker-compose.deploy.yml --env-file docker/.env pull
 docker compose -f docker-compose.onlyoffice.yml pull
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up -d
-docker compose -f docker-compose.onlyoffice.yml up -d
+docker compose -f docker-compose.onlyoffice.yml up -d --force-recreate onlyoffice-document-server
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up --force-recreate runtime-node-register
+```
+
+刚推完 `latest` 后，Docker Hub 可能短时间内让服务器第一次 `pull` 看到旧 digest。部署后核对
+`docker image inspect jadenxiong/doya-server:latest jadenxiong/doya-app:latest` 的
+`Created`/`RepoDigests`；如果仍是旧镜像，单独再 `pull` 对应服务并 `up -d --force-recreate`。
+
+修改 `packages/server/docker/onlyoffice-entrypoint.sh` 或
+`packages/server/docker/onlyoffice-local.json` 后，需要强制重建 ONLYOFFICE 容器。compose
+会把这些文件挂载进容器，但入口脚本只在容器启动时执行：
+
+```bash
+docker compose -f docker-compose.onlyoffice.yml up -d --force-recreate onlyoffice-document-server
 ```
 
 ## 日常一键更新
@@ -183,9 +185,13 @@ cd /opt/doya
 docker compose -f docker-compose.deploy.yml --env-file docker/.env pull
 docker compose -f docker-compose.onlyoffice.yml pull
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up -d
-docker compose -f docker-compose.onlyoffice.yml up -d
+docker compose -f docker-compose.onlyoffice.yml up -d --force-recreate onlyoffice-document-server
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up --force-recreate runtime-node-register
 ```
+
+日常发布也固定重建 ONLYOFFICE。它的 `onlyoffice-entrypoint.sh` 会在容器启动时合并
+`local.json` 并打入 Doya 的预览 CSS；即使这次没有改 ONLYOFFICE 文件，也让容器重新跑一遍入口脚本，
+保持发布结果一致。
 
 如果只更新前端：
 
@@ -193,6 +199,7 @@ docker compose -f docker-compose.deploy.yml --env-file docker/.env up --force-re
 cd /opt/doya
 docker compose -f docker-compose.deploy.yml --env-file docker/.env pull app
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up -d app
+docker compose -f docker-compose.onlyoffice.yml up -d --force-recreate onlyoffice-document-server
 ```
 
 如果只更新 control，并且节点注册配置也变了：
@@ -201,12 +208,15 @@ docker compose -f docker-compose.deploy.yml --env-file docker/.env up -d app
 cd /opt/doya
 docker compose -f docker-compose.deploy.yml --env-file docker/.env pull control
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up -d control
+docker compose -f docker-compose.onlyoffice.yml up -d --force-recreate onlyoffice-document-server
 docker compose -f docker-compose.deploy.yml --env-file docker/.env up --force-recreate runtime-node-register
 ```
 
 ## nginx 配置
 
-宿主机 nginx 负责 HTTPS 证书和反向代理。核心配置如下：
+宿主机 nginx 负责 HTTPS 证书和反向代理。仓库里的
+`docker/nginx-production.conf` 是可直接拷贝的核心配置；如果服务器上已有
+Certbot/HTTPS server block，把下面这些 `location` 合并进去即可。
 
 ```nginx
 location /ws {
@@ -227,6 +237,35 @@ location /control-api/ {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location /onlyoffice/ {
+    proxy_pass http://127.0.0.1:8082/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $http_host;
+    proxy_set_header X-Forwarded-Prefix /onlyoffice;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+}
+
+location /cache/ {
+    proxy_pass http://127.0.0.1:8082/cache/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $http_host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
 }
 
 location /ppt-confirm/ {
@@ -274,6 +313,11 @@ location / {
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
+
+`/onlyoffice/` 的 `proxy_pass` 末尾 `/` 必须保留，这样
+`/onlyoffice/web-apps/...` 才会转发为 ONLYOFFICE 容器里的 `/web-apps/...`。
+`/cache/` 也必须代理给 ONLYOFFICE；编辑器会把运行时文件缓存生成为
+`/cache/files/...`，不走这条代理会导致 `Editor.bin` 等文件加载失败。
 
 修改后验证并重载：
 
@@ -326,7 +370,22 @@ docker compose -f docker-compose.onlyoffice.yml ps
 检查 app：
 
 ```bash
+curl -fsSI http://64.83.17.170:8080
 curl -fsS https://www.codexppt.com/healthz
+```
+
+检查 ONLYOFFICE：
+
+```bash
+# IP HTTP 模式可直接访问 ONLYOFFICE 宿主机端口。
+curl -fsS http://64.83.17.170:8082/healthcheck
+curl -fsSI http://64.83.17.170:8082/web-apps/apps/api/documents/api.js
+
+# 域名 HTTPS 入口必须走同域名路径代理。
+curl -fsS https://www.codexppt.com/onlyoffice/healthcheck
+curl -fsSI https://www.codexppt.com/onlyoffice/web-apps/apps/api/documents/api.js
+# 打开一次 XLSX 预览后，用浏览器 Network 里的实际 /cache/files/... URL 检查。
+curl -fsSI '<actual https://www.codexppt.com/cache/files/... URL>'
 ```
 
 检查 control：

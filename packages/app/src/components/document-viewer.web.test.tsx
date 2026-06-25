@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as XLSX from "xlsx";
@@ -37,6 +37,8 @@ const pdfViewerMockState = vi.hoisted(() => ({
 const onlyOfficeMockState = vi.hoisted(() => ({
   configs: [] as unknown[],
 }));
+const originalOnlyOfficeDocumentServerUrl = process.env.EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL;
+const originalNodeEnv = process.env.NODE_ENV;
 
 interface XSpreadsheetMockInstance {
   data: unknown;
@@ -240,6 +242,8 @@ function dispatchScriptError(element: HTMLScriptElement): void {
 describe("DocumentViewer web annotation interactions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL = originalOnlyOfficeDocumentServerUrl;
+    process.env.NODE_ENV = originalNodeEnv;
     vi.spyOn(globalThis, "fetch").mockImplementation((async () => ({
       arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)),
       blob: () =>
@@ -266,11 +270,14 @@ describe("DocumentViewer web annotation interactions", () => {
   afterEach(() => {
     cleanup();
     document.querySelectorAll("base").forEach((base) => base.remove());
+    process.env.EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL = originalOnlyOfficeDocumentServerUrl;
+    process.env.NODE_ENV = originalNodeEnv;
     delete window.DocsAPI;
     pdfViewerMockState.registry = null;
     pdfViewerMockState.renderPageElement = true;
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("selects a CSV cell target from a rendered spreadsheet preview", async () => {
@@ -434,6 +441,95 @@ describe("DocumentViewer web annotation interactions", () => {
     ]);
   });
 
+  it("loads ONLYOFFICE from the configured document server URL", async () => {
+    delete window.DocsAPI;
+    process.env.EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL = "https://office.example.com/";
+    const appendedScriptUrls: string[] = [];
+    const appendChild = vi.spyOn(document.head, "appendChild").mockImplementation((node) => {
+      const element = node as HTMLElement;
+      if (element instanceof HTMLScriptElement && element.dataset.doyaOnlyofficeApi) {
+        appendedScriptUrls.push(element.src);
+        window.DocsAPI = {
+          DocEditor: class DocEditor {
+            constructor(_elementId: string, config: unknown) {
+              onlyOfficeMockState.configs.push(config);
+            }
+
+            destroyEditor() {}
+          },
+        };
+        window.setTimeout(() => element.dispatchEvent(new Event("load")), 0);
+      }
+      return node;
+    });
+    const { DocumentViewer } = await import("./document-viewer.web");
+
+    render(
+      <DocumentViewer
+        kind="xlsx"
+        bytes={createWorkbookBytes()}
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        fileName="budget.xlsx"
+        sourceUrl="https://www.example.com/api/workspace-files/raw?cwd=/repo&path=budget.xlsx&access_token=secret"
+      />,
+    );
+
+    expect(await screen.findByTestId("document-xlsx-onlyoffice-preview")).toBeTruthy();
+    await waitFor(() => {
+      expect(appendedScriptUrls).toEqual([
+        "https://office.example.com/web-apps/apps/api/documents/api.js",
+      ]);
+    });
+    appendChild.mockRestore();
+  });
+
+  it("loads ONLYOFFICE from the current domain proxy on domain access", async () => {
+    delete window.DocsAPI;
+    process.env.EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL = "http://64.83.17.170:8082";
+    vi.stubGlobal("location", {
+      hostname: "www.codexppt.com",
+      origin: "https://www.codexppt.com",
+      protocol: "https:",
+    });
+    const appendedScriptUrls: string[] = [];
+    const appendChild = vi.spyOn(document.head, "appendChild").mockImplementation((node) => {
+      const element = node as HTMLElement;
+      if (element instanceof HTMLScriptElement && element.dataset.doyaOnlyofficeApi) {
+        appendedScriptUrls.push(element.src);
+        window.DocsAPI = {
+          DocEditor: class DocEditor {
+            constructor(_elementId: string, config: unknown) {
+              onlyOfficeMockState.configs.push(config);
+            }
+
+            destroyEditor() {}
+          },
+        };
+        window.setTimeout(() => element.dispatchEvent(new Event("load")), 0);
+      }
+      return node;
+    });
+    const { DocumentViewer } = await import("./document-viewer.web");
+
+    render(
+      <DocumentViewer
+        kind="xlsx"
+        bytes={createWorkbookBytes()}
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        fileName="budget.xlsx"
+        sourceUrl="https://www.codexppt.com/api/workspace-files/raw?cwd=/repo&path=budget.xlsx&access_token=secret"
+      />,
+    );
+
+    expect(await screen.findByTestId("document-xlsx-onlyoffice-preview")).toBeTruthy();
+    await waitFor(() => {
+      expect(appendedScriptUrls).toEqual([
+        "https://www.codexppt.com/onlyoffice/web-apps/apps/api/documents/api.js",
+      ]);
+    });
+    appendChild.mockRestore();
+  });
+
   it("falls back to the built-in XLSX table preview when ONLYOFFICE is unavailable", async () => {
     delete window.DocsAPI;
     const appendChild = vi.spyOn(document.head, "appendChild").mockImplementation((node) => {
@@ -456,6 +552,36 @@ describe("DocumentViewer web annotation interactions", () => {
     expect(screen.getByTestId("document-spreadsheet-cell-Budget-C2")).toBeTruthy();
     expect(screen.queryByTestId("document-xlsx-xspreadsheet-preview")).toBeNull();
     appendChild.mockRestore();
+  });
+
+  it("falls back when a reused ONLYOFFICE script never finishes loading", async () => {
+    delete window.DocsAPI;
+    vi.useFakeTimers();
+    const staleScript = document.createElement("script");
+    staleScript.dataset.doyaOnlyofficeApi =
+      "http://127.0.0.1:8082/web-apps/apps/api/documents/api.js";
+    staleScript.src = staleScript.dataset.doyaOnlyofficeApi;
+    document.head.appendChild(staleScript);
+
+    const { DocumentViewer } = await import("./document-viewer.web");
+
+    render(
+      <DocumentViewer
+        kind="xlsx"
+        bytes={createWorkbookBytes()}
+        mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        fileName="budget.xlsx"
+        sourceUrl="http://localhost:6767/api/workspace-files/raw?cwd=/repo&path=budget.xlsx&access_token=secret"
+      />,
+    );
+
+    expect(screen.getByTestId("document-xlsx-onlyoffice-preview")).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+
+    expect(screen.getByTestId("document-spreadsheet-preview")).toBeTruthy();
   });
 
   it("does not create PDF targets from preview clicks or drags", async () => {

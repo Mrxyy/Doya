@@ -200,12 +200,20 @@ interface OnlyOfficeEditorConfig {
       pluginsData: string[];
     };
     customization: {
+      anonymous: {
+        label: string;
+        request: boolean;
+      };
       compactHeader: boolean;
       compactToolbar: boolean;
       hideRightMenu: boolean;
       logo: {
         visible: boolean;
       };
+    };
+    user: {
+      id: string;
+      name: string;
     };
   };
   height: string;
@@ -225,6 +233,7 @@ const LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL = "http://127.0.0.1:8082";
 const LOCAL_ONLYOFFICE_HOST_GATEWAY = "host.docker.internal";
 const ONLYOFFICE_SELECTION_PLUGIN_GUID = "asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20A1D}";
 const ONLYOFFICE_SELECTION_PLUGIN_VERSION = "20260614-1";
+const ONLYOFFICE_API_LOAD_TIMEOUT_MS = 6000;
 const DOCX_PREVIEW_STYLE_ID = "doya-docx-preview-style";
 
 const PDF_SHAPES_ONLY_DISABLED_CATEGORIES = [
@@ -1163,6 +1172,7 @@ function OnlyOfficeSpreadsheetDocumentViewer({
   const lastSyncedSelectionKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [shouldFallback, setShouldFallback] = useState(false);
+  const documentServerUrl = useMemo(getOnlyOfficeDocumentServerUrl, []);
   const documentUrl = useMemo(
     () => (sourceUrl ? toOnlyOfficeContainerReachableUrl(sourceUrl) : null),
     [sourceUrl],
@@ -1189,11 +1199,12 @@ function OnlyOfficeSpreadsheetDocumentViewer({
   );
 
   useEffect(() => {
-    if (!documentUrl || !callbackUrl || !documentKey || !pluginConfigUrl) {
+    if (!documentServerUrl || !documentUrl || !callbackUrl || !documentKey || !pluginConfigUrl) {
       setShouldFallback(true);
       return;
     }
 
+    const resolvedDocumentServerUrl = documentServerUrl;
     const resolvedDocumentUrl = documentUrl;
     const resolvedCallbackUrl = callbackUrl;
     const resolvedDocumentKey = documentKey;
@@ -1204,7 +1215,7 @@ function OnlyOfficeSpreadsheetDocumentViewer({
 
     async function openEditor() {
       try {
-        await loadOnlyOfficeApiScript();
+        await loadOnlyOfficeApiScript(resolvedDocumentServerUrl);
         if (canceled) {
           return;
         }
@@ -1229,6 +1240,10 @@ function OnlyOfficeSpreadsheetDocumentViewer({
           editorConfig: {
             callbackUrl: resolvedCallbackUrl,
             customization: {
+              anonymous: {
+                label: "Doya",
+                request: false,
+              },
               compactHeader: true,
               compactToolbar: true,
               hideRightMenu: true,
@@ -1241,6 +1256,10 @@ function OnlyOfficeSpreadsheetDocumentViewer({
             plugins: {
               autostart: [ONLYOFFICE_SELECTION_PLUGIN_GUID],
               pluginsData: [resolvedPluginConfigUrl],
+            },
+            user: {
+              id: "doya-preview",
+              name: "Doya",
             },
           },
           height: "100%",
@@ -1262,7 +1281,7 @@ function OnlyOfficeSpreadsheetDocumentViewer({
       editorRef.current?.destroyEditor?.();
       editorRef.current = null;
     };
-  }, [callbackUrl, documentKey, documentUrl, fileName, hostId, pluginConfigUrl]);
+  }, [callbackUrl, documentKey, documentServerUrl, documentUrl, fileName, hostId, pluginConfigUrl]);
 
   useEffect(() => {
     if (!annotationMode || !onAnnotationTargetSelect) {
@@ -1731,11 +1750,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function loadOnlyOfficeApiScript(): Promise<void> {
+function getOnlyOfficeDocumentServerUrl(): string | null {
+  const location = globalThis.location;
+  if (
+    (location.protocol === "http:" || location.protocol === "https:") &&
+    location.origin &&
+    isDomainHostname(location.hostname)
+  ) {
+    return `${location.origin}/onlyoffice`;
+  }
+
+  const configured = process.env.EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+  return LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL;
+}
+
+function isDomainHostname(hostname: string): boolean {
+  return /[a-z]/i.test(hostname) && hostname !== "localhost";
+}
+
+function loadOnlyOfficeApiScript(documentServerUrl: string): Promise<void> {
   if (window.DocsAPI) {
     return Promise.resolve();
   }
-  const scriptUrl = `${LOCAL_ONLYOFFICE_DOCUMENT_SERVER_URL}/web-apps/apps/api/documents/api.js`;
+  const scriptUrl = `${documentServerUrl}/web-apps/apps/api/documents/api.js`;
   const existing = document.querySelector<HTMLScriptElement>(
     `script[data-doya-onlyoffice-api="${scriptUrl}"]`,
   );
@@ -1743,30 +1783,59 @@ function loadOnlyOfficeApiScript(): Promise<void> {
     if (existing.dataset.doyaOnlyofficeLoaded === "true") {
       return Promise.resolve();
     }
-    return new Promise((resolve, reject) => {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Failed to load ONLYOFFICE")), {
-        once: true,
-      });
-    });
+    return waitForOnlyOfficeApiScript(existing);
   }
+  const script = document.createElement("script");
+  script.async = true;
+  script.dataset.doyaOnlyofficeApi = scriptUrl;
+  script.src = scriptUrl;
+  const loadPromise = waitForOnlyOfficeApiScript(script);
+  document.head.appendChild(script);
+  return loadPromise;
+}
+
+function waitForOnlyOfficeApiScript(script: HTMLScriptElement): Promise<void> {
   return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.async = true;
-    script.dataset.doyaOnlyofficeApi = scriptUrl;
-    script.src = scriptUrl;
-    script.addEventListener(
-      "load",
-      () => {
+    let settled = false;
+    let timeout: number | null = null;
+
+    function settle(result: "loaded" | "failed"): void {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeout !== null) {
+        window.clearTimeout(timeout);
+      }
+      script.removeEventListener("load", handleLoad);
+      script.removeEventListener("error", handleError);
+      if (result === "loaded" && window.DocsAPI) {
         script.dataset.doyaOnlyofficeLoaded = "true";
         resolve();
-      },
-      { once: true },
-    );
-    script.addEventListener("error", () => reject(new Error("Failed to load ONLYOFFICE")), {
-      once: true,
-    });
-    document.head.appendChild(script);
+        return;
+      }
+      reject(new Error("Failed to load ONLYOFFICE"));
+    }
+
+    function handleLoad(): void {
+      settle("loaded");
+    }
+
+    function handleError(): void {
+      settle("failed");
+    }
+
+    script.addEventListener("load", handleLoad, { once: true });
+    script.addEventListener("error", handleError, { once: true });
+    timeout = window.setTimeout(() => settle("failed"), ONLYOFFICE_API_LOAD_TIMEOUT_MS);
+
+    if (window.DocsAPI) {
+      settle("loaded");
+      return;
+    }
+    if (script.dataset.doyaOnlyofficeLoaded === "true") {
+      settle("failed");
+    }
   });
 }
 

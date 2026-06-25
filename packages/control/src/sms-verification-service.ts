@@ -1,19 +1,17 @@
 import { randomInt } from "node:crypto";
 
-const DEFAULT_DOTSMS_TEMPLATE_URL = "https://api.dotsms.cn/sms/template";
+const DEFAULT_SMS_URL = "http://mxthk.weiwebs.cn/msg/HttpVarSM";
 const CODE_TTL_MS = 5 * 60 * 1000;
 const RESEND_INTERVAL_MS = 60 * 1000;
 const MAX_VERIFY_ATTEMPTS = 5;
-const LOGIN_CODE_SMS_CONTENT_PREFIX = "您的验证码是:";
+const LOGIN_CODE_SMS_CONTENT_PREFIX = "【本地宝】您的验证码是：";
 const LOGIN_CODE_SMS_CONTENT_SUFFIX = "，感谢您的使用，请不要向他人分享验证码。";
 
 export interface SmsVerificationConfig {
-  provider: "dotsms";
+  provider: "mxt";
   url: string;
-  apiKey: string;
-  secret: string;
-  signId: string;
-  templateId: string;
+  account: string;
+  password: string;
 }
 
 interface SmsCodeRecord {
@@ -27,8 +25,8 @@ interface SendLogRecord {
   sentAt: number;
 }
 
-interface DotSmsResponse {
-  code?: number | string;
+interface MxtSmsResponse {
+  result?: number | string;
   msg?: string;
 }
 
@@ -67,7 +65,7 @@ export class SmsVerificationService {
     }
 
     const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
-    await sendDotSmsTemplate({
+    await sendSmsCode({
       config,
       phone,
       code,
@@ -118,20 +116,16 @@ export class SmsVerificationService {
 }
 
 export function resolveSmsVerificationConfig(env: NodeJS.ProcessEnv): SmsVerificationConfig | null {
-  const apiKey = env.DOYA_DOTSMS_APIKEY?.trim();
-  const secret = env.DOYA_DOTSMS_SECRET?.trim();
-  const signId = env.DOYA_DOTSMS_SIGN_ID?.trim();
-  const templateId = env.DOYA_DOTSMS_TEMPLATE_ID?.trim();
-  if (!apiKey || !secret || !signId || !templateId) {
+  const account = env.DOYA_SMS_ACCOUNT?.trim();
+  const password = env.DOYA_SMS_PASSWORD?.trim();
+  if (!account || !password) {
     return null;
   }
   return {
-    provider: "dotsms",
-    url: env.DOYA_DOTSMS_URL?.trim() || DEFAULT_DOTSMS_TEMPLATE_URL,
-    apiKey,
-    secret,
-    signId,
-    templateId,
+    provider: "mxt",
+    url: env.DOYA_SMS_URL?.trim() || DEFAULT_SMS_URL,
+    account,
+    password,
   };
 }
 
@@ -146,60 +140,43 @@ export function normalizePhone(phone: string): string {
   return "";
 }
 
-async function sendDotSmsTemplate(input: {
+async function sendSmsCode(input: {
   config: SmsVerificationConfig;
   phone: string;
   code: string;
 }): Promise<void> {
-  const body = createDotSmsRequestBody(input);
+  const body = createSmsRequestBody(input);
   const response = await fetch(input.config.url, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-www-form-urlencoded",
     },
-    body: JSON.stringify(body),
+    body,
   });
 
-  let payload: DotSmsResponse;
+  let payload: MxtSmsResponse;
   try {
-    payload = (await response.json()) as DotSmsResponse;
+    payload = (await response.json()) as MxtSmsResponse;
   } catch {
     throw new SmsVerificationError("短信服务返回异常", 502);
   }
 
-  if (!response.ok || String(payload.code) !== "0") {
+  if (!response.ok || String(payload.result) !== "0") {
     throw new SmsVerificationError(payload.msg || "短信验证码发送失败", 502);
   }
 }
 
-function createDotSmsRequestBody(input: {
+function createSmsRequestBody(input: {
   config: SmsVerificationConfig;
   phone: string;
   code: string;
-}): Record<string, string> {
-  const base = {
-    apikey: input.config.apiKey,
-    secret: input.config.secret,
-    mobile: input.phone,
-    sign_id: input.config.signId,
-  };
-  if (isDotSmsTemplateUrl(input.config.url)) {
-    return {
-      ...base,
-      template_id: input.config.templateId,
-      content: input.code,
-    };
-  }
-  return {
-    ...base,
-    content: formatLoginCodeSmsContent(input.code),
-  };
-}
-
-function isDotSmsTemplateUrl(url: string): boolean {
-  return new URL(url).pathname.endsWith("/sms/template");
-}
-
-function formatLoginCodeSmsContent(code: string): string {
-  return `${LOGIN_CODE_SMS_CONTENT_PREFIX}${code}${LOGIN_CODE_SMS_CONTENT_SUFFIX}`;
+}): URLSearchParams {
+  return new URLSearchParams({
+    account: input.config.account,
+    pswd: input.config.password,
+    msg: `${LOGIN_CODE_SMS_CONTENT_PREFIX}{$var}${LOGIN_CODE_SMS_CONTENT_SUFFIX}`,
+    params: `${input.phone},${input.code}`,
+    needstatus: "true",
+    resptype: "json",
+  });
 }

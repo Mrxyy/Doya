@@ -802,6 +802,7 @@ function readTrigger(value: unknown): PreviewSlideAnimation["entrance"]["trigger
 
 function readNumber(value: unknown, fallback: number): number;
 function readNumber(value: unknown, fallback: null): number | null;
+function readNumber(value: unknown, fallback: number | null): number | null;
 function readNumber(value: unknown, fallback: number | null): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return fallback;
