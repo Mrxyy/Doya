@@ -1484,7 +1484,12 @@ body.annotations-hidden #annotations {
   color: #2563eb;
   background: rgba(37, 99, 235, 0.18);
   cursor: pointer;
-  font: 13px/16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font:
+    13px/16px system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 .annotation-tip-remove:hover {
@@ -1948,6 +1953,85 @@ body.inspector-sidebar-expanded #svg-container {
 
 #svg-content svg {
   max-height: calc(100vh - 104px);
+}
+
+.ppt-anim-target {
+  will-change: opacity, filter, clip-path;
+}
+
+.ppt-anim-running {
+  animation-duration: var(--ppt-anim-duration, 400ms);
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.ppt-anim-fade {
+  animation-name: ppt-preview-fade-in;
+}
+
+.ppt-anim-fly {
+  animation-name: ppt-preview-fly-in;
+}
+
+.ppt-anim-wipe {
+  animation-name: ppt-preview-wipe-in;
+}
+
+.ppt-anim-zoom {
+  animation-name: ppt-preview-zoom-in;
+}
+
+.ppt-anim-appear {
+  animation-name: ppt-preview-appear;
+}
+
+@keyframes ppt-preview-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ppt-preview-fly-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes ppt-preview-wipe-in {
+  from {
+    opacity: 1;
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes ppt-preview-zoom-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes ppt-preview-appear {
+  from,
+  to {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 900px) {

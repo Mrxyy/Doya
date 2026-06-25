@@ -219,6 +219,7 @@ const WORKSPACE_SETUP_AUTO_OPEN_WINDOW_MS = 30_000;
 const WORKSPACE_FLOATING_PANEL_PORTAL_HOST_PREFIX = "workspace-floating-panels";
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
 const PREVIEW_SOURCE_PANE_WIDTH = 700;
+const MAX_AUTO_PREVIEW_PANES = 2;
 const EMPTY_UI_TABS: WorkspaceTab[] = [];
 const EMPTY_WORKSPACE_SCRIPTS: WorkspaceDescriptor["scripts"] = [];
 const EMPTY_PINNED_AGENT_IDS = new Set<string>();
@@ -2172,6 +2173,9 @@ function WorkspaceScreenContent({
       );
     };
     const restorePreviewSplit = (input: { sourcePaneId: string; previewTabId: string }): void => {
+      if (collectAllPanes(workspaceLayout.root).length >= MAX_AUTO_PREVIEW_PANES) {
+        return;
+      }
       const previewPaneId = splitWorkspacePane(persistenceKey, {
         tabId: input.previewTabId,
         targetPaneId: input.sourcePaneId,
@@ -2249,6 +2253,10 @@ function WorkspaceScreenContent({
         useWorkspaceLayoutStore.getState().layoutByWorkspace[persistenceKey] ?? workspaceLayout;
       let previewPaneId = findAdjacentPane(currentLayout.root, sourcePaneId, "right");
       if (!previewPaneId) {
+        const paneCount = collectAllPanes(currentLayout.root).length;
+        if (paneCount >= MAX_AUTO_PREVIEW_PANES) {
+          return null;
+        }
         previewPaneId = splitWorkspacePaneEmpty(persistenceKey, {
           targetPaneId: sourcePaneId,
           position: "right",
@@ -2293,6 +2301,27 @@ function WorkspaceScreenContent({
           : openWorkspaceTabFocused(persistenceKey, input.target);
       }
 
+      const currentLayout =
+        useWorkspaceLayoutStore.getState().layoutByWorkspace[persistenceKey] ?? workspaceLayout;
+      const paneCount = currentLayout ? collectAllPanes(currentLayout.root).length : 0;
+      if (currentLayout && paneCount >= MAX_AUTO_PREVIEW_PANES) {
+        const existingTabId = buildDeterministicWorkspaceTabId(input.target);
+        const existingTab = uiTabs.find(
+          (tab) =>
+            tab.tabId === existingTabId || workspaceTabTargetsEqual(tab.target, input.target),
+        );
+        if (existingTab) {
+          const existingPane = findPaneContainingTab(currentLayout.root, existingTab.tabId);
+          if (existingPane?.id !== input.sourcePaneId) {
+            moveWorkspaceTabToPane(persistenceKey, existingTab.tabId, input.sourcePaneId);
+          }
+        }
+        focusWorkspacePane(persistenceKey, input.sourcePaneId);
+        return input.parentTabId
+          ? openWorkspaceChildTabFocused(persistenceKey, input.target, input.parentTabId)
+          : openWorkspaceTabFocused(persistenceKey, input.target);
+      }
+
       const previewPaneId = prepareDesktopPreviewPane(input.sourcePaneId);
       if (!previewPaneId) {
         return input.parentTabId
@@ -2327,6 +2356,7 @@ function WorkspaceScreenContent({
       return tabId;
     },
     [
+      focusWorkspacePane,
       isMobile,
       moveWorkspaceTabToPane,
       openWorkspaceChildTabFocused,

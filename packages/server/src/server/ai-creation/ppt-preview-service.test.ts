@@ -1,5 +1,5 @@
 import { createServer, type Server } from "node:http";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
@@ -27,6 +27,30 @@ describe("ppt preview service", () => {
         '<use data-icon="tabler-outline/cpu" x="20" y="30" width="32" height="32" fill="#1A365D"/>',
         "</svg>",
       ].join(""),
+      "utf8",
+    );
+    await writeFile(
+      path.join(root, "projects/demo/animations.json"),
+      JSON.stringify({
+        version: 1,
+        defaults: {
+          animation: { effect: "auto", trigger: "after-previous", duration: 0.5, stagger: 0.2 },
+          transition: { effect: "fade", duration: 0.4 },
+        },
+        slides: {
+          "01_武汉早餐美食介绍": {
+            groups: {
+              _edit_0: { effect: "fade", order: 2, delay: 0.1 },
+            },
+          },
+        },
+      }),
+      "utf8",
+    );
+    await mkdir(path.join(root, "projects/demo/confirm_ui"), { recursive: true });
+    await writeFile(
+      path.join(root, "projects/demo/confirm_ui/result.json"),
+      JSON.stringify({ animation: "subtle" }),
       "utf8",
     );
 
@@ -101,6 +125,75 @@ describe("ppt preview service", () => {
     expect(slide.content).toContain('data-icon="tabler-outline/cpu"');
     expect(slide.content).toContain('stroke="#1A365D"');
     expect(slide.content).toContain('transform="translate(20, 30) scale(1.33333333333)"');
+  });
+
+  it("serves PPT Master animation sidecar data with slide responses", async () => {
+    const slideResponse = await fetch(
+      `${baseUrl}/ppt-preview/agent-1/demo/api/slide/${encodeURIComponent(slideName)}`,
+    );
+    expect(slideResponse.status).toBe(200);
+    const slide = (await slideResponse.json()) as {
+      animation: {
+        entrance: {
+          enabled: boolean;
+          effect: string;
+          trigger: string;
+          duration: number;
+          stagger: number;
+          groups: Record<string, { effect: string; order: number; delay: number }>;
+        };
+        transition: { effect: string; duration: number };
+      };
+    };
+    expect(slide.animation).toMatchObject({
+      entrance: {
+        enabled: true,
+        effect: "auto",
+        trigger: "after-previous",
+        duration: 0.5,
+        stagger: 0.2,
+        groups: { _edit_0: { effect: "fade", order: 2, delay: 0.1 } },
+      },
+      transition: { effect: "fade", duration: 0.4 },
+    });
+  });
+
+  it("serves confirmed PPT Master animation defaults when no sidecar exists", async () => {
+    await unlink(path.join(root, "projects/demo/animations.json"));
+    await writeFile(
+      path.join(root, "projects/demo/confirm_ui/result.json"),
+      JSON.stringify({ animation: "showcase" }),
+      "utf8",
+    );
+
+    const slideResponse = await fetch(
+      `${baseUrl}/ppt-preview/agent-1/demo/api/slide/${encodeURIComponent(slideName)}`,
+    );
+    expect(slideResponse.status).toBe(200);
+    const slide = (await slideResponse.json()) as {
+      animation: {
+        entrance: {
+          enabled: boolean;
+          effect: string;
+          trigger: string;
+          duration: number;
+          stagger: number;
+          groups: Record<string, unknown>;
+        };
+        transition: { effect: string; duration: number };
+      };
+    };
+    expect(slide.animation).toMatchObject({
+      entrance: {
+        enabled: true,
+        effect: "mixed",
+        trigger: "after-previous",
+        duration: 0.4,
+        stagger: 0.35,
+        groups: {},
+      },
+      transition: { effect: "fade", duration: 0.4 },
+    });
   });
 
   it("stages annotations and writes them back on save-all", async () => {

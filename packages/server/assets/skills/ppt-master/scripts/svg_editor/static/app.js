@@ -279,6 +279,7 @@
   var staticPollTimer = null;
   var isSlideListPopoverOpen = false;
   var isInspectorSidebarExpanded = false;
+  var pendingAnimationTargets = [];
 
   function updateSlideListPopover() {
     document.body.classList.toggle("slide-list-popover-open", isSlideListPopoverOpen);
@@ -649,6 +650,7 @@
         refreshAnnotationVisuals();
         updateAnnotationList();
         updateUndoButton();
+        applySlideAnimations(data.animation);
       })
       .catch(function (err) {
         console.error("selectSlide:", err);
@@ -686,6 +688,10 @@
       var target = e.target;
       // Blank-area click on the svg root → clear selection.
       if (target === svg) {
+        if (revealNextAnimationTarget()) {
+          e.preventDefault();
+          return;
+        }
         clearSelection();
         return;
       }
@@ -706,6 +712,218 @@
       }
       selectElement(picked, e.ctrlKey || e.metaKey);
     });
+  }
+
+  // ================================================================
+  //  3.5. Preview PPTX-style entrance animations
+  // ================================================================
+  function applySlideAnimations(animation) {
+    resetSlideAnimations();
+    if (!animation || !animation.entrance || !animation.entrance.enabled) return;
+    var svg = svgContent.querySelector("svg");
+    if (!svg) return;
+    var targets = buildAnimationTargets(svg, animation.entrance);
+    if (targets.length === 0) return;
+
+    targets.forEach(function (target) {
+      target.el.classList.add("ppt-anim-target");
+      target.el.style.opacity = "0";
+    });
+
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      targets.forEach(revealAnimationTarget);
+      return;
+    }
+
+    if (animation.entrance.trigger === "with-previous") {
+      targets.forEach(function (target) {
+        window.setTimeout(
+          function () {
+            revealAnimationTarget(target);
+          },
+          Math.max(0, target.delayMs),
+        );
+      });
+      return;
+    }
+
+    if (animation.entrance.trigger === "on-click") {
+      pendingAnimationTargets = targets.slice();
+      revealNextAnimationTarget();
+      return;
+    }
+
+    var elapsedMs = 0;
+    targets.forEach(function (target, index) {
+      if (index === 0) {
+        elapsedMs = target.delayMs;
+      } else {
+        elapsedMs += targets[index - 1].durationMs + target.delayMs;
+      }
+      window.setTimeout(
+        function () {
+          revealAnimationTarget(target);
+        },
+        Math.max(0, elapsedMs),
+      );
+    });
+  }
+
+  function resetSlideAnimations() {
+    pendingAnimationTargets = [];
+    svgContent.querySelectorAll(".ppt-anim-target").forEach(function (el) {
+      el.classList.remove(
+        "ppt-anim-target",
+        "ppt-anim-running",
+        "ppt-anim-fade",
+        "ppt-anim-fly",
+        "ppt-anim-wipe",
+        "ppt-anim-zoom",
+        "ppt-anim-appear",
+      );
+      el.style.opacity = "";
+      el.style.animationDuration = "";
+      el.style.animationDelay = "";
+      el.style.setProperty("--ppt-anim-duration", "");
+    });
+  }
+
+  function buildAnimationTargets(svg, entrance) {
+    var groups = entrance.groups || {};
+    var visual = Array.from(svg.children).filter(isVisualAnimationElement);
+    var grouped = visual.filter(function (el) {
+      return localName(el) === "g" && el.id && !isChromeAnimationId(el.id);
+    });
+    var candidates = [];
+    if (grouped.length > 0) {
+      candidates = grouped;
+    } else if (visual.length <= 8) {
+      candidates = visual;
+    }
+    var targets = [];
+    candidates.forEach(function (el, index) {
+      if (!el.id) return;
+      var group = groups[el.id] || {};
+      var effect = resolveAnimationEffect(entrance.effect, group.effect, el.id, index);
+      if (!effect) return;
+      targets.push({
+        el: el,
+        effect: effect,
+        order: Number.isFinite(group.order) ? group.order : index,
+        delayMs: Math.max(0, Number(group.delay || 0) * 1000),
+        durationMs: Math.max(1, Number(group.duration || entrance.duration || 0.4) * 1000),
+      });
+    });
+    targets.sort(function (a, b) {
+      return a.order - b.order;
+    });
+    return targets;
+  }
+
+  function isVisualAnimationElement(el) {
+    var tag = localName(el);
+    return SKIP_TAGS.indexOf(tag) === -1 && tag !== "svg";
+  }
+
+  function isChromeAnimationId(id) {
+    var compact = String(id || "")
+      .toLowerCase()
+      .replace(/[-_]/g, "");
+    var chrome = {
+      background: true,
+      bg: true,
+      decoration: true,
+      decorations: true,
+      decor: true,
+      header: true,
+      footer: true,
+      chrome: true,
+      watermark: true,
+      pagenumber: true,
+      pagenum: true,
+      nav: true,
+      logo: true,
+      rule: true,
+    };
+    if (chrome[compact]) return true;
+    return String(id || "")
+      .toLowerCase()
+      .split(/[-_]/)
+      .some(function (token) {
+        return !!chrome[token];
+      });
+  }
+
+  function resolveAnimationEffect(defaultEffect, groupEffect, groupId, index) {
+    var effect = groupEffect || defaultEffect || "none";
+    if (effect === "none") return null;
+    if (effect === "auto") return pickAutoAnimationEffect(groupId, index);
+    if (effect === "mixed") return pickMixedAnimationEffect(index);
+    if (effect === "random")
+      return pickMixedAnimationEffect(stableStringHash(groupId || "") + index);
+    if (effect === "appear") return "appear";
+    if (effect === "fade") return "fade";
+    if (effect === "fly" || effect === "cut" || effect === "peek") return "fly";
+    if (effect === "wipe" || effect === "split" || effect === "strips" || effect === "stretch") {
+      return "wipe";
+    }
+    if (
+      effect === "zoom" ||
+      effect === "dissolve" ||
+      effect === "box" ||
+      effect === "circle" ||
+      effect === "diamond" ||
+      effect === "plus" ||
+      effect === "wheel" ||
+      effect === "expand" ||
+      effect === "swivel"
+    ) {
+      return "zoom";
+    }
+    return "fade";
+  }
+
+  function pickAutoAnimationEffect(groupId, index) {
+    var lower = String(groupId || "").toLowerCase();
+    var imagePool = ["zoom", "fade", "zoom", "wipe", "zoom", "fade"];
+    if (/(hero|figure-|image|img-|kpi)/.test(lower)) return imagePool[index % imagePool.length];
+    if (/(chart|table|legend|timeline|track)/.test(lower)) return "wipe";
+    if (/(card-|pillar-|item-|step-|stage-|tier-|principle-|q-|schema-)/.test(lower)) return "fly";
+    if (
+      /(title|chapter-|section-|cover-|tagline|subtitle|takeaway|callout|quote|source|conclusion|note|try-at-home)/.test(
+        lower,
+      )
+    ) {
+      return "fade";
+    }
+    return ["fade", "wipe", "fly", "zoom"][index % 4];
+  }
+
+  function pickMixedAnimationEffect(index) {
+    return ["fade", "fly", "wipe", "zoom", "fade", "wipe"][Math.abs(index) % 6];
+  }
+
+  function stableStringHash(value) {
+    var hash = 0;
+    for (var i = 0; i < value.length; i++) {
+      hash = (hash * 31 + value.charCodeAt(i)) | 0;
+    }
+    return hash;
+  }
+
+  function revealAnimationTarget(target) {
+    target.el.style.opacity = "";
+    target.el.style.setProperty("--ppt-anim-duration", target.durationMs + "ms");
+    target.el.classList.add("ppt-anim-running", "ppt-anim-" + target.effect);
+    window.setTimeout(function () {
+      target.el.classList.remove("ppt-anim-target", "ppt-anim-running");
+    }, target.durationMs + 80);
+  }
+
+  function revealNextAnimationTarget() {
+    if (pendingAnimationTargets.length === 0) return false;
+    revealAnimationTarget(pendingAnimationTargets.shift());
+    return true;
   }
 
   // ================================================================
@@ -1458,6 +1676,11 @@
       if (document.activeElement === annotationText) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
 
+      if ((e.key === " " || e.key === "Enter") && revealNextAnimationTarget()) {
+        e.preventDefault();
+        return;
+      }
+
       // Arrow keys nudge the selection (1px, Shift = 10px) instead of
       // navigating slides whenever something is selected.
       if (
@@ -1526,8 +1749,9 @@
     var undoEntries = ids.map(function (eid) {
       return {
         elementId: eid,
-        previous:
-          Object.prototype.hasOwnProperty.call(slideAnnotations, eid) ? slideAnnotations[eid] : null,
+        previous: Object.prototype.hasOwnProperty.call(slideAnnotations, eid)
+          ? slideAnnotations[eid]
+          : null,
       };
     });
     var promises = ids.map(function (eid) {
@@ -1567,16 +1791,12 @@
   function removeAnnotation(elementId) {
     if (!currentSlide) return;
     var slide = currentSlide;
-    var previous =
-      Object.prototype.hasOwnProperty.call(slideAnnotations, elementId)
-        ? slideAnnotations[elementId]
-        : null;
+    var previous = Object.prototype.hasOwnProperty.call(slideAnnotations, elementId)
+      ? slideAnnotations[elementId]
+      : null;
 
     fetch(
-      "/api/slide/" +
-        encodeURIComponent(slide) +
-        "/annotate/" +
-        encodeURIComponent(elementId),
+      "/api/slide/" + encodeURIComponent(slide) + "/annotate/" + encodeURIComponent(elementId),
       {
         method: "DELETE",
       },

@@ -55,6 +55,29 @@ interface ResolvedPreviewProject {
   iconsPath: string;
 }
 
+interface PreviewSlideAnimation {
+  transition: {
+    effect: string;
+    duration: number;
+    autoAdvance: number | null;
+  };
+  entrance: {
+    enabled: boolean;
+    effect: string;
+    trigger: "after-previous" | "with-previous" | "on-click";
+    duration: number;
+    stagger: number;
+    groups: Record<string, PreviewAnimationGroup>;
+  };
+}
+
+interface PreviewAnimationGroup {
+  effect?: string;
+  order?: number;
+  delay?: number;
+  duration?: number;
+}
+
 export function createPptPreviewRouter(options: PptPreviewServiceOptions): express.Router {
   const service = new PptPreviewService(options);
   return service.router;
@@ -235,6 +258,7 @@ class PptPreviewService {
       name: slideName,
       content: previewContent,
       annotations,
+      animation: await readSlideAnimation(project.projectPath, slideName),
       warnings: [],
       mtime: mtime / 1000,
       undo_depth: pendingEdits.length,
@@ -553,6 +577,240 @@ function inlineIconPlaceholders(content: string, projectIconsPath: string | unde
     }
     return generatePreviewIconGroup(attrs, icon);
   });
+}
+
+async function readSlideAnimation(
+  projectPath: string,
+  slideName: string,
+): Promise<PreviewSlideAnimation | null> {
+  const config = mergeAnimationConfigs(
+    await readConfirmedAnimationConfig(projectPath),
+    await readAnimationConfig(projectPath),
+  );
+  if (!config) {
+    return null;
+  }
+  const defaults = asRecord(config.defaults);
+  const slides = asRecord(config.slides);
+  const slide = asRecord(slides[slideName.replace(/\.svg$/i, "")]);
+  const defaultTransition = asRecord(defaults.transition);
+  const slideTransition = asRecord(slide.transition);
+  const defaultAnimation = asRecord(defaults.animation);
+  const slideAnimation = asRecord(slide.animation);
+  const groups = readAnimationGroups(asRecord(slide.groups));
+  const effect = readString(slideAnimation.effect) ?? readString(defaultAnimation.effect) ?? "none";
+  const trigger =
+    readTrigger(slideAnimation.trigger) ??
+    readTrigger(defaultAnimation.trigger) ??
+    "after-previous";
+  const hasGroupAnimation = Object.values(groups).some(
+    (group) => group.effect !== undefined && group.effect !== "none",
+  );
+
+  return {
+    transition: {
+      effect: readString(slideTransition.effect) ?? readString(defaultTransition.effect) ?? "fade",
+      duration: readNumber(slideTransition.duration, readNumber(defaultTransition.duration, 0.4)),
+      autoAdvance:
+        readNumber(
+          slideTransition.auto_advance,
+          readNumber(defaultTransition.auto_advance, null),
+        ) ?? null,
+    },
+    entrance: {
+      enabled: effect !== "none" || hasGroupAnimation,
+      effect,
+      trigger,
+      duration: readNumber(slideAnimation.duration, readNumber(defaultAnimation.duration, 0.4)),
+      stagger: readNumber(slideAnimation.stagger, readNumber(defaultAnimation.stagger, 0.5)),
+      groups,
+    },
+  };
+}
+
+async function readAnimationConfig(projectPath: string): Promise<Record<string, unknown> | null> {
+  try {
+    const content = await readFile(path.join(projectPath, "animations.json"), "utf8");
+    const parsed: unknown = JSON.parse(content);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return null;
+    }
+    return null;
+  }
+}
+
+async function readConfirmedAnimationConfig(
+  projectPath: string,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const content = await readFile(path.join(projectPath, "confirm_ui/result.json"), "utf8");
+    const parsed: unknown = JSON.parse(content);
+    const animation = readString(asRecord(parsed).animation);
+    if (!animation) {
+      return null;
+    }
+    return configForConfirmedAnimation(animation);
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return null;
+    }
+    return null;
+  }
+}
+
+function configForConfirmedAnimation(animation: string): Record<string, unknown> | null {
+  const transition = { effect: "fade", duration: 0.4 };
+  if (animation === "subtle") {
+    return {
+      defaults: {
+        transition,
+        animation: {
+          effect: "auto",
+          trigger: "after-previous",
+          duration: 0.4,
+          stagger: 0.5,
+        },
+      },
+    };
+  }
+  if (animation === "presenter_reveal") {
+    return {
+      defaults: {
+        transition,
+        animation: {
+          effect: "auto",
+          trigger: "on-click",
+          duration: 0.4,
+          stagger: 0.5,
+        },
+      },
+    };
+  }
+  if (animation === "showcase") {
+    return {
+      defaults: {
+        transition,
+        animation: {
+          effect: "mixed",
+          trigger: "after-previous",
+          duration: 0.4,
+          stagger: 0.35,
+        },
+      },
+    };
+  }
+  if (animation === "page_only") {
+    return {
+      defaults: {
+        transition,
+        animation: { effect: "none" },
+      },
+    };
+  }
+  if (animation === "none") {
+    return {
+      defaults: {
+        transition: { effect: "none", duration: 0 },
+        animation: { effect: "none" },
+      },
+    };
+  }
+  return null;
+}
+
+function mergeAnimationConfigs(
+  base: Record<string, unknown> | null,
+  override: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!base) {
+    return override;
+  }
+  if (!override) {
+    return base;
+  }
+
+  const baseDefaults = asRecord(base.defaults);
+  const overrideDefaults = asRecord(override.defaults);
+  return {
+    ...base,
+    ...override,
+    defaults: {
+      ...baseDefaults,
+      ...overrideDefaults,
+      transition: {
+        ...asRecord(baseDefaults.transition),
+        ...asRecord(overrideDefaults.transition),
+      },
+      animation: {
+        ...asRecord(baseDefaults.animation),
+        ...asRecord(overrideDefaults.animation),
+      },
+    },
+    slides: {
+      ...asRecord(base.slides),
+      ...asRecord(override.slides),
+    },
+  };
+}
+
+function readAnimationGroups(
+  groups: Record<string, unknown>,
+): Record<string, PreviewAnimationGroup> {
+  const result: Record<string, PreviewAnimationGroup> = {};
+  for (const [groupId, rawGroup] of Object.entries(groups)) {
+    if (!isSafeLocalName(groupId)) {
+      continue;
+    }
+    const group = asRecord(rawGroup);
+    result[groupId] = {
+      ...(readString(group.effect) ? { effect: readString(group.effect) } : {}),
+      ...(readNumber(group.order, null) !== null
+        ? { order: readNumber(group.order, null) ?? 0 }
+        : {}),
+      ...(readNumber(group.delay, null) !== null
+        ? { delay: readNumber(group.delay, null) ?? 0 }
+        : {}),
+      ...(readNumber(group.duration, null) !== null
+        ? { duration: readNumber(group.duration, null) ?? 0 }
+        : {}),
+    };
+  }
+  return result;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function readTrigger(value: unknown): PreviewSlideAnimation["entrance"]["trigger"] | undefined {
+  if (value === "after-previous" || value === "with-previous" || value === "on-click") {
+    return value;
+  }
+  return undefined;
+}
+
+function readNumber(value: unknown, fallback: number): number;
+function readNumber(value: unknown, fallback: null): number | null;
+function readNumber(value: unknown, fallback: number | null): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return value >= 0 ? value : fallback;
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }
 
 function parseXmlAttrs(element: string): Record<string, string> {

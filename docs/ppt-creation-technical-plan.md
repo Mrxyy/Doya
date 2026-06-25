@@ -113,6 +113,11 @@ packages/server
   `svg_editor/server.py` 一样，把 `<use data-icon="...">` 从项目
   `icons/` 或内置 `templates/icons/` 临时展开成真实 SVG 图形；磁盘上的
   `svg_output/*.svg` 继续保留占位符，供后续导出链路使用。
+- 动画不是写在 SVG `<animate>` 里的，也不要求项目生成 `animation.js`。
+  Doya 预览服务先读取 `confirm_ui/result.json` 里的 `animation`
+  选择，按 PPT Master Step 7.3 导出映射生成 deck 级 transition /
+  entrance 默认值；如果项目存在 `animations.json`，再用它补充或覆盖当前页
+  top-level `<g id>` 的对象级配置。浏览器只做近似播放，磁盘 SVG 保持静态。
 - agent 在 Step 2 项目初始化后必须立即发送一次
   `ai_creation.slides.progress` 协议块，字段
   `preview_path=projects/<project>/svg_output/`；Doya 将其渲染成预览入口。
