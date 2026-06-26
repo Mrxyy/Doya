@@ -315,10 +315,7 @@ export function normalizeAiCreationStream(params: {
   tail: StreamItem[];
   head: StreamItem[];
 }): { tail: StreamItem[]; head: StreamItem[] } {
-  const taggedItems: TaggedStreamItem[] = [
-    ...params.tail.map((item) => ({ item, source: "tail" as const })),
-    ...params.head.map((item) => ({ item, source: "head" as const })),
-  ];
+  const taggedItems = mergeTaggedStreamItemsByTime(params.tail, params.head);
   if (taggedItems.length === 0) {
     return { tail: params.tail, head: params.head };
   }
@@ -330,6 +327,7 @@ export function normalizeAiCreationStream(params: {
     const result = normalizeHandshakeTurn({
       turn,
       isActiveRunningTurn: params.agentStatus === "running" && index === turns.length - 1,
+      hasFollowingTurn: index < turns.length - 1,
     });
     changed = changed || result.changed;
     for (const tagged of result.items) {
@@ -338,6 +336,18 @@ export function normalizeAiCreationStream(params: {
   });
   changed = dedupeAiCreationFinalResults(normalized) || changed;
   return changed ? normalized : { tail: params.tail, head: params.head };
+}
+
+function mergeTaggedStreamItemsByTime(tail: StreamItem[], head: StreamItem[]): TaggedStreamItem[] {
+  return [
+    ...tail.map((item, index) => ({ item, source: "tail" as const, index })),
+    ...head.map((item, index) => ({ item, source: "head" as const, index: tail.length + index })),
+  ]
+    .sort((left, right) => {
+      const timeDelta = left.item.timestamp.getTime() - right.item.timestamp.getTime();
+      return timeDelta === 0 ? left.index - right.index : timeDelta;
+    })
+    .map(({ item, source }) => ({ item, source }));
 }
 
 function dedupeAiCreationFinalResults(target: { tail: StreamItem[]; head: StreamItem[] }): boolean {
@@ -367,6 +377,7 @@ function dedupeAiCreationFinalResults(target: { tail: StreamItem[]; head: Stream
 function normalizeHandshakeTurn(input: {
   turn: TaggedStreamItem[];
   isActiveRunningTurn: boolean;
+  hasFollowingTurn: boolean;
 }): { items: TaggedStreamItem[]; changed: boolean } {
   const responseTarget =
     findResponseStartTarget(input.turn) ?? findAiCreationRequestTarget(input.turn);
@@ -375,6 +386,7 @@ function normalizeHandshakeTurn(input: {
   }
 
   const normalized: TaggedStreamItem[] = [];
+  const turnSource = findTurnUserSource(input.turn) ?? "tail";
   for (const tagged of input.turn) {
     if (tagged.item.kind === "user_message") {
       normalized.push(tagged);
@@ -383,13 +395,16 @@ function normalizeHandshakeTurn(input: {
 
   const finalTaggedResult = findLastHandshakeResultItem(input.turn, responseTarget);
   const pptProgressItems = findPptProgressItems(input.turn, responseTarget);
+  const shouldInterleaveBeforeNextTurn = !input.isActiveRunningTurn && input.hasFollowingTurn;
   if (input.isActiveRunningTurn || !finalTaggedResult) {
     if (pptProgressItems.length > 0) {
-      normalized.push(...pptProgressItems);
+      normalized.push(
+        ...retargetTurnItems(pptProgressItems, turnSource, shouldInterleaveBeforeNextTurn),
+      );
       return { items: normalized, changed: true };
     }
     normalized.push({
-      source: "head",
+      source: shouldInterleaveBeforeNextTurn ? turnSource : "head",
       item: buildAiCreationPlaceholderItem(responseTarget),
     });
     return { items: normalized, changed: true };
@@ -408,12 +423,29 @@ function normalizeHandshakeTurn(input: {
     text: finalMarkdown,
     debugRawText: finalItem.text,
   };
-  normalized.push(...pptProgressItems);
+  normalized.push(
+    ...retargetTurnItems(pptProgressItems, turnSource, shouldInterleaveBeforeNextTurn),
+  );
   normalized.push({
-    source: finalTaggedResult.source,
+    source: shouldInterleaveBeforeNextTurn ? turnSource : finalTaggedResult.source,
     item: debugFinalItem,
   });
   return { items: normalized, changed: true };
+}
+
+function findTurnUserSource(items: TaggedStreamItem[]): StreamSource | null {
+  return items.find((tagged) => tagged.item.kind === "user_message")?.source ?? null;
+}
+
+function retargetTurnItems(
+  items: TaggedStreamItem[],
+  turnSource: StreamSource,
+  shouldRetarget: boolean,
+): TaggedStreamItem[] {
+  if (!shouldRetarget) {
+    return items;
+  }
+  return items.map((tagged) => ({ ...tagged, source: turnSource }));
 }
 
 function findAiCreationRequestTarget(items: TaggedStreamItem[]): DoyaTarget | null {
@@ -572,10 +604,15 @@ function extractHandshakeFinalMarkdown(text: string, expected: DoyaExpectedTarge
     return resultCardText;
   }
   if (PPT_RESULT_KINDS.has(expected.kind) || PPT_RESULT_GOALS.has(expected.goal)) {
-    return extractAiCreationFinalPptxMarkdown(text);
+    return (
+      extractAiCreationFinalPptxMarkdown(text) ?? extractAnnotationFallbackFinalText(text, expected)
+    );
   }
   if (DOCUMENT_RESULT_KINDS.has(expected.kind) || DOCUMENT_RESULT_GOALS.has(expected.goal)) {
-    return extractAiCreationFinalDocumentMarkdown(text);
+    return (
+      extractAiCreationFinalDocumentMarkdown(text) ??
+      extractAnnotationFallbackFinalText(text, expected)
+    );
   }
   if (IMAGE_RESULT_KINDS.has(expected.kind) || IMAGE_RESULT_GOALS.has(expected.goal)) {
     return extractAiCreationFinalImageMarkdown(text);
@@ -591,5 +628,22 @@ function extractHandshakeResultCardText(text: string, expected: DoyaExpectedTarg
   if (expected.kind === "document.apply_annotations") {
     return card.kind === "document.apply_annotations.result" ? text.trim() : null;
   }
+  if (expected.kind === "ppt.apply_annotations") {
+    return card.kind === "ppt.apply_annotations.result" ? text.trim() : null;
+  }
   return null;
+}
+
+function extractAnnotationFallbackFinalText(
+  text: string,
+  expected: DoyaExpectedTarget,
+): string | null {
+  if (expected.kind !== "ppt.apply_annotations" && expected.kind !== "document.apply_annotations") {
+    return null;
+  }
+  const trimmed = text.trim();
+  if (!trimmed || parseDoyaTargets(trimmed).length > 0) {
+    return null;
+  }
+  return trimmed;
 }

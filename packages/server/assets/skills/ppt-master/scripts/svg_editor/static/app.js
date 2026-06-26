@@ -12,6 +12,8 @@
       panel_slides: "Slides",
       panel_annotations: "Edit",
       placeholder_select_slide: "Select a slide to begin",
+      placeholder_select_slide_title: "Select a slide to begin",
+      placeholder_select_slide_desc: "Generated slides will appear here.",
       label_selected_element: "Selected element",
       empty_selected_element: "Click an element on the slide to select it",
       btn_select_group: "Select parent group",
@@ -32,6 +34,11 @@
       empty_waiting_slides: "Waiting for generated slides...",
       empty_no_slides: "No slides found",
       placeholder_live_ready: "Live preview is ready. Generated slides will appear here.",
+      placeholder_live_ready_title: "Live preview is ready",
+      placeholder_live_ready_desc:
+        "Generated slides will appear here as soon as the first SVG is written.",
+      placeholder_no_slides_title: "No slides found",
+      placeholder_no_slides_desc: "Create or export slide SVGs to preview them here.",
       placeholder_slide_writing: "Slide is still being written. Waiting for the next refresh...",
       empty_annotations: "No annotations yet",
       tooltip_remove_annotation: "Remove annotation",
@@ -84,6 +91,8 @@
       panel_slides: "幻灯片",
       panel_annotations: "编辑",
       placeholder_select_slide: "选择一张幻灯片开始",
+      placeholder_select_slide_title: "选择一张幻灯片开始",
+      placeholder_select_slide_desc: "生成的幻灯片会在这里出现。",
       label_selected_element: "已选元素",
       empty_selected_element: "点击幻灯片中的元素进行选择",
       btn_select_group: "选择父级组",
@@ -104,6 +113,10 @@
       empty_waiting_slides: "正在等待生成幻灯片……",
       empty_no_slides: "未找到幻灯片",
       placeholder_live_ready: "实时预览已就绪,生成的幻灯片会在这里出现。",
+      placeholder_live_ready_title: "实时预览已就绪",
+      placeholder_live_ready_desc: "第一张幻灯片生成后，会自动出现在这里。",
+      placeholder_no_slides_title: "未找到幻灯片",
+      placeholder_no_slides_desc: "创建或导出幻灯片 SVG 后即可在这里预览。",
       placeholder_slide_writing: "幻灯片仍在写入,等待下次刷新……",
       empty_annotations: "暂无标注",
       tooltip_remove_annotation: "删除标注",
@@ -243,6 +256,38 @@
   var annotationTipLayer = null;
   var annotationTipRenderFrame = null;
   var annotationTipResizeObserver = null;
+
+  function showPreviewPlaceholder(title, description) {
+    svgPlaceholder.innerHTML = "";
+
+    var card = document.createElement("div");
+    card.className = "svg-placeholder-card";
+
+    var visual = document.createElement("div");
+    visual.className = "svg-placeholder-visual";
+    visual.setAttribute("aria-hidden", "true");
+
+    var slide = document.createElement("div");
+    slide.className = "svg-placeholder-slide";
+    for (var i = 0; i < 3; i++) {
+      slide.appendChild(document.createElement("span"));
+    }
+    visual.appendChild(slide);
+
+    var titleEl = document.createElement("div");
+    titleEl.className = "svg-placeholder-title";
+    titleEl.textContent = title;
+
+    var descEl = document.createElement("div");
+    descEl.className = "svg-placeholder-desc";
+    descEl.textContent = description;
+
+    card.appendChild(visual);
+    card.appendChild(titleEl);
+    card.appendChild(descEl);
+    svgPlaceholder.appendChild(card);
+    svgPlaceholder.style.display = "flex";
+  }
   var annotationTipTransitionFrame = null;
   var btnUndo = document.getElementById("btn-undo");
   var btnSave = document.getElementById("btn-save");
@@ -466,10 +511,10 @@
           empty.textContent = liveMode ? t("empty_waiting_slides") : t("empty_no_slides");
           slideListEl.appendChild(empty);
           if (!currentSlide) {
-            svgPlaceholder.style.display = "block";
-            svgPlaceholder.textContent = liveMode
-              ? t("placeholder_live_ready")
-              : t("empty_no_slides");
+            showPreviewPlaceholder(
+              liveMode ? t("placeholder_live_ready_title") : t("placeholder_no_slides_title"),
+              liveMode ? t("placeholder_live_ready_desc") : t("placeholder_no_slides_desc"),
+            );
             svgContent.style.display = "none";
           }
           updateNavLabel();
@@ -575,8 +620,10 @@
           showError(t("err_load_slide") + data.error);
           if (liveMode) {
             currentSlide = null;
-            svgPlaceholder.style.display = "block";
-            svgPlaceholder.textContent = t("placeholder_slide_writing");
+            showPreviewPlaceholder(
+              t("placeholder_slide_writing"),
+              t("placeholder_live_ready_desc"),
+            );
             svgContent.style.display = "none";
           }
           return;
@@ -614,8 +661,7 @@
         }
         if (!rootSvg || !hasContent) {
           showError(t("err_empty_svg"));
-          svgPlaceholder.style.display = "block";
-          svgPlaceholder.textContent = t("err_empty_svg");
+          showPreviewPlaceholder(t("err_empty_svg"), t("placeholder_live_ready_desc"));
           svgContent.style.display = "none";
           return;
         }
@@ -1155,8 +1201,7 @@
   function setCanvasOffset(x, y) {
     canvasOffsetX = x;
     canvasOffsetY = y;
-    svgContent.style.transform =
-      "translate(" + Math.round(x) + "px, " + Math.round(y) + "px)";
+    svgContent.style.transform = "translate(" + Math.round(x) + "px, " + Math.round(y) + "px)";
     scheduleAnnotationTipRender();
   }
 

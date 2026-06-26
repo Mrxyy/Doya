@@ -138,6 +138,26 @@ function pptConfirmContinueUserMessage(
   };
 }
 
+function pptApplyAnnotationsUserMessage(
+  id: string,
+  seed: number,
+  projectName = "spring_simple_ppt_ppt169_20260626",
+): Extract<StreamItem, { kind: "user_message" }> {
+  return {
+    ...userMessage(id, seed),
+    text: `<doya-expected-target version="1" kind="ppt.apply_annotations" goal="modify_pptx" id="${id}" text="修改 PPTX" />
+
+<doya-ui version="1" kind="ppt.apply_annotations" render="card" visibility="summary" id="${id}">
+  <doya-ui-content>
+    <doya-title>应用 PPT 标注</doya-title>
+    <doya-summary>根据当前预览页保存的标注修改幻灯片</doya-summary>
+    <doya-field name="project" label="项目">${projectName}</doya-field>
+  </doya-ui-content>
+  <doya-ai>Apply annotations.</doya-ai>
+</doya-ui>`,
+  };
+}
+
 function pptMultiProgressMessage(
   id: string,
   seed: number,
@@ -393,6 +413,32 @@ describe("normalizeAiCreationStream", () => {
       { kind: "card", card: { kind: "ai_creation.slides.progress", title: "继续生成" } },
       { kind: "card", card: { kind: "ai_creation.slides.progress", title: "预览已就绪" } },
     ]);
+  });
+
+  it("keeps repeated PPT annotation turns interleaved with their own response", () => {
+    const result = normalizeAiCreationStream({
+      agentStatus: "running",
+      tail: [pptApplyAnnotationsUserMessage("u1", 1), pptApplyAnnotationsUserMessage("u2", 3)],
+      head: [
+        targetMessage("target-1", 2, {
+          kind: "ppt.apply_annotations",
+          goal: "modify_pptx",
+          targetId: "u1",
+          text: "修改 PPTX",
+        }),
+        targetMessage("target-2", 4, {
+          kind: "ppt.apply_annotations",
+          goal: "modify_pptx",
+          targetId: "u2",
+          text: "修改 PPTX",
+        }),
+      ],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", AI_CREATION_PLACEHOLDER_ID, "u2"]);
+    expect(result.head.map((item) => item.id)).toEqual([AI_CREATION_PLACEHOLDER_ID]);
+    expect(streamItemText(result.tail[1])).toBe("修改 PPTX");
+    expect(streamItemText(result.head[0])).toBe("修改 PPTX");
   });
 
   it("shows the final slides result without requiring a target handshake", () => {
@@ -746,6 +792,78 @@ describe("normalizeAiCreationStream", () => {
       summary: "已按标注更新预算表。",
       title: "文件标注已应用",
     });
+  });
+
+  it("preserves PPT annotation result cards instead of leaving the placeholder visible", () => {
+    const resultCard = `<doya-ui
+  version="1"
+  kind="ppt.apply_annotations.result"
+  render="result-card"
+  visibility="summary"
+  id="u1"
+>
+  <doya-ui-content>
+    <doya-title>PPT 标注已应用</doya-title>
+    <doya-summary>已根据标注更新封面标题。</doya-summary>
+    <doya-field name="pptx_path" label="导出文件">projects/demo/exports/demo-updated.pptx</doya-field>
+  </doya-ui-content>
+</doya-ui>`;
+
+    const result = normalizeAiCreationStream({
+      agentStatus: "idle",
+      tail: [
+        handshakeUserMessage("u1", 1, {
+          kind: "ppt.apply_annotations",
+          goal: "modify_pptx",
+          text: "修改 PPTX",
+        }),
+        targetMessage("target", 2, {
+          kind: "ppt.apply_annotations",
+          goal: "modify_pptx",
+          targetId: "u1",
+          text: "修改 PPTX",
+        }),
+        assistantMessage("final", resultCard, 3),
+      ],
+      head: [],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", "final"]);
+    expect(streamItemText(result.tail[1])).toBe(resultCard);
+    expect(parseDoyaMessageRenderParts(streamItemText(result.tail[1]))).toMatchObject([
+      {
+        kind: "card",
+        card: {
+          kind: "ppt.apply_annotations.result",
+          title: "PPT 标注已应用",
+          fields: [{ name: "pptx_path", value: "projects/demo/exports/demo-updated.pptx" }],
+        },
+      },
+    ]);
+  });
+
+  it("shows plain PPT annotation completion text when no PPTX path is available", () => {
+    const result = normalizeAiCreationStream({
+      agentStatus: "idle",
+      tail: [
+        handshakeUserMessage("u1", 1, {
+          kind: "ppt.apply_annotations",
+          goal: "modify_pptx",
+          text: "修改 PPTX",
+        }),
+        targetMessage("target", 2, {
+          kind: "ppt.apply_annotations",
+          goal: "modify_pptx",
+          targetId: "u1",
+          text: "修改 PPTX",
+        }),
+        assistantMessage("final", "没有发现已保存的 PPT 标注。", 3),
+      ],
+      head: [],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", "final"]);
+    expect(streamItemText(result.tail[1])).toBe("没有发现已保存的 PPT 标注。");
   });
 
   it("extracts the slides preview path while the slides agent is running", () => {

@@ -57,8 +57,22 @@
         </div>
         <div id="svg-container">
           <div id="rubber-band-overlay"></div>
-          <div id="svg-placeholder" data-i18n="placeholder_select_slide">
-            Select a slide to begin
+          <div id="svg-placeholder">
+            <div class="svg-placeholder-card">
+              <div class="svg-placeholder-visual" aria-hidden="true">
+                <div class="svg-placeholder-slide">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+              <div class="svg-placeholder-title" data-i18n="placeholder_select_slide_title">
+                Select a slide to begin
+              </div>
+              <div class="svg-placeholder-desc" data-i18n="placeholder_select_slide_desc">
+                Generated slides will appear here.
+              </div>
+            </div>
           </div>
           <div id="svg-content" style="display: none"></div>
         </div>
