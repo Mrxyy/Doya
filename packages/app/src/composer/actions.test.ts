@@ -12,6 +12,16 @@ vi.mock("@/i18n/i18n", () => ({
   translateNow: (key: string) => key,
 }));
 
+vi.mock("@/ai-creation/options", () => ({
+  AI_CREATION_STYLE_PROMPT_LABELS: {
+    auto: "auto",
+    cinematic: "cinematic",
+    illustration: "illustration",
+    product: "product",
+    portrait: "portrait",
+  },
+}));
+
 vi.mock("@/attachments/workspace-materialize", () => ({
   materializeWorkspaceFileAttachments: vi.fn(async ({ client, agentId, cwd, files }) => {
     const response = await client.materializeWorkspaceAttachments({
@@ -524,6 +534,31 @@ describe("dispatchComposerAgentMessage", () => {
       images: [],
       attachments: [],
     });
+  });
+
+  it("uses the PPT Master workflow prompt for slides creation in an existing conversation", async () => {
+    const client = createFakeSendClient();
+    const stream = createFakeStream();
+
+    await dispatchComposerAgentMessage({
+      client,
+      agentId: "agent",
+      text: "帮我制作两页关于春天的ppt",
+      attachments: [],
+      aiCreationContext: {
+        mode: "slides",
+        displayText: "帮我制作两页关于春天的ppt",
+        ratio: "16:9",
+      },
+      encodeImages: passthroughEncodeImages,
+      stream,
+    });
+
+    const sentText = client.calls[0]?.text ?? "";
+    expect(sentText).toContain('kind="ai_creation.slides.create"');
+    expect(sentText).toContain(".doya/skills/ppt-master");
+    expect(sentText).toContain("Do not use the generic presentations skill");
+    expect(sentText).toContain("Run the PPT Master pipeline end to end");
   });
 
   it("serializes workspace review attachments through the structured attachment path", async () => {

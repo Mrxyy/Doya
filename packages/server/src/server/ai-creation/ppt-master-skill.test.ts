@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { preparePptCreationWorkspace } from "./ppt-master-skill.js";
+import { isPptCreationPrompt, preparePptCreationWorkspace } from "./ppt-master-skill.js";
 
 describe("ppt-master skill workspace preparation", () => {
   it("links the bundled skill and materializes file attachments", async () => {
@@ -39,5 +39,18 @@ describe("ppt-master skill workspace preparation", () => {
         ].join("\n"),
       },
     ]);
+  });
+
+  it("detects Doya slides creation markup prompts", () => {
+    expect(
+      isPptCreationPrompt(
+        '<doya-ui version="1" kind="ai_creation.slides.create" render="card"></doya-ui>',
+      ),
+    ).toBe(true);
+    expect(
+      isPptCreationPrompt(
+        '<doya-ui version="1" kind="ai_creation.image.generate" render="card"></doya-ui>',
+      ),
+    ).toBe(false);
   });
 });

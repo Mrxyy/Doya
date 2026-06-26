@@ -12,6 +12,13 @@ export function isPptCreationLabels(labels: Record<string, string> | undefined):
   return labels?.surface === "ai_creation" && labels?.intent === "ppt_creation";
 }
 
+export function isPptCreationPrompt(text: string | null | undefined): boolean {
+  if (!text) {
+    return false;
+  }
+  return /<doya-ui\b[^>]*\bkind=(["'])ai_creation\.slides\.create\1/i.test(text);
+}
+
 export async function preparePptCreationWorkspace(input: {
   cwd: string;
   attachments: readonly AgentAttachment[] | undefined;

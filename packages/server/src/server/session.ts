@@ -119,6 +119,7 @@ import {
 } from "./agent/agent-projections.js";
 import {
   isPptCreationLabels,
+  isPptCreationPrompt,
   preparePptCreationWorkspace,
 } from "./ai-creation/ppt-master-skill.js";
 import {
@@ -3280,7 +3281,11 @@ export class Session {
         ? { ...config, cwd: createdWorktree.worktree.worktreePath }
         : config;
       let createAttachments = attachments;
-      if (isPptCreationLabels(labels)) {
+      const isPptCreation = isPptCreationLabels(labels) || isPptCreationPrompt(trimmedPrompt);
+      const effectiveLabels = isPptCreation
+        ? { ...labels, surface: "ai_creation", intent: "ppt_creation" }
+        : labels;
+      if (isPptCreation) {
         createAttachments = await preparePptCreationWorkspace({
           cwd: createAgentConfig.cwd,
           attachments,
@@ -3309,7 +3314,7 @@ export class Session {
           images,
           attachments: createAttachments,
           git,
-          labels,
+          labels: effectiveLabels,
           env,
           provisionalTitle,
           explicitTitle,
@@ -8124,6 +8129,23 @@ export class Session {
       const liveAgent = this.agentManager.getAgent(agentId);
       const storedAgent = liveAgent ? null : await this.agentStorage.get(agentId);
       const recordingCwd = liveAgent?.cwd ?? storedAgent?.cwd;
+      let attachments = msg.attachments;
+      if (
+        (isPptCreationLabels(liveAgent?.labels ?? storedAgent?.labels) ||
+          isPptCreationPrompt(msg.text)) &&
+        recordingCwd
+      ) {
+        attachments = await preparePptCreationWorkspace({
+          cwd: recordingCwd,
+          attachments,
+        });
+        if (liveAgent && !isPptCreationLabels(liveAgent.labels)) {
+          await this.agentManager.setLabels(agentId, {
+            surface: "ai_creation",
+            intent: "ppt_creation",
+          });
+        }
+      }
       this.conversationRecordingStore.recordUserInput(agentId, {
         source: "send_agent_message_request",
         requestId: msg.requestId,
@@ -8131,10 +8153,10 @@ export class Session {
         text: msg.text,
         ...(msg.messageId ? { messageId: msg.messageId } : {}),
         ...(msg.images && msg.images.length > 0 ? { images: msg.images } : {}),
-        ...(msg.attachments && msg.attachments.length > 0 ? { attachments: msg.attachments } : {}),
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
       });
 
-      const prompt = this.buildAgentPrompt(msg.text, msg.images, msg.attachments);
+      const prompt = this.buildAgentPrompt(msg.text, msg.images, attachments);
       this.sessionLogger.trace(
         {
           agentId,
