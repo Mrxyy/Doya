@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react-native";
 import {
   Pressable,
   type PressableStateCallbackType,
@@ -21,6 +20,7 @@ import { useWorkspaceFocusRestoration } from "@/workspace/focus";
 import { useReviewDraftComments, useReviewDraftStore, type ReviewDraftComment } from "./store";
 import { buildReviewableDiffTargetKey, type ReviewableDiffTarget } from "@/utils/diff-layout";
 import { translateNow } from "@/i18n/i18n";
+import { Pencil, Plus, Trash2 } from "@/components/icons/lucide";
 
 type PressableState = PressableStateCallbackType & { hovered?: boolean };
 type WebTextInputRef = TextInput & {

@@ -12,7 +12,6 @@ import {
   BottomSheetTextInput,
   type BottomSheetBackgroundProps,
 } from "@gorhom/bottom-sheet";
-import { ArrowLeft, Search, X } from "lucide-react-native";
 import { FileDropZone } from "@/components/file-drop-zone";
 import type { ImageAttachment } from "@/composer/types";
 import {
@@ -21,6 +20,7 @@ import {
 } from "@/components/ui/isolated-bottom-sheet-modal";
 import { isNative, isWeb } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
+import { ArrowLeft, Search, X } from "@/components/icons/lucide";
 
 // Horizontal indent token shared by the sheet header (title, back arrow,
 // leading icon, search input icon) and any row primitive rendered inside the

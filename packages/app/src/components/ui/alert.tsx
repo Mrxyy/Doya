@@ -1,7 +1,8 @@
-import { AlertTriangle, CheckCircle2, Info, XCircle, type LucideIcon } from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 import { type ReactNode, useMemo } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { AlertTriangle, CheckCircle2, Info, XCircle } from "@/components/icons/lucide";
 
 export type AlertVariant = "default" | "info" | "success" | "warning" | "error";
 

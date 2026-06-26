@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { Pressable, Text, View, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { QrCode, Link2, ClipboardPaste, ExternalLink, Settings } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { HostProfile } from "@/types/host-connection";
 import { getHostRuntimeStore, isHostRuntimeConnected, useHosts } from "@/runtime/host-runtime";
@@ -16,6 +15,7 @@ import { DoyaLogo } from "@/components/icons/doya-logo";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { isWeb, isNative } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
+import { ClipboardPaste, ExternalLink, Link2, QrCode, Settings } from "@/components/icons/lucide";
 
 interface WelcomeAction {
   key: "scan-qr" | "direct-connection" | "paste-pairing-link";

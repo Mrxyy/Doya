@@ -1,4 +1,4 @@
-import { highlightCode, type HighlightToken } from "@getdoya/highlight";
+import type { HighlightToken } from "@getdoya/highlight/types";
 
 // Shared, theme-independent tokenization + cache for syntax highlighting.
 // Used by markdown code blocks, file preview, and tool-call detail blocks
@@ -47,7 +47,10 @@ const tokenizationCache = new LRUCache<string, HighlightToken[][]>(200);
 // Tokenize `code` to per-line tokens, cached. Returns null when the language is
 // unsupported, the input is over the size cap, or parsing throws — callers then
 // render plain text.
-export function tokenizeToLines(code: string, ext: string | null): HighlightToken[][] | null {
+export async function tokenizeToLinesAsync(
+  code: string,
+  ext: string | null,
+): Promise<HighlightToken[][] | null> {
   if (!ext) return null;
   if (code.length > MAX_HIGHLIGHT_CHARS) return null;
   const cacheKey = `${ext}:${code}`;
@@ -55,6 +58,7 @@ export function tokenizeToLines(code: string, ext: string | null): HighlightToke
   if (cached) return cached;
   let lines: HighlightToken[][];
   try {
+    const { highlightCode } = await import("@getdoya/highlight/highlighter");
     lines = highlightCode(code, `x.${ext}`);
   } catch {
     return null;
@@ -73,8 +77,11 @@ function toKeyedLine(tokens: HighlightToken[], lineIndex: number): KeyedLine {
   };
 }
 
-export function highlightToKeyedLines(code: string, ext: string | null): KeyedLine[] | null {
-  const lines = tokenizeToLines(code, ext);
+export async function highlightToKeyedLinesAsync(
+  code: string,
+  ext: string | null,
+): Promise<KeyedLine[] | null> {
+  const lines = await tokenizeToLinesAsync(code, ext);
   return lines ? lines.map(toKeyedLine) : null;
 }
 

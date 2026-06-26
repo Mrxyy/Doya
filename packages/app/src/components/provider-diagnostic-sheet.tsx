@@ -1,4 +1,3 @@
-import { AlertTriangle, FileText, Plus, RotateCw, Trash2 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -28,6 +27,7 @@ import { compareMatchScores, scoreTextFields } from "@/utils/score-match";
 import type { AgentModelDefinition, AgentProvider } from "@getdoya/protocol/agent-types";
 import type { ProviderProfileModel } from "@getdoya/protocol/provider-config";
 import { translateNow } from "@/i18n/i18n";
+import { AlertTriangle, FileText, Plus, RotateCw, Trash2 } from "@/components/icons/lucide";
 
 interface ProviderDiagnosticSheetProps {
   provider: string;

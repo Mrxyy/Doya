@@ -1,6 +1,5 @@
 import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import type { ConversationRecording } from "@getdoya/protocol/messages";
-import { SquarePen } from "lucide-react-native";
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import ReanimatedAnimated from "react-native-reanimated";
@@ -100,6 +99,7 @@ import {
   advanceReplayClock,
   type ConversationReplaySpeed,
 } from "@/replay/conversation-replay-controls";
+import { SquarePen } from "@/components/icons/lucide";
 
 interface ChatAgentStateShape {
   serverId: string | null;
@@ -1464,19 +1464,43 @@ const AgentStreamSection = memo(function AgentStreamSection({
     useHomePresetAgentHistoryStore((state) =>
       selectHomePresetAgentHistory(state, { serverId, agentId }),
     ) ?? EMPTY_STREAM_ITEMS;
+  const [loadedHomePresetHistory, setLoadedHomePresetHistory] =
+    useState<StreamItem[]>(EMPTY_STREAM_ITEMS);
+  useEffect(() => {
+    if (inMemoryHomePresetHistory.length > 0) {
+      setLoadedHomePresetHistory(EMPTY_STREAM_ITEMS);
+      return;
+    }
+    const replayId = agent.labels?.[HOME_PRESET_REPLAY_ID_LABEL];
+    if (!isHomePresetReplayId(replayId)) {
+      setLoadedHomePresetHistory(EMPTY_STREAM_ITEMS);
+      return;
+    }
+    let isCurrent = true;
+    void buildHomePresetVisibleHistory({
+      id: replayId,
+      startedAtMs: agent.createdAt?.getTime() ?? 0,
+    })
+      .then((history) => {
+        if (isCurrent) {
+          setLoadedHomePresetHistory(history);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setLoadedHomePresetHistory(EMPTY_STREAM_ITEMS);
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [agent.createdAt, agent.labels, inMemoryHomePresetHistory.length]);
   const homePresetHistory = useMemo(() => {
     if (inMemoryHomePresetHistory.length > 0) {
       return inMemoryHomePresetHistory;
     }
-    const replayId = agent.labels?.[HOME_PRESET_REPLAY_ID_LABEL];
-    if (!isHomePresetReplayId(replayId)) {
-      return EMPTY_STREAM_ITEMS;
-    }
-    return buildHomePresetVisibleHistory({
-      id: replayId,
-      startedAtMs: agent.createdAt?.getTime() ?? 0,
-    });
-  }, [agent.createdAt, agent.labels, inMemoryHomePresetHistory]);
+    return loadedHomePresetHistory;
+  }, [inMemoryHomePresetHistory, loadedHomePresetHistory]);
   const streamItemsWithPresetHistory = useMemo(
     () =>
       prependHomePresetHistory({

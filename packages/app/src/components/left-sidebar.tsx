@@ -1,15 +1,4 @@
 import { router, usePathname } from "expo-router";
-import {
-  ChevronRight,
-  CreditCard,
-  LogOut,
-  MessagesSquare,
-  Palette,
-  Settings,
-  Sparkles,
-  UserRound,
-  X,
-} from "lucide-react-native";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
   Pressable,
@@ -77,6 +66,17 @@ import type { SettingsView } from "@/screens/settings-screen";
 import { SidebarAgentListSkeleton } from "./sidebar-agent-list-skeleton";
 import { SidebarCalloutSlot } from "./sidebar-callout-slot";
 import { SidebarWorkspaceList } from "./sidebar-workspace-list";
+import {
+  ChevronRight,
+  CreditCard,
+  LogOut,
+  MessagesSquare,
+  Palette,
+  Settings,
+  Sparkles,
+  UserRound,
+  X,
+} from "@/components/icons/lucide";
 
 const MIN_CHAT_WIDTH = 400;
 const BILLING_SHEET_SNAP_POINTS = ["90%"];

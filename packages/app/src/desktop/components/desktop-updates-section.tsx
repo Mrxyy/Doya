@@ -4,7 +4,6 @@ import * as Clipboard from "expo-clipboard";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { settingsStyles } from "@/styles/settings";
 import { SettingsSection } from "@/screens/settings/settings-section";
-import { ArrowUpRight, Copy, FileText, Activity } from "lucide-react-native";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +16,7 @@ import { useDesktopSettings, type DesktopSettings } from "@/desktop/settings/des
 import { resolveAppVersion } from "@/utils/app-version";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
 import { translateNow } from "@/i18n/i18n";
+import { Activity, ArrowUpRight, Copy, FileText } from "@/components/icons/lucide";
 
 type DesktopDaemonSettings = DesktopSettings["daemon"];
 

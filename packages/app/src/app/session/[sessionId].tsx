@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, StyleSheet as RNStyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { MicVocal } from "lucide-react-native";
 import { loadAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
 import {
   getControlSession,
@@ -20,6 +19,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { useI18n } from "@/i18n/i18n";
 import { useHostMutations, useHosts } from "@/runtime/host-runtime";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
+import { MicVocal } from "@/components/icons/lucide";
 
 function getParamValue(value: string | string[] | undefined): string {
   if (typeof value === "string") {

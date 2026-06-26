@@ -1,19 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
 import { Image, Pressable, ScrollView, Text, View, type DimensionValue } from "react-native";
-import {
-  Activity,
-  Check,
-  CreditCard,
-  Cpu,
-  HardDrive,
-  Power,
-  MemoryStick,
-  Server,
-  ShieldCheck,
-  Users,
-  Workflow,
-} from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { loadAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
 import { BillingAdminPanel } from "@/app/admin/billing";
@@ -62,6 +49,19 @@ import { useEnsureHostRuntimeStarted } from "@/runtime/host-runtime";
 import { ProvidersSection } from "@/screens/settings/providers-section";
 import type { HostProfile } from "@/types/host-connection";
 import { confirmDialog } from "@/utils/confirm-dialog";
+import {
+  Activity,
+  Check,
+  Cpu,
+  CreditCard,
+  HardDrive,
+  MemoryStick,
+  Power,
+  Server,
+  ShieldCheck,
+  Users,
+  Workflow,
+} from "@/components/icons/lucide";
 
 const RUNTIME_STATUSES: RuntimeStatus[] = ["starting", "running", "stopped", "lost"];
 const EMPTY_SELECTED_SESSION_IDS: string[] = [];
@@ -934,9 +934,7 @@ function DaemonCard({
         toast.show(t("admin.daemons.config.toastSaved"));
         return true;
       } catch (caught) {
-        toast.error(
-          caught instanceof Error ? caught.message : t("admin.daemons.config.errorSave"),
-        );
+        toast.error(caught instanceof Error ? caught.message : t("admin.daemons.config.errorSave"));
         return false;
       } finally {
         setIsConfigLoading(false);
@@ -1023,9 +1021,7 @@ function DaemonCard({
         lockedProviderModel: {
           provider: modelLockFormState.selectedProvider,
           model: modelLockEffectiveModelId,
-          ...(modelLockFormState.selectedMode
-            ? { modeId: modelLockFormState.selectedMode }
-            : {}),
+          ...(modelLockFormState.selectedMode ? { modeId: modelLockFormState.selectedMode } : {}),
           ...(modelLockEffectiveThinkingOptionId
             ? { thinkingOptionId: modelLockEffectiveThinkingOptionId }
             : {}),
@@ -1405,11 +1401,7 @@ function DaemonCard({
             <Button
               variant="default"
               size="sm"
-              disabled={
-                isConfigLoading ||
-                !modelLockDraftChanged ||
-                !modelLockDraftIsComplete
-              }
+              disabled={isConfigLoading || !modelLockDraftChanged || !modelLockDraftIsComplete}
               onPress={handleSaveModelLock}
             >
               {t("ui.save.1j2ql")}

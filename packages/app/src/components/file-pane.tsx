@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { DaemonClient, FileReadResult } from "@getdoya/client/internal/daemon-client";
 import Markdown, { MarkdownIt } from "react-native-markdown-display";
@@ -17,7 +17,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { useSessionStore, type ExplorerFile } from "@/stores/session-store";
 import { useWebScrollViewScrollbar } from "@/components/use-web-scrollbar";
 import { useWebScrollbarStyle } from "@/hooks/use-web-scrollbar-style";
-import { highlightCode, type HighlightToken } from "@getdoya/highlight";
+import type { HighlightToken } from "@getdoya/highlight/types";
 import { Button } from "@/components/ui/button";
 import { syntaxTokenStyleFor } from "@/styles/syntax-token-styles";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
@@ -31,8 +31,8 @@ import { useAttachmentPreviewUrl } from "@/attachments/use-attachment-preview-ur
 import { persistAttachmentFromBytes } from "@/attachments/service";
 import { createPreviewAttachmentId, getFileNameFromPath } from "@/attachments/utils";
 import {
-  DocumentViewer,
   type DocumentAnnotationTarget,
+  type DocumentViewerProps,
   type DocumentViewerKind,
 } from "@/components/document-viewer";
 import { explorerFileFromReadResult } from "@/file-explorer/read-result";
@@ -61,6 +61,12 @@ interface CodeLineProps {
   gutterWidth: number;
   highlighted: boolean;
 }
+
+const LazyDocumentViewer = React.lazy(() =>
+  import("@/components/document-viewer").then((module) => ({
+    default: module.DocumentViewer,
+  })),
+) as React.LazyExoticComponent<React.ComponentType<DocumentViewerProps>>;
 
 interface FilePreviewBodyProps {
   preview: ExplorerFile | null;
@@ -377,14 +383,34 @@ function FilePreviewBody({
     enabled: showDesktopWebScrollbar,
   });
 
-  const highlightedLines = useMemo(() => {
+  const textPreview = useMemo(() => {
     const textPreview = !isMarkdownFile && preview?.kind === "text" ? preview : null;
+    return textPreview;
+  }, [isMarkdownFile, preview]);
+  const [highlightedLines, setHighlightedLines] = useState<HighlightToken[][] | null>(null);
+  useEffect(() => {
     if (!textPreview) {
-      return null;
+      setHighlightedLines(null);
+      return;
     }
-
-    return highlightCode(textPreview.content ?? "", filePath);
-  }, [isMarkdownFile, preview, filePath]);
+    let isCurrent = true;
+    setHighlightedLines(null);
+    void import("@getdoya/highlight/highlighter")
+      .then(({ highlightCode }) => highlightCode(textPreview.content ?? "", filePath))
+      .then((lines) => {
+        if (isCurrent) {
+          setHighlightedLines(lines);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setHighlightedLines(null);
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [textPreview, filePath]);
 
   const gutterWidth = useMemo(() => {
     if (!highlightedLines) return 0;
@@ -439,20 +465,28 @@ function FilePreviewBody({
 
   if (documentBytes && documentKind) {
     return (
-      <DocumentViewer
-        key={`${documentPreviewRevision ?? `${documentKind}:${filePath}`}:${documentSourceUrl ?? ""}`}
-        kind={documentKind}
-        bytes={documentBytes}
-        mimeType={preview.mimeType ?? "application/octet-stream"}
-        fileName={filePath.split("/").findLast(Boolean) ?? filePath}
-        sourceUrl={documentSourceUrl}
-        annotationMode={documentAnnotationMode}
-        pendingAnnotationTargets={pendingDocumentAnnotationTargets}
-        pendingAnnotationTips={pendingDocumentAnnotations}
-        selectedAnnotationTarget={selectedDocumentAnnotationTarget}
-        onAnnotationTargetSelect={onDocumentAnnotationTargetSelect}
-        onAnnotationRemove={onDocumentAnnotationRemove}
-      />
+      <React.Suspense
+        fallback={
+          <View style={styles.centerState}>
+            <ActivityIndicator size="small" />
+          </View>
+        }
+      >
+        <LazyDocumentViewer
+          key={`${documentPreviewRevision ?? `${documentKind}:${filePath}`}:${documentSourceUrl ?? ""}`}
+          kind={documentKind}
+          bytes={documentBytes}
+          mimeType={preview.mimeType ?? "application/octet-stream"}
+          fileName={filePath.split("/").findLast(Boolean) ?? filePath}
+          sourceUrl={documentSourceUrl}
+          annotationMode={documentAnnotationMode}
+          pendingAnnotationTargets={pendingDocumentAnnotationTargets}
+          pendingAnnotationTips={pendingDocumentAnnotations}
+          selectedAnnotationTarget={selectedDocumentAnnotationTarget}
+          onAnnotationTargetSelect={onDocumentAnnotationTargetSelect}
+          onAnnotationRemove={onDocumentAnnotationRemove}
+        />
+      </React.Suspense>
     );
   }
 

@@ -19,15 +19,6 @@ import {
 } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useShallow } from "zustand/shallow";
-import {
-  Brain,
-  ChevronDown,
-  ChevronRight,
-  ListTodo,
-  Settings2,
-  ShieldCheck,
-  Zap,
-} from "lucide-react-native";
 import { getProviderIcon } from "@/components/provider-icons";
 import { CombinedModelSelector } from "@/components/combined-model-selector";
 import {
@@ -78,6 +69,15 @@ import { isDev } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { toErrorMessage } from "@/utils/error-messages";
 import { translateNow } from "@/i18n/i18n";
+import {
+  Brain,
+  ChevronDown,
+  ChevronRight,
+  ListTodo,
+  Settings2,
+  ShieldCheck,
+  Zap,
+} from "@/components/icons/lucide";
 
 interface AgentControlOption {
   id: string;

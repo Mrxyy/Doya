@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import {
   loadAccountBootstrapSession,
@@ -9,7 +9,12 @@ import { selectAccountSessionForDirectHost } from "@/account/account-workspace-d
 import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
 import { HostRuntimeStartupGate } from "@/components/host-runtime-startup-gate";
 import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
-import { NewSessionDraftScreen } from "@/screens/new-session-draft-screen";
+
+const NewSessionDraftScreen = lazy(() =>
+  import("@/screens/new-session-draft-screen").then((module) => ({
+    default: module.NewSessionDraftScreen,
+  })),
+);
 
 export default function HostHomeRoute() {
   return (
@@ -60,7 +65,9 @@ function HostHomeRouteContent() {
 
   return (
     <HostRuntimeStartupGate serverId={serverId}>
-      <NewSessionDraftScreen serverId={serverId} accountSession={accountSession} />
+      <Suspense fallback={null}>
+        <NewSessionDraftScreen serverId={serverId} accountSession={accountSession} />
+      </Suspense>
     </HostRuntimeStartupGate>
   );
 }

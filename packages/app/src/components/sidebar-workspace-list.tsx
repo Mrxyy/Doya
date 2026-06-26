@@ -42,28 +42,6 @@ import { type GestureType } from "react-native-gesture-handler";
 import * as Clipboard from "expo-clipboard";
 import { DiffStat } from "@/components/diff-stat";
 import { getProviderIcon } from "@/components/provider-icons";
-import {
-  Archive,
-  CircleAlert,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  ExternalLink,
-  FolderPlus,
-  FolderGit2,
-  GitPullRequest,
-  Globe,
-  Flag,
-  Pin,
-  Settings,
-  Share2,
-  SquareTerminal,
-  Monitor,
-  MoreVertical,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react-native";
 import Svg, { Path } from "react-native-svg";
 import { NestableScrollContainer } from "react-native-draggable-flatlist";
 import { DraggableList, type DraggableRenderItemInfo } from "./draggable-list";
@@ -153,6 +131,28 @@ import {
   type WorkspaceTabPresentation,
 } from "@/screens/workspace/workspace-tab-presentation";
 import { useShallow } from "zustand/shallow";
+import {
+  Archive,
+  ChevronDown,
+  ChevronRight,
+  CircleAlert,
+  Copy,
+  ExternalLink,
+  Flag,
+  FolderGit2,
+  FolderPlus,
+  GitPullRequest,
+  Globe,
+  Monitor,
+  MoreVertical,
+  Pencil,
+  Pin,
+  Plus,
+  Settings,
+  Share2,
+  SquareTerminal,
+  Trash2,
+} from "@/components/icons/lucide";
 
 const workspaceKeyExtractor = (workspace: SidebarWorkspaceEntry) => workspace.workspaceKey;
 

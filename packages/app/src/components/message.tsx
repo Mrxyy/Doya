@@ -35,32 +35,7 @@ import Markdown, {
   type RenderRules,
 } from "react-native-markdown-display";
 import MaskedView from "@react-native-masked-view/masked-view";
-import {
-  Circle,
-  Info,
-  CheckCircle,
-  XCircle,
-  FileText,
-  ChevronRight,
-  ChevronDown,
-  Check,
-  CheckSquare,
-  Copy,
-  TriangleAlertIcon,
-  Scissors,
-  MicVocal,
-  File,
-  FileArchive,
-  FileImage,
-  FileSpreadsheet,
-  FileSymlink,
-  Eye,
-  Pencil,
-  Presentation,
-  Sparkles,
-  X,
-  type LucideIcon,
-} from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { type Theme } from "@/styles/theme";
 import { useIsCompactFormFactor } from "@/constants/layout";
@@ -82,7 +57,6 @@ import { buildToolCallPresentation } from "@/tool-calls/presentation";
 import { resolveToolCallIcon } from "@/utils/tool-call-icon";
 import { getMarkdownListMarker, getMarkdownListSpacing } from "@/utils/markdown-list";
 import { useStableEvent } from "@/hooks/use-stable-event";
-import { HighlightedCodeBlock } from "@/components/highlighted-code-block";
 import { splitMarkdownBlocks } from "@/utils/split-markdown-blocks";
 import { formatDuration, formatMessageTimestamp } from "@/utils/time";
 import { writeMarkdownToRichClipboard } from "@/utils/rich-clipboard";
@@ -97,7 +71,6 @@ import { setAssistantMarkdownBlockHeight } from "@/utils/assistant-message-heigh
 import { resolveAssistantImageSource } from "@/utils/assistant-image-source";
 import { PlanCard } from "./plan-card";
 import { useToolCallSheet } from "./tool-call-sheet";
-import { ToolCallDetailsContent } from "./tool-call-details";
 import {
   AssistantInlineCodePathLink,
   type AssistantFileLinkSource,
@@ -124,7 +97,43 @@ import { RewindMenu, type RewindMode } from "@/components/rewind/rewind-menu";
 import { useRewindAgentMutation } from "@/components/rewind/use-rewind-agent-mutation";
 import { translateNow } from "@/i18n/i18n";
 import { resolveDocumentViewerKind } from "@/utils/document-viewer-kind";
+import {
+  Check,
+  CheckCircle,
+  CheckSquare,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  Copy,
+  Eye,
+  File,
+  FileArchive,
+  FileImage,
+  FileSpreadsheet,
+  FileSymlink,
+  FileText,
+  Info,
+  MicVocal,
+  Pencil,
+  Presentation,
+  Scissors,
+  Sparkles,
+  TriangleAlertIcon,
+  X,
+  XCircle,
+} from "@/components/icons/lucide";
 export type { InlinePathTarget } from "@/assistant-file-links";
+
+const LazyHighlightedCodeBlock = React.lazy(() =>
+  import("@/components/highlighted-code-block").then((module) => ({
+    default: module.HighlightedCodeBlock,
+  })),
+);
+const LazyToolCallDetailsContent = React.lazy(() =>
+  import("./tool-call-details").then((module) => ({
+    default: module.ToolCallDetailsContent,
+  })),
+);
 
 type MarkdownStyles = Record<string, TextStyle & ViewStyle & { [key: string]: unknown }>;
 
@@ -3487,13 +3496,21 @@ export const AssistantMessage = memo(function AssistantMessage({
         styles: MarkdownStyles,
         inheritedStyles: TextStyle = {},
       ) => (
-        <HighlightedCodeBlock
+        <React.Suspense
           key={node.key}
-          code={node.content}
-          language={null}
-          inheritedStyles={inheritedStyles}
-          textStyle={styles.code_block}
-        />
+          fallback={
+            <MarkdownTextSpan style={[inheritedStyles, styles.code_block]}>
+              {node.content}
+            </MarkdownTextSpan>
+          }
+        >
+          <LazyHighlightedCodeBlock
+            code={node.content}
+            language={null}
+            inheritedStyles={inheritedStyles}
+            textStyle={styles.code_block}
+          />
+        </React.Suspense>
       ),
       fence: (
         node: ASTNode,
@@ -3502,13 +3519,21 @@ export const AssistantMessage = memo(function AssistantMessage({
         styles: MarkdownStyles,
         inheritedStyles: TextStyle = {},
       ) => (
-        <HighlightedCodeBlock
+        <React.Suspense
           key={node.key}
-          code={node.content}
-          language={node.sourceInfo}
-          inheritedStyles={inheritedStyles}
-          textStyle={styles.fence}
-        />
+          fallback={
+            <MarkdownTextSpan style={[inheritedStyles, styles.fence]}>
+              {node.content}
+            </MarkdownTextSpan>
+          }
+        >
+          <LazyHighlightedCodeBlock
+            code={node.content}
+            language={node.sourceInfo}
+            inheritedStyles={inheritedStyles}
+            textStyle={styles.fence}
+          />
+        </React.Suspense>
       ),
       code_inline: (
         node: ASTNode,
@@ -4944,12 +4969,14 @@ export const ToolCall = memo(function ToolCall({
   const renderDetails = useCallback(() => {
     if (isMobile) return null;
     return (
-      <ToolCallDetailsContent
-        detail={effectiveDetail}
-        errorText={presentation.errorText}
-        maxHeight={400}
-        showLoadingSkeleton={presentation.isLoadingDetails}
-      />
+      <React.Suspense fallback={null}>
+        <LazyToolCallDetailsContent
+          detail={effectiveDetail}
+          errorText={presentation.errorText}
+          maxHeight={400}
+          showLoadingSkeleton={presentation.isLoadingDetails}
+        />
+      </React.Suspense>
     );
   }, [isMobile, effectiveDetail, presentation.errorText, presentation.isLoadingDetails]);
 

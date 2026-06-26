@@ -1,9 +1,9 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { X } from "lucide-react-native";
 import { isNative } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { X } from "@/components/icons/lucide";
 
 interface AttachmentPillProps {
   onOpen: () => void;

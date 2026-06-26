@@ -1,4 +1,3 @@
-import { SquareTerminal } from "lucide-react-native";
 import { useMemo } from "react";
 import { Image, type ImageSourcePropType } from "react-native";
 import {
@@ -6,6 +5,7 @@ import {
   type EditorTargetId,
   type KnownEditorTargetId,
 } from "@getdoya/protocol/messages";
+import { SquareTerminal } from "@/components/icons/lucide";
 
 interface EditorAppIconProps {
   editorId: EditorTargetId;

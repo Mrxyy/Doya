@@ -2,11 +2,11 @@ import { View, Text } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import Animated, { useAnimatedStyle, withTiming, useSharedValue } from "react-native-reanimated";
 import { useEffect, useMemo } from "react";
-import { Upload } from "lucide-react-native";
 import { useFileDropZone } from "@/hooks/use-file-drop-zone";
 import type { ImageAttachment } from "@/composer/types";
 import { isWeb } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
+import { Upload } from "@/components/icons/lucide";
 
 interface FileDropZoneProps {
   children: React.ReactNode;

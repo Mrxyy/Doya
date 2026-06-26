@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { HighlightToken } from "@getdoya/highlight";
+import type { HighlightToken } from "@getdoya/highlight/types";
 
 export interface DiffSegment {
   text: string;

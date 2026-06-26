@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState, type ReactElement } from "react";
 import { Pressable, ScrollView, Text, View, type PressableStateCallbackType } from "react-native";
-import { Archive, ChevronDown, ChevronRight } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { getProviderIcon } from "@/components/provider-icons";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -14,6 +13,7 @@ import type { Theme } from "@/styles/theme";
 import type { SubagentRow } from "./select";
 import { buildSubagentRowPresentationData, formatHeaderLabel } from "./track-presentation";
 import { translateNow } from "@/i18n/i18n";
+import { Archive, ChevronDown, ChevronRight } from "@/components/icons/lucide";
 
 const ThemedArchive = withUnistyles(Archive);
 const ThemedChevronDown = withUnistyles(ChevronDown);

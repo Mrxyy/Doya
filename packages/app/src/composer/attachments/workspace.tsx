@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { MessageSquareCode, MousePointer2 } from "lucide-react-native";
 import type {
   ComposerAttachment,
   UserComposerAttachment,
@@ -16,6 +15,7 @@ import {
 } from "@/attachments/workspace-attachment-utils";
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { useClearReviewDraft } from "@/review/store";
+import { MessageSquareCode, MousePointer2 } from "@/components/icons/lucide";
 
 interface WorkspaceAttachmentBindingInput {
   normalAttachments: UserComposerAttachment[];

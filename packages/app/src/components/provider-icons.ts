@@ -1,4 +1,3 @@
-import { Bot, PackagePlus } from "lucide-react-native";
 import { createElement, type ComponentType } from "react";
 import { SvgXml } from "react-native-svg";
 import { ClaudeIcon } from "@/components/icons/claude-icon";
@@ -11,6 +10,7 @@ import {
   resolveProviderIconName,
   type BuiltinProviderIconName,
 } from "@/components/provider-icon-name";
+import { Bot, PackagePlus } from "@/components/icons/lucide";
 
 export interface ProviderIconProps {
   size: number;

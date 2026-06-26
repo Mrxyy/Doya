@@ -20,14 +20,6 @@ import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { isNative, isWeb as platformIsWeb } from "@/constants/platform";
-import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
-  Search,
-  Settings,
-  Star,
-} from "lucide-react-native";
 import type { AgentProvider } from "@getdoya/protocol/agent-types";
 import type { SheetHeader } from "@/components/adaptive-modal-sheet";
 import { useProviderSettingsStore } from "@/stores/provider-settings-store";
@@ -78,6 +70,14 @@ import {
   isControlApiConfigured,
   type ControlModelPricingRecord,
 } from "@/control/control-api";
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Search,
+  Settings,
+  Star,
+} from "@/components/icons/lucide";
 
 // TODO: this should be configured per provider in the provider manifest
 const PROVIDERS_WITH_MODEL_DESCRIPTIONS = new Set(["opencode", "pi"]);

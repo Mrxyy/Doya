@@ -8,7 +8,6 @@ import {
   View,
   type PressableStateCallbackType,
 } from "react-native";
-import { Folder } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useQuery } from "@tanstack/react-query";
 import { useKeyboardShortcutsStore } from "@/stores/keyboard-shortcuts-store";
@@ -20,6 +19,7 @@ import { buildWorkingDirectorySuggestions } from "@/utils/working-directory-sugg
 import { isNative } from "@/constants/platform";
 import { useActiveServerId } from "@/hooks/use-active-server-id";
 import { translateNow } from "@/i18n/i18n";
+import { Folder } from "@/components/icons/lucide";
 
 interface PathRowProps {
   path: string;

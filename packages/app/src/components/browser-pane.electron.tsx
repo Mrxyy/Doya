@@ -8,7 +8,6 @@ import {
   createElement,
 } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
-import { ArrowLeft, ArrowRight, MousePointer2, PencilRuler, RotateCw } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import {
   buildWorkspaceAttachmentScopeKey,
@@ -25,6 +24,13 @@ import {
 import { isDev } from "@/constants/platform";
 import { useBrowserStore, normalizeWorkspaceBrowserUrl } from "@/stores/browser-store";
 import { translateNow } from "@/i18n/i18n";
+import {
+  ArrowLeft,
+  ArrowRight,
+  MousePointer2,
+  PencilRuler,
+  RotateCw,
+} from "@/components/icons/lucide";
 
 type ElectronWebview = HTMLElement & {
   canGoBack?: () => boolean;

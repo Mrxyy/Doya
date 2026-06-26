@@ -20,26 +20,6 @@ import {
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useShallow } from "zustand/shallow";
-import {
-  ArrowUp,
-  Square,
-  Pencil,
-  AudioLines,
-  CircleDot,
-  GitPullRequest,
-  Github,
-  Paperclip,
-  FileText,
-  FileImage,
-  PanelsTopLeft,
-  Presentation,
-  Table2,
-  X,
-  Palette,
-  ChevronDown,
-  Grid2x2,
-  Sparkles,
-} from "lucide-react-native";
 import Animated from "react-native-reanimated";
 import { FOOTER_HEIGHT, MAX_CONTENT_WIDTH } from "@/constants/layout";
 import {
@@ -135,6 +115,26 @@ import {
   type AiCreationVisualStyleOption,
 } from "@/ai-creation/options";
 import type { ComposerAiCreationPromptContext } from "@/ai-creation/composer-prompt";
+import {
+  ArrowUp,
+  AudioLines,
+  ChevronDown,
+  CircleDot,
+  FileImage,
+  FileText,
+  Github,
+  GitPullRequest,
+  Grid2x2,
+  Palette,
+  PanelsTopLeft,
+  Paperclip,
+  Pencil,
+  Presentation,
+  Sparkles,
+  Square,
+  Table2,
+  X,
+} from "@/components/icons/lucide";
 
 type QueuedMessage = QueuedComposerMessage;
 

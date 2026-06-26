@@ -7,7 +7,6 @@ import {
   type PressableStateCallbackType,
 } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { ChevronDown, Info, MoreVertical } from "lucide-react-native";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +21,7 @@ import type { ShortcutKey } from "@/utils/format-shortcut";
 import { useToast } from "@/contexts/toast-context";
 import type { GitAction, GitActions } from "@/git/policy";
 import { translateNow } from "@/i18n/i18n";
+import { ChevronDown, Info, MoreVertical } from "@/components/icons/lucide";
 
 interface GitActionsSplitButtonProps {
   gitActions: GitActions;

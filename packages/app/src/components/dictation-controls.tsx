@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { X, ArrowUp, RefreshCcw, Check, Mic, Pencil } from "lucide-react-native";
 import { VolumeMeter } from "./volume-meter";
 import { FOOTER_HEIGHT } from "@/constants/layout";
 import type { DictationStatus } from "@/hooks/use-dictation";
 import { translateNow } from "@/i18n/i18n";
+import { ArrowUp, Check, Mic, Pencil, RefreshCcw, X } from "@/components/icons/lucide";
 
 interface DictationControlsProps {
   volume: number;

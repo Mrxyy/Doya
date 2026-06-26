@@ -3,26 +3,6 @@ import type {
   ConversationRecordingEdits,
   ConversationRecordingSummary,
 } from "@getdoya/protocol/messages";
-import {
-  Check,
-  Clapperboard,
-  Download,
-  Eye,
-  EyeOff,
-  ListTree,
-  Maximize2,
-  Minus,
-  Plus,
-  Redo2,
-  Radio,
-  RotateCcw,
-  Play,
-  SkipBack,
-  SkipForward,
-  Trash2,
-  Undo2,
-  X,
-} from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
@@ -48,6 +28,26 @@ import { useI18n } from "@/i18n/i18n";
 import { useSessionStore } from "@/stores/session-store";
 import type { Theme } from "@/styles/theme";
 import { type ReplayClipView, type ReplayEventView, listReplayClips } from "./conversation-replay";
+import {
+  Check,
+  Clapperboard,
+  Download,
+  Eye,
+  EyeOff,
+  ListTree,
+  Maximize2,
+  Minus,
+  Play,
+  Plus,
+  Radio,
+  Redo2,
+  RotateCcw,
+  SkipBack,
+  SkipForward,
+  Trash2,
+  Undo2,
+  X,
+} from "@/components/icons/lucide";
 
 const TIMELINE_MIN_WIDTH = 860;
 const TIMELINE_TRACK_HEIGHT = 132;

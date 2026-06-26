@@ -14,23 +14,6 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Buffer } from "buffer";
-import {
-  ArrowLeft,
-  ChevronDown,
-  Settings,
-  Palette,
-  CreditCard,
-  Server,
-  Network,
-  Workflow,
-  Boxes,
-  Keyboard,
-  Stethoscope,
-  Info,
-  Shield,
-  Puzzle,
-  FolderGit2,
-} from "lucide-react-native";
 import { ScreenTitle } from "@/components/headers/screen-title";
 import { HeaderIconBadge } from "@/components/headers/header-icon-badge";
 import { SettingsSection } from "@/screens/settings/settings-section";
@@ -100,6 +83,23 @@ import {
 } from "@/utils/host-routes";
 import { navigateToLastWorkspace } from "@/stores/navigation-active-workspace-store";
 import { projectDisplayNameFromProjectId } from "@/utils/project-display-name";
+import {
+  ArrowLeft,
+  Boxes,
+  ChevronDown,
+  CreditCard,
+  FolderGit2,
+  Info,
+  Keyboard,
+  Network,
+  Palette,
+  Puzzle,
+  Server,
+  Settings,
+  Shield,
+  Stethoscope,
+  Workflow,
+} from "@/components/icons/lucide";
 
 // ---------------------------------------------------------------------------
 // View model

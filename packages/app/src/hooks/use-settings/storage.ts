@@ -1,4 +1,4 @@
-import { isSyntaxThemeId, type SyntaxThemeId } from "@getdoya/highlight";
+import { isSyntaxThemeId, type SyntaxThemeId } from "@getdoya/highlight/themes";
 import type { QueryClient } from "@tanstack/react-query";
 import type { DesktopSettings } from "@/desktop/settings/desktop-settings";
 import type { ThemeName } from "@/styles/theme";

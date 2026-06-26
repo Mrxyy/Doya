@@ -2,6 +2,9 @@ import { highlightTree, tagHighlighter, tags } from "@lezer/highlight";
 import type { HighlightStyle, HighlightToken } from "./types.js";
 import { getParserForFile } from "./parsers.js";
 
+export { isLanguageSupported } from "./parsers.js";
+export type { HighlightToken } from "./types.js";
+
 const highlighter = tagHighlighter([
   { tag: tags.keyword, class: "keyword" },
   { tag: tags.controlKeyword, class: "keyword" },

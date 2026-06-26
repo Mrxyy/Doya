@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import { Text, View } from "react-native";
-import { RotateCw } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { DoyaLoadingMark } from "@/components/doya-loading-mark";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import {
 } from "@/runtime/host-runtime";
 import { useI18n } from "@/i18n/i18n";
 import type { ReactNode } from "react";
+import { RotateCw } from "@/components/icons/lucide";
 
 export function HostRuntimeStartupGate({
   serverId,

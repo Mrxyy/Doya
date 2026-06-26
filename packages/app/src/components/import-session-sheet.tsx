@@ -6,7 +6,6 @@ import type {
   FetchRecentProviderSessionEntry,
 } from "@getdoya/client/internal/daemon-client";
 import type { AgentProvider } from "@getdoya/protocol/agent-types";
-import { Inbox, RotateCw } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -27,6 +26,7 @@ import {
   sumFilteredAlreadyImportedCount,
 } from "@/components/import-session-sheet-view-model";
 import { translateNow } from "@/i18n/i18n";
+import { Inbox, RotateCw } from "@/components/icons/lucide";
 
 const IMPORT_SHEET_SNAP_POINTS = ["70%", "92%"];
 const DISABLED_ACCESSIBILITY_STATE = { disabled: true };

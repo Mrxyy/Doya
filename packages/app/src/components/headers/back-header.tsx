@@ -2,10 +2,10 @@ import { useCallback, type ReactNode } from "react";
 import { Pressable } from "react-native";
 import { router } from "expo-router";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { ArrowLeft } from "lucide-react-native";
 import { ScreenHeader } from "./screen-header";
 import { ScreenTitle } from "./screen-title";
 import { translateNow } from "@/i18n/i18n";
+import { ArrowLeft } from "@/components/icons/lucide";
 
 interface BackHeaderProps {
   title?: string;

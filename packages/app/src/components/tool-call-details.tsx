@@ -1,4 +1,4 @@
-import React, { useMemo, type ReactNode } from "react";
+import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   View,
   Text,
@@ -11,12 +11,16 @@ import { StyleSheet } from "react-native-unistyles";
 import { AppearanceStyleBoundary } from "@/components/appearance-style-boundary";
 import type { ToolCallDetail } from "@getdoya/protocol/agent-types";
 import { buildLineDiff, parseUnifiedDiff, type DiffLine } from "@/utils/tool-call-parsers";
-import { highlightDiffLines } from "@/utils/diff-highlight";
+import { highlightDiffLinesAsync } from "@/utils/diff-highlight";
 import { hasMeaningfulToolCallDetail } from "@/utils/tool-call-detail-state";
 import { useWebScrollbarStyle } from "@/hooks/use-web-scrollbar-style";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
-import { extensionFromPath, highlightToKeyedLines } from "@/utils/highlight-cache";
+import {
+  extensionFromPath,
+  highlightToKeyedLinesAsync,
+  type KeyedLine,
+} from "@/utils/highlight-cache";
 import { HighlightedLines } from "./highlighted-content";
 import { DiffViewer } from "./diff-viewer";
 import { getCodeInsets } from "./code-insets";
@@ -27,7 +31,7 @@ const ScrollView = isWeb ? RNScrollView : GHScrollView;
 
 // ---- Content Component ----
 
-interface ToolCallDetailsContentProps {
+export interface ToolCallDetailsContentProps {
   detail?: ToolCallDetail;
   errorText?: string;
   maxHeight?: number;
@@ -146,13 +150,32 @@ function useDetailStyles(
 }
 
 function useDiffLines(detail: ToolCallDetail | undefined): DiffLine[] | undefined {
-  return useMemo(() => {
+  const plainDiffLines = useMemo(() => {
     if (!detail || detail.type !== "edit") return undefined;
-    const diffLines = detail.unifiedDiff
+    return detail.unifiedDiff
       ? parseUnifiedDiff(detail.unifiedDiff)
       : buildLineDiff(detail.oldString ?? "", detail.newString ?? "");
-    return highlightDiffLines(diffLines, detail.filePath);
   }, [detail]);
+  const [diffLines, setDiffLines] = useState<DiffLine[] | undefined>(plainDiffLines);
+
+  useEffect(() => {
+    if (!detail || detail.type !== "edit" || !plainDiffLines) {
+      setDiffLines(plainDiffLines);
+      return;
+    }
+    let isCurrent = true;
+    setDiffLines(plainDiffLines);
+    void highlightDiffLinesAsync(plainDiffLines, detail.filePath).then((highlightedLines) => {
+      if (isCurrent) {
+        setDiffLines(highlightedLines);
+      }
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [detail, plainDiffLines]);
+
+  return diffLines;
 }
 
 interface ShellDetailProps {
@@ -449,10 +472,23 @@ function ScrollableTextSection({
   filePath,
   startLine,
 }: ScrollableContentProps) {
-  const keyedLines = useMemo(
-    () => (filePath ? highlightToKeyedLines(content, extensionFromPath(filePath)) : null),
-    [content, filePath],
-  );
+  const [keyedLines, setKeyedLines] = useState<KeyedLine[] | null>(null);
+  useEffect(() => {
+    if (!filePath) {
+      setKeyedLines(null);
+      return;
+    }
+    let isCurrent = true;
+    setKeyedLines(null);
+    void highlightToKeyedLinesAsync(content, extensionFromPath(filePath)).then((lines) => {
+      if (isCurrent) {
+        setKeyedLines(lines);
+      }
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [content, filePath]);
   const body = (
     <ScrollView
       style={ds.scrollAreaFillStyle}

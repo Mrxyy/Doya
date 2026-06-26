@@ -2,7 +2,6 @@ import { Fragment, useCallback, useMemo, type ReactElement } from "react";
 import type { GestureResponderEvent } from "react-native";
 import { Pressable, Text, View } from "react-native";
 import { useMutation } from "@tanstack/react-query";
-import { ChevronDown, ExternalLink, Globe, Play, SquareTerminal } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { WorkspaceDescriptor } from "@/stores/session-store";
 import { useSessionStore } from "@/stores/session-store";
@@ -20,6 +19,7 @@ import { openServiceUrl } from "@/utils/open-service-url";
 import { resolveWorkspaceScriptLink } from "@/utils/workspace-script-links";
 import type { Theme } from "@/styles/theme";
 import { translateNow } from "@/i18n/i18n";
+import { ChevronDown, ExternalLink, Globe, Play, SquareTerminal } from "@/components/icons/lucide";
 
 type ScriptActionIcon = "start" | "view";
 

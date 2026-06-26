@@ -1,9 +1,8 @@
 import type { ConversationRecording } from "@getdoya/protocol/messages";
 import { ConversationRecordingSchema } from "@getdoya/protocol/messages";
-import { HomePresetBundledFiles } from "@/data/home-prompt-recordings/home-preset-files";
-import { SlidesRoadshowPreviewSlides } from "@/data/home-prompt-recordings/slides-roadshow-preview";
 import { listReplayEvents, projectConversationReplay } from "@/replay/conversation-replay";
 import type { StreamItem } from "@/types/stream";
+import type { HomePresetBundledFile } from "@/data/home-prompt-recordings/home-preset-files";
 
 export type HomePresetReplayId =
   | "image-landing"
@@ -40,17 +39,6 @@ const HOME_PRESET_PROJECT_REPLAY_IDS: Record<string, HomePresetReplayId> = {
   b2b_saas_analytics_pitch_ppt169_20260621: "slides-roadshow",
 };
 
-const IMAGE_LANDING_RECORDING = ConversationRecordingSchema.parse(require("./image-landing.json"));
-const SLIDES_ROADSHOW_RECORDING = ConversationRecordingSchema.parse(
-  require("./slides-roadshow.json"),
-);
-const PDF_BRIEF_RECORDING = ConversationRecordingSchema.parse(require("./pdf-brief.json"));
-const DOCUMENT_PRD_RECORDING = ConversationRecordingSchema.parse(require("./document-prd.json"));
-const SHEET_BUDGET_RECORDING = ConversationRecordingSchema.parse(require("./sheet-budget.json"));
-const SEARCH_AI_FUNDING_RECORDING = ConversationRecordingSchema.parse(
-  require("./search-ai-funding.json"),
-);
-
 export function isHomePresetReplayId(
   value: string | null | undefined,
 ): value is HomePresetReplayId {
@@ -67,31 +55,45 @@ export function getHomePresetReplayIdForProjectName(
   return HOME_PRESET_PROJECT_REPLAY_IDS[normalizedProjectName] ?? null;
 }
 
-export function getHomePresetReplayRecording(id: HomePresetReplayId): ConversationRecording {
+export async function getHomePresetReplayRecording(
+  id: HomePresetReplayId,
+): Promise<ConversationRecording> {
+  let module: unknown;
   switch (id) {
     case "image-landing":
-      return IMAGE_LANDING_RECORDING;
+      module = await import("./image-landing.json");
+      break;
     case "slides-roadshow":
-      return SLIDES_ROADSHOW_RECORDING;
+      module = await import("./slides-roadshow.json");
+      break;
     case "pdf-brief":
-      return PDF_BRIEF_RECORDING;
+      module = await import("./pdf-brief.json");
+      break;
     case "document-prd":
-      return DOCUMENT_PRD_RECORDING;
+      module = await import("./document-prd.json");
+      break;
     case "sheet-budget":
-      return SHEET_BUDGET_RECORDING;
+      module = await import("./sheet-budget.json");
+      break;
     case "search-ai-funding":
-      return SEARCH_AI_FUNDING_RECORDING;
+      module = await import("./search-ai-funding.json");
+      break;
+    default: {
+      const exhaustive: never = id;
+      return exhaustive;
+    }
   }
-  const exhaustive: never = id;
-  return exhaustive;
+  return ConversationRecordingSchema.parse(getDefaultExport(module));
 }
 
-export function getHomePresetBundledSlidePreviews(
+export async function getHomePresetBundledSlidePreviews(
   id: HomePresetReplayId,
-): HomePresetSlidePreview[] {
+): Promise<HomePresetSlidePreview[]> {
   if (id !== "slides-roadshow") {
     return [];
   }
+  const { SlidesRoadshowPreviewSlides } =
+    await import("@/data/home-prompt-recordings/slides-roadshow-preview");
   return SlidesRoadshowPreviewSlides.map((slide) => ({
     path: slide.path,
     source: slide.svg,
@@ -114,13 +116,17 @@ export async function materializeHomePresetBundledFilesToWorkspace(input: {
   cwd: string;
   id: HomePresetReplayId;
 }): Promise<void> {
-  const files = HomePresetBundledFiles.filter((file) => file.presetId === input.id).map((file) => ({
-    fileName: file.fileName,
-    mimeType: file.mimeType,
-    data: file.base64,
-    path: file.path,
-  }));
-  const slideFiles = getHomePresetBundledSlidePreviews(input.id)
+  const { HomePresetBundledFiles } =
+    await import("@/data/home-prompt-recordings/home-preset-files");
+  const files = HomePresetBundledFiles.filter((file) => file.presetId === input.id).map(
+    (file: HomePresetBundledFile) => ({
+      fileName: file.fileName,
+      mimeType: file.mimeType,
+      data: file.base64,
+      path: file.path,
+    }),
+  );
+  const slideFiles = (await getHomePresetBundledSlidePreviews(input.id))
     .filter((slide) => slide.svg.length > 0)
     .map((slide) => ({
       fileName: slide.path.split("/").pop() ?? "slide.svg",
@@ -171,11 +177,11 @@ function encodeHomePresetBytesToBase64(bytes: Uint8Array): string {
   return output;
 }
 
-export function buildHomePresetVisibleHistory(input: {
+export async function buildHomePresetVisibleHistory(input: {
   id: HomePresetReplayId;
   startedAtMs: number;
-}): StreamItem[] {
-  const recording = getHomePresetReplayRecording(input.id);
+}): Promise<StreamItem[]> {
+  const recording = await getHomePresetReplayRecording(input.id);
   const replay = projectConversationReplay({
     events: recording.events,
     edits: recording.edits,
@@ -192,6 +198,12 @@ export function buildHomePresetVisibleHistory(input: {
         })
       : replay.items;
   return items.map(prefixHomePresetHistoryItemId);
+}
+
+function getDefaultExport(module: unknown): unknown {
+  return module && typeof module === "object" && "default" in module
+    ? (module as { default: unknown }).default
+    : module;
 }
 
 function buildHomePresetConfirmedSlidesHistory(input: {

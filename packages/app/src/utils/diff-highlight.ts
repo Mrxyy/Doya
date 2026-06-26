@@ -1,5 +1,5 @@
-import { isLanguageSupported, type HighlightToken } from "@getdoya/highlight";
-import { extensionFromPath, tokenizeToLines } from "@/utils/highlight-cache";
+import type { HighlightToken } from "@getdoya/highlight/types";
+import { extensionFromPath, tokenizeToLinesAsync } from "@/utils/highlight-cache";
 import type { DiffLine } from "@/utils/tool-call-parsers";
 
 // The leading diff marker glyph for a line. The code on the line is the content
@@ -37,17 +37,19 @@ function diffLineCode(line: DiffLine): string {
 // highlighted as a whole so the parser has cross-line context (multi-line
 // strings, template literals, comments). Returns the input unchanged when the
 // language is unsupported or the content exceeds the highlighter size cap.
-export function highlightDiffLines(
+export async function highlightDiffLinesAsync(
   diffLines: DiffLine[],
   filePath: string | null | undefined,
-): DiffLine[] {
+): Promise<DiffLine[]> {
   const ext = extensionFromPath(filePath);
   // Gate on real grammar support: an unsupported language would tokenize to a
   // single style-less token per line, which would shadow the word-level change
   // segments the diff already computes. Better to keep those.
-  if (!ext || diffLines.length === 0 || !isLanguageSupported(`x.${ext}`)) {
+  if (!ext || diffLines.length === 0) {
     return diffLines;
   }
+  const { isLanguageSupported } = await import("@getdoya/highlight/highlighter");
+  if (!isLanguageSupported(`x.${ext}`)) return diffLines;
 
   const oldCode: string[] = [];
   const newCode: string[] = [];
@@ -72,8 +74,8 @@ export function highlightDiffLines(
     return { oldIndex: -1, newIndex: -1 };
   });
 
-  const oldTokens = oldCode.length > 0 ? tokenizeToLines(oldCode.join("\n"), ext) : null;
-  const newTokens = newCode.length > 0 ? tokenizeToLines(newCode.join("\n"), ext) : null;
+  const oldTokens = oldCode.length > 0 ? await tokenizeToLinesAsync(oldCode.join("\n"), ext) : null;
+  const newTokens = newCode.length > 0 ? await tokenizeToLinesAsync(newCode.join("\n"), ext) : null;
   if (!oldTokens && !newTokens) {
     return diffLines;
   }

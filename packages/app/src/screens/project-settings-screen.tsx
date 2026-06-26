@@ -3,7 +3,6 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronDown, MoreVertical, Pencil, Plus, X } from "lucide-react-native";
 import { ProjectIconView } from "@/components/project-icon-view";
 import { projectIconToDataUri, useProjectIconQuery } from "@/hooks/use-project-icon-query";
 import type {
@@ -44,6 +43,15 @@ import {
 import { buildProjectsSettingsRoute } from "@/utils/host-routes";
 import type { ProjectHostEntry, ProjectSummary } from "@/utils/projects";
 import { translateNow } from "@/i18n/i18n";
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  MoreVertical,
+  Pencil,
+  Plus,
+  X,
+} from "@/components/icons/lucide";
 
 const SCRIPT_SERVICE_TYPE = "service";
 

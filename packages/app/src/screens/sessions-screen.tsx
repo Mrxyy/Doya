@@ -3,7 +3,6 @@ import { View, Text } from "react-native";
 import { useIsFocused } from "@react-navigation/native";
 import { router } from "expo-router";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { ChevronLeft } from "lucide-react-native";
 import { MenuHeader } from "@/components/headers/menu-header";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -11,6 +10,7 @@ import { AgentList } from "@/components/agent-list";
 import { useAgentHistory } from "@/hooks/use-agent-history";
 import { useI18n } from "@/i18n/i18n";
 import { buildHostHomeRoute } from "@/utils/host-routes";
+import { ChevronLeft } from "@/components/icons/lucide";
 
 export function SessionsScreen({ serverId }: { serverId: string }) {
   const isFocused = useIsFocused();

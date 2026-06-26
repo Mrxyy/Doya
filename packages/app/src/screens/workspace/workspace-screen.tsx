@@ -23,25 +23,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, type Href } from "expo-router";
 import * as Clipboard from "expo-clipboard";
 import { DiffStat } from "@/components/diff-stat";
-import {
-  CopyX,
-  ArrowLeftToLine,
-  ArrowRightToLine,
-  Bot,
-  ChevronDown,
-  Copy,
-  Ellipsis,
-  EllipsisVertical,
-  Globe,
-  Import as ImportIcon,
-  PanelRight,
-  Pencil,
-  RotateCw,
-  Settings,
-  SquarePen,
-  SquareTerminal,
-  X,
-} from "lucide-react-native";
 import { GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -212,6 +193,25 @@ import {
   type WorkspaceFileOpenRequest,
 } from "@/workspace/file-open";
 import { RenderProfile } from "@/utils/render-profiler";
+import {
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  Bot,
+  ChevronDown,
+  Copy,
+  CopyX,
+  Ellipsis,
+  EllipsisVertical,
+  Globe,
+  ImportIcon,
+  PanelRight,
+  Pencil,
+  RotateCw,
+  Settings,
+  SquarePen,
+  SquareTerminal,
+  X,
+} from "@/components/icons/lucide";
 
 const WORKSPACE_SETUP_AUTO_OPEN_WINDOW_MS = 30_000;
 const WORKSPACE_FLOATING_PANEL_PORTAL_HOST_PREFIX = "workspace-floating-panels";

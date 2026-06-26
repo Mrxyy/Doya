@@ -15,7 +15,6 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { formatTimeAgo } from "@/utils/time";
 import { type AggregatedAgent } from "@/hooks/use-aggregated-agents";
 import { useSessionStore } from "@/stores/session-store";
-import { Archive } from "lucide-react-native";
 import { getProviderIcon } from "@/components/provider-icons";
 import { navigateToAgent } from "@/utils/navigate-to-agent";
 import type { Agent } from "@/stores/session-store";
@@ -27,6 +26,7 @@ import {
 } from "@/account/account-api";
 import { findAccountProjectForWorkspaceDirectory } from "@/account/account-workspace-display";
 import { translateNow } from "@/i18n/i18n";
+import { Archive } from "@/components/icons/lucide";
 
 interface AgentListProps {
   agents: AggregatedAgent[];

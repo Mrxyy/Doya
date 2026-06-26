@@ -11,14 +11,6 @@ import { Pressable, Text, View, type PressableStateCallbackType } from "react-na
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useShallow } from "zustand/shallow";
 import { useStoreWithEqualityFn } from "zustand/traditional";
-import {
-  Bot,
-  ChevronDown,
-  ShieldAlert,
-  ShieldCheck,
-  ShieldOff,
-  ShieldQuestionMark,
-} from "lucide-react-native";
 import { type SheetHeader } from "@/components/adaptive-modal-sheet";
 import { Combobox, ComboboxItem, type ComboboxOption } from "@/components/ui/combobox";
 import { useSessionStore } from "@/stores/session-store";
@@ -31,6 +23,14 @@ import { formatAgentModeLabel } from "@/composer/agent-controls/utils";
 import type { AgentMode, AgentProvider } from "@getdoya/protocol/agent-types";
 import { getModeVisuals, type AgentProviderDefinition } from "@getdoya/protocol/provider-manifest";
 import { translateNow } from "@/i18n/i18n";
+import {
+  Bot,
+  ChevronDown,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldOff,
+  ShieldQuestionMark,
+} from "@/components/icons/lucide";
 
 export type AgentModeControlPlacement = "toolbar" | "footer";
 

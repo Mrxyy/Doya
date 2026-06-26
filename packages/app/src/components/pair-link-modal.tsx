@@ -2,7 +2,6 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Text, TextInput, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
-import { Link } from "lucide-react-native";
 import type { HostProfile } from "@/types/host-connection";
 import { useHosts, useHostMutations } from "@/runtime/host-runtime";
 import { decodeOfferFragmentPayload, normalizeHostPort } from "@/utils/daemon-endpoints";
@@ -11,6 +10,7 @@ import { ConnectionOfferSchema } from "@getdoya/protocol/connection-offer";
 import { AdaptiveModalSheet, AdaptiveTextInput, type SheetHeader } from "./adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
 import { translateNow } from "@/i18n/i18n";
+import { Link } from "@/components/icons/lucide";
 
 const FLEX_ONE_STYLE = { flex: 1 } as const;
 const PAIR_LINK_HEADER: SheetHeader = { title: translateNow("ui.paste.pairing.link.1yypom7") };

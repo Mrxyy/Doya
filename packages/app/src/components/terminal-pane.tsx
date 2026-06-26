@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -28,7 +28,7 @@ import { resolveTerminalRestoreOptions } from "@/terminal/runtime/terminal-resto
 import { usePanelStore } from "@/stores/panel-store";
 import { useSessionStore } from "@/stores/session-store";
 import { toXtermTheme } from "@/utils/to-xterm-theme";
-import TerminalEmulator, { type TerminalEmulatorHandle } from "./terminal-emulator";
+import type { TerminalEmulatorHandle } from "./terminal-emulator";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import {
   applyTerminalRendererReadyChange,
@@ -60,6 +60,7 @@ interface TerminalPaneProps {
 }
 
 const TERMINAL_REFIT_DELAYS_MS = [0, 48, 144, 320];
+const LazyTerminalEmulator = lazy(() => import("./terminal-emulator"));
 
 const MODIFIER_LABELS = {
   ctrl: "Ctrl",
@@ -761,32 +762,34 @@ export function TerminalPane({
       <View style={styles.outputContainer}>
         {isWorkspaceFocused ? (
           <View style={styles.terminalGestureContainer}>
-            <TerminalEmulator
-              ref={emulatorRef}
-              dom={TERMINAL_EMULATOR_DOM_PROPS}
-              streamKey={terminalStreamKey}
-              testId="terminal-surface"
-              xtermTheme={xtermTheme}
-              scrollbackLines={settings.terminalScrollbackLines}
-              fontFamily={terminalFontFamily}
-              fontSize={settings.codeFontSize}
-              swipeGesturesEnabled={swipeGesturesEnabled}
-              initialSnapshot={initialSnapshot}
-              onRendererReadyChange={handleRendererReadyChange}
-              onSwipeRight={handleSwipeRight}
-              onSwipeLeft={handleSwipeLeft}
-              onInput={handleTerminalData}
-              onFocus={handleTerminalFocus}
-              onResize={handleTerminalResize}
-              onTerminalKey={handleTerminalKey}
-              onInputModeChange={handleInputModeChange}
-              onResolveLocalFileLink={handleResolveLocalFileLink}
-              onOpenLocalFileLink={handleOpenLocalFileLink}
-              onPendingModifiersConsumed={handlePendingModifiersConsumed}
-              pendingModifiers={modifiers}
-              focusRequestToken={focusRequestToken}
-              resizeRequestToken={resizeRequestToken}
-            />
+            <Suspense fallback={null}>
+              <LazyTerminalEmulator
+                ref={emulatorRef}
+                dom={TERMINAL_EMULATOR_DOM_PROPS}
+                streamKey={terminalStreamKey}
+                testId="terminal-surface"
+                xtermTheme={xtermTheme}
+                scrollbackLines={settings.terminalScrollbackLines}
+                fontFamily={terminalFontFamily}
+                fontSize={settings.codeFontSize}
+                swipeGesturesEnabled={swipeGesturesEnabled}
+                initialSnapshot={initialSnapshot}
+                onRendererReadyChange={handleRendererReadyChange}
+                onSwipeRight={handleSwipeRight}
+                onSwipeLeft={handleSwipeLeft}
+                onInput={handleTerminalData}
+                onFocus={handleTerminalFocus}
+                onResize={handleTerminalResize}
+                onTerminalKey={handleTerminalKey}
+                onInputModeChange={handleInputModeChange}
+                onResolveLocalFileLink={handleResolveLocalFileLink}
+                onOpenLocalFileLink={handleOpenLocalFileLink}
+                onPendingModifiersConsumed={handlePendingModifiersConsumed}
+                pendingModifiers={modifiers}
+                focusRequestToken={focusRequestToken}
+                resizeRequestToken={resizeRequestToken}
+              />
+            </Suspense>
           </View>
         ) : (
           <View style={styles.terminalGestureContainer} />

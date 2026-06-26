@@ -1,13 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Text, View, type TextStyle } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import type { HighlightToken } from "@getdoya/highlight";
+import type { HighlightToken } from "@getdoya/highlight/types";
 import { isWeb } from "@/constants/platform";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
 import { syntaxTokenStyleFor } from "@/styles/syntax-token-styles";
 import { DEFAULT_MONO_FONT_STACK } from "@/styles/theme";
 import { inlineUnistylesStyle } from "@/styles/unistyles-inline-style";
-import { tokenizeToLines } from "@/utils/highlight-cache";
+import { tokenizeToLinesAsync } from "@/utils/highlight-cache";
 import { CHANGED_LINE_INDICES, PREVIEW_AFTER, PREVIEW_BEFORE } from "./preview-snippet";
 import { translateNow } from "@/i18n/i18n";
 
@@ -99,9 +99,11 @@ function makeRow(
 // appear once as context; a changed line emits a "-" removed row (from BEFORE)
 // followed by a "+" added row (from AFTER). Tokens are precomputed with stable
 // keys so the renderer never keys off an array index.
-function buildUnifiedRows(): UnifiedRow[] {
-  const beforeLines = tokenizeToLines(PREVIEW_BEFORE.join("\n"), PREVIEW_EXTENSION);
-  const afterLines = tokenizeToLines(PREVIEW_AFTER.join("\n"), PREVIEW_EXTENSION);
+function buildUnifiedRows(input: {
+  beforeLines: HighlightToken[][] | null;
+  afterLines: HighlightToken[][] | null;
+}): UnifiedRow[] {
+  const { beforeLines, afterLines } = input;
   const rows: UnifiedRow[] = [];
   for (let index = 0; index < PREVIEW_BEFORE.length; index += 1) {
     if (CHANGED_LINE_INDICES.has(index)) {
@@ -135,7 +137,21 @@ function markerStyle(type: RowType) {
 // UnistylesRuntime.updateTheme commits a setting; the optional `overrides` layer
 // inline styles for live-while-typing feedback on the code font.
 export function AppearancePreview({ overrides }: AppearancePreviewProps) {
-  const rows = useMemo(() => buildUnifiedRows(), []);
+  const [rows, setRows] = useState(() => buildUnifiedRows({ beforeLines: null, afterLines: null }));
+  useEffect(() => {
+    let isCurrent = true;
+    Promise.all([
+      tokenizeToLinesAsync(PREVIEW_BEFORE.join("\n"), PREVIEW_EXTENSION),
+      tokenizeToLinesAsync(PREVIEW_AFTER.join("\n"), PREVIEW_EXTENSION),
+    ]).then(([beforeLines, afterLines]) => {
+      if (isCurrent) {
+        setRows(buildUnifiedRows({ beforeLines, afterLines }));
+      }
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
   const codeOverride = useMemo(() => buildCodeOverride(overrides), [overrides]);
   const codeStyle = useMemo(() => [styles.codeLine, codeOverride], [codeOverride]);
   const addRowStyle = useMemo(() => [styles.row, styles.addRow], []);

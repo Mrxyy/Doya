@@ -1,9 +1,9 @@
 import { useCallback, type ReactNode } from "react";
 import { Pressable, Text } from "react-native";
-import { ArrowUpRight } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { openExternalUrl } from "@/utils/open-external-url";
+import { ArrowUpRight } from "@/components/icons/lucide";
 
 interface ExternalLinkProps {
   href: string;

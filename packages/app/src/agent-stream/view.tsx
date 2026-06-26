@@ -38,7 +38,6 @@ import Animated, {
   withSequence,
   withTiming,
 } from "react-native-reanimated";
-import { Check, ChevronDown, Download, Eye, SlidersHorizontal, X } from "lucide-react-native";
 import { usePanelStore } from "@/stores/panel-store";
 import {
   AssistantMessage,
@@ -70,7 +69,6 @@ import { useFileExplorerActions } from "@/hooks/use-file-explorer-actions";
 import { useLoadOlderAgentHistory } from "@/hooks/use-load-older-agent-history";
 import type { ToastApi } from "@/components/toast-host";
 import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
-import { ToolCallDetailsContent } from "@/components/tool-call-details";
 import { QuestionFormCard } from "@/components/question-form-card";
 import { ToolCallSheetProvider } from "@/components/tool-call-sheet";
 import { type AgentStreamRenderModel, buildAgentStreamRenderModel } from "./model";
@@ -134,11 +132,7 @@ import {
   loadAiCreationMessageDisplayMetadata,
   type AiCreationMessageDisplayEntry,
 } from "@/stores/ai-creation-message-display-store";
-import {
-  PptConfirmStaticAppJs,
-  PptConfirmStaticCatalogs,
-  PptConfirmStaticStyleCss,
-} from "@/data/home-prompt-recordings/ppt-confirm-static";
+import { Check, ChevronDown, Download, Eye, SlidersHorizontal, X } from "@/components/icons/lucide";
 
 function resolveDisplayAttachmentPreviewSource(input: {
   displayAttachment: AgentAttachment;
@@ -566,6 +560,11 @@ const AGENT_CAPABILITY_FLAG_KEYS: (keyof AgentCapabilityFlags)[] = [
 
 const EMPTY_STREAM_HEAD: StreamItem[] = [];
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
+const LazyToolCallDetailsContent = React.lazy(() =>
+  import("@/components/tool-call-details").then((module) => ({
+    default: module.ToolCallDetailsContent,
+  })),
+);
 const AI_CREATION_PLACEHOLDER_DOT_KEYS = Array.from({ length: 420 }, (_, index) => `dot-${index}`);
 const AI_CREATION_PLACEHOLDER_DOT_COLUMNS = 36;
 const AI_CREATION_PLACEHOLDER_DOT_PHASES = 24;
@@ -2475,14 +2474,31 @@ function AiCreationSlidesConfirmCard({
     const lang = locale === "zh" ? "zh" : "en";
     return `${confirmBaseUrl}?embed=1&lang=${lang}`;
   }, [confirmBaseUrl, locale]);
-  const inlineConfirmUrl = useMemo(() => {
+  const [inlineConfirmUrl, setInlineConfirmUrl] = useState<string | null>(null);
+  useEffect(() => {
     if (!inlineData) {
-      return null;
+      setInlineConfirmUrl(null);
+      return;
     }
-    return buildInlinePptConfirmDataUrl({
+    let isCurrent = true;
+    setInlineConfirmUrl(null);
+    void buildInlinePptConfirmDataUrl({
       locale,
       recommendations: inlineData.recommendations,
-    });
+    })
+      .then((url) => {
+        if (isCurrent) {
+          setInlineConfirmUrl(url);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setInlineConfirmUrl(null);
+        }
+      });
+    return () => {
+      isCurrent = false;
+    };
   }, [inlineData, locale]);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "confirmed">("loading");
   const sawUnconfirmedStateRef = useRef(false);
@@ -2676,17 +2692,21 @@ function AiCreationSlidesConfirmCard({
 function buildInlinePptConfirmDataUrl(input: {
   locale: Locale;
   recommendations: PptConfirmRecommendations & Record<string, unknown>;
-}): string {
-  return `data:text/html;charset=utf-8,${encodeURIComponent(buildInlinePptConfirmHtml(input))}`;
+}): Promise<string> {
+  return buildInlinePptConfirmHtml(input).then(
+    (html) => `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
+  );
 }
 
-function buildInlinePptConfirmHtml({
+async function buildInlinePptConfirmHtml({
   locale,
   recommendations,
 }: {
   locale: Locale;
   recommendations: PptConfirmRecommendations & Record<string, unknown>;
-}): string {
+}): Promise<string> {
+  const { PptConfirmStaticAppJs, PptConfirmStaticCatalogs, PptConfirmStaticStyleCss } =
+    await import("@/data/home-prompt-recordings/ppt-confirm-static");
   const catalogsJson = escapeInlineScriptJson(JSON.stringify(PptConfirmStaticCatalogs));
   const recommendationsJson = escapeInlineScriptJson(JSON.stringify(recommendations));
   const lang = locale === "zh" ? "zh" : "en";
@@ -3159,7 +3179,9 @@ function PermissionRequestCard({
       ) : null}
 
       {!isPlanRequest ? (
-        <ToolCallDetailsContent detail={resolvedToolCallDetail} maxHeight={200} />
+        <React.Suspense fallback={null}>
+          <LazyToolCallDetailsContent detail={resolvedToolCallDetail} maxHeight={200} />
+        </React.Suspense>
       ) : null}
 
       {footer}

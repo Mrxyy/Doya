@@ -3,13 +3,13 @@ import { Pressable, View, type StyleProp, type TextStyle, type ViewStyle } from 
 import { StyleSheet } from "react-native-unistyles";
 import { MarkdownTextSpan } from "@/components/markdown-text";
 import * as Clipboard from "expo-clipboard";
-import { Check, Copy } from "lucide-react-native";
-import type { HighlightToken } from "@getdoya/highlight";
+import type { HighlightToken } from "@getdoya/highlight/types";
 import { isNative, isWeb } from "@/constants/platform";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { syntaxTokenStyleFor } from "@/styles/syntax-token-styles";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
-import { highlightToKeyedLines, type KeyedLine } from "@/utils/highlight-cache";
+import { highlightToKeyedLinesAsync, type KeyedLine } from "@/utils/highlight-cache";
+import { Check, Copy } from "@/components/icons/lucide";
 
 interface HighlightedCodeBlockProps {
   code: string;
@@ -61,10 +61,21 @@ export const HighlightedCodeBlock = React.memo(function HighlightedCodeBlock({
   );
   const renderedCode = useMemo(() => stripTerminalFenceNewline(code), [code]);
 
-  const keyedLines = useMemo<KeyedLine[] | null>(
-    () => highlightToKeyedLines(renderedCode, fenceLanguageToExtension(language)),
-    [renderedCode, language],
-  );
+  const [keyedLines, setKeyedLines] = useState<KeyedLine[] | null>(null);
+  useEffect(() => {
+    let isCurrent = true;
+    setKeyedLines(null);
+    void highlightToKeyedLinesAsync(renderedCode, fenceLanguageToExtension(language)).then(
+      (lines) => {
+        if (isCurrent) {
+          setKeyedLines(lines);
+        }
+      },
+    );
+    return () => {
+      isCurrent = false;
+    };
+  }, [renderedCode, language]);
 
   const isCompact = useIsCompactFormFactor();
   const [isHovered, setIsHovered] = useState(false);

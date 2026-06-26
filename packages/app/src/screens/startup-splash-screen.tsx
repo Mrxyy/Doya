@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { openExternalUrl } from "@/utils/open-external-url";
-import { BookOpen, Copy, RotateCw, TriangleAlert } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { DoyaLoadingMark } from "@/components/doya-loading-mark";
 import { DoyaLogo } from "@/components/icons/doya-logo";
@@ -13,6 +12,7 @@ import { isWeb } from "@/constants/platform";
 import { useWebScrollbarStyle } from "@/hooks/use-web-scrollbar-style";
 import { CODE_SURFACE_DATASET } from "@/styles/code-surface";
 import { translateNow } from "@/i18n/i18n";
+import { BookOpen, Copy, RotateCw, TriangleAlert } from "@/components/icons/lucide";
 
 interface StartupSplashScreenProps {
   bootstrapState?: {

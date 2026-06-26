@@ -1,6 +1,5 @@
 import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Terminal } from "lucide-react-native";
 import { Text, View } from "react-native";
 import invariant from "tiny-invariant";
 import type { ListTerminalsResponse } from "@getdoya/protocol/messages";
@@ -11,6 +10,7 @@ import { queryClient } from "@/query/query-client";
 import { usePanelStore } from "@/stores/panel-store";
 import { useSessionStore } from "@/stores/session-store";
 import { useWorkspaceExecutionAuthority } from "@/stores/session-store-hooks";
+import { Terminal } from "@/components/icons/lucide";
 
 type ListTerminalsPayload = ListTerminalsResponse["payload"];
 

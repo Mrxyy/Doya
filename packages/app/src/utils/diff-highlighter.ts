@@ -1,4 +1,8 @@
-import { highlightCode, isLanguageSupported, type HighlightToken } from "@getdoya/highlight";
+import {
+  highlightCode,
+  isLanguageSupported,
+  type HighlightToken,
+} from "@getdoya/highlight/highlighter";
 
 export interface DiffLine {
   type: "add" | "remove" | "context" | "header";

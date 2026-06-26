@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Text, TextInput, View } from "react-native";
-import { KeyRound } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { Button } from "@/components/ui/button";
 import { isWeb } from "@/constants/platform";
 import { useI18n } from "@/i18n/i18n";
+import { KeyRound } from "@/components/icons/lucide";
 
 const DEFAULT_ADMIN_PASSWORD = "123789xyy";
 const ADMIN_SESSION_UNLOCKED_KEY = "doya.admin.unlocked";

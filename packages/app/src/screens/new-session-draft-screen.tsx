@@ -1,5 +1,7 @@
 import {
   createContext,
+  lazy,
+  Suspense,
   useContext,
   useCallback,
   useEffect,
@@ -25,15 +27,6 @@ import * as Clipboard from "expo-clipboard";
 import type { ConversationRecording } from "@getdoya/protocol/messages";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import {
-  Check,
-  Copy,
-  Download,
-  Link2,
-  MoreHorizontal,
-  Share2,
-  Sparkles,
-} from "lucide-react-native";
 import type { DaemonClient } from "@getdoya/client/internal/daemon-client";
 import type { AgentProvider } from "@getdoya/protocol/agent-types";
 import { saveAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
@@ -89,7 +82,7 @@ import { getBillingUpgradeReason } from "@/utils/billing-errors";
 import { TitlebarDragRegion } from "@/components/desktop/titlebar-drag-region";
 import { useWindowControlsPadding } from "@/utils/desktop-window";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
-import { DocumentViewer, type DocumentViewerKind } from "@/components/document-viewer";
+import type { DocumentViewerKind } from "@/components/document-viewer";
 import { PptPreviewFrame } from "@/components/ppt-preview-frame";
 import { ConversationReplayDraftControls } from "@/replay/conversation-replay-composer-controls";
 import { listReplayEvents, projectConversationReplay } from "@/replay/conversation-replay";
@@ -116,15 +109,7 @@ import {
 import { buildControlAgentLabels as buildBaseControlAgentLabels } from "@/control/control-agent-labels";
 import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
-import {
-  PptPreviewStaticAppJs,
-  PptPreviewStaticIndexHtml,
-  PptPreviewStaticStyleCss,
-} from "@/data/home-prompt-recordings/ppt-preview-static";
-import {
-  HomePresetBundledFiles,
-  type HomePresetBundledFile,
-} from "@/data/home-prompt-recordings/home-preset-files";
+import type { HomePresetBundledFile } from "@/data/home-prompt-recordings/home-preset-files";
 import {
   buildHomePresetVisibleHistory,
   getHomePresetBundledSlidePreviews,
@@ -141,6 +126,15 @@ import type { WorkspacePaneContentModel } from "@/screens/workspace/workspace-pa
 import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-types";
 import type { WorkspaceLayout } from "@/stores/workspace-layout-store";
 import type { WorkspaceTab } from "@/stores/workspace-tabs-store";
+import {
+  Check,
+  Copy,
+  Download,
+  Link2,
+  MoreHorizontal,
+  Share2,
+  Sparkles,
+} from "@/components/icons/lucide";
 
 const MAX_SESSION_TITLE_LENGTH = 60;
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
@@ -165,6 +159,11 @@ const HOME_PRESET_PREVIEW_PANE_ID = "home-preset-preview-pane";
 const HOME_PRESET_SOURCE_TAB_ID = "home-preset-source-tab";
 const HOME_PRESET_PREVIEW_TAB_ID = "home-preset-preview-tab";
 const HOME_PRESET_PREVIEW_SPLIT_GROUP_ID = "home-preset-preview-split";
+const LazyDocumentViewer = lazy(() =>
+  import("@/components/document-viewer").then((module) => ({
+    default: module.DocumentViewer,
+  })),
+);
 const HOME_TITLE_GRADIENT_KEYFRAME_CSS = `
   @keyframes ${HOME_TITLE_GRADIENT_ANIMATION_NAME} {
     0% {
@@ -382,11 +381,13 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
 const EMPTY_PENDING_PERMISSIONS = new Map<string, PendingPermission>();
 const EMPTY_CLOSING_TAB_IDS = new Set<string>();
 
-function getHomePresetBundledFile(
+async function getHomePresetBundledFile(
   id: HomePresetReplayId,
   filePath: string,
-): HomePresetBundledFile | null {
+): Promise<HomePresetBundledFile | null> {
   const normalizedPath = normalizeHomePresetBundledFilePath(filePath);
+  const { HomePresetBundledFiles } =
+    await import("@/data/home-prompt-recordings/home-preset-files");
   return (
     HomePresetBundledFiles.find(
       (file) =>
@@ -460,8 +461,8 @@ function escapeInlineScriptText(value: string): string {
   return value.replace(/<\/script/gi, "<\\/script");
 }
 
-function buildHomePresetPptPreviewAppJs(): string {
-  return PptPreviewStaticAppJs.replace(
+function buildHomePresetPptPreviewAppJs(staticAppJs: string): string {
+  return staticAppJs.replace(
     "var EMBEDDED_LANG = readEmbeddedLang();",
     `var EMBEDDED_LANG = (function () {
     try {
@@ -477,10 +478,12 @@ function buildHomePresetPptPreviewAppJs(): string {
   );
 }
 
-function buildHomePresetPptPreviewUrl(input: {
+async function buildHomePresetPptPreviewUrl(input: {
   locale: Locale;
   slides: HomePresetSlidePreview[];
-}): string {
+}): Promise<string> {
+  const { PptPreviewStaticAppJs, PptPreviewStaticIndexHtml, PptPreviewStaticStyleCss } =
+    await import("@/data/home-prompt-recordings/ppt-preview-static");
   const slides = input.slides.map((slide, index) => ({
     name: getHomePresetPreviewSlideName(slide, index),
     content: slide.svg,
@@ -582,7 +585,7 @@ window.__DOYA_HOME_PRESET_PPT_PREVIEW__ = ${payload};
   ).replace(
     '<script src="/static/app.js"></script>',
     `<script>${escapeInlineScriptText(apiShim)}</script><script>${escapeInlineScriptText(
-      buildHomePresetPptPreviewAppJs(),
+      buildHomePresetPptPreviewAppJs(PptPreviewStaticAppJs),
     )}</script>`,
   );
 
@@ -1647,12 +1650,16 @@ export function NewSessionDraftScreen({
   const handleCapabilitySelect = useCallback(
     (suggestion: HomePromptSuggestion, text: string) => {
       if (!accountSession && suggestion.presetReplayId) {
-        setActivePresetReplay({
-          id: suggestion.presetReplayId,
-          prompt: text,
-          recording: getHomePresetReplayRecording(suggestion.presetReplayId),
-          startedAtMs: Date.now(),
-        });
+        async function openPresetReplay(id: HomePresetReplayId): Promise<void> {
+          const recording = await getHomePresetReplayRecording(id);
+          setActivePresetReplay({
+            id,
+            prompt: text,
+            recording,
+            startedAtMs: Date.now(),
+          });
+        }
+        void openPresetReplay(suggestion.presetReplayId);
         return;
       }
       const submitContext = buildHomePromptSuggestionSubmitContext(suggestion, text, locale);
@@ -1687,7 +1694,7 @@ export function NewSessionDraftScreen({
             recording: activePresetReplay.recording,
             userText: payload.text,
           }),
-          visibleHistory: buildHomePresetVisibleHistory({
+          visibleHistory: await buildHomePresetVisibleHistory({
             id: activePresetReplay.id,
             startedAtMs: activePresetReplay.startedAtMs,
           }),
@@ -1968,6 +1975,7 @@ function HomePresetConversation({
   const clearDesktopAgentListSuppression = usePanelStore(
     (state) => state.clearDesktopAgentListSuppression,
   );
+  const [slidePreviews, setSlidePreviews] = useState<HomePresetSlidePreview[]>([]);
   const durationMs = useMemo(
     () =>
       projectConversationReplay({
@@ -1977,7 +1985,20 @@ function HomePresetConversation({
       }).durationMs,
     [preset.recording],
   );
-  const slidePreviews = useMemo(() => getHomePresetBundledSlidePreviews(preset.id), [preset.id]);
+  useEffect(() => {
+    let isCurrent = true;
+    setSlidePreviews([]);
+    void getHomePresetBundledSlidePreviews(preset.id)
+      .then((previews) => {
+        if (isCurrent) {
+          setSlidePreviews(previews);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      isCurrent = false;
+    };
+  }, [preset.id]);
   const syntheticConfirm = useMemo(
     () =>
       preset.id === "slides-roadshow"
@@ -2108,17 +2129,20 @@ function HomePresetConversation({
   }, []);
   const handleOpenBundledFile = useCallback(
     (request: WorkspaceFileOpenRequest) => {
-      const bundledFile = getHomePresetBundledFile(preset.id, request.location.path);
-      if (!bundledFile) {
-        return;
+      async function openBundledFile(): Promise<void> {
+        const bundledFile = await getHomePresetBundledFile(preset.id, request.location.path);
+        if (!bundledFile) {
+          return;
+        }
+        const preview = buildHomePresetFilePreview(bundledFile);
+        if (!preview) {
+          return;
+        }
+        setIsPreviewVisible(false);
+        setFilePreview(preview);
+        setFocusedPresetPaneId(HOME_PRESET_PREVIEW_PANE_ID);
       }
-      const preview = buildHomePresetFilePreview(bundledFile);
-      if (!preview) {
-        return;
-      }
-      setIsPreviewVisible(false);
-      setFilePreview(preview);
-      setFocusedPresetPaneId(HOME_PRESET_PREVIEW_PANE_ID);
+      void openBundledFile();
     },
     [preset.id],
   );
@@ -2412,20 +2436,36 @@ function HomePresetSlidesPreviewPane({ slides }: { slides: HomePresetSlidePrevie
     () => resolvedSlides.filter((slide) => slide.svg.includes("<svg")),
     [resolvedSlides],
   );
-  const previewUrl = useMemo(
-    () => buildHomePresetPptPreviewUrl({ locale, slides: renderableSlides }),
-    [locale, renderableSlides],
-  );
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCurrent = true;
+    setPreviewUrl(null);
+    void buildHomePresetPptPreviewUrl({ locale, slides: renderableSlides })
+      .then((url) => {
+        if (isCurrent) {
+          setPreviewUrl(url);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      isCurrent = false;
+    };
+  }, [locale, renderableSlides]);
 
   return (
     <View style={styles.presetPreviewPane}>
       <View style={styles.presetPreviewFrame}>
-        <PptPreviewFrame
-          title={t("aiCreation.result.slidesPreviewReady")}
-          url={previewUrl}
-          onApplyAnnotations={noopHomePresetPptPreviewAction}
-          applyAnnotationsCompletionToken={0}
-        />
+        {previewUrl ? (
+          <PptPreviewFrame
+            title={t("aiCreation.result.slidesPreviewReady")}
+            url={previewUrl}
+            onApplyAnnotations={noopHomePresetPptPreviewAction}
+            applyAnnotationsCompletionToken={0}
+          />
+        ) : (
+          <Text>{translateNow("ui.loading.x3ivx8")}</Text>
+        )}
       </View>
     </View>
   );
@@ -2435,14 +2475,16 @@ function HomePresetFilePreviewPane({ preview }: { preview: HomePresetFilePreview
   return (
     <View style={styles.presetPreviewPane}>
       <View style={styles.presetPreviewFrame}>
-        <DocumentViewer
-          key={preview.file.path}
-          kind={preview.kind}
-          bytes={preview.bytes}
-          mimeType={preview.file.mimeType}
-          fileName={preview.file.fileName}
-          sourceUrl={null}
-        />
+        <Suspense fallback={<Text>{translateNow("ui.loading.x3ivx8")}</Text>}>
+          <LazyDocumentViewer
+            key={preview.file.path}
+            kind={preview.kind}
+            bytes={preview.bytes}
+            mimeType={preview.file.mimeType}
+            fileName={preview.file.fileName}
+            sourceUrl={null}
+          />
+        </Suspense>
       </View>
     </View>
   );

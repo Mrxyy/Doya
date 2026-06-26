@@ -68,6 +68,24 @@ For testing rules, see [testing.md](testing.md).
 - New features get a home before implementation. A feature smeared across 5 shared files is the same slop as a flat-peer namespace.
 - Don't drop new files at the nearest root just because placement is unclear — say so and ask.
 
+## Bundle hygiene
+
+- Do not import lucide icon values from the `lucide-react-native` package barrel. Metro pulls the package's large icon index into the web bundle from that entrypoint. App code imports icon values from the local lucide layer instead:
+
+  ```ts
+  import { WandSparkles } from "@/components/icons/lucide";
+  ```
+
+  When a new lucide icon is needed, add it to `packages/app/src/components/icons/lucide.ts`. That generated layer is the only place that should import `lucide-react-native/dist/esm/icons/*.js` value files.
+
+  Keep type-only imports such as `LucideIcon` on the package entrypoint:
+
+  ```ts
+  import type { LucideIcon } from "lucide-react-native";
+  ```
+
+  The app declares these icon subpaths in `packages/app/src/types/lucide-react-native-icons.d.ts`. Source-map analysis confirmed this local layer keeps Metro from rebundling the large lucide icon barrel while preserving clean imports at call sites.
+
 ## Refactoring is a bolt-on test
 
 - A change should look like a thoughtful edit to existing code, not a new layer next to it. New coordinator wrapping a coordinator, new flag bypassing the normal path, new helper duplicating an existing selector — stop and reshape instead.

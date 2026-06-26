@@ -3,15 +3,6 @@ import type { ComponentType, ReactNode } from "react";
 import type { DimensionValue } from "react-native";
 import { ScrollView, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
-import {
-  BadgeDollarSign,
-  Coins,
-  Database,
-  Gift,
-  ListChecks,
-  ReceiptText,
-  Users,
-} from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { loadAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
 import { AdminAccessGate } from "@/components/admin-access-gate";
@@ -42,6 +33,15 @@ import {
 } from "@/control/control-api";
 import { useToast } from "@/contexts/toast-context";
 import { useI18n } from "@/i18n/i18n";
+import {
+  BadgeDollarSign,
+  Coins,
+  Database,
+  Gift,
+  ListChecks,
+  ReceiptText,
+  Users,
+} from "@/components/icons/lucide";
 
 type BillingTab = "overview" | "pricing" | "usage" | "users" | "storage" | "referrals" | "settings";
 type BillingIcon = ComponentType<{ size: number; color: string }>;

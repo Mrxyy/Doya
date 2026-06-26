@@ -3,19 +3,6 @@ import type { ComponentType, ReactNode } from "react";
 import { Animated, Easing, ScrollView, StyleSheet as RNStyleSheet, Text, View } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { router } from "expo-router";
-import {
-  Activity,
-  Copy,
-  CreditCard,
-  Database,
-  FileText,
-  Gift,
-  HardDrive,
-  ReceiptText,
-  RefreshCw,
-  Sparkles,
-  UploadCloud,
-} from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { loadAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
 import { BackHeader } from "@/components/headers/back-header";
@@ -34,6 +21,19 @@ import {
 import { useToast } from "@/contexts/toast-context";
 import { useI18n } from "@/i18n/i18n";
 import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
+import {
+  Activity,
+  Copy,
+  CreditCard,
+  Database,
+  FileText,
+  Gift,
+  HardDrive,
+  ReceiptText,
+  RefreshCw,
+  Sparkles,
+  UploadCloud,
+} from "@/components/icons/lucide";
 
 interface UsageRollup {
   key: string;

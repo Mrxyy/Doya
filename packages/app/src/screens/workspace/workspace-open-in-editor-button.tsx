@@ -7,7 +7,6 @@ import {
   type PressableStateCallbackType,
 } from "react-native";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, ChevronDown } from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { EditorTargetDescriptorPayload } from "@getdoya/protocol/messages";
 import { EditorAppIcon } from "@/components/icons/editor-app-icons";
@@ -30,6 +29,7 @@ import { isWeb } from "@/constants/platform";
 import type { Theme } from "@/styles/theme";
 import { filterTargetsForDaemonLocation } from "./workspace-open-targets";
 import { translateNow } from "@/i18n/i18n";
+import { Check, ChevronDown } from "@/components/icons/lucide";
 
 interface WorkspaceOpenInEditorButtonProps {
   serverId: string;

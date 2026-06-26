@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { Import as ImportIcon } from "lucide-react-native";
 import type { Theme } from "@/styles/theme";
 import { translateNow } from "@/i18n/i18n";
+import { ImportIcon } from "@/components/icons/lucide";
 
 const ThemedImportIcon = withUnistyles(ImportIcon);
 const iconColorMapping = (theme: Theme) => ({ color: theme.colors.foregroundMuted });

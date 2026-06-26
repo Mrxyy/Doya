@@ -2,7 +2,6 @@ import { useCallback, useMemo } from "react";
 import { Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { ArrowUpRight, Terminal, Blocks, Check } from "lucide-react-native";
 import { settingsStyles } from "@/styles/settings";
 import { SettingsSection } from "@/screens/settings/settings-section";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ import {
   type SkillsStatus,
 } from "@/desktop/daemon/desktop-daemon";
 import { useCliInstall, useSkillsStatus } from "@/desktop/hooks/use-install-status";
+import { ArrowUpRight, Blocks, Check, Terminal } from "@/components/icons/lucide";
 
 const CLI_DOCS_URL = "https://doya.sh/docs/cli";
 const SKILLS_DOCS_URL = "https://doya.sh/docs/skills";

@@ -8,14 +8,19 @@ import {
   BottomSheetBackdrop,
   BottomSheetBackgroundProps,
 } from "@gorhom/bottom-sheet";
-import { X } from "lucide-react-native";
 import type { ToolCallDetail } from "@getdoya/protocol/agent-types";
 import {
   IsolatedBottomSheetModal,
   useIsolatedBottomSheetVisibility,
 } from "@/components/ui/isolated-bottom-sheet-modal";
 import type { ToolCallIconComponent } from "@/utils/tool-call-icon";
-import { ToolCallDetailsContent } from "./tool-call-details";
+import { X } from "@/components/icons/lucide";
+
+const LazyToolCallDetailsContent = React.lazy(() =>
+  import("./tool-call-details").then((module) => ({
+    default: module.ToolCallDetailsContent,
+  })),
+);
 
 // ----- Types -----
 
@@ -158,12 +163,14 @@ function ToolCallSheetContent({ data, onClose }: ToolCallSheetContentProps) {
 
       {/* Content */}
       <BottomSheetScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <ToolCallDetailsContent
-          detail={detail}
-          errorText={errorText}
-          fillAvailableHeight
-          showLoadingSkeleton={showLoadingSkeleton}
-        />
+        <React.Suspense fallback={null}>
+          <LazyToolCallDetailsContent
+            detail={detail}
+            errorText={errorText}
+            fillAvailableHeight
+            showLoadingSkeleton={showLoadingSkeleton}
+          />
+        </React.Suspense>
       </BottomSheetScrollView>
     </View>
   );

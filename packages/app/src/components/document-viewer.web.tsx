@@ -10,9 +10,6 @@ import {
 } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import * as XSpreadsheetBundle from "x-data-spreadsheet/dist/xspreadsheet.js";
-import "x-data-spreadsheet/dist/xspreadsheet.css";
-import * as XLSX from "xlsx";
 import { translateNow, useI18n, type Locale as DoyaLocale } from "@/i18n/i18n";
 import type {
   DocumentAnnotationTarget,
@@ -26,10 +23,10 @@ import {
   buildPdfBuiltinAnnotationTarget,
   columnNameFromIndex,
 } from "@/utils/document-annotation-target";
-import {
-  parseSpreadsheetPreview,
-  SPREADSHEET_MAX_COLUMNS,
-  SPREADSHEET_MAX_ROWS,
+import type {
+  SpreadsheetPreview,
+  XSpreadsheetCellData,
+  XSpreadsheetSheetData,
 } from "@/utils/spreadsheet-preview";
 import type { PluginRegistry } from "@embedpdf/react-pdf-viewer";
 import type {
@@ -41,10 +38,8 @@ import type {
   AnnotationCapability,
   AnnotationDocumentState,
   AnnotationEvent,
-  SidebarAnnotationEntry,
   TrackedAnnotation,
 } from "@embedpdf/plugin-annotation";
-import { getSidebarAnnotationsWithReplies } from "@embedpdf/plugin-annotation";
 
 export type DocumentViewerKind = "pdf" | "docx" | "pptx" | "csv" | "xlsx";
 
@@ -99,6 +94,14 @@ type XSpreadsheetRenderState =
   | { status: "loading" }
   | { status: "ready" }
   | { status: "error"; message: string };
+type SpreadsheetPreviewState =
+  | { status: "loading" }
+  | { status: "ready"; preview: SpreadsheetPreview }
+  | { status: "error"; message: string };
+interface PdfSidebarAnnotationEntry {
+  annotation: TrackedAnnotation;
+  replies: TrackedAnnotation[];
+}
 interface XSpreadsheetOptions {
   mode: "edit" | "read";
   showBottomBar: boolean;
@@ -110,28 +113,6 @@ interface XSpreadsheetOptions {
     width: () => number;
   };
 }
-interface XSpreadsheetCellData {
-  text: string;
-  merge?: [number, number];
-}
-interface XSpreadsheetSheetData {
-  name: string;
-  rows: {
-    len: number;
-    [rowIndex: number]:
-      | {
-          cells: Record<number, XSpreadsheetCellData>;
-          height?: number;
-        }
-      | number;
-  };
-  cols?: {
-    len: number;
-    [columnIndex: number]: { width?: number } | number;
-  };
-  merges?: string[];
-}
-
 interface OnlyOfficeDocEditor {
   createConnector?: () => OnlyOfficeConnector;
   destroyEditor?: () => void;
@@ -235,6 +216,8 @@ const ONLYOFFICE_SELECTION_PLUGIN_GUID = "asc.{6D5C3F73-B91E-4A5A-90A0-9B3B23D20
 const ONLYOFFICE_SELECTION_PLUGIN_VERSION = "20260614-1";
 const ONLYOFFICE_API_LOAD_TIMEOUT_MS = 6000;
 const DOCX_PREVIEW_STYLE_ID = "doya-docx-preview-style";
+const SPREADSHEET_MAX_ROWS = 500;
+const SPREADSHEET_MAX_COLUMNS = 80;
 
 const PDF_SHAPES_ONLY_DISABLED_CATEGORIES = [
   "mode-view",
@@ -592,24 +575,41 @@ function buildPdfTargetFromTrackedAnnotation(input: {
 function findSidebarAnnotationEntry(
   state: AnnotationDocumentState,
   tracked: TrackedAnnotation,
-): SidebarAnnotationEntry | null {
+): PdfSidebarAnnotationEntry | null {
   const annotationId = tracked.object.id;
-  return (
-    getSidebarAnnotationsWithReplies(state).find((entry) => {
-      if (entry.annotation.object.id === annotationId) {
-        return true;
-      }
-      if (entry.replies.some((reply) => reply.object.id === annotationId)) {
-        return true;
-      }
-      return entry.groupMembers?.some((member) => member.object.id === annotationId) ?? false;
-    }) ?? null
+  const parentId = getPdfAnnotationParentId(tracked);
+  const primaryAnnotation = (parentId ? state.byUid[parentId] : null) ?? tracked;
+  const replies = Object.values(state.byUid).filter(
+    (candidate) =>
+      getPdfAnnotationParentId(candidate) === primaryAnnotation.object.id &&
+      candidate.object.id !== annotationId &&
+      getPdfAnnotationContents(candidate),
   );
+  return {
+    annotation: primaryAnnotation,
+    replies,
+  };
+}
+
+function getPdfAnnotationParentId(annotation: TrackedAnnotation): string | null {
+  if (!("inReplyToId" in annotation.object)) {
+    return null;
+  }
+  const parentId = annotation.object.inReplyToId;
+  return typeof parentId === "string" && parentId ? parentId : null;
+}
+
+function getPdfAnnotationContents(annotation: TrackedAnnotation): string {
+  if (!("contents" in annotation.object)) {
+    return "";
+  }
+  const contents = annotation.object.contents;
+  return typeof contents === "string" ? contents : "";
 }
 
 function normalizePdfReplyContents(replies: TrackedAnnotation[]): string {
   return replies
-    .map((reply) => reply.object.contents?.replace(/\s+/g, " ").trim() ?? "")
+    .map((reply) => getPdfAnnotationContents(reply).replace(/\s+/g, " ").trim())
     .filter(Boolean)
     .join(" | ")
     .slice(0, 1000);
@@ -1903,134 +1903,6 @@ function toOnlyOfficeSelectionCaptureUrl(sourceUrl: string, documentKey: string)
   return captureUrl.toString();
 }
 
-export function createXSpreadsheetData(bytes: Uint8Array): XSpreadsheetSheetData[] {
-  const workbook = XLSX.read(bytes, {
-    cellDates: true,
-    type: "array",
-  });
-  return workbook.SheetNames.map((sheetName) =>
-    createXSpreadsheetSheetData(sheetName, workbook.Sheets[sheetName]),
-  );
-}
-
-function createXSpreadsheetSheetData(
-  sheetName: string,
-  sheet: XLSX.WorkSheet | undefined,
-): XSpreadsheetSheetData {
-  const range = XLSX.utils.decode_range(sheet?.["!ref"] ?? "A1");
-  const rows: XSpreadsheetSheetData["rows"] = {
-    len: Math.max(range.e.r + 1, 100),
-  };
-  const cols: NonNullable<XSpreadsheetSheetData["cols"]> = {
-    len: Math.max(range.e.c + 1, 26),
-  };
-  const mergeRanges = sheet?.["!merges"] ?? [];
-  const merges = mergeRanges.map((mergeRange) => XLSX.utils.encode_range(mergeRange));
-
-  applyXSpreadsheetColumns({ cols, sheet });
-
-  for (let rowIndex = range.s.r; rowIndex <= range.e.r; rowIndex += 1) {
-    const row = createXSpreadsheetRow({ rowIndex, sheet });
-    for (let columnIndex = range.s.c; columnIndex <= range.e.c; columnIndex += 1) {
-      const cell = createXSpreadsheetCell({
-        columnIndex,
-        mergeRanges,
-        rowIndex,
-        sheet,
-      });
-      if (!cell) {
-        continue;
-      }
-      row.cells[columnIndex] = cell;
-    }
-    if (shouldIncludeXSpreadsheetRow(row)) {
-      rows[rowIndex] = row;
-    }
-  }
-
-  return {
-    cols,
-    merges,
-    name: sheetName,
-    rows,
-  };
-}
-
-function applyXSpreadsheetColumns(input: {
-  cols: NonNullable<XSpreadsheetSheetData["cols"]>;
-  sheet: XLSX.WorkSheet | undefined;
-}): void {
-  const sourceColumns = input.sheet?.["!cols"] ?? [];
-  sourceColumns.forEach((column, columnIndex) => {
-    const width = typeof column.wpx === "number" ? column.wpx : undefined;
-    if (width) {
-      input.cols[columnIndex] = { width };
-    }
-  });
-}
-
-function createXSpreadsheetRow(input: { rowIndex: number; sheet: XLSX.WorkSheet | undefined }): {
-  cells: Record<number, XSpreadsheetCellData>;
-  height?: number;
-} {
-  const sourceRow = input.sheet?.["!rows"]?.[input.rowIndex];
-  const rowHeight = typeof sourceRow?.hpx === "number" ? sourceRow.hpx : undefined;
-  return {
-    cells: {},
-    ...(rowHeight ? { height: rowHeight } : {}),
-  };
-}
-
-function createXSpreadsheetCell(input: {
-  columnIndex: number;
-  rowIndex: number;
-  sheet: XLSX.WorkSheet | undefined;
-  mergeRanges: XLSX.Range[];
-}): XSpreadsheetCellData | null {
-  const address = XLSX.utils.encode_cell({ c: input.columnIndex, r: input.rowIndex });
-  const cell = input.sheet?.[address];
-  const merge = findMergeForCell(input.mergeRanges, input.rowIndex, input.columnIndex);
-  if (!cell && !merge) {
-    return null;
-  }
-  const nextCell: XSpreadsheetCellData = {
-    text: getSpreadsheetCellText(cell),
-  };
-  if (merge) {
-    nextCell.merge = [merge.e.r - merge.s.r, merge.e.c - merge.s.c];
-  }
-  return nextCell;
-}
-
-function shouldIncludeXSpreadsheetRow(input: {
-  cells: Record<number, XSpreadsheetCellData>;
-  height?: number;
-}): boolean {
-  return Object.keys(input.cells).length > 0 || input.height !== undefined;
-}
-
-function findMergeForCell(
-  merges: XLSX.Range[],
-  rowIndex: number,
-  columnIndex: number,
-): XLSX.Range | null {
-  return merges.find((merge) => merge.s.r === rowIndex && merge.s.c === columnIndex) ?? null;
-}
-
-function getSpreadsheetCellText(cell: XLSX.CellObject | undefined): string {
-  if (!cell) {
-    return "";
-  }
-  const formula = typeof cell.f === "string" && cell.f.trim() ? `=${cell.f.trim()}` : "";
-  if (cell.w != null) {
-    return String(cell.w);
-  }
-  if (cell.v != null) {
-    return String(cell.v);
-  }
-  return formula;
-}
-
 function SpreadsheetDocumentViewer({
   kind,
   bytes,
@@ -2046,46 +1918,81 @@ function SpreadsheetDocumentViewer({
   onAnnotationTargetSelect?: DocumentViewerProps["onAnnotationTargetSelect"];
 }) {
   const [activeSheetName, setActiveSheetName] = useState<string | undefined>(undefined);
-  const preview = useMemo(
-    () => parseSpreadsheetPreview({ kind, bytes, activeSheetName }),
-    [activeSheetName, bytes, kind],
-  );
-  const columnIndexes = useMemo(
-    () =>
-      Array.from(
-        { length: Math.min(preview.columnCount, SPREADSHEET_MAX_COLUMNS) },
-        (_, index) => preview.startColumnIndex + index,
-      ),
-    [preview.columnCount, preview.startColumnIndex],
-  );
-  const keyedRows = useMemo(
-    () =>
-      preview.rows.map((row) => ({
-        key: `${row.sheetRowIndex + 1}:${row.cells
-          .slice(0, 8)
-          .map((cell) => cell.text)
-          .join("\u0000")}`,
-        cells: row.cells,
-        sheetRowIndex: row.sheetRowIndex,
-      })),
-    [preview.rows],
-  );
+  const [state, setState] = useState<SpreadsheetPreviewState>({ status: "loading" });
+
+  useEffect(() => {
+    let canceled = false;
+    setState({ status: "loading" });
+    async function loadPreview() {
+      try {
+        const { parseSpreadsheetPreview } = await import("@/utils/spreadsheet-preview");
+        const preview = await parseSpreadsheetPreview({ kind, bytes, activeSheetName });
+        if (!canceled) {
+          setState({ status: "ready", preview });
+        }
+      } catch (error) {
+        if (!canceled) {
+          setState({
+            status: "error",
+            message:
+              error instanceof Error ? error.message : translateNow("ui.failed.to.render.xlsx"),
+          });
+        }
+      }
+    }
+    void loadPreview();
+    return () => {
+      canceled = true;
+    };
+  }, [activeSheetName, bytes, kind]);
+
+  const preview = state.status === "ready" ? state.preview : null;
+  const columnIndexes = useMemo(() => {
+    if (!preview) {
+      return [];
+    }
+    return Array.from(
+      { length: Math.min(preview.columnCount, SPREADSHEET_MAX_COLUMNS) },
+      (_, index) => preview.startColumnIndex + index,
+    );
+  }, [preview]);
+  const keyedRows = useMemo(() => {
+    if (!preview) {
+      return [];
+    }
+    return preview.rows.map((row) => ({
+      key: `${row.sheetRowIndex + 1}:${row.cells
+        .slice(0, 8)
+        .map((cell) => cell.text)
+        .join("\u0000")}`,
+      cells: row.cells,
+      sheetRowIndex: row.sheetRowIndex,
+    }));
+  }, [preview]);
   const handleTableClick = useCallback(
-    (event: MouseEvent<HTMLTableElement>) => {
+    (event: React.MouseEvent<HTMLTableElement>) => {
       if (!annotationMode || !onAnnotationTargetSelect) {
         return;
       }
       const target = buildSpreadsheetAnnotationTargetFromClick({
         kind,
-        sheetName: preview.activeSheetName,
+        sheetName: preview?.activeSheetName ?? "Sheet1",
         eventTarget: event.target,
       });
       if (target) {
         onAnnotationTargetSelect(target);
       }
     },
-    [annotationMode, kind, onAnnotationTargetSelect, preview.activeSheetName],
+    [annotationMode, kind, onAnnotationTargetSelect, preview],
   );
+
+  if (state.status === "error") {
+    return <DocumentErrorState message={state.message} />;
+  }
+
+  if (state.status === "loading" || !preview) {
+    return <DocumentLoadingState label={translateNow("ui.loading.xlsx")} />;
+  }
 
   if (preview.rowCount === 0 || preview.columnCount === 0) {
     return <DocumentErrorState message={translateNow("ui.spreadsheet.empty")} />;
@@ -2338,8 +2245,12 @@ function XSpreadsheetDocumentViewer({
 
     async function renderXlsx() {
       try {
+        const [{ createXSpreadsheetData }] = await Promise.all([
+          import("@/utils/spreadsheet-preview"),
+          import("x-data-spreadsheet/dist/xspreadsheet.css"),
+          import("x-data-spreadsheet/dist/xspreadsheet.js"),
+        ]);
         const spreadsheetData = createXSpreadsheetData(bytes);
-        void XSpreadsheetBundle;
         const spreadsheetFactory = window.x_spreadsheet;
         if (!spreadsheetFactory) {
           throw new Error("x-spreadsheet is unavailable");
@@ -2447,14 +2358,11 @@ export function DocumentViewer({
       <DocxDocumentViewer
         annotationMode={annotationMode}
         bytes={stableBytes}
-        fileName={fileName}
-        mimeType={mimeType}
         pendingAnnotationTargets={pendingAnnotationTargets}
         pendingAnnotationTips={pendingAnnotationTips}
         selectedAnnotationTarget={selectedAnnotationTarget}
         onAnnotationRemove={onAnnotationRemove}
         onAnnotationTargetSelect={onAnnotationTargetSelect}
-        sourceUrl={sourceUrl}
       />
     );
   }

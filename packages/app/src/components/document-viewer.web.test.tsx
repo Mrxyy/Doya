@@ -44,6 +44,7 @@ interface XSpreadsheetMockInstance {
   data: unknown;
   loadData(data: unknown): XSpreadsheetMockInstance;
   loadDataMock(data: unknown): XSpreadsheetMockInstance;
+  reRender(): XSpreadsheetMockInstance;
   on(
     eventName: "cell-selected",
     callback: (
@@ -79,6 +80,7 @@ vi.mock("x-data-spreadsheet/dist/xspreadsheet.js", () => {
         instance.data = data;
         return instance;
       }),
+      reRender: vi.fn(() => instance),
       on(
         eventName: "cell-selected",
         callback: (
@@ -361,7 +363,7 @@ describe("DocumentViewer web annotation interactions", () => {
   });
 
   it("converts XLSX workbooks to spreadsheet preview data", async () => {
-    const { createXSpreadsheetData } = await import("./document-viewer.web");
+    const { createXSpreadsheetData } = await import("@/utils/spreadsheet-preview");
     const data = createXSpreadsheetData(createWorkbookBytes());
 
     expect(data).toEqual([

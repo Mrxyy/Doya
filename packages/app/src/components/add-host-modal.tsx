@@ -2,7 +2,6 @@ import { useCallback, useMemo, useReducer, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
-import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Link2 } from "lucide-react-native";
 import type { HostProfile } from "@/types/host-connection";
 import { useHosts, useHostMutations } from "@/runtime/host-runtime";
 import {
@@ -14,6 +13,7 @@ import { DaemonConnectionTestError } from "@/utils/test-daemon-connection";
 import { AdaptiveModalSheet, AdaptiveTextInput, type SheetHeader } from "./adaptive-modal-sheet";
 import { Button } from "@/components/ui/button";
 import { translateNow } from "@/i18n/i18n";
+import { Check, ChevronDown, ChevronRight, Eye, EyeOff, Link2 } from "@/components/icons/lucide";
 
 const FLEX_ONE_STYLE = { flex: 1 } as const;
 const DIRECT_CONNECTION_HEADER: SheetHeader = {

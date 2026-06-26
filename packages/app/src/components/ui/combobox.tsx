@@ -31,7 +31,6 @@ import {
   BottomSheetBackgroundProps,
 } from "@gorhom/bottom-sheet";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { Check, File, Folder, Search } from "lucide-react-native";
 import {
   flip,
   offset as floatingOffset,
@@ -59,6 +58,7 @@ import {
   type SheetHeader,
 } from "@/components/adaptive-modal-sheet";
 import { FloatingSurface } from "@/components/ui/floating";
+import { Check, File, Folder, Search } from "@/components/icons/lucide";
 
 const IS_WEB = isWeb;
 

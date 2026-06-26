@@ -1,6 +1,16 @@
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { openExternalUrl } from "@/utils/open-external-url";
+import { getActivityVerb, getStateLabel } from "@/git/pr-pane-data";
+import type {
+  CheckStatus,
+  PrPaneActivity,
+  PrPaneCheck,
+  PrPaneData,
+  PrState,
+} from "@/git/pr-pane-data";
+import { translateNow } from "@/i18n/i18n";
 import {
   ChevronDown,
   ChevronRight,
@@ -14,17 +24,7 @@ import {
   GitPullRequestClosed,
   GitPullRequestDraft,
   MessageSquare,
-} from "lucide-react-native";
-import { openExternalUrl } from "@/utils/open-external-url";
-import { getActivityVerb, getStateLabel } from "@/git/pr-pane-data";
-import type {
-  CheckStatus,
-  PrPaneActivity,
-  PrPaneCheck,
-  PrPaneData,
-  PrState,
-} from "@/git/pr-pane-data";
-import { translateNow } from "@/i18n/i18n";
+} from "@/components/icons/lucide";
 
 function rowPressableStyle({ hovered }: { hovered?: boolean }) {
   return [styles.row, Boolean(hovered) && styles.hoverable];

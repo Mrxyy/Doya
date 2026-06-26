@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Presentation } from "lucide-react-native";
 import { Text, View } from "react-native";
 import invariant from "tiny-invariant";
 import { StyleSheet } from "react-native-unistyles";
@@ -23,6 +22,7 @@ import {
   escapeDoyaMarkupText,
 } from "@/utils/doya-message-markup";
 import { buildWorkspacePptPreviewUrl } from "@/workspace/ppt-preview";
+import { Presentation } from "@/components/icons/lucide";
 
 function usePptPreviewPanelDescriptor(target: {
   kind: "pptPreview";

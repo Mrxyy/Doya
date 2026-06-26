@@ -1,4 +1,8 @@
 import { withUnistyles } from "react-native-unistyles";
+import { GitHubIcon } from "@/components/icons/github-icon";
+import { GitActionsSplitButton } from "@/git/actions-split-button";
+import { useGitActions } from "@/git/use-actions";
+import type { Theme } from "@/styles/theme";
 import {
   Archive,
   ArrowDownUp,
@@ -7,11 +11,7 @@ import {
   GitMerge,
   RefreshCcw,
   Upload,
-} from "lucide-react-native";
-import { GitHubIcon } from "@/components/icons/github-icon";
-import { GitActionsSplitButton } from "@/git/actions-split-button";
-import { useGitActions } from "@/git/use-actions";
-import type { Theme } from "@/styles/theme";
+} from "@/components/icons/lucide";
 
 interface WorkspaceGitActionsProps {
   serverId: string;

@@ -1,7 +1,7 @@
-import { MessageSquare } from "lucide-react-native";
 import { View } from "react-native";
 import type { PanelDescriptor, PanelRegistration } from "@/panels/panel-registry";
 import { translateNow } from "@/i18n/i18n";
+import { MessageSquare } from "@/components/icons/lucide";
 
 function useHomePresetConversationPanelDescriptor(target: {
   kind: "homePresetConversation";

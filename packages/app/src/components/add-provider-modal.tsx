@@ -2,7 +2,6 @@ import { useCallback, useMemo, useReducer, useState } from "react";
 import { Alert, Pressable, Text, View } from "react-native";
 import { SvgXml } from "react-native-svg";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { ExternalLink, PackagePlus, Search } from "lucide-react-native";
 import {
   AdaptiveModalSheet,
   AdaptiveTextInput,
@@ -19,6 +18,7 @@ import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
 import type { Theme } from "@/styles/theme";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { translateNow } from "@/i18n/i18n";
+import { ExternalLink, PackagePlus, Search } from "@/components/icons/lucide";
 
 interface AddProviderModalProps {
   serverId: string;

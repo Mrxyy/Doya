@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { Text, TextInput, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { ChevronDown, Monitor, Moon, Sun } from "lucide-react-native";
 import {
   SYNTAX_THEME_OPTIONS,
   type SyntaxThemeId,
   type SyntaxThemeOption,
-} from "@getdoya/highlight";
+} from "@getdoya/highlight/themes";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +35,11 @@ import {
 } from "@/styles/theme";
 import { isNative } from "@/constants/platform";
 import { settingsStyles } from "@/styles/settings";
-import { AppearancePreview } from "./appearance-preview";
+import { ChevronDown, Monitor, Moon, Sun } from "@/components/icons/lucide";
+
+const LazyAppearancePreview = lazy(() =>
+  import("./appearance-preview").then((module) => ({ default: module.AppearancePreview })),
+);
 
 const ThemedSun = withUnistyles(Sun);
 const ThemedMoon = withUnistyles(Moon);
@@ -586,7 +589,9 @@ export function AppearanceSection() {
           <SyntaxRow value={settings.syntaxTheme} onChange={handleSyntaxThemeChange} />
         </View>
         <View style={styles.preview}>
-          <AppearancePreview overrides={previewOverrides} />
+          <Suspense fallback={null}>
+            <LazyAppearancePreview overrides={previewOverrides} />
+          </Suspense>
         </View>
       </SettingsSection>
     </View>

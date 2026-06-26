@@ -1,10 +1,10 @@
 import { useCallback } from "react";
 import { Pressable, Text, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { QrCode, Link2, ClipboardPaste } from "lucide-react-native";
 import { AdaptiveModalSheet, type SheetHeader } from "./adaptive-modal-sheet";
 import { isNative } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
+import { ClipboardPaste, Link2, QrCode } from "@/components/icons/lucide";
 
 const ADD_CONNECTION_HEADER: SheetHeader = { title: translateNow("ui.add.connection.1vro999") };
 

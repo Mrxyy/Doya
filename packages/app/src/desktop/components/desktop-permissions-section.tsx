@@ -1,13 +1,13 @@
 import { useCallback, useMemo } from "react";
 import { View, Text } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { RotateCw } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
 import { DesktopPermissionRow } from "@/desktop/components/desktop-permission-row";
 import { useDesktopPermissions } from "@/desktop/permissions/use-desktop-permissions";
 import { settingsStyles } from "@/styles/settings";
 import { SettingsSection } from "@/screens/settings/settings-section";
 import { useI18n, translateNow } from "@/i18n/i18n";
+import { RotateCw } from "@/components/icons/lucide";
 
 export function DesktopPermissionsSection() {
   const { t } = useI18n();

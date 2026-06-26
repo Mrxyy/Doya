@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, ChevronRight, CircleAlert, SquareTerminal } from "lucide-react-native";
 import {
   ActivityIndicator,
   Pressable,
@@ -21,6 +20,7 @@ import {
 } from "@/stores/workspace-setup-store";
 import { useHostRuntimeClient } from "@/runtime/host-runtime";
 import { translateNow } from "@/i18n/i18n";
+import { CheckCircle2, ChevronRight, CircleAlert, SquareTerminal } from "@/components/icons/lucide";
 
 function useSetupPanelDescriptor(
   target: { kind: "setup"; workspaceId: string },

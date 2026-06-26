@@ -16,20 +16,6 @@ import {
   type LayoutChangeEvent,
   type PressableStateCallbackType,
 } from "react-native";
-import {
-  CopyX,
-  ArrowLeftToLine,
-  ArrowRightToLine,
-  Columns2,
-  Copy,
-  Pencil,
-  RotateCw,
-  Rows2,
-  Globe,
-  SquarePen,
-  SquareTerminal,
-  X,
-} from "lucide-react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { SortableInlineList } from "@/components/sortable-inline-list";
 import type {
@@ -65,6 +51,20 @@ import type { WorkspaceTabDescriptor } from "@/screens/workspace/workspace-tabs-
 import type { Theme } from "@/styles/theme";
 import { RenderProfile } from "@/utils/render-profiler";
 import { translateNow } from "@/i18n/i18n";
+import {
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  Columns2,
+  Copy,
+  CopyX,
+  Globe,
+  Pencil,
+  RotateCw,
+  Rows2,
+  SquarePen,
+  SquareTerminal,
+  X,
+} from "@/components/icons/lucide";
 
 const DROPDOWN_WIDTH = 220;
 const LOADING_TAB_LABEL_SKELETON_WIDTH = 80;

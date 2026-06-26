@@ -16,14 +16,6 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { WORKSPACE_SECONDARY_HEADER_HEIGHT } from "@/constants/layout";
 import * as Clipboard from "expo-clipboard";
 import { SvgXml } from "react-native-svg";
-import {
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  Download,
-  MoreVertical,
-  RotateCw,
-} from "lucide-react-native";
 import { getFileIconSvg } from "@/components/material-file-icons";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { AgentFileExplorerState, ExplorerEntry } from "@/stores/session-store";
@@ -45,6 +37,14 @@ import { buildAbsoluteExplorerPath } from "@/utils/explorer-paths";
 import { useWebScrollViewScrollbar } from "@/components/use-web-scrollbar";
 import { isWeb } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
+import {
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Download,
+  MoreVertical,
+  RotateCw,
+} from "@/components/icons/lucide";
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "name", label: translateNow("ui.name.1fvl7") },

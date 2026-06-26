@@ -1,11 +1,15 @@
+import { Suspense, lazy } from "react";
 import { Text, View } from "react-native";
-import { FileText } from "lucide-react-native";
 import invariant from "tiny-invariant";
-import { FilePane } from "@/components/file-pane";
 import { usePaneContext } from "@/panels/pane-context";
 import type { PanelRegistration } from "@/panels/panel-registry";
 import { useWorkspaceExecutionAuthority } from "@/stores/session-store-hooks";
 import { translateNow } from "@/i18n/i18n";
+import { FileText } from "@/components/icons/lucide";
+
+const LazyFilePane = lazy(() =>
+  import("@/components/file-pane").then((module) => ({ default: module.FilePane })),
+);
 
 const CENTERED_PADDED_STYLE = {
   flex: 1,
@@ -40,12 +44,14 @@ function FilePanel() {
     );
   }
   return (
-    <FilePane
-      serverId={serverId}
-      sourceAgentId={target.sourceAgentId}
-      workspaceRoot={workspaceDirectory}
-      location={target}
-    />
+    <Suspense fallback={null}>
+      <LazyFilePane
+        serverId={serverId}
+        sourceAgentId={target.sourceAgentId}
+        workspaceRoot={workspaceDirectory}
+        location={target}
+      />
+    </Suspense>
   );
 }
 

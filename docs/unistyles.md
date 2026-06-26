@@ -221,7 +221,7 @@ const markdownStyles = useMemo(() => createMarkdownStyles(theme), [theme]);
 改用 `withUnistyles` 包 icon 或其他 leaf component，让只有该节点在 theme 变化时 re-render：
 
 ```tsx
-import { ChevronDown } from "lucide-react-native";
+import { ChevronDown } from "@/components/icons/lucide";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 
 const ThemedChevronDown = withUnistyles(ChevronDown);

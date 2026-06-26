@@ -181,7 +181,10 @@ Doya 应该宽松但不稀疏：给思考留空间，同时保持重复工作的
 
 Destructive 是确认状态，不是页面装饰。Restart、remove、delete、archive with local risk 等动作使用安静的页面控件，并在 `confirmDialog` 内展示红色破坏性操作。
 
-工具型或空间型动作使用图标。可用时使用 lucide icon。文本按钮用于明确命令。不要用 `Pressable` 包 `Text` 做第六种按钮变体。
+工具型或空间型动作使用图标。可用时使用 lucide icon，但业务代码必须从
+`@/components/icons/lucide` 导入图标值；只有这个本地生成层可以导入
+`lucide-react-native/dist/esm/icons/*.js`。不要从 `lucide-react-native` barrel 导入图标值，否则 Metro
+会把大图标索引打进 web bundle。文本按钮用于明确命令。不要用 `Pressable` 包 `Text` 做第六种按钮变体。
 
 ---
 

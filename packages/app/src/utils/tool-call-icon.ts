@@ -1,4 +1,7 @@
 import type { ComponentType } from "react";
+import type { ToolCallDetail } from "@getdoya/protocol/agent-types";
+import { DoyaLogo } from "@/components/icons/doya-logo";
+import { resolveToolCallIconName, type ToolCallIcon } from "./tool-call-icon-name";
 import {
   Bot,
   Brain,
@@ -9,10 +12,7 @@ import {
   Sparkles,
   SquareTerminal,
   Wrench,
-} from "lucide-react-native";
-import type { ToolCallDetail } from "@getdoya/protocol/agent-types";
-import { DoyaLogo } from "@/components/icons/doya-logo";
-import { resolveToolCallIconName, type ToolCallIcon } from "./tool-call-icon-name";
+} from "@/components/icons/lucide";
 
 export type ToolCallIconComponent = ComponentType<{ size?: number; color?: string }>;
 

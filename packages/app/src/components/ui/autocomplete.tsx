@@ -10,10 +10,10 @@ import {
   type PressableStateCallbackType,
 } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { File, Folder } from "lucide-react-native";
 import type { Theme } from "@/styles/theme";
 import { getAutocompleteScrollOffset } from "./autocomplete-utils";
 import { translateNow } from "@/i18n/i18n";
+import { File, Folder } from "@/components/icons/lucide";
 
 export interface AutocompleteOption {
   id: string;

@@ -1,8 +1,8 @@
-import { X } from "lucide-react-native";
 import { useCallback, useMemo, type ReactNode } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { translateNow } from "@/i18n/i18n";
+import { X } from "@/components/icons/lucide";
 
 export type SidebarCalloutActionVariant = "primary" | "secondary";
 

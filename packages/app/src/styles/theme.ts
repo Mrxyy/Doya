@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import { darkHighlightColors, lightHighlightColors } from "@getdoya/highlight";
+import { darkHighlightColors, lightHighlightColors } from "@getdoya/highlight/colors";
 
 export const baseColors = {
   // Base colors

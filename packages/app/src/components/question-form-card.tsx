@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
-import { Check, CircleHelp, X } from "lucide-react-native";
 import type { PendingPermission } from "@/types/shared";
 import type { AgentPermissionResponse } from "@getdoya/protocol/agent-types";
 import { isWeb } from "@/constants/platform";
@@ -24,6 +23,7 @@ import {
   type QuestionOption,
 } from "./question-form-card-core";
 import { translateNow } from "@/i18n/i18n";
+import { Check, CircleHelp, X } from "@/components/icons/lucide";
 
 interface QuestionFormCardProps {
   permission: PendingPermission;

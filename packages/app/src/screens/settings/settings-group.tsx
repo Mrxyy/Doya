@@ -1,9 +1,9 @@
 import { useMemo, type ReactNode } from "react";
 import { Pressable, Text, View, type StyleProp, type ViewStyle } from "react-native";
-import { Info } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { translateNow } from "@/i18n/i18n";
+import { Info } from "@/components/icons/lucide";
 
 interface SettingsGroupProps {
   title: string;

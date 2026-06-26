@@ -11,7 +11,6 @@ import {
 import { Dimensions, Text, View } from "react-native";
 import { FadeIn, FadeOut } from "react-native-reanimated";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { CircleCheck, CircleDot, CircleX, ExternalLink } from "lucide-react-native";
 import { GitHubIcon } from "@/components/icons/github-icon";
 import type { Theme } from "@/styles/theme";
 import { DiffStat } from "@/components/diff-stat";
@@ -27,6 +26,7 @@ import { useIsCompactFormFactor } from "@/constants/layout";
 import { FloatingSurface } from "@/components/ui/floating";
 import { isWeb } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
+import { CircleCheck, CircleDot, CircleX, ExternalLink } from "@/components/icons/lucide";
 
 interface Rect {
   x: number;

@@ -1,5 +1,4 @@
 import type { ConversationRecording } from "@getdoya/protocol/messages";
-import { Pause, Play, Radio, RotateCcw, SlidersHorizontal, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -11,6 +10,7 @@ import {
   type ConversationReplaySpeed,
   resolveRecordingToggleAction,
 } from "./conversation-replay-controls";
+import { Pause, Play, Radio, RotateCcw, SlidersHorizontal, X } from "@/components/icons/lucide";
 
 const SPEEDS = [0.5, 1, 2, 4] as const;
 type ReplaySpeed = ConversationReplaySpeed;

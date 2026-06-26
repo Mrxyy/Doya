@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Linking, Pressable, Text, View } from "react-native";
-import { Check, CreditCard, Sparkles } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { loadAccountBootstrapSession } from "@/account/account-api";
 import { AdaptiveModalSheet } from "@/components/adaptive-modal-sheet";
@@ -17,6 +16,7 @@ import {
   type BillingUpgradeReason,
   useBillingUpgradeModalStore,
 } from "@/stores/billing-upgrade-modal-store";
+import { Check, CreditCard, Sparkles } from "@/components/icons/lucide";
 
 type BillingPeriod = "monthly" | "yearly";
 type PaymentProvider = "alipay" | "wxpay";

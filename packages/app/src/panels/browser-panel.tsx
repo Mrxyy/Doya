@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { Image } from "react-native";
-import { Globe } from "lucide-react-native";
 import invariant from "tiny-invariant";
 import { BrowserPane } from "@/components/browser-pane";
 import { usePaneContext, usePaneFocus } from "@/panels/pane-context";
 import type { PanelDescriptor, PanelIconProps, PanelRegistration } from "@/panels/panel-registry";
 import { useBrowserStore } from "@/stores/browser-store";
 import { useWorkspaceExecutionAuthority } from "@/stores/session-store-hooks";
+import { Globe } from "@/components/icons/lucide";
 
 function getBrowserLabel(input: { title: string; url: string }): string {
   const title = input.title.trim();

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState, type ComponentType } from "r
 import { ActivityIndicator, View, Text, Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
-import { ArrowRight, MessagesSquare, Plug, Smartphone, Sparkles, X } from "lucide-react-native";
 import Svg, { Circle, Ellipse, Path } from "react-native-svg";
 import { AdaptiveModalSheet, AdaptiveTextInput } from "@/components/adaptive-modal-sheet";
 import { DoyaLogo } from "@/components/icons/doya-logo";
@@ -36,6 +35,14 @@ import { useOpenProject } from "@/hooks/use-open-project";
 import { useI18n, translateNow } from "@/i18n/i18n";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 import { useHostRuntimeSnapshot } from "@/runtime/host-runtime";
+import {
+  ArrowRight,
+  MessagesSquare,
+  Plug,
+  Smartphone,
+  Sparkles,
+  X,
+} from "@/components/icons/lucide";
 
 const FULL_WIDTH_STYLE = { width: "100%" } as const;
 const AUTH_BUTTON_GRADIENT_KEYFRAME_ID = "doya-auth-button-gradient-keyframes";

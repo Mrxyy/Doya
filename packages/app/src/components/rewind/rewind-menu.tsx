@@ -1,6 +1,5 @@
 import { memo, useCallback, useMemo, useState, type ReactElement } from "react";
 import { Text, View } from "react-native";
-import { FileText, Layers, MessageSquare, Undo2 } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import {
   DropdownMenu,
@@ -13,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { type RewindMode, useRewindCapabilities } from "./use-rewind-capabilities";
 import type { AgentCapabilityFlags } from "@getdoya/protocol/agent-types";
 import { translateNow } from "@/i18n/i18n";
+import { FileText, Layers, MessageSquare, Undo2 } from "@/components/icons/lucide";
 
 export type { RewindMode };
 

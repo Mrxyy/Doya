@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef } from "react";
 import { Pressable, View, type PressableStateCallbackType } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, GitBranch } from "lucide-react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { Combobox, ComboboxItem } from "@/components/ui/combobox";
 import type { ComboboxProps } from "@/components/ui/combobox";
@@ -11,6 +10,7 @@ import { useToast } from "@/contexts/toast-context";
 import { useBranchSwitcher } from "@/hooks/use-branch-switcher";
 import { ScreenTitle } from "@/components/headers/screen-title";
 import { translateNow } from "@/i18n/i18n";
+import { ChevronDown, GitBranch } from "@/components/icons/lucide";
 
 interface BranchSwitcherProps {
   currentBranchName: string | null;

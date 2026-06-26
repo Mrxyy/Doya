@@ -1,4 +1,3 @@
-import { Gift } from "lucide-react-native";
 import { type ReactNode, useEffect, useRef } from "react";
 import { useUnistyles } from "react-native-unistyles";
 import {
@@ -15,6 +14,7 @@ import { useDesktopAppUpdater } from "@/desktop/updates/use-desktop-app-updater"
 import { useStableEvent } from "@/hooks/use-stable-event";
 import { openExternalUrl } from "@/utils/open-external-url";
 import { translateNow } from "@/i18n/i18n";
+import { Gift } from "@/components/icons/lucide";
 
 const CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const CHANGELOG_URL = "https://doya.sh/changelog";

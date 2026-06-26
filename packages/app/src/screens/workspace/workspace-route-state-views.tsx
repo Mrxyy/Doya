@@ -1,5 +1,4 @@
 import { Text, View } from "react-native";
-import { ArrowLeftToLine, RotateCw, Settings } from "lucide-react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { DoyaLoadingMark } from "@/components/doya-loading-mark";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { isDev } from "@/constants/platform";
 import { formatConnectionStatus } from "@/utils/daemons";
 import type { WorkspaceRouteState } from "@/screens/workspace/workspace-route-state";
 import { translateNow } from "@/i18n/i18n";
+import { ArrowLeftToLine, RotateCw, Settings } from "@/components/icons/lucide";
 
 interface WorkspaceRouteStateActions {
   onRetryHost: () => void;

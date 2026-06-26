@@ -1,7 +1,13 @@
+import { Suspense, lazy } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { HostRouteBootstrapBoundary } from "@/components/host-route-bootstrap-boundary";
 import { HostRuntimeStartupGate } from "@/components/host-runtime-startup-gate";
-import { AiCreationScreen } from "@/screens/ai-creation-screen";
+
+const AiCreationScreen = lazy(() =>
+  import("@/screens/ai-creation-screen").then((module) => ({
+    default: module.AiCreationScreen,
+  })),
+);
 
 export default function HostAiCreationRoute() {
   return (
@@ -18,7 +24,9 @@ function HostAiCreationRouteContent() {
 
   return (
     <HostRuntimeStartupGate serverId={serverId}>
-      <AiCreationScreen serverId={serverId} restoreEditSource={restoreEditSource} />
+      <Suspense fallback={null}>
+        <AiCreationScreen serverId={serverId} restoreEditSource={restoreEditSource} />
+      </Suspense>
     </HostRuntimeStartupGate>
   );
 }

@@ -2,7 +2,6 @@ import { useCallback, useState } from "react";
 import { Pressable, Text, View, type PressableStateCallbackType } from "react-native";
 import { router } from "expo-router";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import { ChevronRight } from "lucide-react-native";
 import { ProjectIconView } from "@/components/project-icon-view";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { projectIconToDataUri, useProjectIconQuery } from "@/hooks/use-project-icon-query";
@@ -19,6 +18,7 @@ import { loadAccountBootstrapSession } from "@/account/account-api";
 import { restoreControlSessionToAgent } from "@/control/control-session-restore";
 import { useHostMutations, useHosts } from "@/runtime/host-runtime";
 import { useToast } from "@/contexts/toast-context";
+import { ChevronRight } from "@/components/icons/lucide";
 
 const ThemedChevronRight = withUnistyles(ChevronRight, (theme) => ({
   color: theme.colors.foregroundMuted,

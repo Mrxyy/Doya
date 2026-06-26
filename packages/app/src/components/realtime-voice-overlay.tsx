@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { Mic, MicOff, Square } from "lucide-react-native";
 import { FOOTER_HEIGHT } from "@/constants/layout";
 import { useVoiceTelemetry } from "@/contexts/voice-context";
 import { VolumeMeter } from "./volume-meter";
 import { translateNow } from "@/i18n/i18n";
+import { Mic, MicOff, Square } from "@/components/icons/lucide";
 
 interface RealtimeVoiceOverlayProps {
   isMuted: boolean;

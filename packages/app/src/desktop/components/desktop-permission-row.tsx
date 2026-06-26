@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { View, Text } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { Check } from "lucide-react-native";
 import { Button } from "@/components/ui/button";
 import { settingsStyles } from "@/styles/settings";
 import type { DesktopPermissionStatus } from "@/desktop/permissions/desktop-permissions";
 import { translateNow } from "@/i18n/i18n";
+import { Check } from "@/components/icons/lucide";
 
 export interface DesktopPermissionRowProps {
   title: string;

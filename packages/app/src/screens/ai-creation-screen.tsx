@@ -2,30 +2,7 @@ import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system/legacy";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
-import {
-  ArrowUp,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Download,
-  FileText,
-  FileType,
-  ImagePlus,
-  Image as ImageIcon,
-  Mic,
-  Paperclip,
-  PanelLeft,
-  Palette,
-  Presentation,
-  Redo2,
-  SquarePen,
-  Sparkles,
-  Table2,
-  Undo2,
-  WandSparkles,
-  X,
-  type LucideIcon,
-} from "lucide-react-native";
+import type { LucideIcon } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -162,6 +139,29 @@ import {
   generateMessageId,
   type UserMessageImageAttachment,
 } from "@/types/stream";
+import {
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Download,
+  FileText,
+  FileType,
+  ImageIcon,
+  ImagePlus,
+  Mic,
+  Palette,
+  PanelLeft,
+  Paperclip,
+  Presentation,
+  Redo2,
+  Sparkles,
+  SquarePen,
+  Table2,
+  Undo2,
+  WandSparkles,
+  X,
+} from "@/components/icons/lucide";
 
 type CreationMode = AiCreationMode;
 type CreationSurfaceMode = AiCreationSurfaceMode;

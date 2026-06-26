@@ -25,7 +25,7 @@
     "test:e2e:real": "playwright test --project=real-provider",
     "test:e2e:ui": "playwright test --ui",
     "build": "npm run build:web",
-    "build:web": "npm --prefix ../.. run build:app-deps && expo export --platform web",
+    "build:web": "npm --prefix ../.. run build:app-deps && expo export --platform web && node ./scripts/split-large-js-bundles.mjs",
     "profile:workspace-tabs": "node ./scripts/profile-workspace-tabs.mjs",
     "deploy:web": "npm run build:web && wrangler pages deploy dist --project-name doya-app --branch main",
     "build:terminal-webview": "node ./scripts/build-terminal-webview-html.mjs"

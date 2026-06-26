@@ -29,24 +29,6 @@ import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles"
 import { ICON_SIZE, type Theme } from "@/styles/theme";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import {
-  AlignJustify,
-  Archive,
-  ArrowDownUp,
-  ChevronDown,
-  Columns2,
-  Download,
-  GitBranch,
-  GitCommitHorizontal,
-  GitMerge,
-  ListChevronsDownUp,
-  ListChevronsUpDown,
-  Pilcrow,
-  RefreshCcw,
-  RotateCw,
-  Upload,
-  WrapText,
-} from "lucide-react-native";
-import {
   useCheckoutDiffQuery,
   type ParsedDiffFile,
   type DiffLine,
@@ -114,6 +96,24 @@ import {
   type InlineReviewActions,
 } from "@/review";
 import { translateNow } from "@/i18n/i18n";
+import {
+  AlignJustify,
+  Archive,
+  ArrowDownUp,
+  ChevronDown,
+  Columns2,
+  Download,
+  GitBranch,
+  GitCommitHorizontal,
+  GitMerge,
+  ListChevronsDownUp,
+  ListChevronsUpDown,
+  Pilcrow,
+  RefreshCcw,
+  RotateCw,
+  Upload,
+  WrapText,
+} from "@/components/icons/lucide";
 
 export type { GitActionId, GitAction, GitActions } from "@/git/policy";
 

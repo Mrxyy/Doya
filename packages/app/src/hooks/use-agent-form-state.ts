@@ -224,9 +224,8 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
   const lockedProviderModel = ignoreDaemonProviderModelLock
     ? null
     : getLockedProviderModel(daemonConfig);
-  const selectedProviderForData = (
-    lockedProviderModel?.provider ?? formState.provider
-  ) as AgentProvider | null;
+  const selectedProviderForData = (lockedProviderModel?.provider ??
+    formState.provider) as AgentProvider | null;
 
   const allProviderEntries = useMemo(() => snapshotEntries ?? [], [snapshotEntries]);
   const snapshotProviderDefinitions = useMemo(
@@ -265,7 +264,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
     () =>
       selectedProviderForData
         ? ((snapshotEntries ?? []).find((entry) => entry.provider === selectedProviderForData) ??
-            null)
+          null)
         : null,
     [selectedProviderForData, snapshotEntries],
   );
@@ -437,9 +436,8 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
   const setModeFromUser = useCallback(
     (modeId: string) => {
       dispatch({ type: "SET_MODE_FROM_USER", modeId });
-      const provider = (
-        lockedProviderModel?.provider ?? reducerStateRef.current.form.provider
-      ) as AgentProvider | null;
+      const provider = (lockedProviderModel?.provider ??
+        reducerStateRef.current.form.provider) as AgentProvider | null;
       if (provider) {
         void updatePreferences((current) =>
           mergeSelectedComposerPreferences({
@@ -480,8 +478,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
     (thinkingOptionId: string) => {
       dispatch({ type: "SET_THINKING_OPTION_FROM_USER", thinkingOptionId });
       const { provider, model: modelId } = reducerStateRef.current.form;
-      const effectiveProvider = (lockedProviderModel?.provider ??
-        provider) as AgentProvider | null;
+      const effectiveProvider = (lockedProviderModel?.provider ?? provider) as AgentProvider | null;
       const effectiveModelId = lockedProviderModel?.model ?? modelId;
       if (effectiveProvider && effectiveModelId) {
         void updatePreferences((current) =>
@@ -527,8 +524,7 @@ export function useAgentFormState(options: UseAgentFormStateOptions = {}): UseAg
   }, [lockedProviderModel?.provider, refetchSnapshotIfStale]);
 
   const persistFormPreferences = useCallback(async () => {
-    const provider = (lockedProviderModel?.provider ??
-      formState.provider) as AgentProvider | null;
+    const provider = (lockedProviderModel?.provider ?? formState.provider) as AgentProvider | null;
     if (!provider) {
       return;
     }
