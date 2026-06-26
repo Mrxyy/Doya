@@ -4,6 +4,7 @@ import {
   type AiCreationMode,
   type AiCreationVisualStyle,
 } from "@/ai-creation/options";
+import { buildAiCreationSlidesPrompt } from "@/ai-creation/slides-prompt";
 import { translateNow, type Locale } from "@/i18n/i18n";
 import {
   buildDoyaMessageMeta,
@@ -49,10 +50,11 @@ export function buildComposerAiCreationPrompt(input: {
     return buildAiCreationMarkupPrompt({
       ...baseInput,
       ratio: input.context.ratio,
-      aiInstructions: buildSlidesPrompt({
+      aiInstructions: buildAiCreationSlidesPrompt({
         prompt,
         ratio: input.context.ratio,
         sourceFileCount: input.attachmentCount,
+        defaultLocale: input.defaultLocale,
       }),
     });
   }
@@ -240,59 +242,6 @@ function buildImagePrompt(input: {
     );
   }
   return lines.join("\n");
-}
-
-function buildSlidesPrompt(input: {
-  prompt: string;
-  ratio: AiCreationAspectRatio;
-  sourceFileCount: number;
-}): string {
-  const format = input.ratio === "4:3" ? "ppt43" : "ppt169";
-  return [
-    "You are creating a PowerPoint deck for the Doya AI Creation slides surface.",
-    "Doya has already prepared the bundled PPT Master skill link at `.doya/skills/ppt-master` before this agent starts.",
-    "This is an AI creation surface. Keep user-facing progress minimal.",
-    "Do not narrate skill reading, dependency installation, shell commands, file inspection, design reasoning, or implementation steps.",
-    'Human-visible progress protocol: before the final reply, only send progress by emitting a `<doya-ui kind="ai_creation.slides.progress">` block.',
-    "Only mark information as human-visible when it helps the user follow PPT creation: confirmation readiness, preview readiness, deck outline, design direction, source processing, each slide becoming ready, export start, or PPTX readiness.",
-    "For preview readiness, include the preview path in a field named `preview_path` inside the same progress block.",
-    "Do not use the generic presentations skill or artifact-tool workflow for this request.",
-    "Do not search for PPT Master in other directories.",
-    "Do not use web search for PPT Master.",
-    "Do not git clone, fetch, or download PPT Master.",
-    'If `.doya/skills/ppt-master/SKILL.md` is missing, stop immediately and reply exactly: "PPT Master skill link missing: .doya/skills/ppt-master/SKILL.md".',
-    "Read `.doya/skills/ppt-master/SKILL.md` and follow that workflow exactly.",
-    "Begin the PPT Master workflow immediately. Do not wait for a target handshake, confirmation, or user reply before creating the project.",
-    "Doya provides its own built-in slide preview service. Do not run PPT Master's `scripts/svg_editor/server.py`, do not start Flask, and do not open localhost preview ports yourself.",
-    "Doya also provides its own built-in Confirm UI. When PPT Master Step 4 asks you to run `scripts/confirm_ui/server.py`, do not run that local server, do not start Flask, and do not open localhost confirmation ports.",
-    "Instead, write `projects/<project>/confirm_ui/recommendations.json`, then send a human-visible progress block with a `confirm_path` field set to `projects/<project>/confirm_ui/`. Doya will render the inline confirmation card in chat and write `projects/<project>/confirm_ui/result.json` when the user confirms.",
-    "After sending the confirmation progress block, stop at the confirmation barrier. Until `projects/<project>/confirm_ui/result.json` exists or the user replies in chat with explicit choices, do not create the design spec, do not create `svg_output`, do not send a `preview_path`, do not generate slide SVGs, and do not continue to any later PPT Master step.",
-    "When the confirmation barrier resolves, read `result.json` if it exists, honor the confirmed values exactly, and only then continue the PPT Master workflow.",
-    "After confirmation is resolved and project initialization creates `projects/<project>/`, ensure `projects/<project>/svg_output/` exists even if it is still empty, then immediately send a human-visible progress block with a `preview_path` field set to `projects/<project>/svg_output/`.",
-    "You must send the preview-ready progress block before generating or writing the first slide.",
-    "After sending preview progress, continue the PPT Master workflow without waiting for the user.",
-    "Write generated SVG pages into `projects/<project>/svg_output/` strictly one page at a time. Save `slide_01.svg` as soon as it is complete, then continue to `slide_02.svg`, and so on.",
-    "Only after the skill link exists, install Python requirements if needed: `pip install -r .doya/skills/ppt-master/requirements.txt`.",
-    "",
-    "User request:",
-    input.prompt,
-    "",
-    `Canvas format: ${format}`,
-    `Source file count: ${input.sourceFileCount}`,
-    input.sourceFileCount > 0
-      ? "If source files are attached, the daemon writes them into `attachments/` and includes their paths in the structured attachment text. Use those workspace paths as PPT Master source files."
-      : null,
-    "",
-    "Run the PPT Master pipeline end to end:",
-    "source_to_md -> project_manager init/import-sources -> Strategist design_spec/spec_lock -> sequential SVG pages -> svg_quality_checker -> total_md_split -> finalize_svg -> svg_to_pptx.",
-    "",
-    "The output must be a native editable PPTX in `projects/<project>/exports/`.",
-    "Do not create a screenshot-only deck.",
-    "Do not explain internal commands in the final reply unless a blocking error occurs.",
-    "Final reply: only provide the PPTX path and optional preview path.",
-  ]
-    .filter((line): line is string => Boolean(line))
-    .join("\n");
 }
 
 function buildDocumentPrompt(input: {

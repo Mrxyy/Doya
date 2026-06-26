@@ -396,6 +396,10 @@ exist inside the server container or be added by extending the server image.
 SMS login credentials (`DOYA_SMS_*`) and payment credentials (`DOYA_PAYMENT_*`)
 are passed to the control service.
 
+The Docker `server` target uses a Python + Node base image so the daemon has the
+two common runtimes needed by local coding agents without pulling in a full
+universal devcontainer image.
+
 Runtime node registration keeps two daemon addresses when needed:
 `DOYA_RUNTIME_NODE_ENDPOINT` is the internal address the control service uses to
 call the daemon, while `DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT` is returned to browser

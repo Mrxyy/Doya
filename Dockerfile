@@ -59,12 +59,12 @@ RUN npm ci --omit=dev --ignore-scripts --include-workspace-root=false \
   --workspace=@getdoya/control \
   && npm install --omit=dev --ignore-scripts zod@^3.23.8
 
-FROM node:22.20.0-bookworm-slim AS server
+FROM nikolaik/python-nodejs:python3.12-nodejs22-slim AS server
 
 WORKDIR /app
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends bash ca-certificates git openssh-client procps \
+  && apt-get install -y --no-install-recommends bash ca-certificates git lbzip2 openssh-client procps \
   && rm -rf /var/lib/apt/lists/*
 
 ENV DOYA_HOME=/data/doya

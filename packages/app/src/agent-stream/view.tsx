@@ -132,7 +132,15 @@ import {
   loadAiCreationMessageDisplayMetadata,
   type AiCreationMessageDisplayEntry,
 } from "@/stores/ai-creation-message-display-store";
-import { Check, ChevronDown, Download, Eye, SlidersHorizontal, X } from "@/components/icons/lucide";
+import {
+  Check,
+  ChevronDown,
+  Download,
+  Eye,
+  Hourglass,
+  SlidersHorizontal,
+  X,
+} from "@/components/icons/lucide";
 
 function resolveDisplayAttachmentPreviewSource(input: {
   displayAttachment: AgentAttachment;
@@ -2490,11 +2498,13 @@ function AiCreationSlidesConfirmCard({
         if (isCurrent) {
           setInlineConfirmUrl(url);
         }
+        return null;
       })
       .catch(() => {
         if (isCurrent) {
           setInlineConfirmUrl(null);
         }
+        return null;
       });
     return () => {
       isCurrent = false;
@@ -2555,9 +2565,12 @@ function AiCreationSlidesConfirmCard({
     );
   } else {
     confirmBody = (
-      <Text style={stylesheet.aiCreationConfirmHint}>
-        {translateNow("ui.slides.confirm.loadFailed")}
-      </Text>
+      <View style={stylesheet.aiCreationConfirmHintRow}>
+        <Text style={stylesheet.aiCreationConfirmHint}>
+          {translateNow("ui.slides.confirm.waitingToLoad")}
+        </Text>
+        <AnimatedConfirmHourglass />
+      </View>
     );
   }
 
@@ -2686,6 +2699,26 @@ function AiCreationSlidesConfirmCard({
       </View>
       {confirmBody}
     </View>
+  );
+}
+
+function AnimatedConfirmHourglass() {
+  const rotation = useSharedValue(0);
+  useEffect(() => {
+    rotation.value = withRepeat(
+      withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      false,
+    );
+  }, [rotation]);
+  const hourglassStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotation.value * 180}deg` }],
+  }));
+
+  return (
+    <Animated.View style={hourglassStyle}>
+      <Hourglass size={14} color={stylesheet.aiCreationConfirmHintIcon.color} strokeWidth={2.2} />
+    </Animated.View>
   );
 }
 
@@ -3597,13 +3630,21 @@ const stylesheet = StyleSheet.create((theme) => ({
     overflow: "hidden",
     zIndex: 1,
   },
+  aiCreationConfirmHintRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1],
+    paddingHorizontal: theme.spacing[4],
+    paddingBottom: theme.spacing[4],
+    zIndex: 1,
+  },
   aiCreationConfirmHint: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
     lineHeight: 20,
-    paddingHorizontal: theme.spacing[4],
-    paddingBottom: theme.spacing[4],
-    zIndex: 1,
+  },
+  aiCreationConfirmHintIcon: {
+    color: theme.colors.foregroundMuted,
   },
   aiCreationConfirmStatusPill: {
     borderRadius: theme.borderRadius.full,

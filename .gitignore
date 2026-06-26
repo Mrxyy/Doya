@@ -93,3 +93,4 @@ app.json
 .doya-dev
 guide-project
 *.pyc
+prod-agent-auto-deploy.md

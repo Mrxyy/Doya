@@ -24,6 +24,8 @@ services:
     volumes:
       - doya_home:/data/doya
       - ./workspaces:/workspaces
+      - ${DOYA_CODEX_HOME:-/root/.codex}:/root/.codex
+      - ${DOYA_CODEX_BIN:-/root/.codex/standalone/releases/0.139.0-x86_64-unknown-linux-musl/bin/codex}:/usr/local/bin/codex:ro
 
   control:
     image: ${DOYA_CONTROL_IMAGE:-jadenxiong/doya-control:latest}

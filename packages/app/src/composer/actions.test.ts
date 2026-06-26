@@ -557,6 +557,9 @@ describe("dispatchComposerAgentMessage", () => {
     const sentText = client.calls[0]?.text ?? "";
     expect(sentText).toContain('kind="ai_creation.slides.create"');
     expect(sentText).toContain(".doya/skills/ppt-master");
+    expect(sentText).toContain("<doya-ui-content");
+    expect(sentText).toContain("For preview readiness and confirmation readiness");
+    expect(sentText).toContain("confirm_path");
     expect(sentText).toContain("Do not use the generic presentations skill");
     expect(sentText).toContain("Run the PPT Master pipeline end to end");
   });

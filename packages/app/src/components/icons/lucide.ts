@@ -72,6 +72,7 @@ export { default as Globe } from "lucide-react-native/dist/esm/icons/globe.js";
 export { default as Grid2x2 } from "lucide-react-native/dist/esm/icons/grid-2x2.js";
 export { default as HardDrive } from "lucide-react-native/dist/esm/icons/hard-drive.js";
 export { default as Home } from "lucide-react-native/dist/esm/icons/house.js";
+export { default as Hourglass } from "lucide-react-native/dist/esm/icons/hourglass.js";
 export { default as ImageIcon } from "lucide-react-native/dist/esm/icons/image.js";
 export { default as ImagePlus } from "lucide-react-native/dist/esm/icons/image-plus.js";
 export { default as ImportIcon } from "lucide-react-native/dist/esm/icons/import.js";
