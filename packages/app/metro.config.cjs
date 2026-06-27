@@ -19,7 +19,14 @@ config.transformer = {
   babelTransformerPath: require.resolve("./scripts/svg-raw-transformer.cjs"),
 };
 config.resolver.assetExts = Array.from(
-  new Set([...config.resolver.assetExts.filter((ext) => ext !== "svg"), "wasm"]),
+  new Set([
+    ...config.resolver.assetExts.filter((ext) => ext !== "svg"),
+    "docx",
+    "pdf",
+    "pptx",
+    "wasm",
+    "xlsx",
+  ]),
 );
 config.resolver.sourceExts = Array.from(new Set([...config.resolver.sourceExts, "svg"]));
 const escapedAppSrcRoot = appSrcRoot

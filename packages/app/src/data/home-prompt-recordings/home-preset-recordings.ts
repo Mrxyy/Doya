@@ -39,6 +39,12 @@ const HOME_PRESET_PROJECT_REPLAY_IDS: Record<string, HomePresetReplayId> = {
   b2b_saas_analytics_pitch_ppt169_20260621: "slides-roadshow",
 };
 
+const homePresetReplayRecordingPromises = new Map<
+  HomePresetReplayId,
+  Promise<ConversationRecording>
+>();
+let slidesRoadshowPreviewPromise: Promise<HomePresetSlidePreview[]> | null = null;
+
 export function isHomePresetReplayId(
   value: string | null | undefined,
 ): value is HomePresetReplayId {
@@ -55,7 +61,19 @@ export function getHomePresetReplayIdForProjectName(
   return HOME_PRESET_PROJECT_REPLAY_IDS[normalizedProjectName] ?? null;
 }
 
-export async function getHomePresetReplayRecording(
+export function getHomePresetReplayRecording(
+  id: HomePresetReplayId,
+): Promise<ConversationRecording> {
+  const cached = homePresetReplayRecordingPromises.get(id);
+  if (cached) {
+    return cached;
+  }
+  const promise = loadHomePresetReplayRecording(id);
+  homePresetReplayRecordingPromises.set(id, promise);
+  return promise;
+}
+
+async function loadHomePresetReplayRecording(
   id: HomePresetReplayId,
 ): Promise<ConversationRecording> {
   let module: unknown;
@@ -86,12 +104,17 @@ export async function getHomePresetReplayRecording(
   return ConversationRecordingSchema.parse(getDefaultExport(module));
 }
 
-export async function getHomePresetBundledSlidePreviews(
+export function getHomePresetBundledSlidePreviews(
   id: HomePresetReplayId,
 ): Promise<HomePresetSlidePreview[]> {
   if (id !== "slides-roadshow") {
-    return [];
+    return Promise.resolve([]);
   }
+  slidesRoadshowPreviewPromise ??= loadSlidesRoadshowPreviewSlides();
+  return slidesRoadshowPreviewPromise;
+}
+
+async function loadSlidesRoadshowPreviewSlides(): Promise<HomePresetSlidePreview[]> {
   const { SlidesRoadshowPreviewSlides } =
     await import("@/data/home-prompt-recordings/slides-roadshow-preview");
   return SlidesRoadshowPreviewSlides.map((slide) => ({

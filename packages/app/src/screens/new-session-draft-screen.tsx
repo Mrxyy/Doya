@@ -113,6 +113,7 @@ import {
 import { buildControlAgentLabels as buildBaseControlAgentLabels } from "@/control/control-agent-labels";
 import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
+import { getHomePresetFileAssetUrl } from "@/data/home-prompt-recordings/home-preset-file-assets";
 import type { HomePresetBundledFile } from "@/data/home-prompt-recordings/home-preset-files";
 import {
   buildHomePresetVisibleHistory,
@@ -211,6 +212,7 @@ interface HomePresetFilePreview {
   bytes: Uint8Array;
   file: HomePresetBundledFile;
   kind: DocumentViewerKind;
+  sourceUrl: string | null;
 }
 
 interface HomePresetSyntheticConfirm {
@@ -382,8 +384,21 @@ const HOME_PROMPT_SUGGESTIONS: readonly HomePromptSuggestion[] = [
   },
 ] as const;
 
+const LOGGED_OUT_HOME_PRESET_PRELOAD_IDS: readonly HomePresetReplayId[] = ["slides-roadshow"];
+const LOGGED_OUT_HOME_PRESET_PRELOAD_DELAY_MS = 600;
+
 const EMPTY_PENDING_PERMISSIONS = new Map<string, PendingPermission>();
 const EMPTY_CLOSING_TAB_IDS = new Set<string>();
+let loggedOutHomePresetPreloadPromise: Promise<void> | null = null;
+
+function preloadLoggedOutHomePresetResources(): Promise<void> {
+  loggedOutHomePresetPreloadPromise ??= Promise.all([
+    ...LOGGED_OUT_HOME_PRESET_PRELOAD_IDS.map((id) => getHomePresetReplayRecording(id)),
+    getHomePresetBundledSlidePreviews("slides-roadshow"),
+    import("@/data/home-prompt-recordings/ppt-preview-static"),
+  ]).then(() => undefined);
+  return loggedOutHomePresetPreloadPromise;
+}
 
 async function getHomePresetBundledFile(
   id: HomePresetReplayId,
@@ -416,7 +431,19 @@ function buildHomePresetFilePreview(file: HomePresetBundledFile): HomePresetFile
     bytes: decodeHomePresetFileBase64(file.base64),
     file,
     kind,
+    sourceUrl: buildHomePresetFileSourceUrl(file),
   };
+}
+
+function buildHomePresetFileSourceUrl(file: HomePresetBundledFile): string | null {
+  if (!isWeb || typeof window === "undefined") {
+    return null;
+  }
+  const assetUrl = getHomePresetFileAssetUrl(file);
+  if (!assetUrl) {
+    return null;
+  }
+  return new URL(assetUrl, window.location.href).toString();
 }
 
 function decodeHomePresetFileBase64(base64: string): Uint8Array {
@@ -1262,6 +1289,19 @@ export function NewSessionDraftScreen({
   const composerState = draft.composerState;
   const openAccountLogin = useAccountLoginModalStore((state) => state.open);
   const mobileHeaderLeft = useMemo(() => <SidebarMenuToggle />, []);
+
+  useEffect(() => {
+    if (accountSession !== null) {
+      return;
+    }
+    const preloadTimer = setTimeout(() => {
+      void preloadLoggedOutHomePresetResources().catch(() => undefined);
+    }, LOGGED_OUT_HOME_PRESET_PRELOAD_DELAY_MS);
+    return () => {
+      clearTimeout(preloadTimer);
+    };
+  }, [accountSession]);
+
   const agentControlsWithDisabled = useMemo(
     () =>
       composerState
@@ -2486,7 +2526,7 @@ function HomePresetFilePreviewPane({ preview }: { preview: HomePresetFilePreview
             bytes={preview.bytes}
             mimeType={preview.file.mimeType}
             fileName={preview.file.fileName}
-            sourceUrl={null}
+            sourceUrl={preview.sourceUrl}
           />
         </Suspense>
       </View>
