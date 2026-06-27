@@ -20,7 +20,8 @@ ENV EXPO_PUBLIC_ONLYOFFICE_DOCUMENT_SERVER_URL=${EXPO_PUBLIC_ONLYOFFICE_DOCUMENT
 
 COPY . .
 
-RUN npm ci --ignore-scripts
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
+
 RUN npm run postinstall
 RUN npm run build:server
 
@@ -45,7 +46,7 @@ COPY packages/relay/package.json packages/relay/package.json
 COPY packages/server/package.json packages/server/package.json
 COPY packages/website/package.json packages/website/package.json
 
-RUN npm ci --omit=dev --ignore-scripts --include-workspace-root=false \
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts --include-workspace-root=false \
   && cp -R node_modules/zod-to-json-schema packages/server/node_modules/zod-to-json-schema
 
 FROM node:22.20.0-bookworm-slim AS control-deps
@@ -55,7 +56,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/control/package.json packages/control/package.json
 
-RUN npm ci --omit=dev --ignore-scripts --include-workspace-root=false \
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts --include-workspace-root=false \
   --workspace=@getdoya/control \
   && npm install --omit=dev --ignore-scripts zod@^3.23.8
 
