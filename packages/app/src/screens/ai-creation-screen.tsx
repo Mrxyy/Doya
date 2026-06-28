@@ -3833,8 +3833,8 @@ function buildImagegenPrompt(input: {
     "",
     `Aspect ratio: ${input.ratio}`,
     `Style: ${AI_CREATION_STYLE_PROMPT_LABELS[input.style]}`,
-    "Save the final image into the current workspace if a workspace-bound asset is produced.",
-    "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](assets/generated-image.png)",
+    "After image generation finishes, write or copy the final PNG into `output/imagegen/` in the current workspace.",
+    "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](output/imagegen/generated-image.png)",
   ];
   if (input.referenceCount > 0) {
     lines.push(
@@ -3895,8 +3895,8 @@ function buildImageEditPrompt(input: {
     "`ai-edit-source.*` is the exact latest source image to edit.",
     "Do not inspect the temp attachment directory to choose a different image. Do not use any earlier image from the conversation as the edit source.",
     "Preserve all unrelated parts of the original image.",
-    "Save the final image into the current workspace if a workspace-bound asset is produced.",
-    "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](assets/edited-image.png)",
+    "After image generation finishes, write or copy the final PNG into `output/imagegen/` in the current workspace.",
+    "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](output/imagegen/edited-image.png)",
   ];
   lines.splice(
     11,

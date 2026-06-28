@@ -152,6 +152,14 @@ import { createRuntimeApiRouter } from "./runtime-api.js";
 import { createUserWorkspaceApiRouter } from "./user-workspace-api.js";
 import { createDaemonAdminApiRouter } from "./daemon-admin-api.js";
 import { createControlTimelineSync } from "./control-timeline-sync.js";
+import {
+  buildControlRegistrationCapabilities,
+  createControlRegistration,
+  resolveControlRuntimeAuthToken,
+  type ControlRegistrationConfig,
+  type ControlRegistrationController,
+} from "./control-registration.js";
+import { createControlCommandPoller, type ControlCommandPoller } from "./control-command-poller.js";
 
 type AgentMcpTransportMap = Map<string, StreamableHTTPServerTransport>;
 
@@ -381,6 +389,7 @@ export interface DoyaDaemonConfig {
   relayPublicEndpoint?: string;
   relayUseTls?: boolean;
   relayPublicUseTls?: boolean;
+  controlRegistration?: ControlRegistrationConfig;
   appBaseUrl?: string;
   auth?: DaemonAuthConfig;
   openai?: DoyaOpenAIConfig;
@@ -463,6 +472,8 @@ export async function createDoyaDaemon(
   const serverId = getOrCreateServerId(doyaHome, { logger });
   const daemonKeyPair = await loadOrCreateDaemonKeyPair(doyaHome, logger);
   let relayTransport: RelayTransportController | null = null;
+  let controlRegistration: ControlRegistrationController | null = null;
+  let controlCommandPoller: ControlCommandPoller | null = null;
 
   const staticDir = config.staticDir;
   const downloadTokenTtlMs = config.downloadTokenTtlMs ?? 60000;
@@ -472,10 +483,16 @@ export async function createDoyaDaemon(
   });
 
   const listenTarget = parseListenString(config.listen);
+  const localControlCommandAuthToken = randomUUID();
 
   const app = express();
   let boundListenTarget: ListenTarget | null = null;
   let workspaceRegistry: FileBackedWorkspaceRegistry | null = null;
+  let applyControlRegistrationConfig: (
+    nextConfig: ControlRegistrationConfig | undefined,
+  ) => void = (_nextConfig) => {
+    throw new Error("Control registration is not ready.");
+  };
 
   const scriptRouteStore = new ScriptRouteStore();
   const scriptRuntimeStore = new WorkspaceScriptRuntimeStore();
@@ -551,9 +568,13 @@ export async function createDoyaDaemon(
   });
 
   app.use(
-    createRequireBearerMiddleware(config.auth, (context) => {
-      logger.warn(context, "Rejected HTTP request with invalid daemon password");
-    }),
+    createRequireBearerMiddleware(
+      config.auth,
+      (context) => {
+        logger.warn(context, "Rejected HTTP request with invalid daemon password");
+      },
+      { internalAuthToken: localControlCommandAuthToken },
+    ),
   );
 
   // Script proxy — intercepts requests for registered *.localhost hostnames
@@ -710,6 +731,9 @@ export async function createDoyaDaemon(
           requestId,
           ...(reason ? { reason } : {}),
         });
+      },
+      applyControlRegistration: (nextConfig) => {
+        applyControlRegistrationConfig(nextConfig);
       },
     }),
   );
@@ -1264,6 +1288,63 @@ export async function createDoyaDaemon(
     isDev: config.isDev === true,
     extraClients: config.agentClients,
   });
+  applyControlRegistrationConfig = (nextConfig: ControlRegistrationConfig | undefined): void => {
+    const activeControlRegistrationConfig =
+      nextConfig?.enabled === true && nextConfig.apiBaseUrl
+        ? {
+            ...nextConfig,
+            runtimeAuthToken: resolveControlRuntimeAuthToken({
+              doyaHome,
+              configuredToken: nextConfig.runtimeAuthToken,
+              logger,
+            }),
+          }
+        : nextConfig;
+
+    const formattedListen = formatListenTarget(boundListenTarget ?? listenTarget);
+    const relayEnabled = config.relayEnabled ?? true;
+    const relayEndpoint = config.relayEndpoint ?? "relay.doya.sh:443";
+    const relayPublicEndpoint = config.relayPublicEndpoint ?? relayEndpoint;
+    const relayUseTls = config.relayUseTls ?? relayEndpoint === "relay.doya.sh:443";
+    const relayPublicUseTls = config.relayPublicUseTls ?? relayUseTls;
+
+    controlRegistration?.stop();
+    controlRegistration = createControlRegistration({
+      config: activeControlRegistrationConfig,
+      nodeId: serverId,
+      doyaHome,
+      defaultEndpoint: formattedListen ?? config.listen,
+      runtimeAuthToken: null,
+      getCapabilities: async () =>
+        buildControlRegistrationCapabilities({
+          providers: await providerSnapshotManager.listProviders({ wait: false }),
+          listen: formattedListen ?? config.listen,
+          version: daemonVersion,
+          relay: {
+            enabled: relayEnabled,
+            endpoint: relayEndpoint,
+            publicEndpoint: relayPublicEndpoint,
+            useTls: relayUseTls,
+            publicUseTls: relayPublicUseTls,
+          },
+        }),
+      logger,
+    });
+    controlRegistration.start();
+
+    controlCommandPoller?.stop();
+    controlCommandPoller = createControlCommandPoller({
+      config: activeControlRegistrationConfig,
+      nodeId: serverId,
+      localHttpBaseUrl:
+        boundListenTarget?.type === "tcp"
+          ? `http://${boundListenTarget.host}:${boundListenTarget.port}`
+          : null,
+      localInternalAuthToken: localControlCommandAuthToken,
+      logger,
+    });
+    controlCommandPoller.start();
+  };
   const initialAgentManagerState = providerSnapshotManager.getAgentManagerProviderState();
   const conversationRecordingStore = new ConversationRecordingStore(
     path.join(doyaHome, "recordings"),
@@ -1720,6 +1801,7 @@ export async function createDoyaDaemon(
           const relayUseTls = config.relayUseTls ?? relayEndpoint === "relay.doya.sh:443";
           const relayPublicUseTls = config.relayPublicUseTls ?? relayUseTls;
           const appBaseUrl = config.appBaseUrl ?? "https://app.doya.sh";
+          const formattedListen = formatListenTarget(boundListenTarget ?? listenTarget);
 
           if (boundListenTarget.type === "tcp") {
             logger.info(
@@ -1788,7 +1870,7 @@ export async function createDoyaDaemon(
             providerSnapshotManager,
             conversationRecordingStore,
             {
-              listen: formatListenTarget(boundListenTarget ?? listenTarget),
+              listen: formattedListen,
               worktreesRoot: config.worktreesRoot,
               relay: {
                 enabled: relayEnabled,
@@ -1799,6 +1881,8 @@ export async function createDoyaDaemon(
               },
             },
           );
+
+          applyControlRegistrationConfig(config.controlRegistration);
 
           if (relayEnabled) {
             const offer = await createConnectionOfferV2({
@@ -1860,6 +1944,8 @@ export async function createDoyaDaemon(
     terminalManager.killAll();
     speechService.stop();
     await scheduleService.stop().catch(() => undefined);
+    controlCommandPoller?.stop();
+    controlRegistration?.stop();
     await relayTransport?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();

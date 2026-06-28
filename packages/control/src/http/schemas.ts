@@ -111,6 +111,17 @@ export const updateDaemonNodeBodySchema = z.object({
   status: z.enum(["online", "offline", "draining"]).optional(),
 });
 
+export const pollDaemonCommandsBodySchema = z.object({
+  maxCommands: z.number().int().positive().max(10).optional(),
+});
+
+export const daemonCommandResultBodySchema = z.object({
+  ok: z.boolean(),
+  status: z.number().int().positive().optional(),
+  body: z.unknown().optional(),
+  error: z.string().optional(),
+});
+
 export const daemonConfigPatchBodySchema = z
   .object({
     mcp: z

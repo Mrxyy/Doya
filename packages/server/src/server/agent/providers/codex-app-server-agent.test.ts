@@ -2328,9 +2328,51 @@ describe("Codex app-server provider", () => {
     expect(event.item.text).not.toContain("data:image");
     expect(event.item.text).not.toContain(ONE_BY_ONE_PNG_BASE64);
     const source = markdownImageSource(event.item.text);
-    expect(source).toMatch(/doya-attachments[\\/].+\.png$/);
-    expect(existsSync(source)).toBe(true);
-    rmSync(source, { force: true });
+    expect(source).toMatch(/^output\/imagegen\/.+\.png$/);
+    const cwd = asInternals(session).config.cwd;
+    if (!cwd) {
+      throw new Error("Expected test session cwd");
+    }
+    const filePath = path.join(cwd, source);
+    expect(existsSync(filePath)).toBe(true);
+    rmSync(filePath, { force: true });
+  });
+
+  test("materializes Codex response image_generation_call results before rendering markdown", () => {
+    const session = createSession();
+    const events: AgentStreamEvent[] = [];
+    session.subscribe((event) => events.push(event));
+
+    asInternals(session).handleNotification("item/completed", {
+      item: {
+        id: "image-generation-response-item",
+        type: "image_generation_call",
+        status: "generating",
+        result: ONE_BY_ONE_PNG_BASE64,
+      },
+    });
+
+    expect(events).toHaveLength(1);
+    const event = events[0];
+    expect(event).toMatchObject({
+      type: "timeline",
+      provider: "codex",
+      turnId: "test-turn",
+      item: { type: "assistant_message" },
+    });
+    if (event?.type !== "timeline" || event.item.type !== "assistant_message") {
+      throw new Error("Expected assistant timeline event");
+    }
+    expect(event.item.text).not.toContain(ONE_BY_ONE_PNG_BASE64);
+    const source = markdownImageSource(event.item.text);
+    expect(source).toMatch(/^output\/imagegen\/.+\.png$/);
+    const cwd = asInternals(session).config.cwd;
+    if (!cwd) {
+      throw new Error("Expected test session cwd");
+    }
+    const filePath = path.join(cwd, source);
+    expect(existsSync(filePath)).toBe(true);
+    rmSync(filePath, { force: true });
   });
 
   test("ignores incomplete imageGeneration thread items without failing the turn", () => {

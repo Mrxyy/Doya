@@ -1388,6 +1388,10 @@ export class ControlStore {
     return [...this.snapshot.daemonNodes];
   }
 
+  async flush(): Promise<void> {
+    await this.persistQueue;
+  }
+
   async getAdminOverview(): Promise<AdminControlOverview> {
     await this.load();
     const runtimeCounts = createRuntimeStatusCounts();

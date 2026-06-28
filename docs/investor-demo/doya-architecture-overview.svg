@@ -1,0 +1,76 @@
+<svg width="1728" height="972" viewBox="0 0 1728 972" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1728" height="972" fill="#F7FAF8"/>
+  <rect x="64" y="54" width="1600" height="864" rx="32" fill="#FFFFFF" stroke="#D9E7DD" stroke-width="2"/>
+
+  <text x="112" y="125" fill="#12352B" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="750">Doya 架构总览：Control Plane + Local Runtime</text>
+  <text x="112" y="166" fill="#48655C" font-family="Inter, Arial, sans-serif" font-size="22">商业、账号、会话和调度在 control；代码、终端、provider 凭证和 agent 进程留在 daemon runtime。</text>
+
+  <rect x="112" y="236" width="338" height="394" rx="22" fill="#EAF4EF" stroke="#B7D3C2" stroke-width="2"/>
+  <text x="146" y="288" fill="#143B30" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">客户端入口</text>
+  <text x="146" y="334" fill="#31564A" font-family="Inter, Arial, sans-serif" font-size="22">Mobile App</text>
+  <text x="146" y="376" fill="#31564A" font-family="Inter, Arial, sans-serif" font-size="22">Web App</text>
+  <text x="146" y="418" fill="#31564A" font-family="Inter, Arial, sans-serif" font-size="22">Desktop App</text>
+  <text x="146" y="460" fill="#31564A" font-family="Inter, Arial, sans-serif" font-size="22">CLI</text>
+  <rect x="146" y="510" width="270" height="78" rx="16" fill="#FFFFFF" stroke="#C8DED1"/>
+  <text x="170" y="543" fill="#143B30" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">Desktop 下载包</text>
+  <text x="170" y="571" fill="#48655C" font-family="Inter, Arial, sans-serif" font-size="18">内置 app + CLI + daemon</text>
+
+  <rect x="568" y="214" width="592" height="214" rx="24" fill="#E7F0FF" stroke="#AFC7F7" stroke-width="2"/>
+  <text x="604" y="266" fill="#162F63" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="750">Control Plane</text>
+  <text x="604" y="305" fill="#3E5684" font-family="Inter, Arial, sans-serif" font-size="21">账号 / 登录 / 付费计划 / Billing</text>
+  <text x="604" y="343" fill="#3E5684" font-family="Inter, Arial, sans-serif" font-size="21">Session 历史 / Artifact metadata / 文件快照</text>
+  <text x="604" y="381" fill="#3E5684" font-family="Inter, Arial, sans-serif" font-size="21">Daemon node inventory / Provider capability / Runtime allocation</text>
+
+  <rect x="568" y="540" width="592" height="212" rx="24" fill="#FFF5DF" stroke="#E7C873" stroke-width="2"/>
+  <text x="604" y="592" fill="#5C3B07" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="750">Daemon Runtime Node</text>
+  <text x="604" y="631" fill="#735522" font-family="Inter, Arial, sans-serif" font-size="21">本机 / VM / 私有服务器上的执行边界</text>
+  <text x="604" y="669" fill="#735522" font-family="Inter, Arial, sans-serif" font-size="21">WebSocket live stream / HTTP runtime API / MCP</text>
+  <text x="604" y="707" fill="#735522" font-family="Inter, Arial, sans-serif" font-size="21">Agent lifecycle / terminal / worktree / logs</text>
+
+  <rect x="1278" y="236" width="318" height="394" rx="22" fill="#F2ECFF" stroke="#C9B6EE" stroke-width="2"/>
+  <text x="1312" y="288" fill="#3B2768" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="700">本地执行资产</text>
+  <text x="1312" y="334" fill="#5A4386" font-family="Inter, Arial, sans-serif" font-size="22">源代码 / Git</text>
+  <text x="1312" y="376" fill="#5A4386" font-family="Inter, Arial, sans-serif" font-size="22">终端 / PTY</text>
+  <text x="1312" y="418" fill="#5A4386" font-family="Inter, Arial, sans-serif" font-size="22">Provider 凭证</text>
+  <text x="1312" y="460" fill="#5A4386" font-family="Inter, Arial, sans-serif" font-size="22">Claude / Codex / Copilot</text>
+  <text x="1312" y="502" fill="#5A4386" font-family="Inter, Arial, sans-serif" font-size="22">OpenCode / Pi / ACP</text>
+  <rect x="1312" y="542" width="250" height="52" rx="14" fill="#FFFFFF" stroke="#D6C8EF"/>
+  <text x="1340" y="575" fill="#3B2768" font-family="Inter, Arial, sans-serif" font-size="19" font-weight="700">不进入 Control</text>
+
+  <path d="M450 340 C500 340 516 314 568 314" stroke="#54796B" stroke-width="4" fill="none" marker-end="url(#arrowGreen)"/>
+  <text x="474" y="284" fill="#48655C" font-family="Inter, Arial, sans-serif" font-size="18">账号 + Session API</text>
+
+  <path d="M450 478 C520 478 506 646 568 646" stroke="#54796B" stroke-width="4" fill="none" marker-end="url(#arrowGreen)"/>
+  <text x="462" y="594" fill="#48655C" font-family="Inter, Arial, sans-serif" font-size="18">Live WebSocket</text>
+  <text x="462" y="620" fill="#48655C" font-family="Inter, Arial, sans-serif" font-size="18">direct / relay / local</text>
+
+  <path d="M864 428 L864 540" stroke="#355E93" stroke-width="4" fill="none" marker-end="url(#arrowBlue)"/>
+  <text x="892" y="486" fill="#3E5684" font-family="Inter, Arial, sans-serif" font-size="18">选择 runtime node</text>
+
+  <path d="M1012 540 C1120 494 1056 428 1012 428" stroke="#A97B16" stroke-width="4" fill="none" marker-end="url(#arrowGold)"/>
+  <text x="1052" y="492" fill="#735522" font-family="Inter, Arial, sans-serif" font-size="18">注册 / 心跳 / command polling</text>
+
+  <path d="M1160 646 C1210 646 1228 432 1278 432" stroke="#7A5FA6" stroke-width="4" fill="none" marker-end="url(#arrowPurple)"/>
+  <text x="1198" y="548" fill="#5A4386" font-family="Inter, Arial, sans-serif" font-size="18">读写代码 / 运行命令</text>
+
+  <path d="M416 549 C510 740 604 790 736 752" stroke="#5FA37D" stroke-width="4" fill="none" stroke-dasharray="10 10" marker-end="url(#arrowGreen)"/>
+  <text x="254" y="710" fill="#31564A" font-family="Inter, Arial, sans-serif" font-size="18">Desktop managed subprocess</text>
+
+  <rect x="220" y="798" width="1288" height="72" rx="20" fill="#12352B"/>
+  <text x="258" y="843" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="700">默认开发/商业化拓扑：dev:control + dev:desktop；不要再额外启动固定端口 dev-xyy，除非做 daemon-only 调试。</text>
+
+  <defs>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#54796B"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#355E93"/>
+    </marker>
+    <marker id="arrowGold" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#A97B16"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2 2 L10 6 L2 10 Z" fill="#7A5FA6"/>
+    </marker>
+  </defs>
+</svg>

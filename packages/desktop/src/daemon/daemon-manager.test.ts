@@ -31,7 +31,7 @@ vi.mock("electron-log/main", () => ({
   default: { info: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("@getdoya/server", () => ({
+vi.mock("../system/doya-runtime.js", () => ({
   resolveDoyaHome: vi.fn(() => "/tmp/doya-home"),
   spawnProcess: mocks.spawnProcess,
 }));
@@ -101,6 +101,7 @@ function scheduleFailedStartupOutput(child: MockChildProcess): void {
 
 describe("daemon-manager commands", () => {
   beforeEach(() => {
+    vi.unstubAllGlobals();
     mocks.settings = DEFAULT_DESKTOP_SETTINGS;
     mocks.runExternalCliJsonCommand.mockReset();
     mocks.runExternalCliTextCommand.mockReset();
@@ -221,6 +222,191 @@ describe("daemon-manager commands", () => {
     });
 
     expect(mocks.spawnProcess).not.toHaveBeenCalled();
+  });
+
+  it("applies control registration to an already running daemon", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ ok: true }), { status: 202 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    mocks.runExternalCliJsonCommand.mockResolvedValue({
+      localDaemon: "running",
+      connectedDaemon: "reachable",
+      serverId: "server-1",
+      pid: 7675,
+      listen: "127.0.0.1:6767",
+      hostname: "dev-host",
+      daemonVersion: "0.1.88",
+      desktopManaged: true,
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(
+      handlers.start_desktop_daemon({
+        control: {
+          apiBaseUrl: "https://control.example.test",
+          userId: "user_123",
+          accessToken: "token_abc",
+        },
+      }),
+    ).resolves.toMatchObject({
+      serverId: "server-1",
+      status: "running",
+    });
+
+    expect(mocks.spawnProcess).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:6767/api/admin/daemon/control-registration",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: true,
+          apiBaseUrl: "https://control.example.test",
+          userId: "user_123",
+          authToken: "token_abc",
+        }),
+      },
+    );
+  });
+
+  it("does not fail start when a running daemon rejects control registration", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    mocks.runExternalCliJsonCommand.mockResolvedValue({
+      localDaemon: "running",
+      connectedDaemon: "reachable",
+      serverId: "server-1",
+      pid: 7675,
+      listen: "127.0.0.1:6767",
+      hostname: "dev-host",
+      daemonVersion: "0.1.88",
+      desktopManaged: true,
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(
+      handlers.start_desktop_daemon({
+        control: {
+          apiBaseUrl: "https://control.example.test",
+          userId: "user_123",
+          accessToken: "token_abc",
+        },
+      }),
+    ).resolves.toMatchObject({
+      serverId: "server-1",
+      status: "running",
+    });
+
+    expect(mocks.spawnProcess).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables control registration on an already running daemon", async () => {
+    const fetchMock = vi.fn(
+      async () => new Response(JSON.stringify({ ok: true }), { status: 202 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    mocks.runExternalCliJsonCommand.mockResolvedValue({
+      localDaemon: "running",
+      connectedDaemon: "reachable",
+      serverId: "server-1",
+      pid: 7675,
+      listen: "127.0.0.1:6767",
+      hostname: "dev-host",
+      daemonVersion: "0.1.88",
+      desktopManaged: true,
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(
+      handlers.start_desktop_daemon({
+        control: { enabled: false },
+      }),
+    ).resolves.toMatchObject({
+      serverId: "server-1",
+      status: "running",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:6767/api/admin/daemon/control-registration",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: false }),
+      },
+    );
+  });
+
+  it("passes control registration settings to the detached daemon process", async () => {
+    mocks.runExternalCliJsonCommand.mockResolvedValue({
+      localDaemon: "stopped",
+      connectedDaemon: "unreachable",
+      serverId: "",
+    });
+    mocks.spawnProcess.mockImplementation(() => {
+      const child = createMockChildProcess();
+      scheduleFailedStartupOutput(child);
+      return child;
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(
+      handlers.start_desktop_daemon({
+        control: {
+          apiBaseUrl: "https://control.example.test",
+          userId: "user_123",
+          accessToken: "token_abc",
+        },
+      }),
+    ).rejects.toThrow("Daemon failed to start");
+
+    expect(mocks.spawnProcess).toHaveBeenCalledWith(
+      "node",
+      [],
+      expect.objectContaining({
+        envOverlay: {
+          DOYA_DESKTOP_MANAGED: "1",
+          DOYA_CONTROL_ENABLED: "1",
+          DOYA_CONTROL_API_URL: "https://control.example.test",
+          DOYA_CONTROL_USER_ID: "user_123",
+          DOYA_CONTROL_TOKEN: "token_abc",
+        },
+      }),
+    );
+  });
+
+  it("disables inherited control registration env when starting a detached daemon", async () => {
+    mocks.runExternalCliJsonCommand.mockResolvedValue({
+      localDaemon: "stopped",
+      connectedDaemon: "unreachable",
+      serverId: "",
+    });
+    mocks.spawnProcess.mockImplementation(() => {
+      const child = createMockChildProcess();
+      scheduleFailedStartupOutput(child);
+      return child;
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(
+      handlers.start_desktop_daemon({
+        control: { enabled: false },
+      }),
+    ).rejects.toThrow("Daemon failed to start");
+
+    expect(mocks.spawnProcess).toHaveBeenCalledWith(
+      "node",
+      [],
+      expect.objectContaining({
+        envOverlay: {
+          DOYA_DESKTOP_MANAGED: "1",
+          DOYA_CONTROL_ENABLED: "0",
+        },
+      }),
+    );
   });
 
   it("bounds captured daemon startup output", async () => {

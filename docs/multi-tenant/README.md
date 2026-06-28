@@ -53,26 +53,35 @@ App 通过 `EXPO_PUBLIC_CONTROL_API_URL` 调用 `/api/sessions`、
 
 ## 启动方式
 
-legacy daemon 账号项目路径继续使用原有启动命令：
+商业化/账号/session 开发必须启动 control service，再启动桌面客户端。桌面客户端负责
+启动它内置的本机 daemon runtime：
+
+```bash
+npm run dev:control
+npm run dev:desktop
+```
+
+`dev:control` 承载手机号登录、账号、billing、Session 历史、daemon node 登记和
+runtime allocation。`dev:desktop` 承载客户端壳，并拉起下载客户端同款的
+desktop-managed daemon。不要在这条主链路里同时跑 `npm run dev-xyy`，它会尝试占用
+固定 daemon 端口，容易和桌面内置 daemon 冲突。
+
+legacy daemon 账号项目路径仍可用原有启动命令调试：
 
 ```bash
 npm run dev
 ```
 
-或本机固定端口开发：
+或本机固定端口 daemon-only 调试：
 
 ```bash
 npm run dev-xyy
 npm run web --workspace=@getdoya/app
 ```
 
-本地 control service 开发需要同时启动 control：
-
-```bash
-npm run dev:control
-```
-
-使用 `doya.json` 服务编排时，`control` service 会把 App 的
+这些 legacy/debug 入口不代表完整商业化产品拓扑；任何涉及账号、付费计划、会话历史、
+调度或跨 daemon runtime allocation 的工作都应以 control + desktop 为准。使用
+`doya.json` 服务编排时，`control` service 会把 App 的
 `EXPO_PUBLIC_CONTROL_API_URL` 指到对应端口。
 
 ## 短信登录

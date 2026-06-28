@@ -264,6 +264,34 @@ describe("normalizeAiCreationStream", () => {
     expect(result.head).toEqual([]);
   });
 
+  it("uses the generated image result instead of Codex sandbox markdown", () => {
+    const result = normalizeAiCreationStream({
+      agentStatus: "idle",
+      tail: [
+        handshakeUserMessage("u1", 1, {
+          kind: "ai_creation.image.generate",
+          goal: "generate_image",
+          text: "生成图片",
+        }),
+        targetMessage("target", 2, {
+          kind: "ai_creation.image.generate",
+          goal: "generate_image",
+          targetId: "u1",
+          text: "生成图片",
+        }),
+        assistantMessage("generated", "![](/tmp/doya-attachments/generated.png)", 3),
+        assistantMessage("sandbox", "![](sandbox:/mnt/data/0.png)", 4),
+      ],
+      head: [],
+    });
+
+    expect(result.tail.map((item) => item.id)).toEqual(["u1", "generated"]);
+    expect(result.tail[1]).toMatchObject({
+      kind: "assistant_message",
+      text: "![](/tmp/doya-attachments/generated.png)",
+    });
+  });
+
   it("does not restore edit image thumbnails from the ai-edit file name alone", () => {
     const user = aiCreationCardUserMessage("u1", 1, {
       kind: "ai_creation.image.edit",

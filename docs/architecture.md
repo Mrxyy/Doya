@@ -1,8 +1,16 @@
 # Architecture
 
-Doya is a client-server system for monitoring and controlling local AI coding agents. The daemon runs on your machine, manages agent processes, and streams their output in real time over WebSocket. Clients (mobile app, CLI, desktop app) connect to the daemon to observe and interact with agents.
+Doya is a control-plane plus local-runtime system for monitoring and
+controlling AI coding agents. The control plane owns account, commercial,
+session, history, billing, daemon-node inventory, and runtime allocation facts.
+The daemon runs where code is allowed to execute, manages agent processes, and
+streams live output over WebSocket. Clients use the control plane for durable
+product workflows, then connect to the selected daemon runtime to observe and
+interact with live agents.
 
-Your code never leaves your machine. Doya is local-first.
+Your code never leaves the selected runtime machine. Doya is local-runtime
+first: commercial and session state can live in control, while source code,
+provider credentials, terminals, and agent processes remain on the daemon node.
 
 The north-star product shape is session-centered: users create and reopen
 sessions, while daemon nodes, runtimes, workspace directories, and ports stay
@@ -11,29 +19,22 @@ internal. See [product shape](product-shape.md) and
 
 ## System overview
 
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  Mobile App  │    │     CLI     │    │ Desktop App │
-│   (Expo)     │    │ (Commander) │    │ (Electron)  │
-└──────┬───────┘    └──────┬──────┘    └──────┬──────┘
-       │                   │                  │
-       │    WebSocket      │    WebSocket     │    Managed subprocess
-       │    (direct or     │    (direct)      │    + WebSocket
-       │     via relay)    │                  │
-       └───────────┬───────┴──────────────────┘
-                   │
-            ┌──────▼──────┐
-            │   Daemon    │
-            │  (Node.js)  │
-            └──────┬──────┘
-                   │
-      ┌────────────┼────────────┬────────────┬────────────┐
-      │            │            │            │            │
-┌─────▼─────┐ ┌───▼────┐ ┌──────▼─────┐ ┌────▼─────┐ ┌────▼────┐
-│  Claude   │ │ Codex  │ │  Copilot   │ │ OpenCode │ │   Pi    │
-│  Agent    │ │ Agent  │ │   Agent    │ │  Agent   │ │ Agent   │
-│  SDK      │ │ Server │ │    ACP     │ │          │ │         │
-└───────────┘ └────────┘ └────────────┘ └──────────┘ └─────────┘
+```mermaid
+flowchart TB
+  Clients["Mobile / Web / Desktop / CLI"]
+  Control["Control plane\naccounts, sessions, billing, scheduling"]
+  ControlStore["$DOYA_CONTROL_HOME/control.json\nor hosted control storage"]
+  Desktop["Desktop app\nbundles app + CLI + daemon runtime"]
+  Daemon["Daemon runtime node\nlocal code execution"]
+  Agents["Provider agents\nClaude / Codex / Copilot / OpenCode / Pi"]
+
+  Clients -->|"account + session APIs"| Control
+  Control --> ControlStore
+  Control -->|"runtime allocation"| Daemon
+  Daemon -->|"heartbeat + command polling"| Control
+  Clients -->|"live WebSocket\ndirect / relay / local"| Daemon
+  Desktop -->|"managed subprocess"| Daemon
+  Daemon --> Agents
 ```
 
 目标态：以 Session 为中心的运行时视图：
@@ -60,7 +61,7 @@ flowchart TB
 
 ## Components at a glance
 
-- **Control plane:** Owns users, sessions, durable message history, artifact metadata, file snapshots, daemon node inventory, and runtime allocation records. The local implementation lives in `packages/control`.
+- **Control plane:** Owns users, sessions, durable message history, artifact metadata, file snapshots, billing/commercial state, daemon node inventory, and runtime allocation records. Product flows that involve login, paid plans, history, scheduling, or session creation go through control. The local implementation lives in `packages/control`.
 - **Daemon:** Runtime node that spawns and manages agent processes and exposes the WebSocket API.
 - **Provider capability:** A daemon-scoped execution capability such as Claude,
   Codex, Copilot, OpenCode, or Pi. Provider availability is not global; each
@@ -68,7 +69,7 @@ flowchart TB
   which models it can run.
 - **App:** Cross-platform Expo client for iOS, Android, web, and the shared UI used by desktop.
 - **CLI:** Terminal interface for agent workflows that can also start and manage the daemon.
-- **Desktop app:** Electron wrapper around the web app that bundles and auto-manages its own daemon.
+- **Desktop app:** Electron wrapper around the web app that bundles and auto-manages its own daemon. Downloaded desktop clients are expected to include the daemon runtime; users should not install or start a separate daemon for the normal desktop path.
 - **Relay:** Optional encrypted bridge for remote access without opening ports directly.
 
 ## Account Workspaces
@@ -88,10 +89,11 @@ the owner of user-visible session history.
 
 ### `packages/control` — The local control plane
 
-Owns durable user/session state for the session-centered model:
+Owns durable user/session and commercial state for the session-centered model:
 
 - Account registration/login and stored access tokens
 - Sessions, session messages, artifact metadata, and file snapshots
+- Billing settings, plans, balances, payment records, and usage accounting
 - Daemon node inventory and internal runtime auth tokens
 - Daemon-scoped provider capability snapshots for scheduling
 - Runtime allocation records and session-agent bindings
@@ -119,6 +121,24 @@ control-plane scheduler for the initial runtime host. This bootstrap selection
 does not require an account/control session; authentication is still required
 for creating user sessions and allocating workdir/runtime resources.
 
+Control-to-daemon operations are outbound-friendly. Hosted control must not
+assume it can directly reach a user's loopback daemon endpoint such as
+`127.0.0.1:6767`. A daemon node registers with control, reports its
+`controlCommands` polling capability, then polls
+`/api/nodes/:nodeId/commands/poll` for work. Control queues daemon HTTP actions
+such as load checks, daemon config reads/patches, user workspace allocation,
+session workdir allocation, and cleanup through the broker; the daemon executes
+them against its own local HTTP API and posts the result back to control. Poll
+and result routes require the node's private runtime auth token; the token is
+stored in control and never returned in public node responses. When the daemon
+executes a queued command against its own local HTTP API, it uses an in-process
+internal auth token rather than persisting or replaying the user's daemon
+password. Registration refreshes heartbeat, endpoint, auth token, and
+capabilities; it does not override an admin-chosen scheduler status such as
+`offline` or `draining`.
+Direct control-to-daemon HTTP remains only as a centralized fallback for
+publicly routable or explicitly configured endpoints.
+
 ### `packages/server` — The daemon
 
 The runtime node for Doya. A Node.js process that:
@@ -131,27 +151,32 @@ The runtime node for Doya. A Node.js process that:
 - Exposes runtime HTTP APIs for session workdirs and runtime workspaces
 - Exposes an MCP server for agent-to-agent control
 - Optionally connects outbound to a relay for remote access
+- Optionally registers outbound to a control plane and polls for control
+  commands so hosted control can coordinate user-local daemon work without
+  reaching into the user's loopback network
 
 All paths are under `packages/server/src/`.
 
 **Key modules:**
 
-| Module                          | Responsibility                                                               |
-| ------------------------------- | ---------------------------------------------------------------------------- |
-| `server/bootstrap.ts`           | Daemon initialization: HTTP server, WS server, agent manager, storage, relay |
-| `server/websocket-server.ts`    | WebSocket connection management, hello handshake, binary frame routing       |
-| `server/session.ts`             | Per-client session state, timeline subscriptions, terminal operations        |
-| `server/agent/agent-manager.ts` | Agent lifecycle state machine, timeline tracking, subscriber management      |
-| `server/agent/agent-storage.ts` | File-backed JSON persistence at `$DOYA_HOME/agents/`                         |
-| `server/agent/mcp-server.ts`    | MCP server for sub-agent creation, permissions, timeouts                     |
-| `server/agent/providers/`       | Provider adapters (see "Agent providers" below)                              |
-| `server/runtime-api.ts`         | Runtime workspace create/attach/stop/status API for control allocations      |
-| `server/user-workspace-api.ts`  | Daemon-local user workspace/session workdir allocation API                   |
-| `server/control-timeline-sync.ts` | Posts labeled agent timeline events back to the control plane              |
-| `server/relay-transport.ts`     | Outbound relay connection with E2E encryption                                |
-| `server/schedule/`              | Cron-based scheduled agents                                                  |
-| `server/loop-service.ts`        | Looping agent runs that retry until an exit condition                        |
-| `server/chat/`                  | Chat rooms for agent-to-agent and human-to-agent messaging                   |
+| Module                             | Responsibility                                                               |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| `server/bootstrap.ts`              | Daemon initialization: HTTP server, WS server, agent manager, storage, relay |
+| `server/websocket-server.ts`       | WebSocket connection management, hello handshake, binary frame routing       |
+| `server/session.ts`                | Per-client session state, timeline subscriptions, terminal operations        |
+| `server/agent/agent-manager.ts`    | Agent lifecycle state machine, timeline tracking, subscriber management      |
+| `server/agent/agent-storage.ts`    | File-backed JSON persistence at `$DOYA_HOME/agents/`                         |
+| `server/agent/mcp-server.ts`       | MCP server for sub-agent creation, permissions, timeouts                     |
+| `server/agent/providers/`          | Provider adapters (see "Agent providers" below)                              |
+| `server/runtime-api.ts`            | Runtime workspace create/attach/stop/status API for control allocations      |
+| `server/user-workspace-api.ts`     | Daemon-local user workspace/session workdir allocation API                   |
+| `server/control-timeline-sync.ts`  | Posts labeled agent timeline events back to the control plane                |
+| `server/control-registration.ts`   | Daemon node registration and heartbeat with a control plane                  |
+| `server/control-command-poller.ts` | Outbound polling/execution for control-queued daemon commands                |
+| `server/relay-transport.ts`        | Outbound relay connection with E2E encryption                                |
+| `server/schedule/`                 | Cron-based scheduled agents                                                  |
+| `server/loop-service.ts`           | Looping agent runs that retry until an exit condition                        |
+| `server/chat/`                     | Chat rooms for agent-to-agent and human-to-agent messaging                   |
 
 ### `packages/protocol` — Wire schemas and shared protocol types
 
@@ -214,7 +239,10 @@ See [SECURITY.md](../SECURITY.md) for the full threat model.
 
 Electron wrapper for macOS, Linux, and Windows.
 
-- Can spawn the daemon as a managed subprocess
+- Bundles the web app, CLI shim, and daemon runtime into the downloaded client
+- Spawns the daemon as a managed subprocess for the default local runtime
+- Applies control registration settings to its managed daemon so commercial
+  account/session flows can schedule work onto the local runtime
 - Native file access for workspace integration
 - Same WebSocket client as mobile app
 
@@ -369,6 +397,12 @@ $DOYA_HOME/
 
 ## Deployment models
 
-1. **Local daemon** (default): `doya daemon start` on `127.0.0.1:6767`
-2. **Managed desktop**: Electron app spawns daemon as subprocess
-3. **Remote + relay**: Daemon behind firewall, relay bridges with E2E encryption
+1. **Commercial/local desktop default:** control service owns account, billing,
+   sessions, daemon inventory, and scheduling; the downloaded Electron client
+   bundles and auto-starts its managed local daemon runtime.
+2. **Remote runtime:** control schedules onto a daemon running on another
+   machine; the daemon registers outbound and polls for control commands, with
+   relay/direct WebSocket used for live agent interaction.
+3. **Daemon-only debug:** `doya daemon start` or `npm run dev-xyy` can run a
+   fixed-port daemon for low-level runtime debugging, but this is not the full
+   product/commercial topology.

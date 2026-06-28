@@ -156,6 +156,17 @@ interface ResolvedRelay {
   publicUseTls: boolean;
 }
 
+interface ResolvedControlRegistration {
+  enabled: boolean;
+  apiBaseUrl?: string;
+  userId?: string;
+  authToken?: string;
+  nodeEndpoint?: string;
+  publicNodeEndpoint?: string;
+  runtimeAuthToken?: string;
+  heartbeatIntervalMs?: number;
+}
+
 function resolveTlsFromEnv(
   envValue: string | undefined,
   persistedValue: boolean | undefined,
@@ -194,6 +205,53 @@ function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
     useTls,
   );
   return { enabled, endpoint, publicEndpoint, useTls, publicUseTls };
+}
+
+function resolveControlRegistrationConfig(
+  env: NodeJS.ProcessEnv,
+  persisted: ReturnType<typeof loadPersistedConfig>,
+): ResolvedControlRegistration {
+  const persistedControl = persisted.daemon?.control;
+  const apiBaseUrl = env.DOYA_CONTROL_API_URL ?? persistedControl?.apiBaseUrl;
+  const enabled =
+    parseBooleanEnv(env.DOYA_CONTROL_ENABLED) ?? persistedControl?.enabled ?? !!apiBaseUrl;
+  const heartbeatIntervalMs = parsePositiveIntegerEnv(env.DOYA_CONTROL_HEARTBEAT_INTERVAL_MS);
+  return {
+    enabled,
+    ...(apiBaseUrl ? { apiBaseUrl } : {}),
+    ...((env.DOYA_CONTROL_USER_ID ?? persistedControl?.userId)
+      ? { userId: env.DOYA_CONTROL_USER_ID ?? persistedControl?.userId }
+      : {}),
+    ...((env.DOYA_CONTROL_TOKEN ?? persistedControl?.authToken)
+      ? { authToken: env.DOYA_CONTROL_TOKEN ?? persistedControl?.authToken }
+      : {}),
+    ...((env.DOYA_CONTROL_DAEMON_ENDPOINT ?? persistedControl?.nodeEndpoint)
+      ? { nodeEndpoint: env.DOYA_CONTROL_DAEMON_ENDPOINT ?? persistedControl?.nodeEndpoint }
+      : {}),
+    ...((env.DOYA_CONTROL_DAEMON_PUBLIC_ENDPOINT ?? persistedControl?.publicNodeEndpoint)
+      ? {
+          publicNodeEndpoint:
+            env.DOYA_CONTROL_DAEMON_PUBLIC_ENDPOINT ?? persistedControl?.publicNodeEndpoint,
+        }
+      : {}),
+    ...((env.DOYA_CONTROL_RUNTIME_AUTH_TOKEN ?? persistedControl?.runtimeAuthToken)
+      ? {
+          runtimeAuthToken:
+            env.DOYA_CONTROL_RUNTIME_AUTH_TOKEN ?? persistedControl?.runtimeAuthToken,
+        }
+      : {}),
+    ...((heartbeatIntervalMs ?? persistedControl?.heartbeatIntervalMs)
+      ? { heartbeatIntervalMs: heartbeatIntervalMs ?? persistedControl?.heartbeatIntervalMs }
+      : {}),
+  };
+}
+
+function parsePositiveIntegerEnv(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 interface ResolvedVoiceLlm {
@@ -348,6 +406,7 @@ export function loadConfig(
     cliRelayEnabled: options?.cli?.relayEnabled,
     cliRelayUseTls: options?.cli?.relayUseTls,
   });
+  const controlRegistration = resolveControlRegistrationConfig(env, persisted);
 
   const { openai, speech } = resolveSpeechConfig({
     doyaHome,
@@ -380,6 +439,7 @@ export function loadConfig(
     relayPublicEndpoint: relay.publicEndpoint,
     relayUseTls: relay.useTls,
     relayPublicUseTls: relay.publicUseTls,
+    controlRegistration,
     appBaseUrl,
     auth: resolveAuthConfig(env, persisted),
     openai,

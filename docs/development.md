@@ -7,11 +7,33 @@
 
 ## Running the dev server
 
+For the current product architecture, the normal commercial/session dev stack is
+the control service plus the desktop app:
+
+```bash
+npm run dev:control
+npm run dev:desktop
+```
+
+The control service is not optional for account, billing, paid-plan, durable
+session, history, daemon-node scheduling, or runtime-allocation work. The desktop
+app is responsible for launching its built-in daemon runtime. Do not start a
+separate fixed-port daemon such as `npm run dev-xyy` alongside desktop unless you
+are deliberately debugging daemon-only behavior and have disabled or avoided the
+desktop-managed daemon.
+
+The legacy daemon + Expo web stack is still useful for runtime-only debugging:
+
 ```bash
 npm run dev
 ```
 
-`scripts/dev.sh` runs the daemon and Expo together via `concurrently`, fronted by [`portless`](https://www.npmjs.com/package/portless) so each service is reachable at a stable name like `https://daemon.localhost` / `https://app.localhost` instead of a fixed port. The underlying TCP ports are ephemeral — never hardcode them. (Windows uses `scripts/dev.ps1`, which still binds the daemon to `localhost:6767` directly.)
+`scripts/dev.sh` runs the daemon and Expo together via `concurrently`, fronted by
+[`portless`](https://www.npmjs.com/package/portless) so each service is
+reachable at a stable name like `https://daemon.localhost` / `https://app.localhost`
+instead of a fixed port. The underlying TCP ports are ephemeral — never hardcode
+them. (Windows uses `scripts/dev.ps1`, which still binds the daemon to
+`localhost:6767` directly.)
 
 Local dev disables the hosted relay by default (`DOYA_RELAY_ENABLED=0`) so
 startup does not depend on external network access. Set this when you are
@@ -43,11 +65,15 @@ DOYA_DEV_RESET_HOME=1 npm run dev              # clear and reseed the derived wo
 - `npm run dev` (macOS/Linux): portless URLs only — read them from the `dev.sh` banner or `portless get daemon` / `portless get app`.
 - `npm run dev` (Windows): `localhost:6767` for the daemon.
 
-In any worktree-style or portless setup, never assume default ports.
+In any worktree-style or portless setup, never assume default ports. In desktop
+dev, treat `localhost:6767` as owned by the desktop-managed daemon; do not use
+`dev-xyy` on the same port unless you are intentionally replacing that managed
+runtime.
 
 ### Local control service
 
-The session-centered local control plane runs separately from the daemon:
+The session-centered local control plane runs separately from the daemon and is
+the required service boundary for commercial product flows:
 
 ```bash
 npm run dev:control
@@ -64,6 +90,27 @@ EXPO_PUBLIC_CONTROL_API_URL=http://127.0.0.1:6777
 When using `doya.json` service orchestration, the `control` service and app env
 are wired together by the service config. The daemon remains the runtime node;
 control owns account/session/history state.
+
+Daemon nodes can register themselves with a control plane by setting
+`DOYA_CONTROL_API_URL` or `daemon.control.apiBaseUrl` in `$DOYA_HOME/config.json`.
+Set `DOYA_CONTROL_USER_ID` and `DOYA_CONTROL_TOKEN` to the account session that
+owns the node registration; registration waits until both credentials are
+present so a URL-only config does not spam unauthenticated heartbeats. Optional
+`DOYA_CONTROL_DAEMON_ENDPOINT` and
+`DOYA_CONTROL_DAEMON_PUBLIC_ENDPOINT` values are included in the registration
+heartbeat. Set `DOYA_CONTROL_RUNTIME_AUTH_TOKEN` so daemon command polling can
+authenticate back to control after registration; when omitted, the daemon
+generates and reuses a private `$DOYA_HOME/control-runtime-token`. This is an
+outbound daemon-to-control heartbeat; hosted control still cannot directly reach
+a user's loopback daemon endpoint unless that endpoint is publicly routable or
+bridged by the daemon's control command polling channel.
+Desktop can apply control registration to an already-running managed daemon via
+`POST /api/admin/daemon/control-registration`, which restarts the daemon's
+registration heartbeat and command poller without restarting the daemon process.
+If that daemon has password auth enabled and the desktop shell does not have the
+plaintext password, the hot-apply request may be rejected; desktop logs the
+failure and leaves the daemon running. The next daemon launch or restart still
+receives the control registration environment.
 
 For local SMS login testing, the control service loads `docker/.env` when the
 file exists. Values already exported in the shell take precedence over the file.

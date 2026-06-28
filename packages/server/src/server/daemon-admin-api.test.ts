@@ -6,6 +6,7 @@ import express from "express";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@getdoya/protocol/messages";
 import { createDaemonAdminApiRouter } from "./daemon-admin-api.js";
+import type { ControlRegistrationConfig } from "./control-registration.js";
 
 interface TestServer {
   server: Server;
@@ -123,6 +124,86 @@ describe("daemon admin API", () => {
       },
     });
   });
+
+  it("applies control registration config without restarting the daemon", async () => {
+    const applied: unknown[] = [];
+    const server = await startDaemonAdminApiTestServer(tempRoot, {
+      applyControlRegistration: (config) => applied.push(config),
+    });
+    await new Promise<void>((resolve) => testServer.server.close(() => resolve()));
+    testServer = server;
+
+    const response = await fetch(`${testServer.baseUrl}/api/admin/daemon/control-registration`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: true,
+        apiBaseUrl: "https://control.example.test",
+        userId: "user_123",
+        authToken: "token_abc",
+      }),
+    });
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({
+      status: "control_registration_applied",
+      enabled: true,
+    });
+    expect(applied).toEqual([
+      {
+        enabled: true,
+        apiBaseUrl: "https://control.example.test",
+        userId: "user_123",
+        authToken: "token_abc",
+      },
+    ]);
+  });
+
+  it("rejects enabled control registration without account credentials", async () => {
+    const applied: unknown[] = [];
+    const server = await startDaemonAdminApiTestServer(tempRoot, {
+      applyControlRegistration: (config) => applied.push(config),
+    });
+    await new Promise<void>((resolve) => testServer.server.close(() => resolve()));
+    testServer = server;
+
+    const response = await fetch(`${testServer.baseUrl}/api/admin/daemon/control-registration`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: true,
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    const payload = (await response.json()) as { error: string };
+    expect(payload.error).toContain("required when control registration is enabled");
+    expect(applied).toEqual([]);
+  });
+
+  it("allows disabling control registration without account credentials", async () => {
+    const applied: unknown[] = [];
+    const server = await startDaemonAdminApiTestServer(tempRoot, {
+      applyControlRegistration: (config) => applied.push(config),
+    });
+    await new Promise<void>((resolve) => testServer.server.close(() => resolve()));
+    testServer = server;
+
+    const response = await fetch(`${testServer.baseUrl}/api/admin/daemon/control-registration`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: false,
+      }),
+    });
+
+    expect(response.status).toBe(202);
+    await expect(response.json()).resolves.toEqual({
+      status: "control_registration_applied",
+      enabled: false,
+    });
+    expect(applied).toEqual([{ enabled: false }]);
+  });
 });
 
 async function startDaemonAdminApiTestServer(
@@ -131,6 +212,7 @@ async function startDaemonAdminApiTestServer(
     getConfig?: () => MutableDaemonConfig;
     patchConfig?: (patch: MutableDaemonConfigPatch) => MutableDaemonConfig;
     requestRestart?: (input: { requestId: string; reason?: string }) => void;
+    applyControlRegistration?: (config: ControlRegistrationConfig) => void;
   } = {},
 ): Promise<TestServer> {
   const app = express();
@@ -143,6 +225,9 @@ async function startDaemonAdminApiTestServer(
       ...(options.getConfig ? { getConfig: options.getConfig } : {}),
       ...(options.patchConfig ? { patchConfig: options.patchConfig } : {}),
       ...(options.requestRestart ? { requestRestart: options.requestRestart } : {}),
+      ...(options.applyControlRegistration
+        ? { applyControlRegistration: options.applyControlRegistration }
+        : {}),
     }),
   );
   const server = createServer(app);

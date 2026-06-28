@@ -70,6 +70,15 @@ interface DesktopPairingOffer {
   qr: string | null;
 }
 
+interface StartDaemonArgs {
+  control?: {
+    enabled?: boolean;
+    apiBaseUrl?: string;
+    userId?: string;
+    accessToken?: string;
+  };
+}
+
 interface StartupOutputCapture {
   text: string;
   truncated: boolean;
@@ -217,6 +226,99 @@ function resolveDesktopAppVersion(): string {
   return app.getVersion();
 }
 
+function parseStartDaemonArgs(args: Record<string, unknown> | undefined): StartDaemonArgs {
+  if (!isRecord(args) || !isRecord(args.control)) {
+    return {};
+  }
+
+  return {
+    control: {
+      enabled: typeof args.control.enabled === "boolean" ? args.control.enabled : undefined,
+      apiBaseUrl: toTrimmedString(args.control.apiBaseUrl) ?? undefined,
+      userId: toTrimmedString(args.control.userId) ?? undefined,
+      accessToken: toTrimmedString(args.control.accessToken) ?? undefined,
+    },
+  };
+}
+
+function buildControlEnvOverlay(args: StartDaemonArgs): Record<string, string> {
+  const control = args.control;
+  if (control?.enabled === false) {
+    return { DOYA_CONTROL_ENABLED: "0" };
+  }
+  if (!control?.apiBaseUrl || !control.userId || !control.accessToken) {
+    return {};
+  }
+
+  return {
+    DOYA_CONTROL_ENABLED: "1",
+    DOYA_CONTROL_API_URL: control.apiBaseUrl,
+    DOYA_CONTROL_USER_ID: control.userId,
+    DOYA_CONTROL_TOKEN: control.accessToken,
+  };
+}
+
+function buildControlRegistrationBody(args: StartDaemonArgs): Record<string, unknown> | null {
+  const control = args.control;
+  if (control?.enabled === false) {
+    return { enabled: false };
+  }
+  if (!control?.apiBaseUrl || !control.userId || !control.accessToken) {
+    return null;
+  }
+
+  return {
+    enabled: true,
+    apiBaseUrl: control.apiBaseUrl,
+    userId: control.userId,
+    authToken: control.accessToken,
+  };
+}
+
+function normalizeDaemonHttpBaseUrl(listen: string | null): string | null {
+  const trimmed = listen?.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed.replace(/\/$/, "");
+  }
+  if (trimmed.includes(":") && !trimmed.startsWith("/") && !trimmed.startsWith("~")) {
+    return `http://${trimmed}`;
+  }
+  return null;
+}
+
+async function applyControlRegistrationToRunningDaemon(
+  current: DesktopDaemonStatus,
+  args: StartDaemonArgs,
+): Promise<void> {
+  const body = buildControlRegistrationBody(args);
+  const baseUrl = normalizeDaemonHttpBaseUrl(current.listen);
+  if (!body || !baseUrl) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/api/admin/daemon/control-registration`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      logDesktopDaemonLifecycle("failed to apply control registration to running daemon", {
+        status: response.status,
+        listen: current.listen,
+      });
+    }
+  } catch (error) {
+    logDesktopDaemonLifecycle("failed to apply control registration to running daemon", {
+      error: error instanceof Error ? error.message : String(error),
+      listen: current.listen,
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Daemon lifecycle
 // ---------------------------------------------------------------------------
@@ -328,8 +430,10 @@ async function pollForRunningDaemon(): Promise<DesktopDaemonStatus> {
   return poll(0);
 }
 
-async function startDaemon(): Promise<DesktopDaemonStatus> {
+async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemonStatus> {
   assertBuiltInDaemonManagementEnabled(await getDesktopSettingsStore().get());
+  const startupArgs = parseStartDaemonArgs(args);
+  const controlEnvOverlay = buildControlEnvOverlay(startupArgs);
 
   const current = await resolveDesktopDaemonStatus();
   logDesktopDaemonLifecycle("initial status check before start", {
@@ -348,6 +452,7 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
       });
       await stopDesktopDaemon();
     } else {
+      await applyControlRegistrationToRunningDaemon(current, startupArgs);
       return current;
     }
   }
@@ -373,13 +478,18 @@ async function startDaemon(): Promise<DesktopDaemonStatus> {
     nodeVersion: process.versions.node,
     platform: process.platform,
     arch: process.arch,
+    controlRegistrationEnabled: controlEnvOverlay.DOYA_CONTROL_ENABLED === "1",
+    controlApiUrl: controlEnvOverlay.DOYA_CONTROL_API_URL ?? null,
   });
 
   const child: ChildProcess = spawnProcess(invocation.command, invocation.args, {
     detached: true,
     envMode: "internal",
     env: invocation.env,
-    envOverlay: { DOYA_DESKTOP_MANAGED: "1" },
+    envOverlay: {
+      DOYA_DESKTOP_MANAGED: "1",
+      ...controlEnvOverlay,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -453,10 +563,10 @@ export async function stopDesktopDaemon(): Promise<DesktopDaemonStatus> {
   return await resolveDesktopDaemonStatus();
 }
 
-async function restartDaemon(): Promise<DesktopDaemonStatus> {
+async function restartDaemon(args?: Record<string, unknown>): Promise<DesktopDaemonStatus> {
   assertBuiltInDaemonManagementEnabled(await getDesktopSettingsStore().get());
   await stopDesktopDaemon();
-  return startDaemon();
+  return startDaemon(args);
 }
 
 function getDaemonLogs(): DesktopDaemonLogs {
@@ -530,9 +640,9 @@ export function createDaemonCommandHandlers(): Record<string, DesktopCommandHand
       runningUnderARM64Translation: isRunningUnderARM64Translation(),
     }),
     desktop_daemon_status: () => resolveDesktopDaemonStatus(),
-    start_desktop_daemon: () => startDaemon(),
+    start_desktop_daemon: (args) => startDaemon(args),
     stop_desktop_daemon: () => stopDesktopDaemon(),
-    restart_desktop_daemon: () => restartDaemon(),
+    restart_desktop_daemon: (args) => restartDaemon(args),
     desktop_daemon_logs: () => getDaemonLogs(),
     desktop_daemon_pairing: () => getDaemonPairing(),
     desktop_get_system_idle_time: () => powerMonitor.getSystemIdleTime() * 1000,

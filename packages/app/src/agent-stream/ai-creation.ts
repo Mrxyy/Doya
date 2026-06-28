@@ -101,12 +101,19 @@ export function extractAiCreationResultSources(text: string): string[] {
 }
 
 function extractAiCreationFinalImageMarkdown(text: string): string | null {
-  const sources = [...new Set(extractAiCreationResultSources(text))];
+  const sources = [...new Set(extractAiCreationResultSources(text))].filter(
+    (source) => !isUnavailableAiCreationImageSource(source),
+  );
   if (sources.length === 0) {
     return null;
   }
   const finalSource = sources[sources.length - 1];
   return `![](${formatAiCreationImageMarkdownSource(finalSource)})`;
+}
+
+function isUnavailableAiCreationImageSource(source: string): boolean {
+  const trimmed = source.trim();
+  return /^sandbox:/i.test(trimmed) || /^\/mnt\/data\//i.test(trimmed);
 }
 
 function normalizeAiCreationPptxPathToken(source: string): string | null {

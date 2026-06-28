@@ -233,8 +233,8 @@ function buildImagePrompt(input: {
     "",
     `Aspect ratio: ${input.ratio}`,
     `Style: ${AI_CREATION_STYLE_PROMPT_LABELS[input.style]}`,
-    "Save the final image into the current workspace if a workspace-bound asset is produced.",
-    "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](assets/generated-image.png)",
+    "After image generation finishes, write or copy the final PNG into `output/imagegen/` in the current workspace.",
+    "When the final image is saved, reply with Markdown image syntax only, using the workspace-relative path, for example: ![](output/imagegen/generated-image.png)",
   ];
   if (input.referenceCount > 0) {
     lines.push(

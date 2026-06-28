@@ -36,9 +36,11 @@ import {
   createFileSnapshotBodySchema,
   createPaymentOrderBodySchema,
   createRuntimeAllocationBodySchema,
+  daemonCommandResultBodySchema,
   daemonConfigPatchBodySchema,
   createSessionBodySchema,
   loginBodySchema,
+  pollDaemonCommandsBodySchema,
   smsLoginBodySchema,
   smsSendBodySchema,
   registerBodySchema,
@@ -58,6 +60,12 @@ import {
   updateSessionBodySchema,
   updateStorageQuotaBodySchema,
 } from "./schemas.js";
+import {
+  DaemonCommandBroker,
+  DaemonCommandFailedError,
+  DaemonCommandTimeoutError,
+  type DaemonCommandRequest,
+} from "./daemon-command-broker.js";
 
 interface AuthContext {
   userId: string;
@@ -68,6 +76,7 @@ type AuthenticatedRequest = Request & { auth?: AuthContext };
 
 export function createControlApp(store: ControlStore): express.Express {
   const app = express();
+  const daemonCommandBroker = new DaemonCommandBroker();
   const smsVerificationService = new SmsVerificationService(
     resolveSmsVerificationConfig(process.env),
   );
@@ -418,6 +427,33 @@ export function createControlApp(store: ControlStore): express.Express {
   );
 
   app.post(
+    "/api/nodes/:nodeId/commands/poll",
+    asyncHandler(async (req, res) => {
+      const node = await requireRuntimeNodeRequest(store, req, res);
+      if (!node) {
+        return;
+      }
+      const body = parseBody(pollDaemonCommandsBodySchema, req.body);
+      res.json({
+        commands: daemonCommandBroker.takePending(node.id, body.maxCommands ?? 1),
+      });
+    }),
+  );
+
+  app.post(
+    "/api/nodes/:nodeId/commands/:commandId/result",
+    asyncHandler(async (req, res) => {
+      const node = await requireRuntimeNodeRequest(store, req, res);
+      if (!node) {
+        return;
+      }
+      const body = parseBody(daemonCommandResultBodySchema, req.body);
+      const accepted = daemonCommandBroker.complete(node.id, req.params.commandId, body);
+      res.status(accepted ? 202 : 404).json({ accepted });
+    }),
+  );
+
+  app.post(
     "/api/runtime-sync/events",
     asyncHandler(async (req, res) => {
       const body = parseBody(runtimeSyncEventBodySchema, req.body);
@@ -430,6 +466,7 @@ export function createControlApp(store: ControlStore): express.Express {
       const session = await store.getSession({ sessionId: body.sessionId });
       const synced = await appendRuntimeSyncEvent({
         store,
+        daemonCommandBroker,
         userId: session.userId,
         sessionId: session.id,
         runtimeId: body.runtimeId,
@@ -507,7 +544,7 @@ export function createControlApp(store: ControlStore): express.Express {
           overview.daemonNodes.map(async (summary) => {
             const node = await store.getNode(summary.node.id);
             return Object.assign({}, summary, {
-              load: await getDaemonLoad(node).catch((error) => ({
+              load: await getDaemonLoad(node, daemonCommandBroker).catch((error) => ({
                 status: "unavailable" as const,
                 error: error instanceof Error ? error.message : "Unable to read daemon load",
               })),
@@ -611,7 +648,13 @@ export function createControlApp(store: ControlStore): express.Express {
     requireAuth(store),
     asyncHandler(async (req, res) => {
       const body = parseBody(updateStorageQuotaBodySchema.pick({ userId: true }), req.body);
-      res.json({ storageQuota: await rescanUserStorage({ store, userId: body.userId }) });
+      res.json({
+        storageQuota: await rescanUserStorage({
+          store,
+          userId: body.userId,
+          daemonCommandBroker,
+        }),
+      });
     }),
   );
 
@@ -619,7 +662,13 @@ export function createControlApp(store: ControlStore): express.Express {
     "/api/billing/storage/rescan",
     requireAuth(store),
     asyncHandler(async (req, res) => {
-      res.json({ storageQuota: await rescanUserStorage({ store, userId: requireUserId(req) }) });
+      res.json({
+        storageQuota: await rescanUserStorage({
+          store,
+          userId: requireUserId(req),
+          daemonCommandBroker,
+        }),
+      });
     }),
   );
 
@@ -669,7 +718,7 @@ export function createControlApp(store: ControlStore): express.Express {
     asyncHandler(async (req, res) => {
       const node = await store.getNode(req.params.nodeId);
       res.status(202).json({
-        restart: await restartDaemonNode(node),
+        restart: await restartDaemonNode(node, daemonCommandBroker),
       });
     }),
   );
@@ -679,7 +728,7 @@ export function createControlApp(store: ControlStore): express.Express {
     requireAuth(store),
     asyncHandler(async (req, res) => {
       const node = await store.getNode(req.params.nodeId);
-      res.json({ config: await getDaemonConfig(node) });
+      res.json({ config: await getDaemonConfig(node, daemonCommandBroker) });
     }),
   );
 
@@ -689,7 +738,7 @@ export function createControlApp(store: ControlStore): express.Express {
     asyncHandler(async (req, res) => {
       const body = parseBody(daemonConfigPatchBodySchema, req.body);
       const node = await store.getNode(req.params.nodeId);
-      res.json({ config: await patchDaemonConfig(node, body) });
+      res.json({ config: await patchDaemonConfig(node, body, daemonCommandBroker) });
     }),
   );
 
@@ -704,7 +753,7 @@ export function createControlApp(store: ControlStore): express.Express {
       });
       const node = await store.getNode(req.params.nodeId);
       const workDirCleanup = body.deleteWorkDirs
-        ? await deleteDaemonSessionWorkDirs({ node, targets })
+        ? await deleteDaemonSessionWorkDirs({ node, targets, daemonCommandBroker })
         : { deleted: [], failed: [] };
       const controlCleanup = await store.cleanupAdminSessions({
         nodeId: req.params.nodeId,
@@ -784,7 +833,11 @@ export function createControlApp(store: ControlStore): express.Express {
         return;
       }
       const node = await store.getNode(req.params.nodeId);
-      const daemonWorkspace = await ensureDaemonUserWorkspace({ node, userId });
+      const daemonWorkspace = await ensureDaemonUserWorkspace({
+        node,
+        userId,
+        daemonCommandBroker,
+      });
       res.status(201).json({
         workspace: await store.upsertUserDaemonWorkspace({
           userId,
@@ -842,6 +895,7 @@ export function createControlApp(store: ControlStore): express.Express {
         node,
         userId,
         sessionId: req.params.sessionId,
+        daemonCommandBroker,
       });
       const runtime = await store.createRuntimeAllocation({
         sessionId: req.params.sessionId,
@@ -921,6 +975,24 @@ function requireAuth(store: ControlStore) {
 
 function requireUserId(req: Request): string {
   return requireRequestAuth(req).userId;
+}
+
+async function requireRuntimeNodeRequest(
+  store: ControlStore,
+  req: Request,
+  res: Response,
+): Promise<DaemonNodeRecord | null> {
+  const node = await store.getNode(req.params.nodeId);
+  if (!node.runtimeAuthToken) {
+    res.status(401).json({ error: "Daemon node authentication required" });
+    return null;
+  }
+  const bearer = readAuthorizationBearer(req);
+  if (bearer !== node.runtimeAuthToken) {
+    res.status(401).json({ error: "Daemon node authentication required" });
+    return null;
+  }
+  return node;
 }
 
 function getClientIp(req: Request): string {
@@ -1086,15 +1158,29 @@ function toSchedulerDaemonNode(node: DaemonNodeRecord): {
   };
 }
 
+function nodeSupportsControlCommandPolling(node: DaemonNodeRecord): boolean {
+  const capabilities = node.capabilities;
+  if (!capabilities || typeof capabilities !== "object" || Array.isArray(capabilities)) {
+    return false;
+  }
+  const controlCommands = (capabilities as Record<string, unknown>).controlCommands;
+  if (!controlCommands || typeof controlCommands !== "object" || Array.isArray(controlCommands)) {
+    return false;
+  }
+  return (controlCommands as Record<string, unknown>).polling === true;
+}
+
 async function ensureDaemonUserWorkspace(input: {
   node: DaemonNodeRecord;
   userId: string;
+  daemonCommandBroker: DaemonCommandBroker;
 }): Promise<{ workspace: { workspaceDir: string } }> {
   try {
     return await postDaemonJson<{ workspace: { workspaceDir: string } }>(
       input.node,
       "/api/user-workspaces/ensure",
       { userId: input.userId },
+      input.daemonCommandBroker,
     );
   } catch (error) {
     if (!isDaemonRouteMissingError(error)) {
@@ -1112,6 +1198,7 @@ async function allocateDaemonSessionWorkDir(input: {
   node: DaemonNodeRecord;
   userId: string;
   sessionId: string;
+  daemonCommandBroker: DaemonCommandBroker;
 }): Promise<{ workDir: string }> {
   try {
     return await postDaemonJson<{ workDir: string }>(
@@ -1121,6 +1208,7 @@ async function allocateDaemonSessionWorkDir(input: {
         userId: input.userId,
         sessionId: input.sessionId,
       },
+      input.daemonCommandBroker,
     );
   } catch (error) {
     if (!isDaemonRouteMissingError(error)) {
@@ -1138,47 +1226,74 @@ async function allocateDaemonSessionWorkDir(input: {
   }
 }
 
-async function getDaemonLoad(node: DaemonNodeRecord): Promise<DaemonLoadResult> {
-  return await requestDaemonJson<DaemonLoadResult>(node, {
-    method: "GET",
-    endpointPath: "/api/admin/daemon/load",
-  });
-}
-
-async function restartDaemonNode(node: DaemonNodeRecord): Promise<DaemonRestartResult> {
-  return await requestDaemonJson<DaemonRestartResult>(node, {
-    method: "POST",
-    endpointPath: "/api/admin/daemon/restart",
-    body: {
-      requestId: `control_admin_restart_${node.id}_${Date.now()}`,
-      reason: "control_admin_restart",
+async function getDaemonLoad(
+  node: DaemonNodeRecord,
+  daemonCommandBroker: DaemonCommandBroker,
+): Promise<DaemonLoadResult> {
+  return await requestDaemonJson<DaemonLoadResult>(
+    node,
+    {
+      method: "GET",
+      endpointPath: "/api/admin/daemon/load",
     },
-  });
+    daemonCommandBroker,
+  );
 }
 
-async function getDaemonConfig(node: DaemonNodeRecord): Promise<DaemonMutableConfig> {
-  const payload = await requestDaemonJson<{ config: DaemonMutableConfig }>(node, {
-    method: "GET",
-    endpointPath: "/api/admin/daemon/config",
-  });
+async function restartDaemonNode(
+  node: DaemonNodeRecord,
+  daemonCommandBroker: DaemonCommandBroker,
+): Promise<DaemonRestartResult> {
+  return await requestDaemonJson<DaemonRestartResult>(
+    node,
+    {
+      method: "POST",
+      endpointPath: "/api/admin/daemon/restart",
+      body: {
+        requestId: `control_admin_restart_${node.id}_${Date.now()}`,
+        reason: "control_admin_restart",
+      },
+    },
+    daemonCommandBroker,
+  );
+}
+
+async function getDaemonConfig(
+  node: DaemonNodeRecord,
+  daemonCommandBroker: DaemonCommandBroker,
+): Promise<DaemonMutableConfig> {
+  const payload = await requestDaemonJson<{ config: DaemonMutableConfig }>(
+    node,
+    {
+      method: "GET",
+      endpointPath: "/api/admin/daemon/config",
+    },
+    daemonCommandBroker,
+  );
   return payload.config;
 }
 
 async function patchDaemonConfig(
   node: DaemonNodeRecord,
   patch: DaemonMutableConfigPatch,
+  daemonCommandBroker: DaemonCommandBroker,
 ): Promise<DaemonMutableConfig> {
-  const payload = await requestDaemonJson<{ config: DaemonMutableConfig }>(node, {
-    method: "PATCH",
-    endpointPath: "/api/admin/daemon/config",
-    body: patch,
-  });
+  const payload = await requestDaemonJson<{ config: DaemonMutableConfig }>(
+    node,
+    {
+      method: "PATCH",
+      endpointPath: "/api/admin/daemon/config",
+      body: patch,
+    },
+    daemonCommandBroker,
+  );
   return payload.config;
 }
 
 async function deleteDaemonSessionWorkDirs(input: {
   node: DaemonNodeRecord;
   targets: AdminSessionCleanupTarget[];
+  daemonCommandBroker: DaemonCommandBroker;
 }): Promise<DaemonSessionWorkDirCleanupResult> {
   const deleted: DaemonDeletedSessionWorkDir[] = [];
   const failed: DaemonFailedSessionWorkDir[] = [];
@@ -1190,11 +1305,15 @@ async function deleteDaemonSessionWorkDirs(input: {
   }
   for (const [userId, sessionIds] of targetsByUserId) {
     try {
-      const result = await requestDaemonJson<DaemonSessionWorkDirCleanupResult>(input.node, {
-        method: "DELETE",
-        endpointPath: "/api/user-workspaces/session-workdirs",
-        body: { userId, sessionIds },
-      });
+      const result = await requestDaemonJson<DaemonSessionWorkDirCleanupResult>(
+        input.node,
+        {
+          method: "DELETE",
+          endpointPath: "/api/user-workspaces/session-workdirs",
+          body: { userId, sessionIds },
+        },
+        input.daemonCommandBroker,
+      );
       deleted.push(...result.deleted);
       failed.push(...result.failed);
     } catch (error) {
@@ -1209,7 +1328,11 @@ async function deleteDaemonSessionWorkDirs(input: {
   return { deleted, failed };
 }
 
-async function rescanUserStorage(input: { store: ControlStore; userId: string }) {
+async function rescanUserStorage(input: {
+  store: ControlStore;
+  userId: string;
+  daemonCommandBroker?: DaemonCommandBroker;
+}) {
   const workspaces = await input.store.listUserDaemonWorkspaces({ userId: input.userId });
   if (workspaces.length === 0) {
     return await input.store.updateStorageQuota({
@@ -1222,7 +1345,11 @@ async function rescanUserStorage(input: { store: ControlStore; userId: string })
   let scannedAt: string | null = null;
   for (const workspace of workspaces) {
     const node = await input.store.getNode(workspace.nodeId);
-    const scan = await scanDaemonUserWorkspace({ node, userId: input.userId });
+    const scan = await scanDaemonUserWorkspace({
+      node,
+      userId: input.userId,
+      daemonCommandBroker: input.daemonCommandBroker,
+    });
     totalBytes += scan.totalBytes;
     scannedAt = scan.scannedAt;
   }
@@ -1237,11 +1364,13 @@ async function rescanUserStorage(input: { store: ControlStore; userId: string })
 async function scanDaemonUserWorkspace(input: {
   node: DaemonNodeRecord;
   userId: string;
+  daemonCommandBroker?: DaemonCommandBroker;
 }): Promise<DaemonUserWorkspaceScanResult> {
   return await postDaemonJson<DaemonUserWorkspaceScanResult>(
     input.node,
     "/api/user-workspaces/scan",
     { userId: input.userId },
+    input.daemonCommandBroker,
   );
 }
 
@@ -1249,8 +1378,13 @@ async function postDaemonJson<TResponse extends object>(
   node: DaemonNodeRecord,
   endpointPath: string,
   body: unknown,
+  daemonCommandBroker?: DaemonCommandBroker,
 ): Promise<TResponse> {
-  return await requestDaemonJson<TResponse>(node, { method: "POST", endpointPath, body });
+  return await requestDaemonJson<TResponse>(
+    node,
+    { method: "POST", endpointPath, body },
+    daemonCommandBroker,
+  );
 }
 
 async function requestDaemonJson<TResponse extends object>(
@@ -1260,7 +1394,22 @@ async function requestDaemonJson<TResponse extends object>(
     endpointPath: string;
     body?: unknown;
   },
+  daemonCommandBroker?: DaemonCommandBroker,
 ): Promise<TResponse> {
+  if (daemonCommandBroker && nodeSupportsControlCommandPolling(node)) {
+    try {
+      return await daemonCommandBroker.request<TResponse>(node.id, input);
+    } catch (error) {
+      if (error instanceof DaemonCommandFailedError) {
+        throw new DaemonApiResponseError(error.message, error.status);
+      }
+      if (error instanceof DaemonCommandTimeoutError) {
+        throw new DaemonApiResponseError(error.message, 504);
+      }
+      throw error;
+    }
+  }
+
   const response = await fetch(
     `${normalizeDaemonHttpBaseUrl(node.endpoint)}${input.endpointPath}`,
     {
@@ -1394,6 +1543,7 @@ function normalizeDaemonHttpBaseUrl(endpoint: string): string {
 
 async function appendRuntimeSyncEvent(input: {
   store: ControlStore;
+  daemonCommandBroker: DaemonCommandBroker;
   userId: string;
   sessionId: string;
   runtimeId: string;
@@ -1427,7 +1577,11 @@ async function appendRuntimeSyncEvent(input: {
       userId: input.userId,
       status,
     });
-    scheduleStorageRescanAfterTurn({ store: input.store, userId: input.userId });
+    scheduleStorageRescanAfterTurn({
+      store: input.store,
+      userId: input.userId,
+      daemonCommandBroker: input.daemonCommandBroker,
+    });
     return true;
   }
 
@@ -1468,7 +1622,11 @@ async function appendRuntimeSyncEvent(input: {
   return true;
 }
 
-function scheduleStorageRescanAfterTurn(input: { store: ControlStore; userId: string }): void {
+function scheduleStorageRescanAfterTurn(input: {
+  store: ControlStore;
+  userId: string;
+  daemonCommandBroker: DaemonCommandBroker;
+}): void {
   void rescanUserStorage(input).catch(() => undefined);
 }
 

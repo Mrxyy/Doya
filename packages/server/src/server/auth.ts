@@ -2,6 +2,7 @@ import { compare, compareSync, hashSync } from "bcryptjs";
 import type { RequestHandler } from "express";
 
 export const DAEMON_PASSWORD_BCRYPT_COST = 12;
+export const DAEMON_INTERNAL_AUTH_HEADER = "X-Doya-Internal-Auth";
 
 export interface DaemonAuthConfig {
   password?: string;
@@ -11,6 +12,10 @@ export interface BearerAuthRejectContext {
   path: string;
   method: string;
   hasToken: boolean;
+}
+
+export interface RequireBearerMiddlewareOptions {
+  internalAuthToken?: string;
 }
 
 interface BearerValidationInput {
@@ -93,9 +98,18 @@ export function extractWsBearerToken(protocol: string | null): string | null {
 export function createRequireBearerMiddleware(
   auth: DaemonAuthConfig | undefined,
   onReject?: (context: BearerAuthRejectContext) => void,
+  options: RequireBearerMiddlewareOptions = {},
 ): RequestHandler {
   const password = auth?.password;
   return (req, res, next) => {
+    if (
+      options.internalAuthToken &&
+      req.header(DAEMON_INTERNAL_AUTH_HEADER) === options.internalAuthToken
+    ) {
+      next();
+      return;
+    }
+
     if (!password || shouldBypassBearerAuth(req.method, req.path)) {
       next();
       return;

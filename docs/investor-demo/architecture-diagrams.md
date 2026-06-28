@@ -40,15 +40,15 @@ flowchart TB
     CLI["命令行"]
   end
 
-  subgraph LocalMode["个人 / 开源版：本地 daemon"]
-    LocalDaemon["Doya daemon<br/>账号 / 项目 / 会话 / agent 编排"]
+  subgraph LocalMode["本地桌面 runtime"]
+    DesktopRuntime["Desktop managed daemon<br/>本机执行 / agent 编排"]
     LocalWorkspace["本机项目目录<br/>代码 / Git / 终端 / 依赖"]
     LocalAgents["本机 agent 进程<br/>Codex / Claude / Copilot / OpenCode"]
   end
 
-  subgraph CloudMode["团队 / 企业版：远程多租户 server"]
-    TenantGateway["租户入口<br/>登录 / 组织 / 成员"]
-    TenantControl["多租户控制面<br/>工作区 / 项目 / 会话 / 权限 / 审计"]
+  subgraph ControlMode["Control plane"]
+    TenantGateway["账号入口<br/>登录 / 组织 / 成员"]
+    TenantControl["商业控制面<br/>账号 / billing / session / 调度 / 审计"]
     HostedRuntime["托管或自有执行节点<br/>VM / 容器 / 开发机 / 私有服务器"]
     TenantAgents["隔离 agent 进程"]
   end
@@ -57,16 +57,18 @@ flowchart TB
     E2EE["端到端加密 relay<br/>只转发密文"]
   end
 
-  Clients -->|"本机 / 内网直连"| LocalDaemon
+  Clients -->|"本机 / 内网直连"| DesktopRuntime
   Clients -.->|"无法直连时"| E2EE
-  E2EE -.-> LocalDaemon
+  E2EE -.-> DesktopRuntime
 
   Clients -->|"账号登录"| TenantGateway
   TenantGateway --> TenantControl
   TenantControl --> HostedRuntime
+  TenantControl -->|"runtime allocation"| DesktopRuntime
+  DesktopRuntime -.->|"注册 / 心跳 / command polling"| TenantControl
 
-  LocalDaemon --> LocalWorkspace
-  LocalDaemon --> LocalAgents
+  DesktopRuntime --> LocalWorkspace
+  DesktopRuntime --> LocalAgents
   LocalAgents --> LocalWorkspace
 
   HostedRuntime --> TenantAgents
@@ -75,10 +77,10 @@ flowchart TB
 
 架构重点：
 
-- 同一套执行模型覆盖两种部署形态：本地 daemon 和远程多租户 server。
-- 本地形态中，daemon 同时承担连接入口、控制面和执行调度；代码、密钥、依赖和 agent 进程留在用户机器或自有服务器。
-- 远程形态中，多租户 server 承担账号、组织、成员、权限、审计和工作区路由；具体任务下发到隔离执行节点。
-- Relay 独立于多租户 server，只负责在客户端无法直连本地 daemon 时转发端到端加密流量。
+- 同一套执行模型覆盖本地桌面 runtime 和远程 runtime：control 负责商业、账号、session 和调度，daemon 负责实际执行。
+- 本地形态中，下载的桌面客户端内置并管理 daemon；代码、密钥、依赖、终端和 agent 进程留在用户机器。
+- 远程形态中，control 选择托管或自有执行节点；具体任务下发到隔离 runtime。
+- Relay 独立于 control，只负责在客户端无法直连 runtime daemon 时转发端到端加密流量。
 
 ## 3. 整体架构图
 

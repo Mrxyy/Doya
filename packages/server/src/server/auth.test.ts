@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
+import express from "express";
+import { createServer } from "node:http";
 
 import {
+  DAEMON_INTERNAL_AUTH_HEADER,
+  createRequireBearerMiddleware,
   extractHttpBearerToken,
   extractWsBearerProtocol,
   extractWsBearerToken,
@@ -58,5 +62,43 @@ describe("daemon bearer validator", () => {
 
     expect(protocol).toBe("doya.bearer.secret.with.dots");
     expect(extractWsBearerToken(protocol)).toBe("secret.with.dots");
+  });
+
+  test("allows process-internal HTTP requests without the user password", async () => {
+    const app = express();
+    app.use(
+      createRequireBearerMiddleware({ password: CORRECT_PASSWORD_HASH }, undefined, {
+        internalAuthToken: "internal-secret",
+      }),
+    );
+    app.get("/protected", (_req, res) => {
+      res.json({ ok: true });
+    });
+    const server = createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Test server did not bind to a TCP port");
+    }
+
+    try {
+      const missing = await fetch(`http://127.0.0.1:${address.port}/protected`);
+      expect(missing.status).toBe(401);
+
+      const internal = await fetch(`http://127.0.0.1:${address.port}/protected`, {
+        headers: { [DAEMON_INTERNAL_AUTH_HEADER]: "internal-secret" },
+      });
+      expect(internal.status).toBe(200);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve();
+        });
+      });
+    }
   });
 });

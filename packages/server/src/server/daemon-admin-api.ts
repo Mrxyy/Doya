@@ -3,6 +3,34 @@ import os from "node:os";
 import express from "express";
 import { MutableDaemonConfigPatchSchema } from "@getdoya/protocol/messages";
 import type { MutableDaemonConfig, MutableDaemonConfigPatch } from "@getdoya/protocol/messages";
+import { z } from "zod";
+import type { ControlRegistrationConfig } from "./control-registration.js";
+
+const ControlRegistrationConfigBodySchema = z
+  .object({
+    enabled: z.boolean(),
+    apiBaseUrl: z.string().min(1).optional(),
+    userId: z.string().min(1).optional(),
+    authToken: z.string().min(1).optional(),
+    nodeEndpoint: z.string().min(1).optional(),
+    publicNodeEndpoint: z.string().min(1).optional(),
+    runtimeAuthToken: z.string().min(1).optional(),
+    heartbeatIntervalMs: z.number().int().positive().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.enabled) {
+      return;
+    }
+    for (const field of ["apiBaseUrl", "userId", "authToken"] as const) {
+      if (!value[field]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [field],
+          message: `${field} is required when control registration is enabled`,
+        });
+      }
+    }
+  });
 
 export interface DaemonAdminApiOptions {
   doyaHome: string;
@@ -10,6 +38,7 @@ export interface DaemonAdminApiOptions {
   getConfig?: () => MutableDaemonConfig;
   patchConfig?: (patch: MutableDaemonConfigPatch) => MutableDaemonConfig;
   requestRestart?: (input: { requestId: string; reason?: string }) => void;
+  applyControlRegistration?: (config: ControlRegistrationConfig) => void;
 }
 
 export function createDaemonAdminApiRouter(options: DaemonAdminApiOptions): express.Router {
@@ -80,6 +109,25 @@ export function createDaemonAdminApiRouter(options: DaemonAdminApiOptions): expr
       return;
     }
     res.json({ config: options.patchConfig(result.data) });
+  });
+
+  router.post("/control-registration", (req, res) => {
+    if (!options.applyControlRegistration) {
+      res.status(501).json({ error: "Control registration is not available." });
+      return;
+    }
+    const result = ControlRegistrationConfigBodySchema.safeParse(req.body);
+    if (!result.success) {
+      res
+        .status(400)
+        .json({ error: result.error.issues[0]?.message ?? "Invalid control registration config" });
+      return;
+    }
+    options.applyControlRegistration(result.data);
+    res.status(202).json({
+      status: "control_registration_applied",
+      enabled: result.data.enabled === true,
+    });
   });
 
   return router;

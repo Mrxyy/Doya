@@ -109,3 +109,97 @@ describe("daemon worktree root config", () => {
     );
   });
 });
+
+describe("daemon control registration config", () => {
+  afterEach(async () => {
+    await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  });
+
+  test("enables control registration when a control API URL is configured", async () => {
+    const home = await createDoyaHome({
+      version: 1,
+      daemon: {
+        control: {
+          apiBaseUrl: "https://control.example.com",
+          userId: "usr_persisted",
+          authToken: "persisted-token",
+          nodeEndpoint: "http://localhost:6767",
+          publicNodeEndpoint: "relay://relay.example.com/srv_1",
+          runtimeAuthToken: "runtime-secret",
+          heartbeatIntervalMs: 15000,
+        },
+      },
+    });
+
+    expect(loadConfig(home, { env: {} }).controlRegistration).toEqual({
+      enabled: true,
+      apiBaseUrl: "https://control.example.com",
+      userId: "usr_persisted",
+      authToken: "persisted-token",
+      nodeEndpoint: "http://localhost:6767",
+      publicNodeEndpoint: "relay://relay.example.com/srv_1",
+      runtimeAuthToken: "runtime-secret",
+      heartbeatIntervalMs: 15000,
+    });
+  });
+
+  test("lets control registration env override persisted config", async () => {
+    const home = await createDoyaHome({
+      version: 1,
+      daemon: {
+        control: {
+          enabled: false,
+          apiBaseUrl: "https://old-control.example.com",
+        },
+      },
+    });
+
+    expect(
+      loadConfig(home, {
+        env: {
+          DOYA_CONTROL_ENABLED: "true",
+          DOYA_CONTROL_API_URL: "https://control.example.com",
+          DOYA_CONTROL_USER_ID: "usr_env",
+          DOYA_CONTROL_TOKEN: "env-token",
+          DOYA_CONTROL_DAEMON_ENDPOINT: "http://127.0.0.1:6767",
+          DOYA_CONTROL_RUNTIME_AUTH_TOKEN: "runtime-env-secret",
+          DOYA_CONTROL_HEARTBEAT_INTERVAL_MS: "25000",
+        },
+      }).controlRegistration,
+    ).toEqual({
+      enabled: true,
+      apiBaseUrl: "https://control.example.com",
+      userId: "usr_env",
+      authToken: "env-token",
+      nodeEndpoint: "http://127.0.0.1:6767",
+      runtimeAuthToken: "runtime-env-secret",
+      heartbeatIntervalMs: 25000,
+    });
+  });
+
+  test("lets env explicitly disable persisted control registration", async () => {
+    const home = await createDoyaHome({
+      version: 1,
+      daemon: {
+        control: {
+          apiBaseUrl: "https://control.example.com",
+          userId: "usr_persisted",
+          authToken: "persisted-token",
+        },
+      },
+    });
+
+    expect(
+      loadConfig(home, {
+        env: {
+          DOYA_CONTROL_ENABLED: "0",
+        },
+      }).controlRegistration,
+    ).toEqual({
+      enabled: false,
+      apiBaseUrl: "https://control.example.com",
+      userId: "usr_persisted",
+      authToken: "persisted-token",
+    });
+  });
+});

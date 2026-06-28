@@ -56,6 +56,78 @@ describe("DaemonStartService", () => {
     expect(service.isRunning()).toBe(false);
   });
 
+  it("passes the stored control account session when starting the desktop daemon", async () => {
+    const fake = createFakeStore();
+    const startMock = vi.fn(async () => makeStatus());
+    const service = new DaemonStartService({
+      store: fake.store,
+      startDesktopDaemon: startMock,
+      resolveControlApiBaseUrl: () => "https://control.example.test",
+      loadAccountSession: async () => ({
+        user: {
+          userId: "user_123",
+          email: "user@example.test",
+          phone: null,
+        },
+        workspace: {
+          workspaceId: "control:user_123",
+          displayName: "Doya",
+          runtime: null,
+        },
+        projects: [],
+        accessToken: "token_abc",
+        apiBaseUrl: "https://control.example.test",
+      }),
+    });
+
+    const result = await service.start();
+
+    expect(result).toEqual({ ok: true });
+    expect(startMock).toHaveBeenCalledWith({
+      control: {
+        apiBaseUrl: "https://control.example.test",
+        userId: "user_123",
+        accessToken: "token_abc",
+      },
+    });
+  });
+
+  it("starts the desktop daemon without control options when account session loading fails", async () => {
+    const fake = createFakeStore();
+    const startMock = vi.fn(async () => makeStatus());
+    const service = new DaemonStartService({
+      store: fake.store,
+      startDesktopDaemon: startMock,
+      resolveControlApiBaseUrl: () => "https://control.example.test",
+      loadAccountSession: async () => {
+        throw new Error("storage unavailable");
+      },
+    });
+
+    const result = await service.start();
+
+    expect(result).toEqual({ ok: true });
+    expect(startMock).toHaveBeenCalledWith(undefined);
+  });
+
+  it("disables control registration when no account session is stored", async () => {
+    const fake = createFakeStore();
+    const startMock = vi.fn(async () => makeStatus());
+    const service = new DaemonStartService({
+      store: fake.store,
+      startDesktopDaemon: startMock,
+      resolveControlApiBaseUrl: () => "https://control.example.test",
+      loadAccountSession: async () => null,
+    });
+
+    const result = await service.start();
+
+    expect(result).toEqual({ ok: true });
+    expect(startMock).toHaveBeenCalledWith({
+      control: { enabled: false },
+    });
+  });
+
   it("reports lastError after a missing listen address and clears running state when done", async () => {
     const fake = createFakeStore();
     const service = new DaemonStartService({

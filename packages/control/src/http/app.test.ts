@@ -31,6 +31,8 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await store.flush();
   await rm(tempRoot, { recursive: true, force: true });
 });
 
@@ -98,6 +100,194 @@ describe("sessions", () => {
       },
     );
     expect(getDeletedResponse.status).toBe(404);
+  });
+});
+
+describe("daemon command polling", () => {
+  it("allows an authenticated daemon node registration with account headers", async () => {
+    const account = await register();
+    const response = await fetchJson<{
+      node: { id: string; runtimeAuthToken?: string };
+    }>("/api/nodes/register", {
+      method: "POST",
+      account,
+      body: {
+        nodeId: "node_1",
+        endpoint: "http://127.0.0.1:6767",
+        runtimeAuthToken: "daemon-secret",
+        capabilities: {
+          controlCommands: { polling: true, version: 1 },
+        },
+      },
+    });
+
+    expect(response.node.id).toBe("node_1");
+    expect(response.node.runtimeAuthToken).toBeUndefined();
+    expect((await store.getNode("node_1")).runtimeAuthToken).toBe("daemon-secret");
+  });
+
+  it("routes supported daemon requests through polled commands", async () => {
+    const account = await register();
+    await store.registerNode({
+      nodeId: "node_1",
+      endpoint: "http://127.0.0.1:1",
+      runtimeAuthToken: "daemon-secret",
+      capabilities: {
+        controlCommands: {
+          polling: true,
+          version: 1,
+        },
+      },
+    });
+
+    const overviewPromise = fetchJson<{
+      daemonNodes: Array<{ load: { status: string; nodeId?: string } }>;
+    }>("/api/admin/daemon-overview", { account });
+
+    const command = await pollForCommand("node_1", "daemon-secret");
+    expect(command).toMatchObject({
+      method: "GET",
+      endpointPath: "/api/admin/daemon/load",
+    });
+
+    const resultResponse = await fetch(
+      `${baseUrl}/api/nodes/node_1/commands/${command.id}/result`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer daemon-secret",
+        },
+        body: JSON.stringify({
+          ok: true,
+          status: 200,
+          body: {
+            status: "ok",
+            nodeId: "node_1",
+            sampledAt: "2026-01-01T00:00:00.000Z",
+            cpu: { loadAverage: [0.1, 0.2, 0.3] },
+            memory: {
+              totalBytes: 100,
+              freeBytes: 70,
+              usedBytes: 30,
+              usedRatio: 0.3,
+            },
+            disk: null,
+            uptimeSeconds: 4,
+          },
+        }),
+      },
+    );
+    expect(resultResponse.status).toBe(202);
+
+    const overview = await overviewPromise;
+    expect(overview.daemonNodes[0]?.load).toMatchObject({
+      status: "ok",
+      nodeId: "node_1",
+    });
+  });
+
+  it("rejects command results reported by a different runtime node", async () => {
+    const account = await register();
+    await store.registerNode({
+      nodeId: "node_1",
+      endpoint: "http://127.0.0.1:1",
+      runtimeAuthToken: "daemon-secret-1",
+      capabilities: {
+        controlCommands: {
+          polling: true,
+          version: 1,
+        },
+      },
+    });
+    await store.registerNode({
+      nodeId: "node_2",
+      endpoint: "http://127.0.0.1:2",
+      runtimeAuthToken: "daemon-secret-2",
+      capabilities: {
+        controlCommands: {
+          polling: true,
+          version: 1,
+        },
+      },
+    });
+
+    const configPromise = fetchJson<{ config: { relayEnabled: boolean } }>(
+      "/api/admin/nodes/node_1/config",
+      { account },
+    );
+
+    const command = await pollForCommand("node_1", "daemon-secret-1");
+    const wrongNodeResponse = await fetch(
+      `${baseUrl}/api/nodes/node_2/commands/${command.id}/result`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer daemon-secret-2",
+        },
+        body: JSON.stringify({
+          ok: true,
+          status: 200,
+          body: { config: { relayEnabled: false } },
+        }),
+      },
+    );
+    expect(wrongNodeResponse.status).toBe(404);
+
+    const correctNodeResponse = await fetch(
+      `${baseUrl}/api/nodes/node_1/commands/${command.id}/result`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer daemon-secret-1",
+        },
+        body: JSON.stringify({
+          ok: true,
+          status: 200,
+          body: { config: { relayEnabled: true } },
+        }),
+      },
+    );
+    expect(correctNodeResponse.status).toBe(202);
+    await expect(configPromise).resolves.toEqual({ config: { relayEnabled: true } });
+  });
+
+  it("requires daemon runtime token when polling commands", async () => {
+    await store.registerNode({
+      nodeId: "node_1",
+      endpoint: "http://127.0.0.1:1",
+      runtimeAuthToken: "daemon-secret",
+    });
+
+    const response = await fetch(`${baseUrl}/api/nodes/node_1/commands/poll`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer wrong-secret",
+      },
+      body: JSON.stringify({ maxCommands: 1 }),
+    });
+
+    expect(response.status).toBe(401);
+  });
+
+  it("rejects command polling for nodes without a runtime token", async () => {
+    await store.registerNode({
+      nodeId: "node_1",
+      endpoint: "http://127.0.0.1:1",
+    });
+
+    const response = await fetch(`${baseUrl}/api/nodes/node_1/commands/poll`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ maxCommands: 1 }),
+    });
+
+    expect(response.status).toBe(401);
   });
 });
 
@@ -1835,6 +2025,33 @@ async function fetchJson<T>(
   });
   expect(response.status).toBeLessThan(400);
   return (await response.json()) as T;
+}
+
+async function pollForCommand(
+  nodeId: string,
+  runtimeAuthToken: string,
+): Promise<{ id: string; method: string; endpointPath: string; body?: unknown }> {
+  const deadline = Date.now() + 1000;
+  while (Date.now() < deadline) {
+    const response = await fetch(`${baseUrl}/api/nodes/${nodeId}/commands/poll`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${runtimeAuthToken}`,
+      },
+      body: JSON.stringify({ maxCommands: 1 }),
+    });
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      commands: Array<{ id: string; method: string; endpointPath: string; body?: unknown }>;
+    };
+    const command = payload.commands[0];
+    if (command) {
+      return command;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("Timed out waiting for daemon command");
 }
 
 function jsonHeaders(account: {

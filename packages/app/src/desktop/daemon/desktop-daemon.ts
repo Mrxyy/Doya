@@ -20,6 +20,22 @@ export interface DesktopDaemonLogs {
   contents: string;
 }
 
+export type DesktopDaemonControlRegistrationInput =
+  | {
+      enabled: false;
+    }
+  | {
+      enabled?: true;
+      apiBaseUrl: string;
+      userId: string;
+      accessToken: string;
+    };
+
+export interface StartDesktopDaemonOptions {
+  [key: string]: unknown;
+  control?: DesktopDaemonControlRegistrationInput;
+}
+
 export interface DesktopPairingOffer {
   relayEnabled: boolean;
   url: string | null;
@@ -118,16 +134,20 @@ export async function getDesktopDaemonStatus(): Promise<DesktopDaemonStatus> {
   return parseDesktopDaemonStatus(await invokeDesktopCommand("desktop_daemon_status"));
 }
 
-export async function startDesktopDaemon(): Promise<DesktopDaemonStatus> {
-  return parseDesktopDaemonStatus(await invokeDesktopCommand("start_desktop_daemon"));
+export async function startDesktopDaemon(
+  options?: StartDesktopDaemonOptions,
+): Promise<DesktopDaemonStatus> {
+  return parseDesktopDaemonStatus(await invokeDesktopCommand("start_desktop_daemon", options));
 }
 
 export async function stopDesktopDaemon(): Promise<DesktopDaemonStatus> {
   return parseDesktopDaemonStatus(await invokeDesktopCommand("stop_desktop_daemon"));
 }
 
-export async function restartDesktopDaemon(): Promise<DesktopDaemonStatus> {
-  return parseDesktopDaemonStatus(await invokeDesktopCommand("restart_desktop_daemon"));
+export async function restartDesktopDaemon(
+  options?: StartDesktopDaemonOptions,
+): Promise<DesktopDaemonStatus> {
+  return parseDesktopDaemonStatus(await invokeDesktopCommand("restart_desktop_daemon", options));
 }
 
 export async function getDesktopDaemonLogs(): Promise<DesktopDaemonLogs> {

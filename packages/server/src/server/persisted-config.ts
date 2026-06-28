@@ -247,6 +247,19 @@ export const PersistedConfigSchema = z
           })
           .strict()
           .optional(),
+        control: z
+          .object({
+            enabled: z.boolean().optional(),
+            apiBaseUrl: z.string().min(1).optional(),
+            userId: z.string().min(1).optional(),
+            authToken: z.string().min(1).optional(),
+            nodeEndpoint: z.string().min(1).optional(),
+            publicNodeEndpoint: z.string().min(1).optional(),
+            runtimeAuthToken: z.string().min(1).optional(),
+            heartbeatIntervalMs: z.number().int().positive().optional(),
+          })
+          .strict()
+          .optional(),
         auth: DaemonAuthSchema.optional(),
       })
       .strict()

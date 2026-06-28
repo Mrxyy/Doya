@@ -21,7 +21,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { Extrapolation, interpolate, runOnJS, useSharedValue } from "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StyleSheet, UnistylesRuntime, useUnistyles } from "react-native-unistyles";
-import { loadAccountBootstrapSession } from "@/account/account-api";
+import { loadAccountBootstrapSession, subscribeAccountSessionChanges } from "@/account/account-api";
 import { AccountLoginModalHost } from "@/components/account-login-modal";
 import { BillingUpgradeModalHost } from "@/components/billing-upgrade-modal";
 import { CommandCenter } from "@/components/command-center";
@@ -311,6 +311,17 @@ function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
       daemonStartService,
       shouldStartDaemon: shouldStartBuiltInDaemon,
       onGateError: (message) => daemonStartService.recordError(message),
+    });
+  }, []);
+
+  useEffect(() => {
+    const daemonStartService = getDaemonStartService({ store: getHostRuntimeStore() });
+    return subscribeAccountSessionChanges(() => {
+      startDaemonIfGateAllows({
+        daemonStartService,
+        shouldStartDaemon: shouldStartBuiltInDaemon,
+        onGateError: (message) => daemonStartService.recordError(message),
+      });
     });
   }, []);
 

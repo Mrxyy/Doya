@@ -1263,6 +1263,7 @@ function normalizeCodexThreadItemType(rawType: string | undefined): string | und
     case "ImageView":
       return "imageView";
     case "ImageGeneration":
+    case "image_generation_call":
       return "imageGeneration";
     default:
       return rawType;
@@ -1681,28 +1682,39 @@ function codexImageOutputFromResult(result: unknown): ProviderImageOutput | null
   };
 }
 
-function writeImageAttachmentSync(mimeType: string, data: string, fileName?: string): string {
-  const attachmentsDir = path.join(os.tmpdir(), CODEX_IMAGE_ATTACHMENT_DIR);
+function writeImageAttachmentSync(
+  mimeType: string,
+  data: string,
+  options?: { fileName?: string; cwd?: string | null },
+): string {
+  const workspaceCwd = options?.cwd?.trim();
+  const attachmentsDir = workspaceCwd
+    ? path.join(workspaceCwd, "output", "imagegen")
+    : path.join(os.tmpdir(), CODEX_IMAGE_ATTACHMENT_DIR);
   fsSync.mkdirSync(attachmentsDir, { recursive: true });
   const normalized = normalizeImageData(mimeType, data);
   const extension = getImageExtension(normalized.mimeType);
-  const filename = buildImageAttachmentFileName(extension, fileName);
+  const filename = buildImageAttachmentFileName(extension, options?.fileName);
   const filePath = path.join(attachmentsDir, filename);
   fsSync.writeFileSync(filePath, Buffer.from(normalized.data, "base64"));
-  return filePath;
+  return workspaceCwd ? path.relative(workspaceCwd, filePath) : filePath;
 }
 
-function materializeCodexImageOutput(image: { data: string; mimeType: string | null }): {
+function materializeCodexImageOutput(
+  image: { data: string; mimeType: string | null },
+  cwd?: string | null,
+): {
   path: string;
 } {
   return {
-    path: writeImageAttachmentSync(image.mimeType ?? "image/png", image.data),
+    path: writeImageAttachmentSync(image.mimeType ?? "image/png", image.data, { cwd }),
   };
 }
 
 function mapCodexThreadImageItem(
   normalizedType: string,
   normalizedItem: Record<string, unknown>,
+  cwd: string | null,
 ): AgentTimelineItem | null {
   if (normalizedType === "imageView") {
     return renderProviderImageOutputAsAssistantMarkdown({
@@ -1719,7 +1731,7 @@ function mapCodexThreadImageItem(
       data: result?.data ?? null,
       mimeType: result?.mimeType ?? null,
     },
-    { materialize: materializeCodexImageOutput },
+    { materialize: (image) => materializeCodexImageOutput(image, cwd) },
   );
 }
 
@@ -1740,7 +1752,7 @@ export function threadItemToTimeline(
       : itemRecord;
 
   if (normalizedType === "imageView" || normalizedType === "imageGeneration") {
-    return mapCodexThreadImageItem(normalizedType, normalizedItem);
+    return mapCodexThreadImageItem(normalizedType, normalizedItem, cwd);
   }
   if (normalizedType && CODEX_TOOL_THREAD_ITEM_TYPES.has(normalizedType)) {
     return mapCodexToolCallFromThreadItem(normalizedItem, { cwd });

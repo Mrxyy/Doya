@@ -1,30 +1,59 @@
-import { startDesktopDaemon, type DesktopDaemonStatus } from "@/desktop/daemon/desktop-daemon";
+import {
+  startDesktopDaemon,
+  type DesktopDaemonStatus,
+  type StartDesktopDaemonOptions,
+} from "@/desktop/daemon/desktop-daemon";
 import { connectionFromListen } from "@/types/host-connection";
 import type { HostRuntimeStore } from "@/runtime/host-runtime";
 
 export type DaemonStartResult = { ok: true } | { ok: false; error: string };
+interface ControlAccountSessionLike {
+  user: {
+    userId: string;
+  };
+  accessToken: string;
+}
+type LoadAccountSession = () => Promise<ControlAccountSessionLike | null>;
+type ResolveControlApiBaseUrl = () => string | null | Promise<string | null>;
+type MaybePromise<T> = T | Promise<T>;
 
 export interface DaemonStartServiceDeps {
   store: Pick<HostRuntimeStore, "upsertConnectionFromListen">;
-  startDesktopDaemon?: () => Promise<DesktopDaemonStatus>;
+  startDesktopDaemon?: (options?: StartDesktopDaemonOptions) => Promise<DesktopDaemonStatus>;
+  loadAccountSession?: LoadAccountSession;
+  resolveControlApiBaseUrl?: ResolveControlApiBaseUrl;
 }
 
 export class DaemonStartService {
   private readonly store: Pick<HostRuntimeStore, "upsertConnectionFromListen">;
-  private readonly invokeStartDesktopDaemon: () => Promise<DesktopDaemonStatus>;
+  private readonly invokeStartDesktopDaemon: (
+    options?: StartDesktopDaemonOptions,
+  ) => Promise<DesktopDaemonStatus>;
+  private readonly loadAccountSession: LoadAccountSession;
+  private readonly resolveControlApiBaseUrl: ResolveControlApiBaseUrl;
   private readonly listeners = new Set<() => void>();
   private lastError: string | null = null;
   private inFlightCount = 0;
 
   constructor(deps: DaemonStartServiceDeps) {
+    const usesInjectedDesktopDaemon = Boolean(deps.startDesktopDaemon);
     this.store = deps.store;
     this.invokeStartDesktopDaemon = deps.startDesktopDaemon ?? startDesktopDaemon;
+    this.loadAccountSession =
+      deps.loadAccountSession ??
+      (usesInjectedDesktopDaemon ? loadNoAccountSession : loadDefaultAccountSession);
+    this.resolveControlApiBaseUrl =
+      deps.resolveControlApiBaseUrl ??
+      (usesInjectedDesktopDaemon ? resolveNoControlApiBaseUrl : resolveDefaultControlApiBaseUrl);
   }
 
   async start(): Promise<DaemonStartResult> {
     this.beginRequest();
     try {
-      const daemon = await this.invokeStartDesktopDaemon();
+      const options = this.resolveStartOptionsSafely();
+      const daemon = await this.invokeStartDesktopDaemon(
+        isPromiseLike(options) ? await options : options,
+      );
       const listenAddress = daemon.listen?.trim() ?? "";
       const serverId = daemon.serverId.trim();
       if (!listenAddress) {
@@ -103,21 +132,87 @@ export class DaemonStartService {
       listener();
     }
   }
+
+  private resolveStartOptionsSafely(): MaybePromise<StartDesktopDaemonOptions | undefined> {
+    try {
+      const options = this.resolveStartOptions();
+      if (isPromiseLike(options)) {
+        return options.catch(() => undefined);
+      }
+      return options;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private resolveStartOptions(): MaybePromise<StartDesktopDaemonOptions | undefined> {
+    const apiBaseUrl = this.resolveControlApiBaseUrl();
+    if (isPromiseLike(apiBaseUrl)) {
+      return apiBaseUrl.then((resolvedApiBaseUrl) =>
+        this.resolveStartOptionsForApiBaseUrl(resolvedApiBaseUrl),
+      );
+    }
+    return this.resolveStartOptionsForApiBaseUrl(apiBaseUrl);
+  }
+
+  private resolveStartOptionsForApiBaseUrl(
+    apiBaseUrl: string | null,
+  ): MaybePromise<StartDesktopDaemonOptions | undefined> {
+    if (!apiBaseUrl) {
+      return undefined;
+    }
+
+    return this.loadAccountSession().then((session) => {
+      const userId = session?.user.userId.trim() ?? "";
+      const accessToken = session?.accessToken.trim() ?? "";
+      if (!userId || !accessToken) {
+        return { control: { enabled: false } };
+      }
+
+      return {
+        control: {
+          apiBaseUrl,
+          userId,
+          accessToken,
+        },
+      };
+    });
+  }
+}
+
+function isPromiseLike<T>(value: MaybePromise<T>): value is Promise<T> {
+  return typeof value === "object" && value !== null && "then" in value;
+}
+
+async function loadDefaultAccountSession(): Promise<ControlAccountSessionLike | null> {
+  const accountApi = await import("@/account/account-api");
+  return accountApi.loadAccountBootstrapSession();
+}
+
+async function loadNoAccountSession(): Promise<ControlAccountSessionLike | null> {
+  return null;
+}
+
+async function resolveDefaultControlApiBaseUrl(): Promise<string | null> {
+  const controlApi = await import("@/control/control-api");
+  return controlApi.controlApiBaseUrl();
+}
+
+function resolveNoControlApiBaseUrl(): string | null {
+  return null;
 }
 
 let singletonDaemonStartService: DaemonStartService | null = null;
 const DAEMON_START_SERVICE_GLOBAL_KEY = "__doyaDaemonStartService";
-
-type DaemonStartServiceGlobal = typeof globalThis & {
-  [DAEMON_START_SERVICE_GLOBAL_KEY]?: DaemonStartService;
-};
 
 export function getDaemonStartService(deps: DaemonStartServiceDeps): DaemonStartService {
   if (singletonDaemonStartService) {
     return singletonDaemonStartService;
   }
 
-  const runtimeGlobal = globalThis as DaemonStartServiceGlobal;
+  const runtimeGlobal = globalThis as unknown as {
+    [DAEMON_START_SERVICE_GLOBAL_KEY]?: DaemonStartService;
+  };
   if (runtimeGlobal[DAEMON_START_SERVICE_GLOBAL_KEY]) {
     singletonDaemonStartService = runtimeGlobal[DAEMON_START_SERVICE_GLOBAL_KEY] ?? null;
     if (singletonDaemonStartService) {
