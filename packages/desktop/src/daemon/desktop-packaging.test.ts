@@ -26,6 +26,25 @@ describe("desktop packaging", () => {
     expect(config).toContain("!node_modules/@getdoya/**/*.spec.*");
   });
 
+  it("explicitly includes workspace runtime packages used by the bundled daemon", () => {
+    const config = readFileSync(join(packageRoot, "electron-builder.yml"), "utf8");
+
+    const runtimePackages = [
+      "@getdoya/cli",
+      "@getdoya/client",
+      "@getdoya/highlight",
+      "@getdoya/protocol",
+      "@getdoya/relay",
+      "@getdoya/server",
+    ];
+
+    for (const packageName of runtimePackages) {
+      expect(config).toContain(`node_modules/${packageName}/dist/**/*`);
+      expect(config).toContain(`node_modules/${packageName}/package.json`);
+    }
+    expect(config).toContain("node_modules/@getdoya/cli/bin/**/*");
+  });
+
   // electron-builder packs production dependencies declared in package.json into
   // app.asar. Runtime code in runtime-paths.ts and bin/doya dynamically resolves
   // these workspace packages by string, so static analysis (TypeScript, Knip) cannot

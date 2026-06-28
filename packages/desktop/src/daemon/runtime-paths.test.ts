@@ -61,6 +61,8 @@ describe("runtime-paths", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    delete process.env.npm_node_execpath;
+    delete process.env.NODE_BINARY;
     setProcessRuntime({
       platform: originalPlatform,
       execPath: originalExecPath,
@@ -72,5 +74,22 @@ describe("runtime-paths", () => {
     expect(resolveNodeExecPath()).toBe(
       "/Applications/Doya.app/Contents/Frameworks/Doya Helper.app/Contents/MacOS/Doya Helper",
     );
+  });
+
+  it("uses npm's Node executable for development daemon node launches", () => {
+    mocks.app.isPackaged = false;
+    process.env.npm_node_execpath = "/opt/homebrew/bin/node";
+    mocks.existsSync.mockImplementation((value) => value === "/opt/homebrew/bin/node");
+
+    expect(resolveNodeExecPath()).toBe("/opt/homebrew/bin/node");
+  });
+
+  it("falls back to node on PATH for development daemon node launches", () => {
+    mocks.app.isPackaged = false;
+    process.env.npm_node_execpath = "/missing/node";
+    process.env.NODE_BINARY = "/also-missing/node";
+    mocks.existsSync.mockReturnValue(false);
+
+    expect(resolveNodeExecPath()).toBe("node");
   });
 });

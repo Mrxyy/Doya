@@ -37,8 +37,6 @@ export function createElectronNodeEnv(
 export function createNodeEntrypointInvocation(
   input: CreateNodeEntrypointInvocationInput,
 ): NodeEntrypointInvocation {
-  const env = createElectronNodeEnv(input.baseEnv, { isPackaged: input.isPackaged });
-
   if (input.isPackaged) {
     if (!input.packagedRunnerPath) {
       throw new Error("Packaged node entrypoint runner is required for desktop launches.");
@@ -53,13 +51,13 @@ export function createNodeEntrypointInvocation(
         input.entrypoint.entryPath,
         ...input.args,
       ],
-      env,
+      env: createElectronNodeEnv(input.baseEnv, { isPackaged: true }),
     };
   }
 
   return {
     command: input.execPath,
     args: [...input.entrypoint.execArgv, input.entrypoint.entryPath, ...input.args],
-    env,
+    env: { ...input.baseEnv },
   };
 }

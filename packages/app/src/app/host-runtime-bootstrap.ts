@@ -1,7 +1,7 @@
 import type { ActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import type { DaemonStartResult } from "@/runtime/daemon-start-service";
 import type { Href } from "expo-router";
-import { buildHostRootRoute } from "@/utils/host-routes";
+import { buildHostRootRoute, buildHostWorkspaceRoute } from "@/utils/host-routes";
 
 export interface HostRuntimeBootstrapStore {
   boot: () => void;
@@ -94,8 +94,9 @@ export function resolveStartupRedirectRoute(input: ResolveStartupRedirectInput):
   }
 
   if (input.anyOnlineHostServerId) {
-    if (resolveStartupWorkspaceSelection(input)) {
-      return null;
+    const workspaceSelection = resolveStartupWorkspaceSelection(input);
+    if (workspaceSelection) {
+      return buildHostWorkspaceRoute(workspaceSelection.serverId, workspaceSelection.workspaceId);
     }
     return buildHostRootRoute(input.anyOnlineHostServerId);
   }

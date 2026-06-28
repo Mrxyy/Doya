@@ -57,7 +57,6 @@ describe("node-entrypoint-launcher", () => {
         args: ["--import", "tsx", "/tmp/doya-cli.js", "ls"],
         env: {
           PATH: "/usr/bin",
-          ELECTRON_RUN_AS_NODE: "1",
         },
       });
     });

@@ -151,14 +151,14 @@ describe("resolveStartupRedirectRoute", () => {
   });
 
   describe("scenario: saved-host-online", () => {
-    it("leaves matching persisted workspace navigation to the workspace navigator", () => {
+    it("redirects to the persisted workspace when the online host matches it", () => {
       const route = resolveStartupRedirectRoute({
         ...baseInput,
         anyOnlineHostServerId: "server-1",
         workspaceSelection: { serverId: "server-1", workspaceId: "workspace-a" },
       });
 
-      expect(route).toBeNull();
+      expect(route).toBe("/h/server-1/workspace/workspace-a");
     });
 
     it("resolves the persisted workspace when the online host matches it", () => {
@@ -171,14 +171,14 @@ describe("resolveStartupRedirectRoute", () => {
       expect(selection).toEqual({ serverId: "server-1", workspaceId: "workspace-a" });
     });
 
-    it("leaves persisted workspace navigation to the workspace navigator when another host is first online", () => {
+    it("redirects to the persisted workspace when another host is first online", () => {
       const route = resolveStartupRedirectRoute({
         ...baseInput,
         anyOnlineHostServerId: "server-2",
         workspaceSelection: { serverId: "server-1", workspaceId: "workspace-a" },
       });
 
-      expect(route).toBeNull();
+      expect(route).toBe("/h/server-1/workspace/workspace-a");
     });
 
     it("resolves the persisted workspace when another host is first online", () => {
@@ -213,14 +213,14 @@ describe("resolveStartupRedirectRoute", () => {
   });
 
   describe("scenario: both-succeed", () => {
-    it("leaves matching persisted workspace navigation to the workspace navigator", () => {
+    it("redirects to the persisted workspace", () => {
       const route = resolveStartupRedirectRoute({
         ...baseInput,
         anyOnlineHostServerId: "server-saved",
         workspaceSelection: { serverId: "server-saved", workspaceId: "workspace-a" },
       });
 
-      expect(route).toBeNull();
+      expect(route).toBe("/h/server-saved/workspace/workspace-a");
     });
   });
 

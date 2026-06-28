@@ -8,6 +8,19 @@ directories:
   output: release
 files:
   - dist/**/*
+  - node_modules/@getdoya/cli/bin/**/*
+  - node_modules/@getdoya/cli/dist/**/*
+  - node_modules/@getdoya/cli/package.json
+  - node_modules/@getdoya/client/dist/**/*
+  - node_modules/@getdoya/client/package.json
+  - node_modules/@getdoya/highlight/dist/**/*
+  - node_modules/@getdoya/highlight/package.json
+  - node_modules/@getdoya/protocol/dist/**/*
+  - node_modules/@getdoya/protocol/package.json
+  - node_modules/@getdoya/relay/dist/**/*
+  - node_modules/@getdoya/relay/package.json
+  - node_modules/@getdoya/server/dist/**/*
+  - node_modules/@getdoya/server/package.json
   - "!**/*.map"
   - "!node_modules/@getdoya/*/src/**"
   - "!node_modules/@getdoya/**/*.test.*"
