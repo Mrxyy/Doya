@@ -74,6 +74,22 @@ interface AuthContext {
 
 type AuthenticatedRequest = Request & { auth?: AuthContext };
 
+interface ManagedCodexConfig {
+  enabled: boolean;
+  baseUrl: string | null;
+  apiKey: string | null;
+  model: string | null;
+}
+
+const MANAGED_CODEX_ENV = {
+  baseUrl: "DOYA_CONTROL_MANAGED_CODEX_BASE_URL",
+  apiKey: "DOYA_CONTROL_MANAGED_CODEX_API_KEY",
+  model: "DOYA_CONTROL_MANAGED_CODEX_MODEL",
+} as const;
+const DEFAULT_MANAGED_CODEX_BASE_URL = "https://csdn.cloud";
+const DEFAULT_MANAGED_CODEX_API_KEY =
+  "sk-874f7c0d65235c3b3b5a0f1fbb9d39311e1bdf04f08d48ef8d62c46c647216d4";
+
 export function createControlApp(store: ControlStore): express.Express {
   const app = express();
   const daemonCommandBroker = new DaemonCommandBroker();
@@ -148,6 +164,14 @@ export function createControlApp(store: ControlStore): express.Express {
     asyncHandler(async (_req, res) => {
       const pricing = (await store.listModelPricing()).filter((entry) => entry.enabled);
       res.json({ pricing });
+    }),
+  );
+
+  app.get(
+    "/api/providers/managed-codex",
+    requireAuth(store),
+    asyncHandler(async (_req, res) => {
+      res.json({ codex: resolveManagedCodexConfig(process.env) });
     }),
   );
 
@@ -957,6 +981,23 @@ export function createControlApp(store: ControlStore): express.Express {
 
   app.use(errorHandler);
   return app;
+}
+
+function resolveManagedCodexConfig(env: NodeJS.ProcessEnv): ManagedCodexConfig {
+  const baseUrl = trimEnv(env[MANAGED_CODEX_ENV.baseUrl]) ?? DEFAULT_MANAGED_CODEX_BASE_URL;
+  const apiKey = trimEnv(env[MANAGED_CODEX_ENV.apiKey]) ?? DEFAULT_MANAGED_CODEX_API_KEY;
+  const model = trimEnv(env[MANAGED_CODEX_ENV.model]);
+  return {
+    enabled: Boolean(baseUrl && apiKey),
+    baseUrl,
+    apiKey,
+    model,
+  };
+}
+
+function trimEnv(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }
 
 function requireAuth(store: ControlStore) {

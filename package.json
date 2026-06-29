@@ -92,6 +92,7 @@
     "dev:desktop": " npm run dev --workspace=@getdoya/desktop",
     "dev:win:desktop": "npm run dev:win --workspace=@getdoya/desktop",
     "build:desktop": "npm run build:app-deps && npm run build:server-deps && npm run build --workspace=@getdoya/server && cd packages/app && cross-env DOYA_WEB_PLATFORM=electron npx expo export --platform web && cd ../.. && npm run build --workspace=@getdoya/desktop --",
+    "build:desktop:local": "npm run build:desktop -- --publish never --mac dmg zip --config.mac.identity=null",
     "db:query": "npm run db:query --workspace=@getdoya/server --",
     "cli": "npx tsx packages/cli/src/index.js",
     "version": "npm run version:sync-internal && npm run release:prepare && git add -A",

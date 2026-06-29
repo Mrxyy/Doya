@@ -241,6 +241,59 @@ requires_openai_auth = false
 
 ---
 
+## Managed Codex via sub2api
+
+Desktop-managed daemons can also receive a Doya-managed Codex configuration from
+the control service. This is intended for hosted/account flows where Doya Control
+assigns a user/session token and an OpenAI-compatible base URL, but Doya's own AI
+Gateway is not yet implemented. For now, point the base URL at a sub2api
+deployment.
+
+```bash
+DOYA_CONTROL_MANAGED_CODEX_BASE_URL=https://sub2api.example.com
+DOYA_CONTROL_MANAGED_CODEX_API_KEY=doya-runtime-token
+DOYA_CONTROL_MANAGED_CODEX_MODEL=gpt-5-codex
+```
+
+The app reads this via `GET /api/providers/managed-codex` and passes the result
+to the desktop-managed daemon. When the built-in `codex` provider launches, Doya
+maps it to Codex's runtime:
+
+- `DOYA_MANAGED_CODEX_BASE_URL` becomes `OPENAI_BASE_URL` and a Codex
+  `model_providers.doya-managed-codex.base_url` entry.
+- `DOYA_MANAGED_CODEX_API_KEY` becomes `OPENAI_API_KEY`; Codex receives
+  `env_key = "OPENAI_API_KEY"` and `requires_openai_auth = false`.
+- `DOYA_MANAGED_CODEX_MODEL` is optional and becomes the default model for new
+  built-in Codex sessions.
+
+The intended production ownership is:
+
+1. Doya Control authenticates the user and chooses plan/quota.
+2. Doya Control provisions or mints the user's sub2api/runtime token.
+3. Doya Desktop fetches the managed Codex config from Control and passes it to
+   the local daemon.
+4. The daemon starts Codex with the injected base URL and token.
+5. Codex talks to sub2api using the OpenAI-compatible Responses API.
+
+Do not put a shared upstream OpenAI key in the desktop app or repo. The API key
+value should be per-user or short-lived, revocable, and quota-controlled by the
+control/sub2api side.
+
+Advanced users can still override the binary or endpoint with normal provider
+configuration. Custom providers that extend `"codex"` keep using their explicit
+`env`/`command` and are not overwritten by the managed built-in Codex settings.
+
+Desktop production builds run `packages/desktop/scripts/prepare-bundled-codex.js`
+before `electron-builder`. The script copies the platform-specific Codex vendor
+runtime from `DOYA_CODEX_VENDOR_DIR`, `DOYA_CODEX_BINARY_SOURCE`, the desktop
+workspace's `@openai/codex` dependency, or finally the `codex` on the build
+machine's `PATH` into `packages/desktop/.generated/codex`, which is then
+packaged under the app's `Resources/codex` directory. At runtime, packaged
+desktop daemons prefer that bundled executable before falling back to the user's
+`PATH`.
+
+---
+
 ## Multiple profiles for the same provider
 
 You can create multiple entries that extend the same built-in provider. Each gets its own entry in the provider list with independent credentials, models, and environment.

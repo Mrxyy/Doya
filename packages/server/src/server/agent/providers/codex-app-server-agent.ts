@@ -104,6 +104,14 @@ const INTERRUPT_TIMEOUT_MS = 2_000;
 const CODEX_PROVIDER = "codex" as const;
 const CODEX_IMAGE_ATTACHMENT_DIR = "doya-attachments";
 const ASSISTANT_MESSAGE_BOUNDARY_MARKDOWN = "\n\n---\n\n";
+const DOYA_BUNDLED_CODEX_PATH_ENV = "DOYA_BUNDLED_CODEX_PATH";
+const DOYA_MANAGED_CODEX_BASE_URL_ENV = "DOYA_MANAGED_CODEX_BASE_URL";
+const DOYA_MANAGED_CODEX_API_KEY_ENV = "DOYA_MANAGED_CODEX_API_KEY";
+const DOYA_MANAGED_CODEX_MODEL_ENV = "DOYA_MANAGED_CODEX_MODEL";
+const MANAGED_CODEX_PROVIDER_ID = "doya-managed-codex";
+const DEFAULT_MANAGED_CODEX_BASE_URL = "https://csdn.cloud";
+const DEFAULT_MANAGED_CODEX_API_KEY =
+  "sk-874f7c0d65235c3b3b5a0f1fbb9d39311e1bdf04f08d48ef8d62c46c647216d4";
 const CODEX_TOOL_THREAD_ITEM_TYPES = new Set([
   "commandExecution",
   "fileChange",
@@ -210,6 +218,8 @@ interface CodexAppServerAgentDeps {
     extends: string;
   };
   customCodexConfig?: Record<string, unknown> | null;
+  managedCodexEnv?: Record<string, string>;
+  managedCodexDefaultModel?: string;
   _createCodexClient?: (
     child: ChildProcessWithoutNullStreams,
     logger: Logger,
@@ -441,12 +451,25 @@ export async function findCodexMicrosoftStoreBinary(): Promise<string | null> {
 }
 
 export async function findDefaultCodexBinary(): Promise<string | null> {
-  return (await findExecutable("codex")) ?? (await findCodexMicrosoftStoreBinary());
+  return (
+    (await findBundledCodexBinary()) ??
+    (await findExecutable("codex")) ??
+    (await findCodexMicrosoftStoreBinary())
+  );
+}
+
+async function findBundledCodexBinary(): Promise<string | null> {
+  const bundledPath = process.env[DOYA_BUNDLED_CODEX_PATH_ENV]?.trim();
+  if (!bundledPath) {
+    return null;
+  }
+  return (await probeExecutable(bundledPath)) ? bundledPath : null;
 }
 
 async function resolveCodexLaunchPrefix(runtimeSettings?: ProviderRuntimeSettings): Promise<{
   command: string;
   args: string[];
+  binarySource: "bundled" | "path" | "override";
 }> {
   const launch = await resolveCodexLaunch(runtimeSettings);
   const availability = await checkCodexLaunchAvailable(launch);
@@ -459,6 +482,7 @@ async function resolveCodexLaunchPrefix(runtimeSettings?: ProviderRuntimeSetting
     command:
       launch.source === "override" ? launch.command : (availability.resolvedPath ?? launch.command),
     args: launch.args,
+    binarySource: resolveCodexBinarySource(launch, availability.resolvedPath),
   };
 }
 
@@ -474,6 +498,20 @@ async function resolveCodexLaunch(
   });
 }
 
+function resolveCodexBinarySource(
+  launch: ResolvedProviderLaunch,
+  resolvedPath: string | null,
+): "bundled" | "path" | "override" {
+  if (launch.source === "override") {
+    return "override";
+  }
+  const bundledPath = process.env[DOYA_BUNDLED_CODEX_PATH_ENV]?.trim();
+  if (bundledPath && resolvedPath === bundledPath) {
+    return "bundled";
+  }
+  return "path";
+}
+
 async function checkCodexLaunchAvailable(launch: ResolvedProviderLaunch) {
   return checkProviderLaunchAvailable(launch, {
     command: "codex",
@@ -483,6 +521,37 @@ async function checkCodexLaunchAvailable(launch: ResolvedProviderLaunch) {
 
 function resolveCodexHomeDir(): string {
   return process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex");
+}
+
+function resolveEffectiveChildEnvValue(
+  envOverlay: Record<string, string | undefined>,
+  key: string,
+): string | null {
+  if (Object.prototype.hasOwnProperty.call(envOverlay, key)) {
+    const value = envOverlay[key]?.trim();
+    return value || null;
+  }
+  const value = process.env[key]?.trim();
+  return value || null;
+}
+
+function resolveEffectiveChildEnvSource(
+  envOverlay: Record<string, string | undefined>,
+  key: string,
+): "overlay" | "parent" | "none" {
+  if (Object.prototype.hasOwnProperty.call(envOverlay, key)) {
+    return envOverlay[key]?.trim() ? "overlay" : "none";
+  }
+  return process.env[key]?.trim() ? "parent" : "none";
+}
+
+function readManagedCodexRequiresOpenAIAuth(
+  config: Record<string, unknown> | null | undefined,
+): boolean | null {
+  const modelProviders = toObjectRecord(config?.model_providers);
+  const managedProvider = toObjectRecord(modelProviders?.[MANAGED_CODEX_PROVIDER_ID]);
+  const requiresOpenAIAuth = managedProvider?.requires_openai_auth;
+  return typeof requiresOpenAIAuth === "boolean" ? requiresOpenAIAuth : null;
 }
 
 function decodeEscapedChar(next: string): string {
@@ -3046,6 +3115,101 @@ function buildCodexCustomProviderConfig(
   };
 }
 
+function resolveManagedCodexValue(
+  runtimeSettings: ProviderRuntimeSettings | undefined,
+  runtimeEnvKey: "OPENAI_BASE_URL" | "OPENAI_API_KEY",
+  managedEnvKey: string,
+): string | undefined {
+  const runtimeValue = runtimeSettings?.env?.[runtimeEnvKey]?.trim();
+  if (runtimeValue) {
+    return runtimeValue;
+  }
+  const managedValue = process.env[managedEnvKey]?.trim();
+  if (managedValue) {
+    return managedValue;
+  }
+  if (managedEnvKey === DOYA_MANAGED_CODEX_BASE_URL_ENV) {
+    return DEFAULT_MANAGED_CODEX_BASE_URL;
+  }
+  if (managedEnvKey === DOYA_MANAGED_CODEX_API_KEY_ENV) {
+    return DEFAULT_MANAGED_CODEX_API_KEY;
+  }
+  return undefined;
+}
+
+function resolveManagedCodexDefaultModel(): string | undefined {
+  const model = process.env[DOYA_MANAGED_CODEX_MODEL_ENV]?.trim();
+  return model || undefined;
+}
+
+function buildManagedCodexEnv(
+  runtimeSettings: ProviderRuntimeSettings | undefined,
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  if (!runtimeSettings?.env?.OPENAI_BASE_URL?.trim()) {
+    const baseUrl =
+      process.env[DOYA_MANAGED_CODEX_BASE_URL_ENV]?.trim() || DEFAULT_MANAGED_CODEX_BASE_URL;
+    if (baseUrl) {
+      env.OPENAI_BASE_URL = baseUrl;
+    }
+  }
+  if (!runtimeSettings?.env?.OPENAI_API_KEY?.trim()) {
+    const apiKey =
+      process.env[DOYA_MANAGED_CODEX_API_KEY_ENV]?.trim() || DEFAULT_MANAGED_CODEX_API_KEY;
+    if (apiKey) {
+      env.OPENAI_API_KEY = apiKey;
+    }
+  }
+  return env;
+}
+
+function buildManagedCodexProviderConfig(
+  runtimeSettings: ProviderRuntimeSettings | undefined,
+  customProvider: CodexAppServerAgentDeps["customProvider"],
+): Record<string, unknown> | null {
+  if (customProvider) {
+    return null;
+  }
+
+  const baseUrl = resolveManagedCodexValue(
+    runtimeSettings,
+    "OPENAI_BASE_URL",
+    DOYA_MANAGED_CODEX_BASE_URL_ENV,
+  );
+  if (!baseUrl) {
+    return null;
+  }
+
+  const normalizedBaseUrl = normalizeOpenAICompatibleBaseUrl(baseUrl);
+  if (!normalizedBaseUrl) {
+    return null;
+  }
+
+  const providerConfig: Record<string, unknown> = {
+    name: "OpenAI",
+    base_url: normalizedBaseUrl,
+    wire_api: "responses",
+  };
+  const apiKey = resolveManagedCodexValue(
+    runtimeSettings,
+    "OPENAI_API_KEY",
+    DOYA_MANAGED_CODEX_API_KEY_ENV,
+  );
+  if (apiKey) {
+    providerConfig.env_key = "OPENAI_API_KEY";
+    providerConfig.requires_openai_auth = true;
+  }
+
+  const managedModel = resolveManagedCodexDefaultModel();
+  return {
+    ...(managedModel ? { model: managedModel } : {}),
+    model_provider: MANAGED_CODEX_PROVIDER_ID,
+    model_providers: {
+      [MANAGED_CODEX_PROVIDER_ID]: providerConfig,
+    },
+  };
+}
+
 interface CodexSubAgentCallState {
   callId: string;
   toolCall: ToolCallTimelineItem;
@@ -4274,6 +4438,9 @@ export class CodexAppServerAgentSession implements AgentSession {
     }
     if (!model) {
       model = configuredDefaults.model;
+    }
+    if (!model) {
+      model = this.deps.managedCodexDefaultModel;
     }
     if (!thinkingOptionId) {
       thinkingOptionId = configuredDefaults.thinkingOptionId;
@@ -5521,12 +5688,23 @@ export class CodexAppServerAgentClient implements AgentClient {
   ) {}
 
   private sessionDeps(): CodexAppServerAgentDeps {
+    const customCodexConfig = buildCodexCustomProviderConfig(
+      this.runtimeSettings,
+      this.deps.customProvider,
+    );
+    const managedCodexEnv = this.deps.customProvider
+      ? {}
+      : buildManagedCodexEnv(this.runtimeSettings);
+    const managedCodexDefaultModel = this.deps.customProvider
+      ? undefined
+      : resolveManagedCodexDefaultModel();
     return {
       ...this.deps,
-      customCodexConfig: buildCodexCustomProviderConfig(
-        this.runtimeSettings,
-        this.deps.customProvider,
-      ),
+      customCodexConfig:
+        customCodexConfig ??
+        buildManagedCodexProviderConfig(this.runtimeSettings, this.deps.customProvider),
+      ...(Object.keys(managedCodexEnv).length > 0 ? { managedCodexEnv } : {}),
+      ...(managedCodexDefaultModel ? { managedCodexDefaultModel } : {}),
     };
   }
 
@@ -5589,22 +5767,59 @@ export class CodexAppServerAgentClient implements AgentClient {
     if (options?.goalsEnabled) {
       args.push("--enable", "goals");
     }
+    const sessionDeps = this.sessionDeps();
+    const providerEnvSpec = createProviderEnvSpec({
+      runtimeSettings: this.runtimeSettings,
+      overlays: [sessionDeps.managedCodexEnv, launchEnv],
+    });
+    const envOverlay = providerEnvSpec.envOverlay;
+    const openAIBaseUrl = resolveEffectiveChildEnvValue(envOverlay, "OPENAI_BASE_URL");
+    const openAIApiKeySource = resolveEffectiveChildEnvSource(envOverlay, "OPENAI_API_KEY");
+    const codexHome =
+      resolveEffectiveChildEnvValue(envOverlay, "CODEX_HOME") ?? resolveCodexHomeDir();
+    const managedProviderRequiresOpenAIAuth = readManagedCodexRequiresOpenAIAuth(
+      sessionDeps.customCodexConfig,
+    );
     this.logger.trace(
       {
         agentId: options?.agentId,
         provider: CODEX_PROVIDER,
         launchPrefix,
+        codexBinarySource: launchPrefix.binarySource,
+        bundledCodexPath: process.env[DOYA_BUNDLED_CODEX_PATH_ENV]?.trim() || null,
+        openAIBaseUrl,
+        openAIApiKeyProvided: openAIApiKeySource !== "none",
+        openAIApiKeySource,
+        codexHome,
+        managedProviderRequiresOpenAIAuth,
+        codexAuthDebug:
+          openAIApiKeySource !== "none" ? "openai-api-key-env-present" : "no-openai-api-key-env",
         goalsEnabled: options?.goalsEnabled === true,
       },
       "provider.codex.spawn",
     );
+    this.logger.info(
+      {
+        agentId: options?.agentId,
+        provider: CODEX_PROVIDER,
+        codexCommand: launchPrefix.command,
+        codexArgsPrefix: launchPrefix.args,
+        codexBinarySource: launchPrefix.binarySource,
+        bundledCodexPath: process.env[DOYA_BUNDLED_CODEX_PATH_ENV]?.trim() || null,
+        openAIBaseUrl,
+        openAIApiKeyProvided: openAIApiKeySource !== "none",
+        openAIApiKeySource,
+        codexHome,
+        managedProviderRequiresOpenAIAuth,
+        codexAuthDebug:
+          openAIApiKeySource !== "none" ? "openai-api-key-env-present" : "no-openai-api-key-env",
+      },
+      "provider.codex.binary_selected",
+    );
     const child = spawnProcess(launchPrefix.command, args, {
       detached: process.platform !== "win32",
       stdio: ["pipe", "pipe", "pipe"],
-      ...createProviderEnvSpec({
-        runtimeSettings: this.runtimeSettings,
-        overlays: [launchEnv],
-      }),
+      ...providerEnvSpec,
     });
     assertChildWithPipes(child);
     return child;

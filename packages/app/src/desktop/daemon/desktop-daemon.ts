@@ -31,9 +31,16 @@ export type DesktopDaemonControlRegistrationInput =
       accessToken: string;
     };
 
+export interface DesktopDaemonManagedCodexInput {
+  baseUrl: string;
+  apiKey: string;
+  model?: string | null;
+}
+
 export interface StartDesktopDaemonOptions {
   [key: string]: unknown;
   control?: DesktopDaemonControlRegistrationInput;
+  managedCodex?: DesktopDaemonManagedCodexInput;
 }
 
 export interface DesktopPairingOffer {

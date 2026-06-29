@@ -1,4 +1,7 @@
 import { EventEmitter } from "node:events";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_DESKTOP_SETTINGS } from "../settings/desktop-settings";
@@ -15,10 +18,12 @@ const mocks = vi.hoisted(() => ({
   runExternalCliJsonCommand: vi.fn(),
   runExternalCliTextCommand: vi.fn(),
   spawnProcess: vi.fn(),
+  appPath: "/Users/test/doya/packages/desktop",
 }));
 
 vi.mock("electron", () => ({
   app: {
+    getAppPath: vi.fn(() => mocks.appPath),
     getPath: vi.fn(() => "/tmp/doya-user-data"),
     getVersion: vi.fn(() => "1.2.3"),
     isPackaged: false,
@@ -71,6 +76,16 @@ function desktopSettingsWithManagement(enabled: boolean) {
   };
 }
 
+function currentCodexTargetTriple(): string {
+  if (process.platform === "darwin" && process.arch === "arm64") return "aarch64-apple-darwin";
+  if (process.platform === "darwin" && process.arch === "x64") return "x86_64-apple-darwin";
+  if (process.platform === "linux" && process.arch === "arm64") return "aarch64-unknown-linux-musl";
+  if (process.platform === "linux" && process.arch === "x64") return "x86_64-unknown-linux-musl";
+  if (process.platform === "win32" && process.arch === "arm64") return "aarch64-pc-windows-msvc";
+  if (process.platform === "win32" && process.arch === "x64") return "x86_64-pc-windows-msvc";
+  return "unsupported";
+}
+
 type MockChildProcess = EventEmitter & {
   stdout: EventEmitter;
   stderr: EventEmitter;
@@ -102,10 +117,12 @@ function scheduleFailedStartupOutput(child: MockChildProcess): void {
 describe("daemon-manager commands", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     mocks.settings = DEFAULT_DESKTOP_SETTINGS;
     mocks.runExternalCliJsonCommand.mockReset();
     mocks.runExternalCliTextCommand.mockReset();
     mocks.spawnProcess.mockReset();
+    mocks.appPath = "/Users/test/doya/packages/desktop";
   });
 
   it("refuses start and restart while built-in daemon management is disabled", async () => {
@@ -373,6 +390,124 @@ describe("daemon-manager commands", () => {
           DOYA_CONTROL_API_URL: "https://control.example.test",
           DOYA_CONTROL_USER_ID: "user_123",
           DOYA_CONTROL_TOKEN: "token_abc",
+        },
+      }),
+    );
+  });
+
+  it("passes managed Codex settings to the detached daemon process", async () => {
+    vi.stubEnv("DOYA_BUNDLED_CODEX_PATH", "/Applications/Doya.app/Contents/Resources/bin/codex");
+    vi.stubEnv("DOYA_MANAGED_CODEX_BASE_URL", "https://sub2api.example.com");
+    vi.stubEnv("DOYA_MANAGED_CODEX_API_KEY", "doya-runtime-token");
+    vi.stubEnv("DOYA_MANAGED_CODEX_MODEL", "managed-codex-model");
+    mocks.runExternalCliJsonCommand.mockResolvedValue({
+      localDaemon: "stopped",
+      connectedDaemon: "unreachable",
+      serverId: "",
+    });
+    mocks.spawnProcess.mockImplementation(() => {
+      const child = createMockChildProcess();
+      scheduleFailedStartupOutput(child);
+      return child;
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(handlers.start_desktop_daemon()).rejects.toThrow("Daemon failed to start");
+
+    expect(mocks.spawnProcess).toHaveBeenCalledWith(
+      "node",
+      [],
+      expect.objectContaining({
+        envOverlay: {
+          DOYA_DESKTOP_MANAGED: "1",
+          DOYA_BUNDLED_CODEX_PATH: "/Applications/Doya.app/Contents/Resources/bin/codex",
+          DOYA_MANAGED_CODEX_BASE_URL: "https://sub2api.example.com",
+          DOYA_MANAGED_CODEX_API_KEY: "doya-runtime-token",
+          DOYA_MANAGED_CODEX_MODEL: "managed-codex-model",
+        },
+      }),
+    );
+  });
+
+  it("uses the prepared bundled Codex path in development mode", async () => {
+    const tempDir = mkdtempSync(path.join(tmpdir(), "doya-desktop-codex-"));
+    const codexPath = path.join(
+      tempDir,
+      ".generated",
+      "codex",
+      currentCodexTargetTriple(),
+      "bin",
+      process.platform === "win32" ? "codex.exe" : "codex",
+    );
+    mkdirSync(path.dirname(codexPath), { recursive: true });
+    writeFileSync(codexPath, "#!/bin/sh\n");
+    chmodSync(codexPath, 0o755);
+    mocks.appPath = tempDir;
+    mocks.runExternalCliJsonCommand.mockResolvedValue({
+      localDaemon: "stopped",
+      connectedDaemon: "unreachable",
+      serverId: "",
+    });
+    mocks.spawnProcess.mockImplementation(() => {
+      const child = createMockChildProcess();
+      scheduleFailedStartupOutput(child);
+      return child;
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    try {
+      await expect(handlers.start_desktop_daemon()).rejects.toThrow("Daemon failed to start");
+
+      expect(mocks.spawnProcess).toHaveBeenCalledWith(
+        "node",
+        [],
+        expect.objectContaining({
+          envOverlay: {
+            DOYA_DESKTOP_MANAGED: "1",
+            DOYA_BUNDLED_CODEX_PATH: codexPath,
+          },
+        }),
+      );
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("prefers managed Codex start arguments over process environment", async () => {
+    vi.stubEnv("DOYA_MANAGED_CODEX_BASE_URL", "https://env-sub2api.example.com");
+    vi.stubEnv("DOYA_MANAGED_CODEX_API_KEY", "env-token");
+    vi.stubEnv("DOYA_MANAGED_CODEX_MODEL", "env-model");
+    mocks.runExternalCliJsonCommand.mockResolvedValue({
+      localDaemon: "stopped",
+      connectedDaemon: "unreachable",
+      serverId: "",
+    });
+    mocks.spawnProcess.mockImplementation(() => {
+      const child = createMockChildProcess();
+      scheduleFailedStartupOutput(child);
+      return child;
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(
+      handlers.start_desktop_daemon({
+        managedCodex: {
+          baseUrl: "https://control-sub2api.example.com",
+          apiKey: "control-token",
+          model: "control-model",
+        },
+      }),
+    ).rejects.toThrow("Daemon failed to start");
+
+    expect(mocks.spawnProcess).toHaveBeenCalledWith(
+      "node",
+      [],
+      expect.objectContaining({
+        envOverlay: {
+          DOYA_DESKTOP_MANAGED: "1",
+          DOYA_MANAGED_CODEX_BASE_URL: "https://control-sub2api.example.com",
+          DOYA_MANAGED_CODEX_API_KEY: "control-token",
+          DOYA_MANAGED_CODEX_MODEL: "control-model",
         },
       }),
     );

@@ -221,6 +221,109 @@ process.stdin.on("data", (chunk) => {
   }
 }
 
+async function runManagedCodexProviderTurn(input: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}): Promise<CapturedFakeCodexRecord[]> {
+  const tempDir = await mkdtemp(path.join(tmpdir(), "codex-managed-provider-"));
+  const fakeAppServerPath = path.join(tempDir, "fake-managed-codex-app-server.cjs");
+  const capturedRequestsPath = path.join(tempDir, "requests.jsonl");
+  writeFileSync(
+    fakeAppServerPath,
+    `
+const fs = require("node:fs");
+
+const capturePath = process.env.DOYA_FAKE_CODEX_CAPTURE;
+let buffer = "";
+
+fs.appendFileSync(capturePath, JSON.stringify({
+  kind: "env",
+  OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+}) + "\\n");
+
+function record(method, params) {
+  fs.appendFileSync(capturePath, JSON.stringify({ kind: "request", method, params }) + "\\n");
+}
+
+function resultFor(method) {
+  if (method === "initialize") return {};
+  if (method === "collaborationMode/list") return { data: [] };
+  if (method === "skills/list") return { data: [] };
+  if (method === "config/read") return { config: {} };
+  if (method === "getUserSavedConfig") return { config: {} };
+  if (method === "model/list") return { data: [{ id: ${JSON.stringify(input.model)}, isDefault: true }] };
+  if (method === "thread/start") return { thread: { id: "thread-1" } };
+  if (method === "turn/start") return {};
+  return {};
+}
+
+process.stdin.on("data", (chunk) => {
+  buffer += chunk.toString();
+  for (;;) {
+    const newlineIndex = buffer.indexOf("\\n");
+    if (newlineIndex === -1) break;
+    const line = buffer.slice(0, newlineIndex).trim();
+    buffer = buffer.slice(newlineIndex + 1);
+    if (!line) continue;
+    const message = JSON.parse(line);
+    record(message.method, message.params);
+    process.stdout.write(JSON.stringify({ id: message.id, result: resultFor(message.method) }) + "\\n");
+  }
+});
+`,
+  );
+
+  const previousBaseUrl = process.env.DOYA_MANAGED_CODEX_BASE_URL;
+  const previousApiKey = process.env.DOYA_MANAGED_CODEX_API_KEY;
+  const previousModel = process.env.DOYA_MANAGED_CODEX_MODEL;
+  process.env.DOYA_MANAGED_CODEX_BASE_URL = input.baseUrl;
+  process.env.DOYA_MANAGED_CODEX_API_KEY = input.apiKey;
+  process.env.DOYA_MANAGED_CODEX_MODEL = input.model;
+
+  const client = new CodexAppServerAgentClient(createTestLogger(), {
+    command: { mode: "replace", argv: [process.execPath, fakeAppServerPath] },
+    env: {
+      DOYA_FAKE_CODEX_CAPTURE: capturedRequestsPath,
+    },
+  });
+
+  try {
+    const session = await client.createSession({
+      provider: CODEX_PROVIDER,
+      cwd: "/workspace/project",
+      modeId: "auto",
+    });
+    try {
+      await session.startTurn("use managed codex");
+      return readFileSync(capturedRequestsPath, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line) as CapturedFakeCodexRecord);
+    } finally {
+      await session.close();
+    }
+  } finally {
+    if (previousBaseUrl === undefined) {
+      delete process.env.DOYA_MANAGED_CODEX_BASE_URL;
+    } else {
+      process.env.DOYA_MANAGED_CODEX_BASE_URL = previousBaseUrl;
+    }
+    if (previousApiKey === undefined) {
+      delete process.env.DOYA_MANAGED_CODEX_API_KEY;
+    } else {
+      process.env.DOYA_MANAGED_CODEX_API_KEY = previousApiKey;
+    }
+    if (previousModel === undefined) {
+      delete process.env.DOYA_MANAGED_CODEX_MODEL;
+    } else {
+      process.env.DOYA_MANAGED_CODEX_MODEL = previousModel;
+    }
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 function capturedThreadStartConfig(records: CapturedFakeCodexRecord[]): unknown {
   const threadStart = records.find((record) => record.method === "thread/start");
   const params = threadStart?.params as Record<string, unknown> | undefined;
@@ -601,6 +704,35 @@ describe("Codex app-server provider", () => {
     });
   });
 
+  test("configures built-in Codex to use managed Doya OpenAI-compatible routing", async () => {
+    const capturedRequests = await runManagedCodexProviderTurn({
+      baseUrl: "https://sub2api.example.com",
+      apiKey: "doya-runtime-token",
+      model: "managed-codex-model",
+    });
+
+    expect(capturedRequests[0]).toEqual({
+      kind: "env",
+      OPENAI_BASE_URL: "https://sub2api.example.com",
+      OPENAI_API_KEY: "doya-runtime-token",
+    });
+    expect(capturedThreadStartConfig(capturedRequests)).toEqual({
+      model: "managed-codex-model",
+      model_provider: "doya-managed-codex",
+      model_providers: {
+        "doya-managed-codex": {
+          name: "OpenAI",
+          base_url: "https://sub2api.example.com/v1",
+          env_key: "OPENAI_API_KEY",
+          requires_openai_auth: true,
+          wire_api: "responses",
+        },
+      },
+    });
+    const threadStart = capturedRequests.find((record) => record.method === "thread/start");
+    expect(threadStart?.params).toMatchObject({ model: "managed-codex-model" });
+  });
+
   test("resumeSession does not replace a persisted Codex thread when app-server resume fails", async () => {
     const threadRequests: string[] = [];
     const appServer = createFakeCodexAppServer({
@@ -638,6 +770,9 @@ describe("Codex app-server provider", () => {
     const provider = new CodexAppServerAgentClient(createTestLogger());
     castInternals<{ goalsEnabledPromise: Promise<boolean> | null }>(provider).goalsEnabledPromise =
       Promise.resolve(false);
+    castInternals<{ autoReviewEnabledPromise: Promise<boolean> | null }>(
+      provider,
+    ).autoReviewEnabledPromise = Promise.resolve(false);
     castInternals<{ spawnAppServer: () => Promise<ChildProcessWithoutNullStreams> }>(
       provider,
     ).spawnAppServer = async () => appServer.child;

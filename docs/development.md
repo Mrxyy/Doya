@@ -35,6 +35,22 @@ instead of a fixed port. The underlying TCP ports are ephemeral — never hardco
 them. (Windows uses `scripts/dev.ps1`, which still binds the daemon to
 `localhost:6767` directly.)
 
+## Local desktop production build
+
+Use the local desktop build script when you need a macOS production-style
+installer without Apple signing credentials:
+
+```bash
+npm run build:desktop:local
+```
+
+This builds the Electron web bundle, skips macOS signing with
+`--config.mac.identity=null`, and validates the generated DMG before finishing.
+If electron-builder creates a DMG that is missing Electron's framework binary,
+the desktop package rebuilds the DMG from the complete unpacked `.app` under
+`packages/desktop/release/mac-*`. CI release builds do not silently repair that
+case; they fail instead so a broken installer is not published.
+
 Local dev disables the hosted relay by default (`DOYA_RELAY_ENABLED=0`) so
 startup does not depend on external network access. Set this when you are
 specifically testing relay behavior:

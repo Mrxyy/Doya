@@ -4,6 +4,7 @@ productName: Doya
 executableName: Doya
 afterPack: ./scripts/after-pack.js
 afterSign: ./scripts/after-sign.js
+afterAllArtifactBuild: ./scripts/after-all-artifact-build.js
 directories:
   output: release
 files:
@@ -48,6 +49,8 @@ mac:
   extraResources:
     - from: bin/doya
       to: bin/doya
+    - from: .generated/codex
+      to: codex
   target:
     - dmg
     - zip
@@ -60,6 +63,8 @@ linux:
   extraResources:
     - from: bin/doya
       to: bin/doya
+    - from: .generated/codex
+      to: codex
   target:
     - AppImage
     - deb
@@ -71,6 +76,8 @@ win:
   extraResources:
     - from: bin/doya.cmd
       to: bin/doya.cmd
+    - from: .generated/codex
+      to: codex
   target:
     - target: nsis
       arch:

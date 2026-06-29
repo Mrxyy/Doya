@@ -246,6 +246,33 @@ Electron wrapper for macOS, Linux, and Windows.
 - Native file access for workspace integration
 - Same WebSocket client as mobile app
 
+### Managed Codex with sub2api
+
+Managed Codex keeps the coding agent process local while routing model traffic
+through an OpenAI-compatible service. Until Doya's own AI Gateway exists, a
+sub2api deployment can occupy that gateway slot:
+
+```text
+Doya Control ── provisions user token / quota ──▶ sub2api
+      │
+      │ managed Codex env
+      ▼
+Doya Desktop ── starts ──▶ local daemon ── starts ──▶ codex app-server
+                                                  │
+                                                  │ OPENAI_BASE_URL + OPENAI_API_KEY
+                                                  ▼
+                                               sub2api ──▶ upstream model providers
+```
+
+The control service reads `DOYA_CONTROL_MANAGED_CODEX_BASE_URL`,
+`DOYA_CONTROL_MANAGED_CODEX_API_KEY`, and optional
+`DOYA_CONTROL_MANAGED_CODEX_MODEL`, then exposes the per-user managed Codex
+config at `GET /api/providers/managed-codex`. The desktop app fetches that
+config and passes it to the managed daemon. The Codex provider maps those values
+into Codex's OpenAI-compatible provider config and child-process environment.
+Control owns token allocation, quota, and revocation; the desktop package must
+not embed a shared upstream model key.
+
 ### `packages/website` — Marketing site
 
 TanStack Router + Cloudflare Workers. Serves doya.sh.

@@ -1,5 +1,5 @@
 import { type ChildProcess } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { app, ipcMain, powerMonitor } from "electron";
 import log from "electron-log/main";
@@ -44,6 +44,12 @@ const STARTUP_POLL_INTERVAL_MS = 200;
 const STARTUP_POLL_MAX_ATTEMPTS = 150;
 const DETACHED_STARTUP_GRACE_MS = 1200;
 const STARTUP_OUTPUT_CAPTURE_LIMIT_CHARS = 64 * 1024;
+const DOYA_BUNDLED_CODEX_PATH_ENV = "DOYA_BUNDLED_CODEX_PATH";
+const MANAGED_CODEX_ENV_KEYS = [
+  "DOYA_MANAGED_CODEX_BASE_URL",
+  "DOYA_MANAGED_CODEX_API_KEY",
+  "DOYA_MANAGED_CODEX_MODEL",
+];
 
 type DesktopDaemonState = "starting" | "running" | "stopped" | "errored";
 
@@ -76,6 +82,11 @@ interface StartDaemonArgs {
     apiBaseUrl?: string;
     userId?: string;
     accessToken?: string;
+  };
+  managedCodex?: {
+    baseUrl?: string;
+    apiKey?: string;
+    model?: string | null;
   };
 }
 
@@ -227,18 +238,27 @@ function resolveDesktopAppVersion(): string {
 }
 
 function parseStartDaemonArgs(args: Record<string, unknown> | undefined): StartDaemonArgs {
-  if (!isRecord(args) || !isRecord(args.control)) {
+  if (!isRecord(args)) {
     return {};
   }
 
-  return {
-    control: {
+  const parsed: StartDaemonArgs = {};
+  if (isRecord(args.control)) {
+    parsed.control = {
       enabled: typeof args.control.enabled === "boolean" ? args.control.enabled : undefined,
       apiBaseUrl: toTrimmedString(args.control.apiBaseUrl) ?? undefined,
       userId: toTrimmedString(args.control.userId) ?? undefined,
       accessToken: toTrimmedString(args.control.accessToken) ?? undefined,
-    },
-  };
+    };
+  }
+  if (isRecord(args.managedCodex)) {
+    parsed.managedCodex = {
+      baseUrl: toTrimmedString(args.managedCodex.baseUrl) ?? undefined,
+      apiKey: toTrimmedString(args.managedCodex.apiKey) ?? undefined,
+      model: toTrimmedString(args.managedCodex.model),
+    };
+  }
+  return parsed;
 }
 
 function buildControlEnvOverlay(args: StartDaemonArgs): Record<string, string> {
@@ -256,6 +276,75 @@ function buildControlEnvOverlay(args: StartDaemonArgs): Record<string, string> {
     DOYA_CONTROL_USER_ID: control.userId,
     DOYA_CONTROL_TOKEN: control.accessToken,
   };
+}
+
+function resolveCodexTargetTriple(): string | null {
+  if (process.platform === "darwin" && process.arch === "arm64") return "aarch64-apple-darwin";
+  if (process.platform === "darwin" && process.arch === "x64") return "x86_64-apple-darwin";
+  if (process.platform === "linux" && process.arch === "arm64") return "aarch64-unknown-linux-musl";
+  if (process.platform === "linux" && process.arch === "x64") return "x86_64-unknown-linux-musl";
+  if (process.platform === "win32" && process.arch === "arm64") return "aarch64-pc-windows-msvc";
+  if (process.platform === "win32" && process.arch === "x64") return "x86_64-pc-windows-msvc";
+  return null;
+}
+
+function resolveBundledCodexPath(): string | null {
+  const explicitPath = process.env[DOYA_BUNDLED_CODEX_PATH_ENV]?.trim();
+  if (explicitPath) {
+    return explicitPath;
+  }
+
+  const binaryName = process.platform === "win32" ? "codex.exe" : "codex";
+  const targetTriple = resolveCodexTargetTriple();
+  const candidates = [
+    ...resolvePackagedBundledCodexCandidatePaths(targetTriple, binaryName),
+    ...(targetTriple
+      ? [path.join(app.getAppPath(), ".generated", "codex", targetTriple, "bin", binaryName)]
+      : []),
+  ];
+  return candidates.find((candidate) => existsSync(candidate)) ?? null;
+}
+
+function resolvePackagedBundledCodexCandidatePaths(
+  targetTriple: string | null,
+  binaryName: string,
+): string[] {
+  if (!app.isPackaged) {
+    return [];
+  }
+
+  return [
+    ...(targetTriple
+      ? [path.join(process.resourcesPath, "codex", targetTriple, "bin", binaryName)]
+      : []),
+    path.join(process.resourcesPath, "bin", binaryName),
+  ];
+}
+
+function buildManagedCodexEnvOverlay(args: StartDaemonArgs): Record<string, string> {
+  const overlay: Record<string, string> = {};
+  const bundledCodexPath = resolveBundledCodexPath();
+  if (bundledCodexPath) {
+    overlay[DOYA_BUNDLED_CODEX_PATH_ENV] = bundledCodexPath;
+  }
+
+  if (args.managedCodex?.baseUrl && args.managedCodex.apiKey) {
+    overlay.DOYA_MANAGED_CODEX_BASE_URL = args.managedCodex.baseUrl;
+    overlay.DOYA_MANAGED_CODEX_API_KEY = args.managedCodex.apiKey;
+    if (args.managedCodex.model) {
+      overlay.DOYA_MANAGED_CODEX_MODEL = args.managedCodex.model;
+    }
+    return overlay;
+  }
+
+  for (const key of MANAGED_CODEX_ENV_KEYS) {
+    const value = process.env[key]?.trim();
+    if (value) {
+      overlay[key] = value;
+    }
+  }
+
+  return overlay;
 }
 
 function buildControlRegistrationBody(args: StartDaemonArgs): Record<string, unknown> | null {
@@ -458,6 +547,16 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
   }
 
   const daemonRunner = resolveDaemonRunnerEntrypoint();
+  const managedCodexEnvOverlay = buildManagedCodexEnvOverlay(startupArgs);
+  logDesktopDaemonLifecycle("resolved managed Codex daemon environment", {
+    appIsPackaged: app.isPackaged,
+    platform: process.platform,
+    arch: process.arch,
+    bundledCodexPath: managedCodexEnvOverlay.DOYA_BUNDLED_CODEX_PATH ?? null,
+    managedCodexEnabled: Boolean(managedCodexEnvOverlay.DOYA_MANAGED_CODEX_BASE_URL),
+    managedCodexModel: managedCodexEnvOverlay.DOYA_MANAGED_CODEX_MODEL ?? null,
+    managedCodexApiKeyProvided: Boolean(managedCodexEnvOverlay.DOYA_MANAGED_CODEX_API_KEY),
+  });
   const invocation = createNodeEntrypointInvocation({
     entrypoint: daemonRunner,
     argvMode: "node-script",
@@ -480,6 +579,8 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
     arch: process.arch,
     controlRegistrationEnabled: controlEnvOverlay.DOYA_CONTROL_ENABLED === "1",
     controlApiUrl: controlEnvOverlay.DOYA_CONTROL_API_URL ?? null,
+    managedCodexEnabled: Boolean(managedCodexEnvOverlay.DOYA_MANAGED_CODEX_BASE_URL),
+    bundledCodexPath: managedCodexEnvOverlay.DOYA_BUNDLED_CODEX_PATH ?? null,
   });
 
   const child: ChildProcess = spawnProcess(invocation.command, invocation.args, {
@@ -489,6 +590,7 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
     envOverlay: {
       DOYA_DESKTOP_MANAGED: "1",
       ...controlEnvOverlay,
+      ...managedCodexEnvOverlay,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

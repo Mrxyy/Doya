@@ -92,6 +92,91 @@ describe("DaemonStartService", () => {
     });
   });
 
+  it("passes managed Codex config from control when starting the desktop daemon", async () => {
+    const fake = createFakeStore();
+    const startMock = vi.fn(async () => makeStatus());
+    const service = new DaemonStartService({
+      store: fake.store,
+      startDesktopDaemon: startMock,
+      resolveControlApiBaseUrl: () => "https://control.example.test",
+      loadAccountSession: async () => ({
+        user: {
+          userId: "user_123",
+          email: "user@example.test",
+          phone: null,
+        },
+        workspace: {
+          workspaceId: "control:user_123",
+          displayName: "Doya",
+          runtime: null,
+        },
+        projects: [],
+        accessToken: "token_abc",
+        apiBaseUrl: "https://control.example.test",
+      }),
+      loadManagedCodexConfig: async () => ({
+        baseUrl: "https://sub2api.example.com",
+        apiKey: "doya-runtime-token",
+        model: "managed-codex-model",
+      }),
+    });
+
+    const result = await service.start();
+
+    expect(result).toEqual({ ok: true });
+    expect(startMock).toHaveBeenCalledWith({
+      control: {
+        apiBaseUrl: "https://control.example.test",
+        userId: "user_123",
+        accessToken: "token_abc",
+      },
+      managedCodex: {
+        baseUrl: "https://sub2api.example.com",
+        apiKey: "doya-runtime-token",
+        model: "managed-codex-model",
+      },
+    });
+  });
+
+  it("starts without managed Codex config when control fetch fails", async () => {
+    const fake = createFakeStore();
+    const startMock = vi.fn(async () => makeStatus());
+    const service = new DaemonStartService({
+      store: fake.store,
+      startDesktopDaemon: startMock,
+      resolveControlApiBaseUrl: () => "https://control.example.test",
+      loadAccountSession: async () => ({
+        user: {
+          userId: "user_123",
+          email: "user@example.test",
+          phone: null,
+        },
+        workspace: {
+          workspaceId: "control:user_123",
+          displayName: "Doya",
+          runtime: null,
+        },
+        projects: [],
+        accessToken: "token_abc",
+        apiBaseUrl: "https://control.example.test",
+      }),
+      loadManagedCodexConfig: async () => {
+        throw new Error("control unavailable");
+      },
+    });
+
+    const result = await service.start();
+
+    expect(result).toEqual({ ok: true });
+    expect(startMock).toHaveBeenCalledWith({
+      control: {
+        apiBaseUrl: "https://control.example.test",
+        userId: "user_123",
+        accessToken: "token_abc",
+      },
+    });
+  });
+
   it("starts the desktop daemon without control options when account session loading fails", async () => {
     const fake = createFakeStore();
     const startMock = vi.fn(async () => makeStatus());

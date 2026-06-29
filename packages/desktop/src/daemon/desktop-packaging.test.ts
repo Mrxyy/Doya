@@ -45,6 +45,19 @@ describe("desktop packaging", () => {
     expect(config).toContain("node_modules/@getdoya/cli/bin/**/*");
   });
 
+  it("bundles the prepared Codex runtime as an external resource", () => {
+    const config = readFileSync(join(packageRoot, "electron-builder.yml"), "utf8");
+    const pkg = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as {
+      dependencies?: Record<string, string>;
+      scripts?: Record<string, string>;
+    };
+
+    expect(pkg.dependencies?.["@openai/codex"]).toBeDefined();
+    expect(pkg.scripts?.build).toContain("node scripts/prepare-bundled-codex.js");
+    expect(config).toContain("from: .generated/codex");
+    expect(config).toContain("to: codex");
+  });
+
   // electron-builder packs production dependencies declared in package.json into
   // app.asar. Runtime code in runtime-paths.ts and bin/doya dynamically resolves
   // these workspace packages by string, so static analysis (TypeScript, Knip) cannot

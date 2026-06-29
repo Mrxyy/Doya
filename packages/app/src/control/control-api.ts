@@ -27,6 +27,13 @@ export interface ControlAccountSession {
   accessToken: string;
 }
 
+export interface ControlManagedCodexConfig {
+  enabled: boolean;
+  baseUrl: string | null;
+  apiKey: string | null;
+  model: string | null;
+}
+
 export interface ControlSessionRecord {
   id: string;
   userId: string;
@@ -1060,6 +1067,16 @@ export async function getControlBillingPricing(input: {
     input.accountSession,
   );
   return payload.pricing;
+}
+
+export async function getControlManagedCodexConfig(input: {
+  accountSession: AccountBootstrapSession;
+}): Promise<ControlManagedCodexConfig> {
+  const payload = await getControlApi<{ codex: ControlManagedCodexConfig }>(
+    "/api/providers/managed-codex",
+    input.accountSession,
+  );
+  return payload.codex;
 }
 
 export async function createControlBillingPayment(input: {

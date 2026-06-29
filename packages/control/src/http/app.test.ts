@@ -292,6 +292,68 @@ describe("daemon command polling", () => {
 });
 
 describe("billing", () => {
+  it("returns managed Codex config from control environment", async () => {
+    const account = await register();
+    const previousBaseUrl = process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL;
+    const previousApiKey = process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
+    const previousModel = process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL;
+    process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL = "https://sub2api.example.com";
+    process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY = "doya-runtime-token";
+    process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL = "managed-codex-model";
+    try {
+      const payload = await fetchJson<{
+        codex: {
+          enabled: boolean;
+          baseUrl: string | null;
+          apiKey: string | null;
+          model: string | null;
+        };
+      }>("/api/providers/managed-codex", { account });
+
+      expect(payload.codex).toEqual({
+        enabled: true,
+        baseUrl: "https://sub2api.example.com",
+        apiKey: "doya-runtime-token",
+        model: "managed-codex-model",
+      });
+    } finally {
+      restoreEnv("DOYA_CONTROL_MANAGED_CODEX_BASE_URL", previousBaseUrl);
+      restoreEnv("DOYA_CONTROL_MANAGED_CODEX_API_KEY", previousApiKey);
+      restoreEnv("DOYA_CONTROL_MANAGED_CODEX_MODEL", previousModel);
+    }
+  });
+
+  it("returns hardcoded managed Codex config when control environment is incomplete", async () => {
+    const account = await register();
+    const previousBaseUrl = process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL;
+    const previousApiKey = process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
+    const previousModel = process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL;
+    delete process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL;
+    delete process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
+    delete process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL;
+    try {
+      const payload = await fetchJson<{
+        codex: {
+          enabled: boolean;
+          baseUrl: string | null;
+          apiKey: string | null;
+          model: string | null;
+        };
+      }>("/api/providers/managed-codex", { account });
+
+      expect(payload.codex).toEqual({
+        enabled: true,
+        baseUrl: "https://csdn.cloud",
+        apiKey: "sk-874f7c0d65235c3b3b5a0f1fbb9d39311e1bdf04f08d48ef8d62c46c647216d4",
+        model: null,
+      });
+    } finally {
+      restoreEnv("DOYA_CONTROL_MANAGED_CODEX_BASE_URL", previousBaseUrl);
+      restoreEnv("DOYA_CONTROL_MANAGED_CODEX_API_KEY", previousApiKey);
+      restoreEnv("DOYA_CONTROL_MANAGED_CODEX_MODEL", previousModel);
+    }
+  });
+
   it("seeds official OpenAI and Claude API fallback pricing", async () => {
     const account = await register();
 

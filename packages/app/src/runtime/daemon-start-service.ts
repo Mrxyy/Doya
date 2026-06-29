@@ -15,6 +15,9 @@ interface ControlAccountSessionLike {
 }
 type LoadAccountSession = () => Promise<ControlAccountSessionLike | null>;
 type ResolveControlApiBaseUrl = () => string | null | Promise<string | null>;
+type LoadManagedCodexConfig = (
+  session: ControlAccountSessionLike,
+) => Promise<{ baseUrl: string; apiKey: string; model?: string | null } | null>;
 type MaybePromise<T> = T | Promise<T>;
 
 export interface DaemonStartServiceDeps {
@@ -22,6 +25,7 @@ export interface DaemonStartServiceDeps {
   startDesktopDaemon?: (options?: StartDesktopDaemonOptions) => Promise<DesktopDaemonStatus>;
   loadAccountSession?: LoadAccountSession;
   resolveControlApiBaseUrl?: ResolveControlApiBaseUrl;
+  loadManagedCodexConfig?: LoadManagedCodexConfig;
 }
 
 export class DaemonStartService {
@@ -31,6 +35,7 @@ export class DaemonStartService {
   ) => Promise<DesktopDaemonStatus>;
   private readonly loadAccountSession: LoadAccountSession;
   private readonly resolveControlApiBaseUrl: ResolveControlApiBaseUrl;
+  private readonly loadManagedCodexConfig: LoadManagedCodexConfig;
   private readonly listeners = new Set<() => void>();
   private lastError: string | null = null;
   private inFlightCount = 0;
@@ -45,6 +50,9 @@ export class DaemonStartService {
     this.resolveControlApiBaseUrl =
       deps.resolveControlApiBaseUrl ??
       (usesInjectedDesktopDaemon ? resolveNoControlApiBaseUrl : resolveDefaultControlApiBaseUrl);
+    this.loadManagedCodexConfig =
+      deps.loadManagedCodexConfig ??
+      (usesInjectedDesktopDaemon ? loadNoManagedCodexConfig : loadDefaultManagedCodexConfig);
   }
 
   async start(): Promise<DaemonStartResult> {
@@ -162,21 +170,33 @@ export class DaemonStartService {
       return undefined;
     }
 
-    return this.loadAccountSession().then((session) => {
+    return this.loadAccountSession().then(async (session) => {
       const userId = session?.user.userId.trim() ?? "";
       const accessToken = session?.accessToken.trim() ?? "";
       if (!userId || !accessToken) {
         return { control: { enabled: false } };
       }
 
+      const managedCodex = await this.loadManagedCodexConfigSafely(session);
       return {
         control: {
           apiBaseUrl,
           userId,
           accessToken,
         },
+        ...(managedCodex ? { managedCodex } : {}),
       };
     });
+  }
+
+  private async loadManagedCodexConfigSafely(
+    session: ControlAccountSessionLike,
+  ): Promise<{ baseUrl: string; apiKey: string; model?: string | null } | null> {
+    try {
+      return await this.loadManagedCodexConfig(session);
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -199,6 +219,41 @@ async function resolveDefaultControlApiBaseUrl(): Promise<string | null> {
 }
 
 function resolveNoControlApiBaseUrl(): string | null {
+  return null;
+}
+
+async function loadDefaultManagedCodexConfig(
+  session: ControlAccountSessionLike,
+): Promise<{ baseUrl: string; apiKey: string; model?: string | null } | null> {
+  const controlApi = await import("@/control/control-api");
+  const codex = await controlApi.getControlManagedCodexConfig({
+    accountSession: {
+      user: {
+        userId: session.user.userId,
+        email: "",
+        phone: null,
+      },
+      workspace: {
+        workspaceId: `control:${session.user.userId}`,
+        displayName: "Doya",
+        runtime: null,
+      },
+      projects: [],
+      accessToken: session.accessToken,
+      apiBaseUrl: "",
+    },
+  });
+  if (!codex.enabled || !codex.baseUrl || !codex.apiKey) {
+    return null;
+  }
+  return {
+    baseUrl: codex.baseUrl,
+    apiKey: codex.apiKey,
+    model: codex.model,
+  };
+}
+
+async function loadNoManagedCodexConfig(): Promise<null> {
   return null;
 }
 
