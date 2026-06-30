@@ -59,6 +59,8 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
+    volumes:
+      - /opt/doya/downloads:/downloads:ro
 
   runtime-node-register:
     image: ${DOYA_SERVER_IMAGE}

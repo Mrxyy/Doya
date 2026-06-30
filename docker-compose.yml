@@ -80,16 +80,8 @@ services:
     ports:
       - "8080:80"
     restart: unless-stopped
-
-  desktop-artifacts:
-    build:
-      context: .
-      target: desktop-artifacts
-    profiles:
-      - release
-    restart: "no"
     volumes:
-      - /opt/doya/downloads/desktop:/downloads/desktop
+      - /opt/doya/downloads:/downloads:ro
 
   runtime-node-register:
     image: ${DOYA_SERVER_IMAGE:-jadenxiong/doya-server:latest}

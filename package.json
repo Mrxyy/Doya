@@ -48,6 +48,8 @@
     "docker:deploy:up": "docker compose --env-file docker/.env -f docker-compose.deploy.yml up -d",
     "docker:deploy:down": "docker compose --env-file docker/.env -f docker-compose.deploy.yml down",
     "docker:deploy:logs": "docker compose --env-file docker/.env -f docker-compose.deploy.yml logs -f",
+    "release:desktop:downloads": "node scripts/release-desktop-downloads.mjs",
+    "server:sync-env:64": "ssh root@64.83.17.170 'mkdir -p /opt/doya/docker' && scp docker/.env root@64.83.17.170:/opt/doya/docker/.env",
     "server:sync:64": "ssh root@64.83.17.170 'mkdir -p /opt/doya/source' && rsync -az --progress --delete --exclude='node_modules'  --exclude='packages/server/.doya-dev' --exclude='.git' ./ root@64.83.17.170:/opt/doya/source/",
     "logs:app": "touch /tmp/doya-dev-app.log && tail -n 120 -f /tmp/doya-dev-app.log",
     "logs:xyy": "touch /tmp/doya-dev-xyy.log && tail -n 120 -f /tmp/doya-dev-xyy.log",
