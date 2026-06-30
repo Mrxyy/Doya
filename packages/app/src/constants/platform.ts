@@ -26,7 +26,7 @@ export const isWeb = Platform.OS === "web";
 export const isNative = Platform.OS !== "web";
 
 /** Development build/runtime — true in Metro dev bundles, false in production. */
-export const isDev = Boolean((globalThis as { __DEV__?: boolean }).__DEV__);
+export const isDev = false;
 
 // ---------------------------------------------------------------------------
 // Electron detection (cached — only caches `true`, keeps checking if false

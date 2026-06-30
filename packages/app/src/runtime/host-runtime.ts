@@ -24,7 +24,6 @@ import {
 } from "@/utils/daemon-endpoints";
 import { resolveAppVersion } from "@/utils/app-version";
 import { ConnectionOfferSchema, type ConnectionOffer } from "@getdoya/protocol/connection-offer";
-import { shouldUseDesktopDaemon } from "@/desktop/daemon/desktop-daemon";
 import { connectToDaemon } from "@/utils/test-daemon-connection";
 import { getOrCreateClientId } from "@/utils/client-id";
 import {
@@ -36,9 +35,14 @@ import {
   buildLocalDaemonTransportUrl,
   createDesktopLocalDaemonTransportFactory,
 } from "@/desktop/daemon/desktop-daemon-transport";
+import { loadAccountBootstrapSession } from "@/account/account-api";
 import { replaceFetchedAgentDirectory } from "@/utils/agent-directory-sync";
 import { useSessionStore } from "@/stores/session-store";
 import { isControlApiConfigured, selectControlRuntimeNode } from "@/control/control-api";
+import {
+  loadRuntimeNodePreference,
+  preferredRuntimeNodeId,
+} from "@/control/runtime-node-preference";
 import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 
 export type HostRuntimeConnectionStatus = "idle" | "connecting" | "online" | "offline" | "error";
@@ -1295,10 +1299,6 @@ export class HostRuntimeStore {
       return;
     }
 
-    if (shouldUseDesktopDaemon()) {
-      return;
-    }
-
     if (override) {
       this.bootstrapConfiguredOverride(override);
     } else {
@@ -1372,7 +1372,15 @@ export class HostRuntimeStore {
     if (!isControlApiConfigured()) {
       return;
     }
-    const selection = await selectControlRuntimeNode({});
+    const preference = await loadRuntimeNodePreference();
+    const accountSession = await loadAccountBootstrapSession().catch(() => null);
+    const selection = await selectControlRuntimeNode({
+      accountSession:
+        accountSession?.workspace.workspaceId.startsWith("control:") === true
+          ? accountSession
+          : null,
+      nodeId: preferredRuntimeNodeId(preference),
+    });
     const directEndpoint = resolveControlRuntimeDirectEndpoint(selection.node.endpoint);
     await this.upsertDirectConnection({
       serverId: selection.node.id,

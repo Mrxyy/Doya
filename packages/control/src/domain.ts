@@ -92,6 +92,7 @@ export interface FileSnapshotRecord {
 
 export interface DaemonNodeRecord {
   id: string;
+  ownerUserId: string | null;
   endpoint: string;
   publicEndpoint: string | null;
   status: NodeStatus;
@@ -286,6 +287,13 @@ export interface UserDaemonWorkspaceRecord {
   workspaceDir: string;
   status: "active" | "lost";
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface RuntimeNodePreferenceRecord {
+  userId: string;
+  mode: "cloud" | "fixed";
+  nodeId: string | null;
   updatedAt: string;
 }
 

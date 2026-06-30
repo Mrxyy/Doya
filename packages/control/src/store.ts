@@ -22,6 +22,7 @@ import type {
   PlanId,
   PlanRecord,
   ReferralRecord,
+  RuntimeNodePreferenceRecord,
   RuntimeAllocationRecord,
   RuntimeStatus,
   SessionAgentBindingRecord,
@@ -67,6 +68,7 @@ interface ControlSnapshot {
   fileSnapshots: FileSnapshotRecord[];
   daemonNodes: DaemonNodeRecord[];
   userDaemonWorkspaces: UserDaemonWorkspaceRecord[];
+  runtimeNodePreferences: RuntimeNodePreferenceRecord[];
   runtimeAllocations: RuntimeAllocationRecord[];
   agentBindings: SessionAgentBindingRecord[];
   billingSettings: BillingSettingsRecord;
@@ -90,6 +92,7 @@ const EMPTY_SNAPSHOT: ControlSnapshot = {
   fileSnapshots: [],
   daemonNodes: [],
   userDaemonWorkspaces: [],
+  runtimeNodePreferences: [],
   runtimeAllocations: [],
   agentBindings: [],
   billingSettings: DEFAULT_BILLING_SETTINGS,
@@ -107,6 +110,7 @@ const EMPTY_SNAPSHOT: ControlSnapshot = {
 const SCHEDULABLE_NODE_HEARTBEAT_MAX_AGE_MS = 2 * 60 * 1000;
 
 export class NotFoundError extends Error {}
+export class AuthenticationError extends Error {}
 export class BillingPreflightError extends Error {}
 export class UsageBillingConflictError extends Error {}
 export class PricingUnavailableError extends Error {}
@@ -1516,6 +1520,7 @@ export class ControlStore {
 
   async registerNode(input: {
     nodeId?: string;
+    ownerUserId?: string | null;
     endpoint: string;
     publicEndpoint?: string | null;
     doyaHome?: string | null;
@@ -1532,6 +1537,10 @@ export class ControlStore {
     const timestamp = this.timestamp();
     const node: DaemonNodeRecord = {
       id: nodeId || existing?.id || createId("node"),
+      ownerUserId:
+        input.ownerUserId === undefined
+          ? existing?.ownerUserId || null
+          : input.ownerUserId?.trim() || null,
       endpoint: input.endpoint,
       publicEndpoint: input.publicEndpoint?.trim() || existing?.publicEndpoint || null,
       status: existing?.status ?? input.status ?? "online",
@@ -1549,6 +1558,13 @@ export class ControlStore {
   async listNodes(): Promise<DaemonNodeRecord[]> {
     await this.load();
     return [...this.snapshot.daemonNodes];
+  }
+
+  async listRuntimeNodeOptions(input: { userId: string }): Promise<DaemonNodeRecord[]> {
+    await this.load();
+    return this.snapshot.daemonNodes
+      .filter((node) => node.ownerUserId === input.userId)
+      .sort((left, right) => right.lastHeartbeatAt.localeCompare(left.lastHeartbeatAt));
   }
 
   async flush(): Promise<void> {
@@ -1780,14 +1796,34 @@ export class ControlStore {
     return node;
   }
 
-  async selectRuntimeNode(_input: {
+  async selectRuntimeNode(input: {
+    userId?: string | null;
+    nodeId?: string | null;
     providerId?: string | null;
     modelId?: string | null;
   }): Promise<{ node: DaemonNodeRecord; selectionReason: string }> {
     await this.load();
+    const userId = input.userId?.trim() || null;
+    const requestedNodeId =
+      input.nodeId?.trim() || this.getRuntimeNodePreferenceFromSnapshot(userId)?.nodeId;
+    if (requestedNodeId) {
+      const node = await this.getNode(requestedNodeId);
+      if (!userId || node.ownerUserId !== userId) {
+        throw new NodeSchedulingUnavailableError(
+          `Daemon node ${node.id} is not available for this account`,
+        );
+      }
+      if (node.status !== "online") {
+        throw new NodeSchedulingUnavailableError(
+          `Daemon node ${node.id} is ${node.status} and cannot accept new runtimes`,
+        );
+      }
+      return { node, selectionReason: "fixed_node_preference" };
+    }
+
     const activeStatuses = new Set<RuntimeStatus>(["starting", "running"]);
     const candidates = this.snapshot.daemonNodes
-      .filter((node) => this.isSchedulableNode(node))
+      .filter((node) => node.ownerUserId === null && this.isSchedulableNode(node))
       .map((node) => {
         const activeRuntimeCount = this.snapshot.runtimeAllocations.filter(
           (allocation) => allocation.nodeId === node.id && activeStatuses.has(allocation.status),
@@ -1805,6 +1841,59 @@ export class ControlStore {
       throw new NodeSchedulingUnavailableError("No online daemon nodes can accept new runtimes");
     }
     return { node: selected.node, selectionReason: "least_active_online" };
+  }
+
+  async getRuntimeNodePreference(input: {
+    userId: string;
+  }): Promise<RuntimeNodePreferenceRecord | null> {
+    await this.load();
+    return this.getRuntimeNodePreferenceFromSnapshot(input.userId);
+  }
+
+  async setRuntimeNodePreference(input: {
+    userId: string;
+    mode: "cloud" | "fixed";
+    nodeId?: string | null;
+  }): Promise<RuntimeNodePreferenceRecord> {
+    await this.load();
+    const nodeId = input.mode === "fixed" ? input.nodeId?.trim() || null : null;
+    if (input.mode === "fixed" && !nodeId) {
+      throw new Error("Fixed runtime preference requires a daemon node");
+    }
+    if (nodeId) {
+      const node = await this.getNode(nodeId);
+      if (node.ownerUserId !== input.userId) {
+        throw new NodeSchedulingUnavailableError(
+          `Daemon node ${node.id} is not available for this account`,
+        );
+      }
+    }
+    const preference: RuntimeNodePreferenceRecord = {
+      userId: input.userId,
+      mode: nodeId ? "fixed" : "cloud",
+      nodeId,
+      updatedAt: this.timestamp(),
+    };
+    this.snapshot.runtimeNodePreferences = upsertById(
+      this.snapshot.runtimeNodePreferences,
+      preference,
+      (entry) => entry.userId,
+    );
+    await this.enqueuePersist();
+    return preference;
+  }
+
+  private getRuntimeNodePreferenceFromSnapshot(
+    userId: string | null | undefined,
+  ): RuntimeNodePreferenceRecord | null {
+    const normalizedUserId = userId?.trim();
+    if (!normalizedUserId) {
+      return null;
+    }
+    return (
+      this.snapshot.runtimeNodePreferences.find((entry) => entry.userId === normalizedUserId) ??
+      null
+    );
   }
 
   private isSchedulableNode(node: DaemonNodeRecord): boolean {
@@ -2403,10 +2492,10 @@ export class ControlStore {
       (entry) => entry.id === input.userId && entry.disabledAt === null,
     );
     if (!user) {
-      throw new NotFoundError("User not found");
+      throw new AuthenticationError("Invalid access token");
     }
     if (user.accessToken !== input.accessToken) {
-      throw new Error("Invalid access token");
+      throw new AuthenticationError("Invalid access token");
     }
     return user;
   }
@@ -2520,6 +2609,25 @@ function normalizeOptionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function normalizeRuntimeNodePreference(value: unknown): RuntimeNodePreferenceRecord | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as Partial<RuntimeNodePreferenceRecord>;
+  const userId = normalizeOptionalString(record.userId);
+  if (!userId) {
+    return null;
+  }
+  const nodeId = normalizeOptionalString(record.nodeId);
+  const mode = record.mode === "fixed" && nodeId ? "fixed" : "cloud";
+  return {
+    userId,
+    mode,
+    nodeId: mode === "fixed" ? nodeId : null,
+    updatedAt: normalizeOptionalString(record.updatedAt) ?? systemClock().toISOString(),
+  };
+}
+
 function normalizeReferralCode(value: string): string {
   return value.trim().toUpperCase();
 }
@@ -2573,6 +2681,8 @@ function normalizeSnapshot(value: unknown): ControlSnapshot {
           typeof node.runtimeAuthToken === "string" && node.runtimeAuthToken.trim()
             ? node.runtimeAuthToken
             : null,
+        ownerUserId:
+          typeof node.ownerUserId === "string" && node.ownerUserId.trim() ? node.ownerUserId : null,
       }))
     : [];
   const billingSettings = normalizeBillingSettings(record.billingSettings);
@@ -2596,6 +2706,11 @@ function normalizeSnapshot(value: unknown): ControlSnapshot {
           ...workspace,
           status: workspace.status === "lost" ? "lost" : "active",
         }))
+      : [],
+    runtimeNodePreferences: Array.isArray(record.runtimeNodePreferences)
+      ? record.runtimeNodePreferences
+          .map((preference) => normalizeRuntimeNodePreference(preference))
+          .filter((preference): preference is RuntimeNodePreferenceRecord => preference !== null)
       : [],
     runtimeAllocations: Array.isArray(record.runtimeAllocations)
       ? record.runtimeAllocations.map((allocation) => ({

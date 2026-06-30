@@ -12,6 +12,8 @@ export interface DesktopDaemonStatus {
   home: string;
   version: string | null;
   desktopManaged: boolean;
+  managedCodexEnabled: boolean;
+  managedCodexUserId: string | null;
   error: string | null;
 }
 
@@ -35,6 +37,7 @@ export interface DesktopDaemonManagedCodexInput {
   baseUrl: string;
   apiKey: string;
   model?: string | null;
+  userId?: string | null;
 }
 
 export interface StartDesktopDaemonOptions {
@@ -108,6 +111,8 @@ function parseDesktopDaemonStatus(raw: unknown): DesktopDaemonStatus {
     home: toStringOrNull(raw.home) ?? "",
     version: toStringOrNull(raw.version),
     desktopManaged: raw.desktopManaged === true,
+    managedCodexEnabled: raw.managedCodexEnabled === true,
+    managedCodexUserId: toStringOrNull(raw.managedCodexUserId),
     error: toStringOrNull(raw.error),
   };
 }

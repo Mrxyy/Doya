@@ -1456,6 +1456,8 @@ interface ComposerProps {
   footer?: ReactNode;
   /** Additional controls rendered inside the input button row before built-in send controls. */
   extraRightContent?: ReactNode;
+  /** Additional controls rendered inside the input surface above the text input. */
+  topContent?: ReactNode;
   /** When true, a parent wrapper owns the keyboard shift, so the composer skips its own. */
   externalKeyboardShift?: boolean;
 }
@@ -1657,6 +1659,7 @@ export function Composer({
   inputWrapperStyle,
   footer,
   extraRightContent,
+  topContent,
   externalKeyboardShift,
 }: ComposerProps) {
   const buttonIconSize = resolveComposerButtonIconSize();
@@ -2551,6 +2554,7 @@ export function Composer({
           {sendErrorNode}
 
           <View ref={messageInputContainerRef} style={styles.messageInputContainer}>
+            {topContent ? <View style={styles.topContent}>{topContent}</View> : null}
             <AutocompletePopover
               visible={autocompleteVisible}
               anchorRef={messageInputContainerRef}
@@ -2699,6 +2703,11 @@ const styles = StyleSheet.create((theme: Theme) => ({
     position: "relative",
     width: "100%",
     gap: theme.spacing[3],
+  },
+  topContent: {
+    alignSelf: "flex-start",
+    marginBottom: -theme.spacing[1],
+    marginLeft: theme.spacing[1],
   },
   cancelButton: {
     width: 28,

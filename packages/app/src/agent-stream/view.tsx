@@ -2414,6 +2414,7 @@ interface PptConfirmRecommendations {
 
 interface InlinePptConfirmData {
   recommendations: PptConfirmRecommendations & Record<string, unknown>;
+  recommendationsJson: string;
 }
 
 function extractAiCreationPptConfirmInlineData(text: string): InlinePptConfirmData | null {
@@ -2438,7 +2439,10 @@ function parsePptConfirmInlineDataValue(
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return null;
     }
-    return { recommendations: parsed as PptConfirmRecommendations & Record<string, unknown> };
+    return {
+      recommendations: parsed as PptConfirmRecommendations & Record<string, unknown>,
+      recommendationsJson: JSON.stringify(parsed),
+    };
   } catch {
     return null;
   }
@@ -2483,8 +2487,9 @@ function AiCreationSlidesConfirmCard({
     return `${confirmBaseUrl}?embed=1&lang=${lang}`;
   }, [confirmBaseUrl, locale]);
   const [inlineConfirmUrl, setInlineConfirmUrl] = useState<string | null>(null);
+  const inlineRecommendationsJson = inlineData?.recommendationsJson ?? null;
   useEffect(() => {
-    if (!inlineData) {
+    if (!inlineRecommendationsJson) {
       setInlineConfirmUrl(null);
       return;
     }
@@ -2492,7 +2497,7 @@ function AiCreationSlidesConfirmCard({
     setInlineConfirmUrl(null);
     void buildInlinePptConfirmDataUrl({
       locale,
-      recommendations: inlineData.recommendations,
+      recommendationsJson: inlineRecommendationsJson,
     })
       .then((url) => {
         if (isCurrent) {
@@ -2509,7 +2514,7 @@ function AiCreationSlidesConfirmCard({
     return () => {
       isCurrent = false;
     };
-  }, [inlineData, locale]);
+  }, [inlineRecommendationsJson, locale]);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "confirmed">("loading");
   const sawUnconfirmedStateRef = useRef(false);
   const visual = getAiCreationFileVisual("preview.pptx");
@@ -2540,16 +2545,25 @@ function AiCreationSlidesConfirmCard({
     [visual.accent],
   );
   let confirmBody: ReactNode;
-  if (inlineConfirmUrl) {
+  if (inlineData) {
     confirmBody = (
       <View style={stylesheet.aiCreationConfirmFrameWrap}>
-        <PptPreviewFrame
-          applyAnnotationsCompletionToken={0}
-          onConfirm={onInlineConfirm}
-          onApplyAnnotations={noopConfirmFrameAction}
-          title={translateNow("ui.slides.confirm.title", { name: projectName ?? "" })}
-          url={inlineConfirmUrl}
-        />
+        {inlineConfirmUrl ? (
+          <PptPreviewFrame
+            applyAnnotationsCompletionToken={0}
+            onConfirm={onInlineConfirm}
+            onApplyAnnotations={noopConfirmFrameAction}
+            title={translateNow("ui.slides.confirm.title", { name: projectName ?? "" })}
+            url={inlineConfirmUrl}
+          />
+        ) : (
+          <View style={stylesheet.aiCreationConfirmHintRow}>
+            <Text style={stylesheet.aiCreationConfirmHint}>
+              {translateNow("ui.slides.confirm.waitingToLoad")}
+            </Text>
+            <AnimatedConfirmHourglass />
+          </View>
+        )}
       </View>
     );
   } else if (confirmUrl && status !== "error") {
@@ -2724,7 +2738,7 @@ function AnimatedConfirmHourglass() {
 
 function buildInlinePptConfirmDataUrl(input: {
   locale: Locale;
-  recommendations: PptConfirmRecommendations & Record<string, unknown>;
+  recommendationsJson: string;
 }): Promise<string> {
   return buildInlinePptConfirmHtml(input).then(
     (html) => `data:text/html;charset=utf-8,${encodeURIComponent(html)}`,
@@ -2733,15 +2747,15 @@ function buildInlinePptConfirmDataUrl(input: {
 
 async function buildInlinePptConfirmHtml({
   locale,
-  recommendations,
+  recommendationsJson,
 }: {
   locale: Locale;
-  recommendations: PptConfirmRecommendations & Record<string, unknown>;
+  recommendationsJson: string;
 }): Promise<string> {
   const { PptConfirmStaticAppJs, PptConfirmStaticCatalogs, PptConfirmStaticStyleCss } =
     await import("@/data/home-prompt-recordings/ppt-confirm-static");
   const catalogsJson = escapeInlineScriptJson(JSON.stringify(PptConfirmStaticCatalogs));
-  const recommendationsJson = escapeInlineScriptJson(JSON.stringify(recommendations));
+  const escapedRecommendationsJson = escapeInlineScriptJson(recommendationsJson);
   const lang = locale === "zh" ? "zh" : "en";
   const confirmAppJs = escapeInlineScriptText(
     PptConfirmStaticAppJs.replace(
@@ -2804,7 +2818,7 @@ async function buildInlinePptConfirmHtml({
 
   <script>
     window.__DOYA_INLINE_CONFIRM_CATALOGS__ = ${catalogsJson};
-    window.__DOYA_INLINE_CONFIRM_RECOMMENDATIONS__ = ${recommendationsJson};
+    window.__DOYA_INLINE_CONFIRM_RECOMMENDATIONS__ = ${escapedRecommendationsJson};
     const doyaInlineConfirmResponse = (body) => ({
       ok: true,
       json: () => Promise.resolve(body),

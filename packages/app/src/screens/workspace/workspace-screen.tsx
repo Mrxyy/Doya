@@ -218,6 +218,7 @@ const WORKSPACE_FLOATING_PANEL_PORTAL_HOST_PREFIX = "workspace-floating-panels";
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
 const PREVIEW_SOURCE_PANE_WIDTH = 700;
 const MAX_AUTO_PREVIEW_PANES = 2;
+const WORKSPACE_COMPACT_WIDTH = 700;
 const EMPTY_UI_TABS: WorkspaceTab[] = [];
 const EMPTY_WORKSPACE_SCRIPTS: WorkspaceDescriptor["scripts"] = [];
 const EMPTY_PINNED_AGENT_IDS = new Set<string>();
@@ -1719,7 +1720,11 @@ function WorkspaceScreenContent({
   const _insets = useSafeAreaInsets();
   const router = useRouter();
   const toast = useToast();
-  const isMobile = useIsCompactFormFactor();
+  const isCompactFormFactor = useIsCompactFormFactor();
+  const [workspaceContentWidth, setWorkspaceContentWidth] = useState(0);
+  const isMobile =
+    isCompactFormFactor ||
+    (workspaceContentWidth > 0 && workspaceContentWidth < WORKSPACE_COMPACT_WIDTH);
   const canRenderDesktopPaneSplits = supportsDesktopPaneSplits();
   const isFocusModeEnabled = usePanelStore((state) => state.desktop.focusModeEnabled);
 
@@ -2077,7 +2082,6 @@ function WorkspaceScreenContent({
   const workspaceLayout = useWorkspaceLayoutStore((state) =>
     persistenceKey ? (state.layoutByWorkspace[persistenceKey] ?? null) : null,
   );
-  const [workspaceContentWidth, setWorkspaceContentWidth] = useState(0);
   const autoCollapsedPreviewSidebarRef = useRef(false);
   const previewPaneIdsRef = useRef<Set<string>>(new Set());
   const lastPreviewSplitRef = useRef<{
@@ -2151,13 +2155,14 @@ function WorkspaceScreenContent({
     },
     [persistenceKey, resizeWorkspaceSplit, workspaceContentWidth, workspaceLayout],
   );
+  const canUseDesktopPreviewPane =
+    !isMobile && canRenderDesktopPaneSplits && workspaceContentWidth >= WORKSPACE_COMPACT_WIDTH;
   useEffect(() => {
     if (
       !persistenceKey ||
       !workspaceLayout ||
       !hasHydratedWorkspaceLayoutStore ||
-      isMobile ||
-      !canRenderDesktopPaneSplits
+      !canUseDesktopPreviewPane
     ) {
       return;
     }
@@ -2222,9 +2227,8 @@ function WorkspaceScreenContent({
       return;
     }
   }, [
-    canRenderDesktopPaneSplits,
+    canUseDesktopPreviewPane,
     hasHydratedWorkspaceLayoutStore,
-    isMobile,
     persistenceKey,
     splitWorkspacePane,
     updatePreviewSplitSize,
@@ -2232,7 +2236,7 @@ function WorkspaceScreenContent({
   ]);
   const prepareDesktopPreviewPane = useCallback(
     function prepareDesktopPreviewPane(sourcePaneId: string): string | null {
-      if (!persistenceKey || !workspaceLayout || isMobile || !canRenderDesktopPaneSplits) {
+      if (!persistenceKey || !workspaceLayout || !canUseDesktopPreviewPane) {
         return null;
       }
 
@@ -2270,11 +2274,10 @@ function WorkspaceScreenContent({
     },
     [
       accountSessionForWorkspace,
-      canRenderDesktopPaneSplits,
+      canUseDesktopPreviewPane,
       closeDesktopAgentList,
       focusWorkspacePane,
       isAgentListOpen,
-      isMobile,
       persistenceKey,
       splitWorkspacePaneEmpty,
       suppressDesktopAgentList,
@@ -3459,7 +3462,7 @@ function WorkspaceScreenContent({
           if (!persistenceKey) {
             return;
           }
-          if (isWorkspacePreviewTarget(target) && input.paneId) {
+          if (!isMobile && isWorkspacePreviewTarget(target) && input.paneId) {
             const tabId = openWorkspaceTargetInPreviewPane({
               target,
               sourcePaneId: input.paneId,
@@ -3501,6 +3504,7 @@ function WorkspaceScreenContent({
       handleCloseTabById,
       focusWorkspacePane,
       handleOpenWorkspaceFileFromPane,
+      isMobile,
       navigateToTabId,
       normalizedServerId,
       normalizedWorkspaceId,
@@ -3827,7 +3831,7 @@ function WorkspaceScreenContent({
     [normalizedServerId, normalizedWorkspaceId],
   );
   const desktopSplitContent = useMemo(() => {
-    if (!canRenderDesktopPaneSplits || !workspaceLayout || !persistenceKey) {
+    if (!canUseDesktopPreviewPane || !workspaceLayout || !persistenceKey) {
       return null;
     }
     return (
@@ -3866,7 +3870,7 @@ function WorkspaceScreenContent({
       />
     );
   }, [
-    canRenderDesktopPaneSplits,
+    canUseDesktopPreviewPane,
     workspaceLayout,
     persistenceKey,
     desktopFocusModeEnabled,
@@ -3890,6 +3894,7 @@ function WorkspaceScreenContent({
     handleCreateBrowserTab,
     showCreateBrowserTab,
     buildDesktopPaneContentModel,
+    isMobile,
     handleFocusPane,
     handleSplitPane,
     handleCreateDraftSplit,
@@ -3898,7 +3903,7 @@ function WorkspaceScreenContent({
     handleReorderTabsInPane,
     renderSplitPaneEmptyState,
   ]);
-  const desktopContent = desktopSplitContent ?? content;
+  const desktopContent = !isMobile && desktopSplitContent ? desktopSplitContent : content;
 
   const workspaceCenterColumn = (
     <View style={styles.centerColumn}>

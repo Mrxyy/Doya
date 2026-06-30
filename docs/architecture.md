@@ -119,7 +119,11 @@ runtime workspace.
 When no explicit local daemon override is configured, app startup also asks the
 control-plane scheduler for the initial runtime host. This bootstrap selection
 does not require an account/control session; authentication is still required
-for creating user sessions and allocating workdir/runtime resources.
+for creating user sessions and allocating workdir/runtime resources. The
+user-facing New Session and AI Creation surfaces can save a runtime-location
+preference: cloud/automatic scheduling, or a fixed account-associated Desktop
+daemon. The admin daemon screen remains an operator surface; it does not choose
+runtime placement on behalf of end users.
 
 Control-to-daemon operations are outbound-friendly. Hosted control must not
 assume it can directly reach a user's loopback daemon endpoint such as

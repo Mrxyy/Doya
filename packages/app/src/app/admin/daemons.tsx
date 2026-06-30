@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentType } from "react";
+import { useRouter } from "expo-router";
 import { Image, Pressable, ScrollView, Text, View, type DimensionValue } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { loadAccountBootstrapSession, type AccountBootstrapSession } from "@/account/account-api";
@@ -35,6 +36,7 @@ import {
   type ControlUserDaemonWorkspaceSummary,
   type RuntimeStatus,
 } from "@/control/control-api";
+import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { getControlSessionDisplayTitle } from "@/control/control-session-display-title";
 import { useToast } from "@/contexts/toast-context";
 import { useAgentFormState, type FormInitialValues } from "@/hooks/use-agent-form-state";
@@ -45,10 +47,11 @@ import {
   resolveEffectiveComposerThinkingOptionId,
   type ProviderSelectionState,
 } from "@/provider-selection/provider-selection";
-import { useEnsureHostRuntimeStarted } from "@/runtime/host-runtime";
+import { getHostRuntimeStore, useHosts } from "@/runtime/host-runtime";
 import { ProvidersSection } from "@/screens/settings/providers-section";
 import type { HostProfile } from "@/types/host-connection";
 import { confirmDialog } from "@/utils/confirm-dialog";
+import { normalizeHostPort } from "@/utils/daemon-endpoints";
 import {
   Activity,
   Check,
@@ -72,6 +75,7 @@ const DAEMON_ADMIN_LOGO_SOURCE = require("../../../assets/images/daemon-admin-lo
 
 export default function DaemonAdminScreen() {
   const { t } = useI18n();
+  const router = useRouter();
   const toast = useToast();
   const [accountSession, setAccountSession] = useState<AccountBootstrapSession | null>(null);
   const [overview, setOverview] = useState<ControlAdminOverview | null>(null);
@@ -99,11 +103,10 @@ export default function DaemonAdminScreen() {
     setIsLoading(true);
     try {
       const stored = await loadAccountBootstrapSession();
-      if (!stored || !stored.workspace.workspaceId.startsWith("control:")) {
-        throw new Error(t("session.error.loginRequired"));
-      }
-      const nextOverview = await getControlAdminOverview({ accountSession: stored });
-      setAccountSession(stored);
+      const accountSession =
+        stored && stored.workspace.workspaceId.startsWith("control:") ? stored : null;
+      const nextOverview = await getControlAdminOverview({ accountSession });
+      setAccountSession(accountSession);
       setOverview(nextOverview);
       setSelectedNodeId((current) => {
         if (current && nextOverview.daemonNodes.some((summary) => summary.node.id === current)) {
@@ -285,32 +288,50 @@ export default function DaemonAdminScreen() {
     [accountSession, reload, t, toast],
   );
 
-  const handleToggleSession = useCallback((targetNodeId: string, sessionId: string) => {
-    setSelectedSessionIdsByNode((current) => {
-      const currentIds = current[targetNodeId] ?? [];
-      const nextIds = currentIds.includes(sessionId)
-        ? currentIds.filter((id) => id !== sessionId)
-        : [...currentIds, sessionId];
-      return {
-        ...current,
-        [targetNodeId]: nextIds,
-      };
-    });
-  }, []);
+  const handleToggleSession = useCallback(
+    (targetNodeId: string, sessionId: string) => {
+      if (!overview || !canSelectSessionForWorkDirCleanup(overview, targetNodeId, sessionId)) {
+        return;
+      }
+      setSelectedSessionIdsByNode((current) => {
+        const currentIds = current[targetNodeId] ?? [];
+        const nextIds = currentIds.includes(sessionId)
+          ? currentIds.filter((id) => id !== sessionId)
+          : [...currentIds, sessionId];
+        return {
+          ...current,
+          [targetNodeId]: nextIds,
+        };
+      });
+    },
+    [overview],
+  );
 
-  const handleSelectNodeSessions = useCallback((targetNodeId: string, sessionIds: string[]) => {
-    setSelectedSessionIdsByNode((current) => ({
-      ...current,
-      [targetNodeId]: sessionIds,
-    }));
-  }, []);
+  const handleSelectNodeSessions = useCallback(
+    (targetNodeId: string, sessionIds: string[]) => {
+      const deletedSessionIds = overview
+        ? sessionIds.filter((sessionId) =>
+            canSelectSessionForWorkDirCleanup(overview, targetNodeId, sessionId),
+          )
+        : [];
+      setSelectedSessionIdsByNode((current) => ({
+        ...current,
+        [targetNodeId]: deletedSessionIds,
+      }));
+    },
+    [overview],
+  );
 
   const handleCleanupSessions = useCallback(
     async (targetNodeId: string) => {
       if (!accountSession) {
         return;
       }
-      const sessionIds = selectedSessionIdsByNode[targetNodeId] ?? [];
+      const sessionIds = overview
+        ? (selectedSessionIdsByNode[targetNodeId] ?? []).filter((sessionId) =>
+            canSelectSessionForWorkDirCleanup(overview, targetNodeId, sessionId),
+          )
+        : [];
       if (sessionIds.length === 0) {
         toast.error(t("admin.daemons.error.selectSession"));
         return;
@@ -694,6 +715,74 @@ function DaemonListItem({
   );
 }
 
+function useEnsureDaemonAdminRuntimeStarted(node: ControlDaemonNodeRecord): void {
+  const hosts = useHosts();
+  const directEndpoint = useMemo(
+    () => resolveControlRuntimeDirectEndpoint(node.endpoint),
+    [node.endpoint],
+  );
+  const password = useMemo(
+    () =>
+      findDirectHostRuntimeAuthToken({
+        endpoint: directEndpoint.endpoint,
+        hosts,
+        serverId: node.id,
+      }),
+    [directEndpoint.endpoint, hosts, node.id],
+  );
+
+  useEffect(() => {
+    if (node.status === "offline") {
+      return;
+    }
+
+    let active = true;
+    const store = getHostRuntimeStore();
+
+    void store
+      .upsertDirectConnection({
+        serverId: node.id,
+        endpoint: directEndpoint.endpoint,
+        useTls: directEndpoint.useTls,
+        label: node.id,
+        ...(password ? { password } : {}),
+      })
+      .then(() => {
+        if (active) {
+          return store.ensureStarted(node.id);
+        }
+        return undefined;
+      })
+      .catch((caught) => {
+        console.error("[DaemonAdmin] Failed to start daemon runtime", {
+          nodeId: node.id,
+          error: caught,
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [directEndpoint.endpoint, directEndpoint.useTls, node.id, node.status, password]);
+}
+
+function findDirectHostRuntimeAuthToken(input: {
+  endpoint: string;
+  hosts: HostProfile[];
+  serverId: string;
+}): string | null {
+  const host = input.hosts.find((entry) => entry.serverId === input.serverId);
+  if (!host) {
+    return null;
+  }
+  const normalizedEndpoint = normalizeHostPort(input.endpoint);
+  const connection = host.connections.find(
+    (entry) =>
+      entry.type === "directTcp" && normalizeHostPort(entry.endpoint) === normalizedEndpoint,
+  );
+  return connection?.type === "directTcp" ? (connection.password ?? null) : null;
+}
+
 function DaemonCard({
   accountSession,
   summary,
@@ -725,12 +814,7 @@ function DaemonCard({
   const [isPromptEditing, setIsPromptEditing] = useState(false);
   const [promptDraft, setPromptDraft] = useState("");
   const [isModelLockEditing, setIsModelLockEditing] = useState(false);
-  useEnsureHostRuntimeStarted(
-    activeTab === "providers" && summary.node.status !== "offline" ? summary.node.id : null,
-  );
-  useEnsureHostRuntimeStarted(
-    isModelLockEditing && summary.node.status !== "offline" ? summary.node.id : null,
-  );
+  useEnsureDaemonAdminRuntimeStarted(summary.node);
   const activeAgents = summary.agentBindingCounts.active;
   const resourceStats = readResourceStats(summary.load);
   const persistedPrompt = daemonConfig?.appendSystemPrompt ?? "";
@@ -847,13 +931,6 @@ function DaemonCard({
     [t],
   );
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
-  const sessionIds = useMemo(
-    () =>
-      summary.userWorkspaces.flatMap((workspace) =>
-        workspace.sessions.map((session) => session.session.id),
-      ),
-    [summary.userWorkspaces],
-  );
   const selectedWorkspace = useMemo(
     () =>
       summary.userWorkspaces.find((workspace) => workspace.workspace.id === selectedWorkspaceId) ??
@@ -861,16 +938,12 @@ function DaemonCard({
       null,
     [selectedWorkspaceId, summary.userWorkspaces],
   );
-  const selectedCount = selectedSessionIds.length;
-  const canCleanupWorkDirs =
-    selectedCount > 0 &&
-    selectedSessionIds.every((sessionId) =>
-      summary.userWorkspaces.some((workspace) =>
-        workspace.sessions.some(
-          (session) => session.session.id === sessionId && session.session.deletedAt,
-        ),
-      ),
-    );
+  const deletedSessionIds = useMemo(() => getDeletedSessionIds(summary), [summary]);
+  const selectedDeletedSessionIds = useMemo(
+    () => selectedSessionIds.filter((sessionId) => deletedSessionIds.includes(sessionId)),
+    [deletedSessionIds, selectedSessionIds],
+  );
+  const selectedCount = selectedDeletedSessionIds.length;
 
   useEffect(() => {
     setSelectedWorkspaceId((current) => {
@@ -1058,8 +1131,8 @@ function DaemonCard({
     void onRestartDaemon(summary.node.id);
   }, [onRestartDaemon, summary.node.id]);
   const handleSelectAll = useCallback(() => {
-    onSelectNodeSessions(summary.node.id, sessionIds);
-  }, [onSelectNodeSessions, sessionIds, summary.node.id]);
+    onSelectNodeSessions(summary.node.id, deletedSessionIds);
+  }, [deletedSessionIds, onSelectNodeSessions, summary.node.id]);
   const handleClearSelection = useCallback(() => {
     onSelectNodeSessions(summary.node.id, []);
   }, [onSelectNodeSessions, summary.node.id]);
@@ -1289,7 +1362,7 @@ function DaemonCard({
                   <Button
                     variant="outline"
                     size="xs"
-                    disabled={isMutating || sessionIds.length === 0}
+                    disabled={isMutating || deletedSessionIds.length === 0}
                     onPress={handleSelectAll}
                   >
                     {t("admin.daemons.action.selectAll")}
@@ -1305,18 +1378,13 @@ function DaemonCard({
                   <Button
                     variant="destructive"
                     size="xs"
-                    disabled={isMutating || !canCleanupWorkDirs}
+                    disabled={isMutating || selectedCount === 0}
                     onPress={handleCleanup}
                   >
                     {t("admin.daemons.action.cleanup")}
                   </Button>
                 </View>
               </View>
-              {selectedCount > 0 && !canCleanupWorkDirs ? (
-                <Text style={styles.cleanupHint}>
-                  {t("admin.daemons.cleanup.workdirRequiresDeletedSession")}
-                </Text>
-              ) : null}
               {summary.userWorkspaces.length > 0 && selectedWorkspace ? (
                 <View style={styles.workspaceSplit}>
                   <View style={styles.workspaceIndex}>
@@ -1325,7 +1393,7 @@ function DaemonCard({
                         key={workspace.workspace.id}
                         workspace={workspace}
                         selected={selectedWorkspace.workspace.id === workspace.workspace.id}
-                        selectedSessionIds={selectedSessionIds}
+                        selectedSessionIds={selectedDeletedSessionIds}
                         onSelect={setSelectedWorkspaceId}
                       />
                     ))}
@@ -1333,7 +1401,7 @@ function DaemonCard({
                   <WorkspaceSessionPanel
                     nodeId={summary.node.id}
                     workspace={selectedWorkspace}
-                    selectedSessionIds={selectedSessionIds}
+                    selectedSessionIds={selectedDeletedSessionIds}
                     onToggleSession={onToggleSession}
                   />
                 </View>
@@ -1428,6 +1496,8 @@ function WorkspaceListItem({
   const selectedCount = workspace.sessions.filter((session) =>
     selectedSessionIds.includes(session.session.id),
   ).length;
+  const deletedSessionCount = workspace.sessions.filter((session) => session.session.deletedAt)
+    .length;
   const workspaceTitle = getWorkspaceDisplayName(workspace, t);
   const handlePress = useCallback(() => {
     onSelect(workspace.workspace.id);
@@ -1455,7 +1525,7 @@ function WorkspaceListItem({
         </View>
         <View style={styles.workspaceMeta}>
           <Text style={styles.workspaceCount}>
-            {selectedCount}/{workspace.sessions.length}
+            {selectedCount}/{deletedSessionCount}
           </Text>
         </View>
       </View>
@@ -1540,18 +1610,25 @@ function SessionRow({
   const sessionMeta = `${formatTimestamp(summary.session.updatedAt)} · ${formatShortId(
     summary.session.id,
   )}`;
+  const canSelect = Boolean(summary.session.deletedAt);
   const handlePress = useCallback(() => {
+    if (!canSelect) {
+      return;
+    }
     onToggleSession(nodeId, summary.session.id);
-  }, [nodeId, onToggleSession, summary.session.id]);
+  }, [canSelect, nodeId, onToggleSession, summary.session.id]);
+  const rowStyle = getSessionRowStyle({ selected, canSelect });
+  const checkStyle = getSessionCheckStyle({ selected, canSelect });
   return (
     <Pressable
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
-      style={selected ? styles.sessionRowSelected : styles.sessionRow}
+      accessibilityState={{ checked: selected, disabled: !canSelect }}
+      disabled={!canSelect}
+      style={rowStyle}
       onPress={handlePress}
     >
       <View style={styles.sessionSelectColumn}>
-        <View style={selected ? styles.sessionCheckSelected : styles.sessionCheck}>
+        <View style={checkStyle}>
           {selected ? <Check size={12} color={styles.badgeText.color} /> : null}
         </View>
       </View>
@@ -1647,6 +1724,26 @@ function sessionStatusDotStyle(status: ControlAdminSessionSummary["session"]["st
   return styles.sessionDotIdle;
 }
 
+function getSessionRowStyle(input: { selected: boolean; canSelect: boolean }) {
+  if (input.selected) {
+    return styles.sessionRowSelected;
+  }
+  if (!input.canSelect) {
+    return styles.sessionRowDisabled;
+  }
+  return styles.sessionRow;
+}
+
+function getSessionCheckStyle(input: { selected: boolean; canSelect: boolean }) {
+  if (input.selected) {
+    return styles.sessionCheckSelected;
+  }
+  if (!input.canSelect) {
+    return styles.sessionCheckDisabled;
+  }
+  return styles.sessionCheck;
+}
+
 function formatRatio(value: number): string {
   return `${Math.round(clamp01(value) * 100)}%`;
 }
@@ -1737,6 +1834,30 @@ function canCleanupSelectedWorkDirs(
   );
 }
 
+function canSelectSessionForWorkDirCleanup(
+  overview: ControlAdminOverview,
+  nodeId: string,
+  sessionId: string,
+): boolean {
+  const node = overview.daemonNodes.find((summary) => summary.node.id === nodeId);
+  if (!node) {
+    return false;
+  }
+  return node.userWorkspaces.some((workspace) =>
+    workspace.sessions.some((session) => {
+      return session.session.id === sessionId && Boolean(session.session.deletedAt);
+    }),
+  );
+}
+
+function getDeletedSessionIds(summary: ControlDaemonNodeSummary): string[] {
+  return summary.userWorkspaces.flatMap((workspace) =>
+    workspace.sessions
+      .filter((session) => session.session.deletedAt)
+      .map((session) => session.session.id),
+  );
+}
+
 function removeCleanedWorkDirSessionsFromOverview(
   overview: ControlAdminOverview,
   nodeId: string,
@@ -1773,7 +1894,9 @@ function pruneSelectedSessionIds(
   for (const summary of overview.daemonNodes) {
     const availableSessionIds = new Set(
       summary.userWorkspaces.flatMap((workspace) =>
-        workspace.sessions.map((session) => session.session.id),
+        workspace.sessions
+          .filter((session) => session.session.deletedAt)
+          .map((session) => session.session.id),
       ),
     );
     const selected = (current[summary.node.id] ?? []).filter((id) => availableSessionIds.has(id));
@@ -2433,10 +2556,6 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
     gap: theme.spacing[2],
   },
-  cleanupHint: {
-    color: "#b45309",
-    fontSize: theme.fontSize.xs,
-  },
   selectionBadge: {
     borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.surface2,
@@ -2625,6 +2744,18 @@ const styles = StyleSheet.create((theme) => ({
     paddingVertical: theme.spacing[1],
     paddingHorizontal: theme.spacing[3],
   },
+  sessionRowDisabled: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    borderBottomWidth: 1,
+    borderBottomColor: "#edf0f4",
+    backgroundColor: "transparent",
+    opacity: 0.55,
+    paddingVertical: theme.spacing[1],
+    paddingHorizontal: theme.spacing[3],
+  },
   sessionSelectColumn: {
     width: 24,
     alignItems: "center",
@@ -2646,6 +2777,16 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     borderRadius: theme.borderRadius.sm,
     backgroundColor: theme.colors.accent,
+  },
+  sessionCheckDisabled: {
+    width: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: "#f5f6f8",
   },
   sessionMainColumn: {
     flex: 1,

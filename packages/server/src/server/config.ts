@@ -161,6 +161,7 @@ interface ResolvedControlRegistration {
   apiBaseUrl?: string;
   userId?: string;
   authToken?: string;
+  ownerUserId?: string;
   nodeEndpoint?: string;
   publicNodeEndpoint?: string;
   runtimeAuthToken?: string;
@@ -224,6 +225,9 @@ function resolveControlRegistrationConfig(
       : {}),
     ...((env.DOYA_CONTROL_TOKEN ?? persistedControl?.authToken)
       ? { authToken: env.DOYA_CONTROL_TOKEN ?? persistedControl?.authToken }
+      : {}),
+    ...((env.DOYA_CONTROL_OWNER_USER_ID ?? persistedControl?.ownerUserId)
+      ? { ownerUserId: env.DOYA_CONTROL_OWNER_USER_ID ?? persistedControl?.ownerUserId }
       : {}),
     ...((env.DOYA_CONTROL_DAEMON_ENDPOINT ?? persistedControl?.nodeEndpoint)
       ? { nodeEndpoint: env.DOYA_CONTROL_DAEMON_ENDPOINT ?? persistedControl?.nodeEndpoint }

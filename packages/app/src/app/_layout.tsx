@@ -303,18 +303,28 @@ async function shouldStartBuiltInDaemon(): Promise<boolean> {
 }
 
 function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isAdminRoute = pathname.startsWith("/admin");
+
   useEffect(() => {
+    if (isAdminRoute) {
+      return;
+    }
     const store = getHostRuntimeStore();
     const daemonStartService = getDaemonStartService({ store });
     startHostRuntimeBootstrap({
       store,
       daemonStartService,
       shouldStartDaemon: shouldStartBuiltInDaemon,
+      bootAfterDaemonStart: shouldUseDesktopDaemon(),
       onGateError: (message) => daemonStartService.recordError(message),
     });
-  }, []);
+  }, [isAdminRoute]);
 
   useEffect(() => {
+    if (isAdminRoute) {
+      return;
+    }
     const daemonStartService = getDaemonStartService({ store: getHostRuntimeStore() });
     return subscribeAccountSessionChanges(() => {
       startDaemonIfGateAllows({
@@ -323,7 +333,7 @@ function HostRuntimeBootstrapProvider({ children }: { children: ReactNode }) {
         onGateError: (message) => daemonStartService.recordError(message),
       });
     });
-  }, []);
+  }, [isAdminRoute]);
 
   const hosts = useHosts();
   const firstHostServerId = hosts[0]?.serverId ?? null;

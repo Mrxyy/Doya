@@ -19,6 +19,7 @@ import {
   SmsVerificationService,
 } from "../sms-verification-service.js";
 import {
+  AuthenticationError,
   BillingPreflightError,
   NotFoundError,
   NodeSchedulingUnavailableError,
@@ -53,6 +54,7 @@ import {
   recordUsageTurnBodySchema,
   runtimeSyncArtifactBodySchema,
   runtimeSyncEventBodySchema,
+  runtimeNodePreferenceBodySchema,
   selectRuntimeNodeBodySchema,
   updateBillingSettingsBodySchema,
   updateBillingPlanDefinitionBodySchema,
@@ -69,7 +71,6 @@ import {
   DaemonCommandBroker,
   DaemonCommandFailedError,
   DaemonCommandTimeoutError,
-  type DaemonCommandRequest,
 } from "./daemon-command-broker.js";
 
 interface AuthContext {
@@ -473,10 +474,31 @@ export function createControlApp(store: ControlStore): express.Express {
 
   app.post(
     "/api/nodes/register",
-    requireAuth(store),
     asyncHandler(async (req, res) => {
       const body = parseBody(registerNodeBodySchema, req.body);
-      res.status(201).json({ node: toPublicDaemonNode(await store.registerNode(body)) });
+      const auth = await readNodeRegistrationAuth(store, req);
+      if (!auth) {
+        res.status(401).json({ error: "Daemon node registration authentication required" });
+        return;
+      }
+      if (body.ownerUserId) {
+        if (auth.kind !== "user") {
+          res.status(403).json({ error: "Daemon owner requires user authentication" });
+          return;
+        }
+        if (body.ownerUserId !== auth.userId) {
+          res.status(403).json({ error: "Daemon owner does not match authenticated user" });
+          return;
+        }
+      }
+      res.status(201).json({
+        node: toPublicDaemonNode(
+          await store.registerNode({
+            ...body,
+            ownerUserId: body.ownerUserId ?? null,
+          }),
+        ),
+      });
     }),
   );
 
@@ -576,7 +598,10 @@ export function createControlApp(store: ControlStore): express.Express {
     "/api/scheduler/runtime-node",
     asyncHandler(async (req, res) => {
       const body = parseBody(selectRuntimeNodeBodySchema, req.body);
+      const auth = await readOptionalAuth(store, req);
       const selection = await store.selectRuntimeNode({
+        userId: auth?.userId,
+        nodeId: body.nodeId,
         providerId: body.providerId,
         modelId: body.modelId,
       });
@@ -588,8 +613,44 @@ export function createControlApp(store: ControlStore): express.Express {
   );
 
   app.get(
-    "/api/admin/daemon-overview",
+    "/api/scheduler/runtime-node-preference",
     requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const preference = await store.getRuntimeNodePreference({ userId: requireUserId(req) });
+      res.json({ preference: preference ?? { mode: "cloud", nodeId: null } });
+    }),
+  );
+
+  app.get(
+    "/api/scheduler/runtime-node-options",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const userId = requireUserId(req);
+      const preference = await store.getRuntimeNodePreference({ userId });
+      const nodes = await store.listRuntimeNodeOptions({ userId });
+      res.json({
+        preference: preference ?? { mode: "cloud", nodeId: null },
+        nodes: nodes.map(toSchedulerDaemonNode),
+      });
+    }),
+  );
+
+  app.patch(
+    "/api/scheduler/runtime-node-preference",
+    requireAuth(store),
+    asyncHandler(async (req, res) => {
+      const body = parseBody(runtimeNodePreferenceBodySchema, req.body);
+      const preference = await store.setRuntimeNodePreference({
+        userId: requireUserId(req),
+        mode: body.mode,
+        nodeId: body.mode === "fixed" ? body.nodeId : null,
+      });
+      res.json({ preference });
+    }),
+  );
+
+  app.get(
+    "/api/admin/daemon-overview",
     asyncHandler(async (_req, res) => {
       const overview = await store.getAdminOverview();
       res.json({
@@ -1420,6 +1481,33 @@ function requireAuth(store: ControlStore) {
   });
 }
 
+async function readOptionalAuth(store: ControlStore, req: Request): Promise<AuthContext | null> {
+  const userId = readHeader(req, "x-doya-user-id");
+  const accessToken = readAuthorizationBearer(req) ?? readHeader(req, "x-doya-access-token");
+  if (!userId || !accessToken) {
+    return null;
+  }
+  await store.getUserByToken({ userId, accessToken });
+  return { userId, accessToken };
+}
+
+async function readNodeRegistrationAuth(
+  store: ControlStore,
+  req: Request,
+): Promise<({ kind: "user" } & AuthContext) | { kind: "node" } | null> {
+  const userId = readHeader(req, "x-doya-user-id");
+  const accessToken = readAuthorizationBearer(req) ?? readHeader(req, "x-doya-access-token");
+  if (userId && accessToken) {
+    await store.getUserByToken({ userId, accessToken });
+    return { kind: "user", userId, accessToken };
+  }
+  const registrationToken = process.env.DOYA_CONTROL_NODE_REGISTRATION_TOKEN?.trim();
+  if (registrationToken && accessToken === registrationToken) {
+    return { kind: "node" };
+  }
+  return null;
+}
+
 function requireUserId(req: Request): string {
   return requireRequestAuth(req).userId;
 }
@@ -1574,6 +1662,10 @@ function errorHandler(error: unknown, _req: Request, res: Response, _next: NextF
   }
   if (error instanceof NotFoundError) {
     res.status(404).json({ error: error.message });
+    return;
+  }
+  if (error instanceof AuthenticationError) {
+    res.status(401).json({ error: "Authentication required" });
     return;
   }
   if (error instanceof SmsVerificationError) {

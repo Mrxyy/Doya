@@ -49,6 +49,7 @@ const MANAGED_CODEX_ENV_KEYS = [
   "DOYA_MANAGED_CODEX_BASE_URL",
   "DOYA_MANAGED_CODEX_API_KEY",
   "DOYA_MANAGED_CODEX_MODEL",
+  "DOYA_MANAGED_CODEX_USER_ID",
 ];
 
 type DesktopDaemonState = "starting" | "running" | "stopped" | "errored";
@@ -63,6 +64,7 @@ export interface DesktopDaemonStatus {
   version: string | null;
   desktopManaged: boolean;
   managedCodexEnabled: boolean;
+  managedCodexUserId: string | null;
   error: string | null;
 }
 
@@ -88,6 +90,7 @@ interface StartDaemonArgs {
     baseUrl?: string;
     apiKey?: string;
     model?: string | null;
+    userId?: string | null;
   };
 }
 
@@ -257,6 +260,7 @@ function parseStartDaemonArgs(args: Record<string, unknown> | undefined): StartD
       baseUrl: toTrimmedString(args.managedCodex.baseUrl) ?? undefined,
       apiKey: toTrimmedString(args.managedCodex.apiKey) ?? undefined,
       model: toTrimmedString(args.managedCodex.model),
+      userId: toTrimmedString(args.managedCodex.userId),
     };
   }
   return parsed;
@@ -276,6 +280,7 @@ function buildControlEnvOverlay(args: StartDaemonArgs): Record<string, string> {
     DOYA_CONTROL_API_URL: control.apiBaseUrl,
     DOYA_CONTROL_USER_ID: control.userId,
     DOYA_CONTROL_TOKEN: control.accessToken,
+    DOYA_CONTROL_OWNER_USER_ID: control.userId,
   };
 }
 
@@ -335,6 +340,9 @@ function buildManagedCodexEnvOverlay(args: StartDaemonArgs): Record<string, stri
     if (args.managedCodex.model) {
       overlay.DOYA_MANAGED_CODEX_MODEL = args.managedCodex.model;
     }
+    if (args.managedCodex.userId) {
+      overlay.DOYA_MANAGED_CODEX_USER_ID = args.managedCodex.userId;
+    }
     return overlay;
   }
 
@@ -362,6 +370,8 @@ function buildControlRegistrationBody(args: StartDaemonArgs): Record<string, unk
     apiBaseUrl: control.apiBaseUrl,
     userId: control.userId,
     authToken: control.accessToken,
+    ownerUserId: control.userId,
+    nodeEndpoint: "127.0.0.1:6767",
   };
 }
 
@@ -445,6 +455,10 @@ export async function resolveDesktopDaemonStatus(): Promise<DesktopDaemonStatus>
       version: typeof payload.daemonVersion === "string" ? payload.daemonVersion : null,
       desktopManaged: hasRunningLocalProcess && payload.desktopManaged === true,
       managedCodexEnabled: hasRunningLocalProcess && payload.managedCodexEnabled === true,
+      managedCodexUserId:
+        hasRunningLocalProcess && typeof payload.managedCodexUserId === "string"
+          ? payload.managedCodexUserId
+          : null,
       error: null,
     };
   } catch (error) {
@@ -460,6 +474,7 @@ export async function resolveDesktopDaemonStatus(): Promise<DesktopDaemonStatus>
       version: null,
       desktopManaged: false,
       managedCodexEnabled: false,
+      managedCodexUserId: null,
       error: errorMessage,
     };
   }
@@ -487,7 +502,14 @@ function shouldRestartForManagedCodex(
     managedCodexEnvOverlay.DOYA_MANAGED_CODEX_BASE_URL &&
     managedCodexEnvOverlay.DOYA_MANAGED_CODEX_API_KEY,
   );
-  return wantsManagedCodex && !current.managedCodexEnabled;
+  if (!wantsManagedCodex) {
+    return false;
+  }
+  if (!current.managedCodexEnabled) {
+    return true;
+  }
+  const requestedUserId = managedCodexEnvOverlay.DOYA_MANAGED_CODEX_USER_ID;
+  return Boolean(requestedUserId && current.managedCodexUserId !== requestedUserId);
 }
 
 function assertBuiltInDaemonManagementEnabled(settings: DesktopSettings): void {
@@ -549,6 +571,7 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
     error: current.error,
     desktopManaged: current.desktopManaged,
     managedCodexEnabled: current.managedCodexEnabled,
+    managedCodexUserId: current.managedCodexUserId,
   });
   if (current.status === "running") {
     if (shouldRestartForVersion(current)) {
@@ -560,6 +583,8 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
     } else if (shouldRestartForManagedCodex(current, managedCodexEnvOverlay)) {
       logDesktopDaemonLifecycle("daemon missing managed Codex environment, restarting", {
         managedCodexEnabled: current.managedCodexEnabled,
+        managedCodexUserId: current.managedCodexUserId,
+        requestedManagedCodexUserId: managedCodexEnvOverlay.DOYA_MANAGED_CODEX_USER_ID ?? null,
         managedCodexRequested: true,
       });
       await stopDesktopDaemon();
@@ -576,6 +601,7 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
     arch: process.arch,
     bundledCodexPath: managedCodexEnvOverlay.DOYA_BUNDLED_CODEX_PATH ?? null,
     managedCodexEnabled: Boolean(managedCodexEnvOverlay.DOYA_MANAGED_CODEX_BASE_URL),
+    managedCodexUserId: managedCodexEnvOverlay.DOYA_MANAGED_CODEX_USER_ID ?? null,
     managedCodexModel: managedCodexEnvOverlay.DOYA_MANAGED_CODEX_MODEL ?? null,
     managedCodexApiKeyProvided: Boolean(managedCodexEnvOverlay.DOYA_MANAGED_CODEX_API_KEY),
   });

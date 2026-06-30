@@ -109,9 +109,14 @@ control owns account/session/history state.
 
 Daemon nodes can register themselves with a control plane by setting
 `DOYA_CONTROL_API_URL` or `daemon.control.apiBaseUrl` in `$DOYA_HOME/config.json`.
-Set `DOYA_CONTROL_USER_ID` and `DOYA_CONTROL_TOKEN` to the account session that
-owns the node registration; registration waits until both credentials are
-present so a URL-only config does not spam unauthenticated heartbeats. Optional
+Cloud/runtime-fleet daemons should authenticate with the platform node
+registration secret: set `DOYA_CONTROL_TOKEN` to the same value configured on
+the control service as `DOYA_CONTROL_NODE_REGISTRATION_TOKEN`, and do not set
+`DOYA_CONTROL_USER_ID` or `DOYA_CONTROL_OWNER_USER_ID`. Desktop-managed local
+daemons use account credentials instead: set `DOYA_CONTROL_USER_ID`,
+`DOYA_CONTROL_TOKEN`, and `DOYA_CONTROL_OWNER_USER_ID` to the owning user.
+Registration waits until a control URL and token are present so a URL-only
+config does not spam unauthenticated heartbeats. Optional
 `DOYA_CONTROL_DAEMON_ENDPOINT` and
 `DOYA_CONTROL_DAEMON_PUBLIC_ENDPOINT` values are included in the registration
 heartbeat. Set `DOYA_CONTROL_RUNTIME_AUTH_TOKEN` so daemon command polling can
@@ -177,6 +182,9 @@ uses that runtime key against Doya AI Gateway. Gateway validates the key, checks
 the Doya account balance before forwarding, proxies the request to the configured
 OpenAI-compatible upstream, then records response `usage` back into Doya billing.
 The upstream provider key is never exposed to desktop, daemon, or Codex.
+Desktop tags the managed Codex daemon with the account `userId`; when the active
+account changes, the desktop-managed daemon must restart instead of reusing a
+runtime key issued for another user.
 
 Managed Codex also receives an isolated `CODEX_HOME` under
 `$DOYA_HOME/managed-codex` by default. This keeps the production desktop flow from
@@ -224,6 +232,10 @@ specific daemon: opening a live session/agent, creating a new runtime on a
 selected host, running a probe, or opening a daemon-scoped admin surface that
 needs live provider/runtime details. Use `ensureStarted(serverId)` or the
 matching hook at that boundary, not in broad list components.
+When the target comes from a control-plane daemon node rather than a saved host
+profile, first upsert the node endpoint into HostRuntime, then call
+`ensureStarted(serverId)`; otherwise there is no controller to start and the
+call is a no-op.
 
 Control-plane history can render from persisted sessions and bindings before a
 daemon socket exists. When the user opens a history item, resolve its active

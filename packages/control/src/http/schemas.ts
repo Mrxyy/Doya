@@ -94,6 +94,7 @@ export const createFileSnapshotBodySchema = z.object({
 
 export const registerNodeBodySchema = z.object({
   nodeId: z.string().min(1).optional(),
+  ownerUserId: z.string().min(1).optional().nullable(),
   endpoint: z.string().min(1),
   publicEndpoint: z.string().min(1).optional().nullable(),
   doyaHome: z.string().optional().nullable(),
@@ -103,9 +104,15 @@ export const registerNodeBodySchema = z.object({
 });
 
 export const selectRuntimeNodeBodySchema = z.object({
+  nodeId: z.string().min(1).optional().nullable(),
   providerId: z.string().min(1).optional().nullable(),
   modelId: z.string().min(1).optional().nullable(),
 });
+
+export const runtimeNodePreferenceBodySchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("cloud") }),
+  z.object({ mode: z.literal("fixed"), nodeId: z.string().min(1) }),
+]);
 
 export const updateDaemonNodeBodySchema = z.object({
   status: z.enum(["online", "offline", "draining"]).optional(),

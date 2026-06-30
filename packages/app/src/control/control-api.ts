@@ -34,6 +34,10 @@ export interface ControlManagedCodexConfig {
   model: string | null;
 }
 
+export type ControlRuntimeNodePreference =
+  | { mode: "cloud"; nodeId: null }
+  | { mode: "fixed"; nodeId: string };
+
 export interface ControlSessionRecord {
   id: string;
   userId: string;
@@ -123,6 +127,7 @@ export interface ControlFileSnapshotRecord {
 
 export interface ControlDaemonNodeRecord {
   id: string;
+  ownerUserId: string | null;
   endpoint: string;
   publicEndpoint: string | null;
   status: "online" | "offline" | "draining";
@@ -137,6 +142,11 @@ export interface ControlSchedulerDaemonNodeRecord {
   endpoint: string;
   status: ControlDaemonNodeRecord["status"];
   lastHeartbeatAt: string;
+}
+
+export interface ControlRuntimeNodeOptions {
+  preference: ControlRuntimeNodePreference;
+  nodes: ControlSchedulerDaemonNodeRecord[];
 }
 
 export type ControlSettingsRecord = Record<string, never>;
@@ -503,6 +513,42 @@ export interface ControlErrorPayload {
   error?: string;
 }
 
+export type ControlApiErrorCode =
+  | "control_unconfigured"
+  | "network"
+  | "unauthorized"
+  | "forbidden"
+  | "conflict"
+  | "invalid_response"
+  | "request_failed";
+
+export class ControlApiError extends Error {
+  readonly code: ControlApiErrorCode;
+  readonly status: number | null;
+  readonly rawMessage: string | null;
+
+  constructor(input: {
+    code: ControlApiErrorCode;
+    message: string;
+    status?: number | null;
+    rawMessage?: string | null;
+  }) {
+    super(input.message);
+    this.name = "ControlApiError";
+    this.code = input.code;
+    this.status = input.status ?? null;
+    this.rawMessage = input.rawMessage ?? null;
+  }
+}
+
+type ControlAuthExpiredHandler = () => void | Promise<void>;
+
+let controlAuthExpiredHandler: ControlAuthExpiredHandler | null = null;
+
+export function setControlAuthExpiredHandler(handler: ControlAuthExpiredHandler | null): void {
+  controlAuthExpiredHandler = handler;
+}
+
 export function controlApiBaseUrl(): string | null {
   const explicit = process.env.EXPO_PUBLIC_CONTROL_API_URL?.trim();
   if (explicit) {
@@ -793,27 +839,60 @@ export async function registerControlNode(input: {
 }
 
 export async function getControlAdminOverview(input: {
-  accountSession: AccountBootstrapSession;
+  accountSession?: AccountBootstrapSession | null;
 }): Promise<ControlAdminOverview> {
   return await getControlApi<ControlAdminOverview>(
     "/api/admin/daemon-overview",
-    input.accountSession,
+    input.accountSession ?? undefined,
   );
 }
 
 export async function selectControlRuntimeNode(input: {
   accountSession?: AccountBootstrapSession | null;
+  nodeId?: string | null;
   providerId?: string | null;
   modelId?: string | null;
 }): Promise<{ node: ControlSchedulerDaemonNodeRecord; selectionReason: string }> {
   return await postControlApi<{ node: ControlSchedulerDaemonNodeRecord; selectionReason: string }>(
     "/api/scheduler/runtime-node",
     {
+      nodeId: input.nodeId,
       providerId: input.providerId,
       modelId: input.modelId,
     },
     input.accountSession ?? undefined,
   );
+}
+
+export async function getControlRuntimeNodePreference(input: {
+  accountSession: AccountBootstrapSession;
+}): Promise<ControlRuntimeNodePreference> {
+  const payload = await getControlApi<{ preference: ControlRuntimeNodePreference }>(
+    "/api/scheduler/runtime-node-preference",
+    input.accountSession,
+  );
+  return payload.preference;
+}
+
+export async function getControlRuntimeNodeOptions(input: {
+  accountSession: AccountBootstrapSession;
+}): Promise<ControlRuntimeNodeOptions> {
+  return await getControlApi<ControlRuntimeNodeOptions>(
+    "/api/scheduler/runtime-node-options",
+    input.accountSession,
+  );
+}
+
+export async function updateControlRuntimeNodePreference(input: {
+  accountSession: AccountBootstrapSession;
+  preference: { mode: "cloud" } | { mode: "fixed"; nodeId: string };
+}): Promise<ControlRuntimeNodePreference> {
+  const payload = await patchControlApi<{ preference: ControlRuntimeNodePreference }>(
+    "/api/scheduler/runtime-node-preference",
+    input.preference,
+    input.accountSession,
+  );
+  return payload.preference;
 }
 
 export async function updateControlDaemonNode(input: {
@@ -1302,7 +1381,7 @@ export async function updateControlReferral(input: {
 
 async function getControlApi<T extends object>(
   path: string,
-  accountSession: AccountBootstrapSession,
+  accountSession?: AccountBootstrapSession,
 ): Promise<T> {
   return requestControlApi<T>(path, {
     method: "GET",
@@ -1344,17 +1423,22 @@ async function deleteControlApi(
   });
 }
 
+interface RequestControlApiOptions {
+  method: "GET" | "POST" | "PATCH" | "DELETE";
+  body?: unknown;
+  accountSession?: AccountBootstrapSession;
+}
+
 async function requestControlApi<T extends object>(
   path: string,
-  options: {
-    method: "GET" | "POST" | "PATCH" | "DELETE";
-    body?: unknown;
-    accountSession?: AccountBootstrapSession;
-  },
+  options: RequestControlApiOptions,
 ): Promise<T> {
   const baseUrl = controlApiBaseUrl();
   if (!baseUrl) {
-    throw new Error("Control API is not configured");
+    throw new ControlApiError({
+      code: "control_unconfigured",
+      message: translateNow("control.error.unconfigured"),
+    });
   }
 
   let response: Response;
@@ -1373,12 +1457,19 @@ async function requestControlApi<T extends object>(
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
     });
   } catch {
-    throw new Error(translateNow("account.error.connectDaemon"));
+    throw new ControlApiError({
+      code: "network",
+      message: translateNow("control.error.connectControl"),
+    });
   }
 
   if (response.status === 204) {
     if (!response.ok) {
-      throw new Error(`${translateNow("account.error.requestFailed")} (${response.status})`);
+      await throwControlResponseError({
+        response,
+        payload: null,
+        accountSession: options.accountSession,
+      });
     }
     return {} as T;
   }
@@ -1388,21 +1479,75 @@ async function requestControlApi<T extends object>(
     payload = (await response.json()) as T | ControlErrorPayload;
   } catch {
     if (!response.ok) {
-      throw new Error(`${translateNow("account.error.requestFailed")} (${response.status})`);
+      await throwControlResponseError({
+        response,
+        payload: null,
+        accountSession: options.accountSession,
+      });
     }
-    throw new Error(translateNow("account.error.invalidDaemonResponse"));
+    throw new ControlApiError({
+      code: "invalid_response",
+      status: response.status,
+      message: translateNow("control.error.invalidResponse"),
+    });
   }
 
   if (!response.ok) {
-    const message =
-      "error" in payload && payload.error
-        ? payload.error
-        : translateNow("account.error.requestFailed");
-    const billingReason = getBillingUpgradeReason(message);
+    await throwControlResponseError({
+      response,
+      payload,
+      accountSession: options.accountSession,
+    });
+  }
+  return payload as T;
+}
+
+async function throwControlResponseError(input: {
+  response: Response;
+  payload: ControlErrorPayload | null;
+  accountSession?: AccountBootstrapSession;
+}): Promise<never> {
+  const rawMessage = input.payload?.error?.trim() || null;
+  if (rawMessage) {
+    const billingReason = getBillingUpgradeReason(rawMessage);
     if (billingReason) {
       useBillingUpgradeModalStore.getState().open(billingReason);
     }
-    throw new Error(translateBillingError(message) ?? message);
   }
-  return payload as T;
+  if (input.response.status === 401 && input.accountSession) {
+    try {
+      await controlAuthExpiredHandler?.();
+    } catch {
+      // Keep the original API failure as the user-facing error.
+    }
+  }
+  throw new ControlApiError({
+    code: resolveControlApiErrorCode(input.response.status),
+    status: input.response.status,
+    rawMessage,
+    message: resolveControlApiErrorMessage({
+      status: input.response.status,
+      rawMessage,
+    }),
+  });
+}
+
+function resolveControlApiErrorCode(status: number): ControlApiErrorCode {
+  if (status === 401) return "unauthorized";
+  if (status === 403) return "forbidden";
+  if (status === 409) return "conflict";
+  return "request_failed";
+}
+
+function resolveControlApiErrorMessage(input: {
+  status: number;
+  rawMessage: string | null;
+}): string {
+  if (input.status === 401) return translateNow("control.error.unauthorized");
+  if (input.status === 403) return translateNow("control.error.forbidden");
+  if (input.rawMessage) {
+    return translateBillingError(input.rawMessage) ?? input.rawMessage;
+  }
+  if (input.status === 409) return translateNow("control.error.conflict");
+  return translateNow("control.error.requestFailed", { status: input.status });
 }

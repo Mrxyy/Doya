@@ -12,6 +12,7 @@ const ControlRegistrationConfigBodySchema = z
     apiBaseUrl: z.string().min(1).optional(),
     userId: z.string().min(1).optional(),
     authToken: z.string().min(1).optional(),
+    ownerUserId: z.string().min(1).optional(),
     nodeEndpoint: z.string().min(1).optional(),
     publicNodeEndpoint: z.string().min(1).optional(),
     runtimeAuthToken: z.string().min(1).optional(),
@@ -21,7 +22,7 @@ const ControlRegistrationConfigBodySchema = z
     if (!value.enabled) {
       return;
     }
-    for (const field of ["apiBaseUrl", "userId", "authToken"] as const) {
+    for (const field of ["apiBaseUrl", "authToken"] as const) {
       if (!value[field]) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

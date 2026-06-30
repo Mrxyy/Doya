@@ -253,6 +253,7 @@ export const PersistedConfigSchema = z
             apiBaseUrl: z.string().min(1).optional(),
             userId: z.string().min(1).optional(),
             authToken: z.string().min(1).optional(),
+            ownerUserId: z.string().min(1).optional(),
             nodeEndpoint: z.string().min(1).optional(),
             publicNodeEndpoint: z.string().min(1).optional(),
             runtimeAuthToken: z.string().min(1).optional(),

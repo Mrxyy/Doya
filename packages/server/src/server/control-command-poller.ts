@@ -182,13 +182,11 @@ function controlHeaders(config: ControlRegistrationConfig): Record<string, strin
 
 function shouldPoll(
   config: ControlRegistrationConfig | undefined,
-): config is ControlRegistrationConfig & { apiBaseUrl: string; userId: string; authToken: string } {
+): config is ControlRegistrationConfig & { apiBaseUrl: string; authToken: string } {
   return (
     config?.enabled === true &&
     typeof config.apiBaseUrl === "string" &&
     !!config.apiBaseUrl.trim() &&
-    typeof config.userId === "string" &&
-    !!config.userId.trim() &&
     typeof config.authToken === "string" &&
     !!config.authToken.trim()
   );

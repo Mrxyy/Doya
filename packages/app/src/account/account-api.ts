@@ -7,12 +7,14 @@ import {
   refreshControlAccountSession,
   registerControlAccount,
   sendControlAccountSmsCode,
+  setControlAuthExpiredHandler,
 } from "@/control/control-api";
 import { isWeb } from "@/constants/platform";
 import { translateNow } from "@/i18n/i18n";
+import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 
 const ACCOUNT_SESSION_STORAGE_KEY = "doya.account.session.v1";
-const LEGACY_BRAND_STORAGE_PREFIX = "pa" + "seo";
+const LEGACY_BRAND_STORAGE_PREFIX = ["pa", "seo"].join("");
 const LEGACY_ACCOUNT_SESSION_STORAGE_KEY = `${LEGACY_BRAND_STORAGE_PREFIX}.account.session.v1`;
 const LEGACY_HOSTED_SESSION_STORAGE_KEY = `${LEGACY_BRAND_STORAGE_PREFIX}.hosted.session.v1`;
 const LEGACY_ACCOUNT_SESSION_STORAGE_KEYS = [
@@ -163,6 +165,11 @@ export async function clearAccountBootstrapSession(): Promise<void> {
   ]);
   notifyAccountSessionChanged();
 }
+
+setControlAuthExpiredHandler(async () => {
+  await clearAccountBootstrapSession();
+  useAccountLoginModalStore.getState().open("control-auth");
+});
 
 async function loadLegacyAccountBootstrapSessionRaw(): Promise<string | null> {
   for (const key of LEGACY_ACCOUNT_SESSION_STORAGE_KEYS) {

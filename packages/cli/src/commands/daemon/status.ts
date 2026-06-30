@@ -33,6 +33,7 @@ interface DaemonStatus {
   daemonVersion: string | null;
   desktopManaged: boolean;
   managedCodexEnabled: boolean;
+  managedCodexUserId: string | null;
   providers: ProviderBinaryStatus[];
   note?: string;
 }
@@ -435,6 +436,7 @@ export async function runStatusCommand(
     daemonVersion,
     desktopManaged: state.pidInfo?.desktopManaged === true,
     managedCodexEnabled: state.pidInfo?.managedCodexEnabled === true,
+    managedCodexUserId: state.pidInfo?.managedCodexUserId ?? null,
     providers,
     note,
   };

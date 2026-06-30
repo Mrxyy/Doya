@@ -158,6 +158,7 @@ describe("daemon-manager commands", () => {
       version: null,
       desktopManaged: false,
       managedCodexEnabled: false,
+      managedCodexUserId: null,
       error: null,
     });
 
@@ -190,6 +191,7 @@ describe("daemon-manager commands", () => {
       version: null,
       desktopManaged: false,
       managedCodexEnabled: false,
+      managedCodexUserId: null,
       error: null,
     });
 
@@ -238,6 +240,7 @@ describe("daemon-manager commands", () => {
       version: "1.2.2",
       desktopManaged: false,
       managedCodexEnabled: false,
+      managedCodexUserId: null,
       error: null,
     });
 
@@ -286,6 +289,8 @@ describe("daemon-manager commands", () => {
           apiBaseUrl: "https://control.example.test",
           userId: "user_123",
           authToken: "token_abc",
+          ownerUserId: "user_123",
+          nodeEndpoint: "127.0.0.1:6767",
         }),
       },
     );
@@ -334,6 +339,7 @@ describe("daemon-manager commands", () => {
           baseUrl: "http://localhost:6777/api/ai-gateway",
           apiKey: "doya-runtime-token",
           model: "managed-codex-model",
+          userId: "user_123",
         },
       }),
     ).rejects.toThrow("Daemon failed to start");
@@ -357,9 +363,71 @@ describe("daemon-manager commands", () => {
           DOYA_MANAGED_CODEX_BASE_URL: "http://localhost:6777/api/ai-gateway",
           DOYA_MANAGED_CODEX_API_KEY: "doya-runtime-token",
           DOYA_MANAGED_CODEX_MODEL: "managed-codex-model",
+          DOYA_MANAGED_CODEX_USER_ID: "user_123",
         }),
       }),
     );
+  });
+
+  it("restarts a desktop-managed daemon when managed Codex belongs to another user", async () => {
+    mocks.runExternalCliJsonCommand
+      .mockResolvedValueOnce({
+        localDaemon: "running",
+        connectedDaemon: "reachable",
+        serverId: "server-1",
+        pid: 7675,
+        listen: "127.0.0.1:6767",
+        hostname: "dev-host",
+        daemonVersion: "0.1.88",
+        desktopManaged: true,
+        managedCodexEnabled: true,
+        managedCodexUserId: "user_old",
+      })
+      .mockResolvedValueOnce({
+        localDaemon: "running",
+        connectedDaemon: "reachable",
+        serverId: "server-1",
+        pid: 7675,
+        listen: "127.0.0.1:6767",
+        hostname: "dev-host",
+        daemonVersion: "0.1.88",
+        desktopManaged: true,
+        managedCodexEnabled: true,
+        managedCodexUserId: "user_old",
+      })
+      .mockResolvedValueOnce({ action: "stopped" })
+      .mockResolvedValue({
+        localDaemon: "stopped",
+        connectedDaemon: "unreachable",
+        serverId: "",
+      });
+    mocks.spawnProcess.mockImplementation(() => {
+      const child = createMockChildProcess();
+      scheduleFailedStartupOutput(child);
+      return child;
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(
+      handlers.start_desktop_daemon({
+        managedCodex: {
+          baseUrl: "http://localhost:6777/api/ai-gateway",
+          apiKey: "doya-runtime-token",
+          userId: "user_new",
+        },
+      }),
+    ).rejects.toThrow("Daemon failed to start");
+
+    expect(mocks.runExternalCliJsonCommand).toHaveBeenCalledWith([
+      "daemon",
+      "stop",
+      "--json",
+      "--timeout",
+      "5",
+      "--force",
+      "--kill-timeout",
+      "5",
+    ]);
   });
 
   it("does not fail start when a running daemon rejects control registration", async () => {
@@ -465,6 +533,7 @@ describe("daemon-manager commands", () => {
           DOYA_CONTROL_API_URL: "https://control.example.test",
           DOYA_CONTROL_USER_ID: "user_123",
           DOYA_CONTROL_TOKEN: "token_abc",
+          DOYA_CONTROL_OWNER_USER_ID: "user_123",
         },
       }),
     );

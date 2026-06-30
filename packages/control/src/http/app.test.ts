@@ -31,6 +31,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  delete process.env.DOYA_CONTROL_NODE_REGISTRATION_TOKEN;
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await new Promise((resolve) => setTimeout(resolve, 0));
   await store.flush();
@@ -52,6 +53,25 @@ describe("sessions", () => {
     expect(response.headers.get("access-control-allow-origin")).toBe("*");
     expect(response.headers.get("access-control-allow-methods")).toContain("OPTIONS");
     expect(response.headers.get("access-control-allow-headers")).toContain("Authorization");
+  });
+
+  it("returns 401 for invalid session credentials", async () => {
+    const account = await register();
+    const invalidTokenResponse = await fetch(`${baseUrl}/api/sessions?limit=200`, {
+      headers: jsonHeaders({ ...account, accessToken: "token_invalid" }),
+    });
+    const invalidUserResponse = await fetch(`${baseUrl}/api/sessions?limit=200`, {
+      headers: jsonHeaders({ user: { id: "usr_missing" }, accessToken: account.accessToken }),
+    });
+
+    expect(invalidTokenResponse.status).toBe(401);
+    await expect(invalidTokenResponse.json()).resolves.toEqual({
+      error: "Authentication required",
+    });
+    expect(invalidUserResponse.status).toBe(401);
+    await expect(invalidUserResponse.json()).resolves.toEqual({
+      error: "Authentication required",
+    });
   });
 
   it("updates and deletes control-owned conversation sessions", async () => {
@@ -186,6 +206,22 @@ describe("daemon command polling", () => {
       status: "ok",
       nodeId: "node_1",
     });
+  });
+
+  it("returns daemon admin overview without a user login", async () => {
+    await store.registerNode({
+      nodeId: "node_1",
+      endpoint: "http://127.0.0.1:6767",
+      status: "online",
+    });
+
+    const response = await fetch(`${baseUrl}/api/admin/daemon-overview`);
+
+    expect(response.status).toBe(200);
+    const overview = (await response.json()) as {
+      daemonNodes: Array<{ node: { id: string } }>;
+    };
+    expect(overview.daemonNodes.map((summary) => summary.node.id)).toEqual(["node_1"]);
   });
 
   it("rejects command results reported by a different runtime node", async () => {
@@ -1350,6 +1386,41 @@ describe("daemon scheduling", () => {
     );
   });
 
+  it("lists only the signed-in user's desktop daemon options", async () => {
+    const account = await register("owner@example.com");
+    const otherAccount = await register("other@example.com");
+    await fetchJson("/api/nodes/register", {
+      method: "POST",
+      account,
+      body: {
+        nodeId: "node_owner",
+        ownerUserId: account.user.id,
+        endpoint: "http://127.0.0.1:6767",
+        status: "online",
+      },
+    });
+    await fetchJson("/api/nodes/register", {
+      method: "POST",
+      account: otherAccount,
+      body: {
+        nodeId: "node_other",
+        ownerUserId: otherAccount.user.id,
+        endpoint: "http://127.0.0.1:6868",
+        status: "online",
+      },
+    });
+
+    const response = await fetchJson<{ nodes: Array<{ id: string; runtimeAuthToken?: unknown }> }>(
+      "/api/scheduler/runtime-node-options",
+      {
+        account,
+      },
+    );
+
+    expect(response.nodes).toEqual([expect.objectContaining({ id: "node_owner" })]);
+    expect(response.nodes[0]).not.toHaveProperty("runtimeAuthToken");
+  });
+
   it("selects the least-loaded online daemon for new runtimes", async () => {
     const account = await register();
     const sessionResponse = await createGeneratedSession(account, "Scheduled selection");
@@ -1413,6 +1484,294 @@ describe("daemon scheduling", () => {
     expect(selection.node.runtimeAuthToken).toBeUndefined();
     expect(selection.node.doyaHome).toBeUndefined();
     expect(selection.node.capabilities).toBeUndefined();
+  });
+
+  it("does not use account-owned desktop daemons for cloud auto scheduling", async () => {
+    const account = await register();
+    await fetchJson("/api/nodes/register", {
+      method: "POST",
+      account,
+      body: {
+        nodeId: "node_desktop",
+        ownerUserId: account.user.id,
+        endpoint: "http://127.0.0.1:6767",
+        status: "online",
+      },
+    });
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({
+        providerId: "codex",
+        modelId: "gpt-5",
+      }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "No online daemon nodes can accept new runtimes",
+    });
+  });
+
+  it("uses authenticated ownerless daemon registrations for cloud auto scheduling", async () => {
+    const account = await register();
+    await fetchJson("/api/nodes/register", {
+      method: "POST",
+      account,
+      body: {
+        nodeId: "node_cloud",
+        endpoint: "http://127.0.0.1:6868",
+        status: "online",
+      },
+    });
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({
+        providerId: "codex",
+        modelId: "gpt-5",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      node: expect.objectContaining({
+        id: "node_cloud",
+        endpoint: "http://127.0.0.1:6868",
+        status: "online",
+      }),
+      selectionReason: "least_active_online",
+    });
+  });
+
+  it("accepts ownerless cloud daemon registration with the node registration token", async () => {
+    process.env.DOYA_CONTROL_NODE_REGISTRATION_TOKEN = "node-registration-secret";
+    const registerResponse = await fetch(`${baseUrl}/api/nodes/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer node-registration-secret",
+      },
+      body: JSON.stringify({
+        nodeId: "node_cloud",
+        endpoint: "http://127.0.0.1:6868",
+        status: "online",
+      }),
+    });
+    expect(registerResponse.status).toBe(201);
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        providerId: "codex",
+        modelId: "gpt-5",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      node: expect.objectContaining({
+        id: "node_cloud",
+        endpoint: "http://127.0.0.1:6868",
+      }),
+      selectionReason: "least_active_online",
+    });
+  });
+
+  it("rejects owner assignment when registering with the node registration token", async () => {
+    const account = await register();
+    process.env.DOYA_CONTROL_NODE_REGISTRATION_TOKEN = "node-registration-secret";
+    const response = await fetch(`${baseUrl}/api/nodes/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer node-registration-secret",
+      },
+      body: JSON.stringify({
+        nodeId: "node_cloud",
+        ownerUserId: account.user.id,
+        endpoint: "http://127.0.0.1:6868",
+        status: "online",
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Daemon owner requires user authentication",
+    });
+  });
+
+  it("can clear an existing owner when a daemon re-registers as cloud", async () => {
+    const account = await register();
+    await fetchJson("/api/nodes/register", {
+      method: "POST",
+      account,
+      body: {
+        nodeId: "node_cloud",
+        ownerUserId: account.user.id,
+        endpoint: "http://127.0.0.1:6868",
+        status: "online",
+      },
+    });
+    await fetchJson("/api/nodes/register", {
+      method: "POST",
+      account,
+      body: {
+        nodeId: "node_cloud",
+        ownerUserId: null,
+        endpoint: "http://127.0.0.1:6868",
+        status: "online",
+      },
+    });
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({
+        providerId: "codex",
+        modelId: "gpt-5",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      node: expect.objectContaining({
+        id: "node_cloud",
+        endpoint: "http://127.0.0.1:6868",
+      }),
+      selectionReason: "least_active_online",
+    });
+  });
+
+  it("selects the requested online daemon for fixed-node scheduling", async () => {
+    const account = await register();
+    const sessionResponse = await createGeneratedSession(account, "Fixed node selection");
+    await store.registerNode({
+      nodeId: "node_busy",
+      ownerUserId: account.user.id,
+      endpoint: "http://127.0.0.1:6767",
+      status: "online",
+    });
+    await store.registerNode({
+      nodeId: "node_idle",
+      ownerUserId: account.user.id,
+      endpoint: "http://127.0.0.1:6868",
+      status: "online",
+    });
+    await store.createRuntimeAllocation({
+      sessionId: sessionResponse.session.id,
+      userId: account.user.id,
+      nodeId: "node_busy",
+      runtimeId: "rt_busy",
+      workspaceDir: "/tmp/busy/workspace",
+      status: "running",
+    });
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({
+        nodeId: "node_busy",
+        providerId: "codex",
+        modelId: "gpt-5",
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      node: expect.objectContaining({
+        id: "node_busy",
+        endpoint: "http://127.0.0.1:6767",
+        status: "online",
+        lastHeartbeatAt: expect.any(String),
+      }),
+      selectionReason: "fixed_node_preference",
+    });
+  });
+
+  it("selects the requested fixed daemon even when its heartbeat is stale", async () => {
+    const account = await register();
+    await store.registerNode({
+      nodeId: "node_local",
+      ownerUserId: account.user.id,
+      endpoint: "http://127.0.0.1:6767",
+      status: "online",
+    });
+    advanceTestClock(3 * 60 * 1000);
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({ nodeId: "node_local" }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      node: expect.objectContaining({
+        id: "node_local",
+        endpoint: "http://127.0.0.1:6767",
+        status: "online",
+        lastHeartbeatAt: expect.any(String),
+      }),
+      selectionReason: "fixed_node_preference",
+    });
+  });
+
+  it("uses the authenticated user's fixed runtime node preference", async () => {
+    const account = await register();
+    await store.registerNode({
+      nodeId: "node_local",
+      ownerUserId: account.user.id,
+      endpoint: "http://127.0.0.1:6767",
+      status: "online",
+    });
+    await fetchJson("/api/scheduler/runtime-node-preference", {
+      method: "PATCH",
+      account,
+      body: { mode: "fixed", nodeId: "node_local" },
+    });
+    advanceTestClock(3 * 60 * 1000);
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({}),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      node: expect.objectContaining({
+        id: "node_local",
+        endpoint: "http://127.0.0.1:6767",
+        status: "online",
+      }),
+      selectionReason: "fixed_node_preference",
+    });
+  });
+
+  it("rejects fixed-node scheduling for another user's desktop daemon", async () => {
+    const account = await register("owner@example.com");
+    const otherAccount = await register("other@example.com");
+    await store.registerNode({
+      nodeId: "node_other",
+      ownerUserId: otherAccount.user.id,
+      endpoint: "http://127.0.0.1:6868",
+      status: "online",
+    });
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: jsonHeaders(account),
+      body: JSON.stringify({ nodeId: "node_other" }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: "Daemon node node_other is not available for this account",
+    });
   });
 
   it("rejects scheduler selection when no daemon is online", async () => {

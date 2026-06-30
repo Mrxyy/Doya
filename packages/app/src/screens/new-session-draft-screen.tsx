@@ -49,7 +49,7 @@ import {
   HEADER_INNER_HEIGHT,
   useIsCompactFormFactor,
 } from "@/constants/layout";
-import { isWeb } from "@/constants/platform";
+import { getIsElectron, isWeb } from "@/constants/platform";
 import { useToast } from "@/contexts/toast-context";
 import { translateNow, useI18n, type Locale } from "@/i18n/i18n";
 import type { TranslationKey, TranslationParams } from "@/i18n/translations";
@@ -64,6 +64,7 @@ import {
   useHostRuntimeClient,
   useHostRuntimeIsConnected,
 } from "@/runtime/host-runtime";
+import { planTimelineTailFetch } from "@/timeline/timeline-sync-plan";
 import { buildWorkspaceDraftAgentConfig } from "@/screens/workspace/workspace-draft-agent-config";
 import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
 import { selectIsAgentListOpen, usePanelStore } from "@/stores/panel-store";
@@ -103,16 +104,23 @@ import {
   createControlSession,
   deleteControlSession,
   ensureControlUserDaemonWorkspace,
+  getControlBillingSummary,
   isControlApiConfigured,
   preflightControlBilling,
   selectControlRuntimeNode,
   upsertControlAgentBinding,
+  type ControlBillingSummary,
   type ControlSchedulerDaemonNodeRecord,
   type WorkingContext,
 } from "@/control/control-api";
 import { buildControlAgentLabels as buildBaseControlAgentLabels } from "@/control/control-agent-labels";
+import {
+  loadRuntimeNodePreference,
+  preferredRuntimeNodeId,
+} from "@/control/runtime-node-preference";
 import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
+import { RuntimeNodeSelector } from "@/control/runtime-node-selector";
 import { getHomePresetFileAssetUrl } from "@/data/home-prompt-recordings/home-preset-file-assets";
 import type { HomePresetBundledFile } from "@/data/home-prompt-recordings/home-preset-files";
 import {
@@ -158,6 +166,7 @@ const HOME_TITLE_GRADIENT_ANIMATION_NAME = "doya-home-title-gradient";
 const HOME_PRESET_SLIDES_CONFIRM_OFFSET_MS = 12_000;
 const HOME_PRESET_CONTEXT_MAX_CHARS = 24_000;
 const HOME_PRESET_CONTEXT_ITEM_MAX_CHARS = 1_200;
+const HOME_PRESET_PREVIEW_COMPACT_WIDTH = 700;
 const HOME_PRESET_PREVIEW_SOURCE_PANE_WIDTH = 700;
 const HOME_PRESET_SOURCE_PANE_ID = "home-preset-source-pane";
 const HOME_PRESET_PREVIEW_PANE_ID = "home-preset-preview-pane";
@@ -182,6 +191,14 @@ const HOME_TITLE_GRADIENT_KEYFRAME_CSS = `
     }
   }
 `;
+
+function buildHomeInviteLink(code: string): string {
+  const encodedCode = encodeURIComponent(code);
+  if (isWeb && typeof window !== "undefined" && window.location.origin) {
+    return `${window.location.origin}/?invite=${encodedCode}`;
+  }
+  return `doya://?invite=${encodedCode}`;
+}
 const HOME_PRESET_BASE64_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const HOME_PRESET_PPT_READONLY_CSS = `
@@ -231,6 +248,7 @@ function buildHomePresetPaneLayout(input: {
   focusedPaneId: string;
   sourceRatio: number;
   shouldShowPreviewPane: boolean;
+  shouldSplitPreviewPane: boolean;
 }): WorkspaceLayout {
   if (!input.shouldShowPreviewPane) {
     return {
@@ -244,6 +262,25 @@ function buildHomePresetPaneLayout(input: {
       },
       focusedPaneId: HOME_PRESET_SOURCE_PANE_ID,
       parentTabIdByTabId: {},
+    };
+  }
+  if (!input.shouldSplitPreviewPane) {
+    return {
+      root: {
+        kind: "pane",
+        pane: {
+          id: HOME_PRESET_SOURCE_PANE_ID,
+          tabIds: [HOME_PRESET_SOURCE_TAB_ID, HOME_PRESET_PREVIEW_TAB_ID],
+          focusedTabId:
+            input.focusedPaneId === HOME_PRESET_PREVIEW_PANE_ID
+              ? HOME_PRESET_PREVIEW_TAB_ID
+              : HOME_PRESET_SOURCE_TAB_ID,
+        },
+      },
+      focusedPaneId: HOME_PRESET_SOURCE_PANE_ID,
+      parentTabIdByTabId: {
+        [HOME_PRESET_PREVIEW_TAB_ID]: HOME_PRESET_SOURCE_TAB_ID,
+      },
     };
   }
   return {
@@ -999,6 +1036,53 @@ function buildInitialVisibleAgentTail(input: {
   return [...input.visibleHistory, input.userMessage];
 }
 
+function streamHasUserMessageId(items: readonly StreamItem[], messageId: string): boolean {
+  return items.some(
+    (item) =>
+      item.kind === "user_message" && (item.id === messageId || item.messageId === messageId),
+  );
+}
+
+function localStreamHasUserMessageId(input: {
+  serverId: string;
+  agentId: string;
+  messageId: string;
+}): boolean {
+  const session = useSessionStore.getState().sessions[input.serverId];
+  return (
+    streamHasUserMessageId(session?.agentStreamTail.get(input.agentId) ?? [], input.messageId) ||
+    streamHasUserMessageId(session?.agentStreamHead.get(input.agentId) ?? [], input.messageId)
+  );
+}
+
+async function shouldSeedInitialUserMessage(input: {
+  client: Pick<DaemonClient, "fetchAgentTimeline">;
+  serverId: string;
+  agentId: string;
+  messageId: string;
+  promptText: string;
+}): Promise<boolean> {
+  if (localStreamHasUserMessageId(input)) {
+    return false;
+  }
+
+  try {
+    const timeline = await input.client.fetchAgentTimeline(input.agentId, planTimelineTailFetch());
+    const timelineHasMessage = timeline.entries.some(
+      (entry) =>
+        entry.item.type === "user_message" &&
+        (entry.item.messageId === input.messageId || entry.item.text === input.promptText),
+    );
+    if (timelineHasMessage || localStreamHasUserMessageId(input)) {
+      return false;
+    }
+  } catch {
+    return !localStreamHasUserMessageId(input);
+  }
+
+  return true;
+}
+
 function ensureHomeTitleGradientKeyframes() {
   if (!isWeb || typeof document === "undefined") {
     return;
@@ -1226,8 +1310,10 @@ async function resolveNewSessionRuntime(input: {
     providerId: agentConfig.provider,
     modelId: agentConfig.model ?? null,
   });
+  const preference = await loadRuntimeNodePreference();
   const selection = await selectControlRuntimeNode({
     accountSession: input.accountSession,
+    nodeId: preferredRuntimeNodeId(preference),
     providerId: agentConfig.provider,
     modelId: agentConfig.model ?? null,
   });
@@ -1510,20 +1596,35 @@ export function NewSessionDraftScreen({
             visibleHistory: effectiveAiCreationContext?.visibleHistory,
             userMessage: optimisticUserMessage,
           });
-          if (initialVisibleTail) {
+          const shouldSeedUserMessage = await shouldSeedInitialUserMessage({
+            client: runtimeClient,
+            serverId: runtime.serverId,
+            agentId: agent.id,
+            messageId: clientMessageId,
+            promptText: submitText.agentText || userMessageText,
+          });
+          if (shouldSeedUserMessage) {
+            if (initialVisibleTail) {
+              useHomePresetAgentHistoryStore.getState().setHistory({
+                serverId: runtime.serverId,
+                agentId: agent.id,
+                items: effectiveAiCreationContext?.visibleHistory ?? [],
+              });
+              setAgentStreamState(runtime.serverId, agent.id, { tail: initialVisibleTail });
+            } else {
+              appendOptimisticUserMessageToAgentStream(
+                runtime.serverId,
+                agent.id,
+                optimisticUserMessage,
+                { placement: "tail" },
+              );
+            }
+          } else if (effectiveAiCreationContext?.visibleHistory?.length) {
             useHomePresetAgentHistoryStore.getState().setHistory({
               serverId: runtime.serverId,
               agentId: agent.id,
-              items: effectiveAiCreationContext?.visibleHistory ?? [],
+              items: effectiveAiCreationContext.visibleHistory,
             });
-            setAgentStreamState(runtime.serverId, agent.id, { tail: initialVisibleTail });
-          } else {
-            appendOptimisticUserMessageToAgentStream(
-              runtime.serverId,
-              agent.id,
-              optimisticUserMessage,
-              { placement: "tail" },
-            );
           }
           await composerState.persistFormPreferences();
           draft.clear("sent");
@@ -1623,20 +1724,35 @@ export function NewSessionDraftScreen({
           visibleHistory: effectiveAiCreationContext?.visibleHistory,
           userMessage: optimisticUserMessage,
         });
-        if (initialVisibleTail) {
+        const shouldSeedUserMessage = await shouldSeedInitialUserMessage({
+          client: runtimeClient,
+          serverId: runtimeServerId,
+          agentId: agent.id,
+          messageId: clientMessageId,
+          promptText: submitText.agentText || userMessageText,
+        });
+        if (shouldSeedUserMessage) {
+          if (initialVisibleTail) {
+            useHomePresetAgentHistoryStore.getState().setHistory({
+              serverId: runtimeServerId,
+              agentId: agent.id,
+              items: effectiveAiCreationContext?.visibleHistory ?? [],
+            });
+            setAgentStreamState(runtimeServerId, agent.id, { tail: initialVisibleTail });
+          } else {
+            appendOptimisticUserMessageToAgentStream(
+              runtimeServerId,
+              agent.id,
+              optimisticUserMessage,
+              { placement: "tail" },
+            );
+          }
+        } else if (effectiveAiCreationContext?.visibleHistory?.length) {
           useHomePresetAgentHistoryStore.getState().setHistory({
             serverId: runtimeServerId,
             agentId: agent.id,
-            items: effectiveAiCreationContext?.visibleHistory ?? [],
+            items: effectiveAiCreationContext.visibleHistory,
           });
-          setAgentStreamState(runtimeServerId, agent.id, { tail: initialVisibleTail });
-        } else {
-          appendOptimisticUserMessageToAgentStream(
-            runtimeServerId,
-            agent.id,
-            optimisticUserMessage,
-            { placement: "tail" },
-          );
         }
         await composerState.persistFormPreferences();
         draft.clear("sent");
@@ -1758,6 +1874,11 @@ export function NewSessionDraftScreen({
       ) : null,
     [recordConversation, supportsConversationReplay],
   );
+  const topContent = useMemo(
+    () => <RuntimeNodeSelector accountSession={accountSession} disabled={isSubmitting} />,
+    [accountSession, isSubmitting],
+  );
+  const extraRightContent = conversationReplayDraftControls;
 
   return (
     <FileDropZone onFilesDropped={handleFilesDropped}>
@@ -1783,7 +1904,8 @@ export function NewSessionDraftScreen({
               isSubmitting={isSubmitting}
               commandDraftConfig={composerState?.commandDraftConfig}
               agentControls={agentControlsWithDisabled}
-              extraRightContent={conversationReplayDraftControls}
+              extraRightContent={extraRightContent}
+              topContent={topContent}
               onAddImages={handleAddImagesCallback}
               onClose={handleClosePresetReplay}
               onSubmitContinuation={handleSubmitPresetContinuation}
@@ -1801,12 +1923,17 @@ export function NewSessionDraftScreen({
                 onAddImages={handleAddImagesCallback}
                 commandDraftConfig={composerState?.commandDraftConfig}
                 agentControls={agentControlsWithDisabled}
-                extraRightContent={conversationReplayDraftControls}
+                extraRightContent={extraRightContent}
+                topContent={topContent}
               />
             </>
           )}
         </View>
-        <ShareLinkModal visible={isShareModalVisible} onClose={handleCloseShareModal} />
+        <ShareLinkModal
+          visible={isShareModalVisible}
+          accountSession={accountSession}
+          onClose={handleCloseShareModal}
+        />
       </View>
     </FileDropZone>
   );
@@ -1838,6 +1965,7 @@ interface HomeComposerDockProps {
   commandDraftConfig?: ComponentProps<typeof Composer>["commandDraftConfig"];
   agentControls?: ComponentProps<typeof Composer>["agentControls"];
   extraRightContent?: ComponentProps<typeof Composer>["extraRightContent"];
+  topContent?: ComponentProps<typeof Composer>["topContent"];
 }
 
 function HomeComposerDock({
@@ -1851,6 +1979,7 @@ function HomeComposerDock({
   commandDraftConfig,
   agentControls,
   extraRightContent,
+  topContent,
 }: HomeComposerDockProps) {
   return (
     <View style={styles.composerDock}>
@@ -1874,6 +2003,7 @@ function HomeComposerDock({
           commandDraftConfig={commandDraftConfig}
           agentControls={agentControls}
           extraRightContent={extraRightContent}
+          topContent={topContent}
         />
       </View>
     </View>
@@ -1885,6 +2015,7 @@ interface HomePresetPaneContentContextValue {
   agentControls?: ComponentProps<typeof Composer>["agentControls"];
   commandDraftConfig?: ComponentProps<typeof Composer>["commandDraftConfig"];
   extraRightContent?: ComponentProps<typeof Composer>["extraRightContent"];
+  topContent?: ComponentProps<typeof Composer>["topContent"];
   filePreview: HomePresetFilePreview | null;
   inputDraft: HomePresetComposerDraft;
   isSubmitting: boolean;
@@ -1915,6 +2046,7 @@ function HomePresetSourcePaneContent() {
     agentControls,
     commandDraftConfig,
     extraRightContent,
+    topContent,
     inputDraft,
     isSubmitting,
     onAddImages,
@@ -1953,6 +2085,7 @@ function HomePresetSourcePaneContent() {
         commandDraftConfig={commandDraftConfig}
         agentControls={agentControls}
         extraRightContent={extraRightContent}
+        topContent={topContent}
       />
     </View>
   );
@@ -1975,6 +2108,7 @@ function HomePresetConversation({
   commandDraftConfig,
   agentControls,
   extraRightContent,
+  topContent,
   inputDraft,
   isAuthenticated,
   isSubmitting,
@@ -1987,6 +2121,7 @@ function HomePresetConversation({
   commandDraftConfig?: ComponentProps<typeof Composer>["commandDraftConfig"];
   agentControls?: ComponentProps<typeof Composer>["agentControls"];
   extraRightContent?: ComponentProps<typeof Composer>["extraRightContent"];
+  topContent?: ComponentProps<typeof Composer>["topContent"];
   inputDraft: HomePresetComposerDraft;
   isAuthenticated: boolean;
   isSubmitting: boolean;
@@ -2192,6 +2327,8 @@ function HomePresetConversation({
   );
   const shouldShowSlidesPreviewPane = isPreviewVisible && slidePreviews.length > 0;
   const shouldShowPreviewPane = shouldShowSlidesPreviewPane || Boolean(filePreview);
+  const shouldSplitPreviewPane =
+    shouldShowPreviewPane && bodyWidth >= HOME_PRESET_PREVIEW_COMPACT_WIDTH;
   const previewSourceRatio = useMemo(
     () => previewSplitRatioOverride ?? resolveHomePresetPreviewSourcePaneRatio(bodyWidth),
     [bodyWidth, previewSplitRatioOverride],
@@ -2202,8 +2339,9 @@ function HomePresetConversation({
         focusedPaneId: focusedPresetPaneId,
         sourceRatio: previewSourceRatio,
         shouldShowPreviewPane,
+        shouldSplitPreviewPane,
       }),
-    [focusedPresetPaneId, previewSourceRatio, shouldShowPreviewPane],
+    [focusedPresetPaneId, previewSourceRatio, shouldShowPreviewPane, shouldSplitPreviewPane],
   );
   const sourceTabTarget = useMemo(
     () => ({
@@ -2281,6 +2419,7 @@ function HomePresetConversation({
       agentControls,
       commandDraftConfig,
       extraRightContent,
+      topContent,
       filePreview,
       inputDraft,
       isSubmitting,
@@ -2299,6 +2438,7 @@ function HomePresetConversation({
       agentControls,
       commandDraftConfig,
       extraRightContent,
+      topContent,
       filePreview,
       handleInlineConfirm,
       handleOpenBundledFile,
@@ -2575,7 +2715,7 @@ function NewSessionHomeHeader({ left, onShare }: { left?: ReactNode; onShare: ()
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const isCompact = useIsCompactFormFactor();
-  const showDownloadButton = isWeb && !isCompact;
+  const showDownloadButton = isWeb && !getIsElectron() && !isCompact;
   const padding = useWindowControlsPadding("header");
   const headerStyle = useMemo(() => [styles.homeHeader, { paddingTop: insets.top }], [insets.top]);
   const rowStyle = useMemo(
@@ -2648,23 +2788,57 @@ function ShareButton({ label, onPress }: { label: string; onPress: () => void })
   );
 }
 
-function ShareLinkModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function ShareLinkModal({
+  visible,
+  accountSession,
+  onClose,
+}: {
+  visible: boolean;
+  accountSession: AccountBootstrapSession | null;
+  onClose: () => void;
+}) {
   const { t } = useI18n();
+  const [billingSummary, setBillingSummary] = useState<ControlBillingSummary | null>(null);
+  const referralCode = billingSummary?.referralCode ?? "";
+  const inviteLink = referralCode ? buildHomeInviteLink(referralCode) : SHARE_LINK;
   const header = useMemo<SheetHeader>(
     () => ({
       title: t("home.newSession.share.title"),
       subtitle: t("home.newSession.share.subtitle"),
       leading: (
         <View style={styles.shareModalHeaderIcon}>
-          <Share2 size={18} color="#2563eb" />
+          <Share2 size={18} color={styles.shareAccentIcon.color} />
         </View>
       ),
     }),
     [t],
   );
+
+  useEffect(() => {
+    if (!visible || !accountSession || !isControlApiConfigured()) {
+      setBillingSummary(null);
+      return;
+    }
+    let disposed = false;
+    void getControlBillingSummary({ accountSession })
+      .then((summary) => {
+        if (!disposed) {
+          setBillingSummary(summary);
+        }
+      })
+      .catch(() => {
+        if (!disposed) {
+          setBillingSummary(null);
+        }
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [accountSession, visible]);
+
   const handleCopyShareLink = useCallback(() => {
-    void Clipboard.setStringAsync(SHARE_LINK);
-  }, []);
+    void Clipboard.setStringAsync(inviteLink);
+  }, [inviteLink]);
 
   return (
     <AdaptiveModalSheet
@@ -2698,7 +2872,7 @@ function ShareLinkModal({ visible, onClose }: { visible: boolean; onClose: () =>
           <View style={styles.shareLinkTextGroup}>
             <Text style={styles.shareLinkLabel}>{t("home.newSession.share.linkLabel")}</Text>
             <Text style={styles.shareMenuLink} numberOfLines={1}>
-              {SHARE_LINK}
+              {inviteLink}
             </Text>
           </View>
           <AnimatedCopyButton
@@ -3851,7 +4025,10 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#dbeafe",
+    backgroundColor: theme.colors.surface2,
+  },
+  shareAccentIcon: {
+    color: theme.colors.accent,
   },
   shareModalContent: {
     position: "relative",
@@ -3872,9 +4049,9 @@ const styles = StyleSheet.create((theme) => ({
     height: 178,
     borderRadius: 20,
     overflow: "hidden",
-    backgroundColor: "#eef2ff",
+    backgroundColor: theme.colors.surface2,
     borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.12)",
+    borderColor: theme.colors.borderAccent,
   },
   shareHeroImage: {
     width: "100%",
@@ -3954,11 +4131,11 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "center",
     paddingHorizontal: theme.spacing[3],
     borderRadius: theme.borderRadius.full,
-    backgroundColor: "#2563eb",
+    backgroundColor: theme.colors.accent,
     overflow: "visible",
   },
   shareCopyButtonActive: {
-    backgroundColor: "#1d4ed8",
+    backgroundColor: theme.colors.accentBright,
     ...theme.shadow.sm,
   },
   shareCopyButtonMotionLayer: {
@@ -3981,10 +4158,10 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[1.5],
     borderRadius: theme.borderRadius.full,
-    backgroundColor: "#eef2ff",
+    backgroundColor: theme.colors.surface2,
   },
   shareFeaturePillText: {
-    color: "#4f46e5",
+    color: theme.colors.accent,
     fontSize: theme.fontSize.xs,
     fontWeight: theme.fontWeight.medium,
   },

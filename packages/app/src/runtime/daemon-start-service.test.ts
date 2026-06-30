@@ -33,6 +33,8 @@ function makeStatus(overrides: Partial<DesktopDaemonStatus> = {}): DesktopDaemon
     home: "/home",
     version: "0.0.0",
     desktopManaged: true,
+    managedCodexEnabled: false,
+    managedCodexUserId: null,
     error: null,
     ...overrides,
   };
@@ -134,6 +136,7 @@ describe("DaemonStartService", () => {
         baseUrl: "https://sub2api.example.com",
         apiKey: "doya-runtime-token",
         model: "managed-codex-model",
+        userId: "user_123",
       },
     });
   });

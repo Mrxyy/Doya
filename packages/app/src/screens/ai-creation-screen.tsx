@@ -76,6 +76,11 @@ import {
   type ControlSchedulerDaemonNodeRecord,
 } from "@/control/control-api";
 import { buildControlAgentLabels } from "@/control/control-agent-labels";
+import {
+  loadRuntimeNodePreference,
+  preferredRuntimeNodeId,
+} from "@/control/runtime-node-preference";
+import { RuntimeNodeSelector } from "@/control/runtime-node-selector";
 import { resolveControlRuntimeDirectEndpoint } from "@/control/control-runtime-endpoint";
 import { notifyControlSessionsChanged } from "@/control/control-session-events";
 import { useToast } from "@/contexts/toast-context";
@@ -2158,6 +2163,9 @@ export function AiCreationScreen({
                 />
               ) : null}
 
+              <View style={styles.composerTopContent}>
+                <RuntimeNodeSelector accountSession={accountSession} disabled={isSubmitting} />
+              </View>
               <View
                 style={[styles.composer, isComposerFocused && styles.composerFocused]}
                 testID="ai-creation-composer"
@@ -3395,11 +3403,12 @@ async function ensureRuntimeClientForNode(input: {
     endpoint: directEndpoint.endpoint,
     useTls: directEndpoint.useTls,
     label: input.node.id,
-    password: findDirectHostRuntimeAuthToken({
-      endpoint: directEndpoint.endpoint,
-      hosts: input.hosts,
-      serverId: input.node.id,
-    }),
+    password:
+      findDirectHostRuntimeAuthToken({
+        endpoint: directEndpoint.endpoint,
+        hosts: input.hosts,
+        serverId: input.node.id,
+      }) ?? undefined,
   });
   await store.ensureStarted(input.node.id);
 
@@ -3424,8 +3433,10 @@ async function createAiCreationWorkspace(
     isControlApiConfigured() &&
     input.accountSession.workspace.workspaceId.startsWith("control:")
   ) {
+    const preference = await loadRuntimeNodePreference();
     const selection = await selectControlRuntimeNode({
       accountSession: input.accountSession,
+      nodeId: preferredRuntimeNodeId(preference),
       providerId: input.agentConfig.provider,
       modelId: input.agentConfig.model ?? null,
     });
@@ -4748,6 +4759,12 @@ const styles = StyleSheet.create((theme) => ({
   composerFocused: {
     borderColor: "#b9d7ff",
     shadowColor: "rgba(59, 130, 246, 0.22)",
+  },
+  composerTopContent: {
+    alignSelf: "flex-start",
+    marginBottom: 8,
+    marginLeft: 2,
+    zIndex: 1100,
   },
   promptInput: {
     color: "#000000d9",

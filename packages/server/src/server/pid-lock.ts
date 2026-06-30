@@ -12,6 +12,7 @@ export const pidLockInfoSchema = z.object({
   listen: z.string().nullable(),
   desktopManaged: z.boolean().optional(),
   managedCodexEnabled: z.boolean().optional(),
+  managedCodexUserId: z.string().optional(),
 });
 
 export interface PidLockInfo extends z.infer<typeof pidLockInfoSchema> {}
@@ -127,7 +128,12 @@ export async function acquirePidLock(
     ...(process.env.DOYA_DESKTOP_MANAGED === "1" ? { desktopManaged: true } : {}),
     ...(process.env.DOYA_MANAGED_CODEX_BASE_URL?.trim() &&
     process.env.DOYA_MANAGED_CODEX_API_KEY?.trim()
-      ? { managedCodexEnabled: true }
+      ? {
+          managedCodexEnabled: true,
+          ...(process.env.DOYA_MANAGED_CODEX_USER_ID?.trim()
+            ? { managedCodexUserId: process.env.DOYA_MANAGED_CODEX_USER_ID.trim() }
+            : {}),
+        }
       : {}),
   };
 

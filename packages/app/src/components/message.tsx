@@ -399,6 +399,8 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     borderRadius: 0,
     paddingHorizontal: 0,
     paddingVertical: 0,
+    width: "100%",
+    maxWidth: 620,
   },
   text: {
     color: theme.colors.foreground,
@@ -526,8 +528,8 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     backgroundColor: "rgba(244, 244, 245, 0.86)",
   },
   doyaCard: {
-    width: 620,
-    maxWidth: "100%",
+    width: "100%",
+    maxWidth: 620,
     minHeight: 176,
     position: "relative",
     overflow: "hidden",
@@ -543,11 +545,20 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     shadowOffset: { width: 0, height: 8 },
   },
   doyaCardResult: {
-    width: 620,
     minHeight: 116,
     paddingLeft: 34,
     paddingVertical: 16,
     gap: theme.spacing[2],
+  },
+  doyaCardCompact: {
+    minHeight: 0,
+    paddingLeft: theme.spacing[4],
+    paddingRight: theme.spacing[4],
+    paddingVertical: theme.spacing[4],
+    gap: theme.spacing[2],
+  },
+  doyaCardResultCompact: {
+    paddingLeft: theme.spacing[4],
   },
   doyaCardStripe: {
     position: "absolute",
@@ -566,6 +577,9 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     gap: theme.spacing[2],
     paddingRight: 110,
     paddingLeft: 2,
+  },
+  doyaCardHeaderCompact: {
+    paddingRight: 0,
   },
   doyaCardIconBox: {
     width: 48,
@@ -639,6 +653,9 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     lineHeight: 20,
     paddingRight: 112,
   },
+  doyaCardSummaryCompact: {
+    paddingRight: 0,
+  },
   doyaCardFieldList: {
     gap: 3,
     paddingRight: 132,
@@ -647,6 +664,9 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
   doyaCardFieldListResult: {
     paddingRight: 112,
     marginTop: 0,
+  },
+  doyaCardFieldListCompact: {
+    paddingRight: 0,
   },
   doyaCardFieldRow: {
     flexDirection: "row",
@@ -900,8 +920,8 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     borderTopRightRadius: 22,
   },
   doyaProgressCard: {
-    width: 620,
-    maxWidth: "100%",
+    width: "100%",
+    maxWidth: 620,
     borderRadius: theme.borderRadius.md,
     borderWidth: theme.borderWidth[1],
     borderColor: "rgba(179, 90, 24, 0.14)",
@@ -911,6 +931,10 @@ const userMessageStylesheet = StyleSheet.create((theme) => ({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: theme.spacing[3],
+  },
+  doyaProgressCardCompact: {
+    paddingHorizontal: theme.spacing[3],
+    gap: theme.spacing[2],
   },
   doyaProgressIconBox: {
     width: 30,
@@ -1951,12 +1975,22 @@ export function DoyaRawResponseButton({ rawMessage }: { rawMessage: string }) {
 function UserMessageDoyaProgressCard({
   card,
   rawMessage,
+  isCompact,
 }: {
   card: DoyaMessageCard;
   rawMessage: string;
+  isCompact: boolean;
 }) {
+  const cardStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [
+      userMessageStylesheet.doyaProgressCard,
+      isCompact ? userMessageStylesheet.doyaProgressCardCompact : null,
+    ],
+    [isCompact],
+  );
+
   return (
-    <View style={userMessageStylesheet.doyaProgressCard}>
+    <View style={cardStyle}>
       <View style={userMessageStylesheet.doyaProgressIconBox}>
         <CheckCircle size={16} color="#b35a18" strokeWidth={2.4} />
       </View>
@@ -1986,9 +2020,11 @@ function UserMessageDoyaProgressCard({
 function UserMessageDoyaTaskCard({
   card,
   rawMessage,
+  isCompact,
 }: {
   card: DoyaMessageCard;
   rawMessage: string;
+  isCompact: boolean;
 }) {
   const isResult = card.kind.endsWith(".result");
   const visual = getDoyaMessageCardVisual(card);
@@ -1997,9 +2033,11 @@ function UserMessageDoyaTaskCard({
     () => [
       userMessageStylesheet.doyaCard,
       isResult ? userMessageStylesheet.doyaCardResult : null,
+      isCompact ? userMessageStylesheet.doyaCardCompact : null,
+      isCompact && isResult ? userMessageStylesheet.doyaCardResultCompact : null,
       { backgroundColor: visual.cardBackground, borderColor: visual.borderColor },
     ],
-    [isResult, visual.borderColor, visual.cardBackground],
+    [isCompact, isResult, visual.borderColor, visual.cardBackground],
   );
   const iconBoxStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
@@ -2028,8 +2066,9 @@ function UserMessageDoyaTaskCard({
     () => [
       userMessageStylesheet.doyaCardHeader,
       isResult ? userMessageStylesheet.doyaCardHeaderResult : null,
+      isCompact ? userMessageStylesheet.doyaCardHeaderCompact : null,
     ],
-    [isResult],
+    [isCompact, isResult],
   );
   const resultTitleStyle = useMemo<StyleProp<TextStyle>>(
     () => [userMessageStylesheet.doyaCardTitle, userMessageStylesheet.doyaCardTitleResult],
@@ -2039,21 +2078,23 @@ function UserMessageDoyaTaskCard({
     () => [
       userMessageStylesheet.doyaCardSummary,
       isResult ? userMessageStylesheet.doyaCardSummaryResult : null,
+      isCompact ? userMessageStylesheet.doyaCardSummaryCompact : null,
     ],
-    [isResult],
+    [isCompact, isResult],
   );
   const fieldListStyle = useMemo<StyleProp<ViewStyle>>(
     () => [
       userMessageStylesheet.doyaCardFieldList,
       isResult ? userMessageStylesheet.doyaCardFieldListResult : null,
+      isCompact ? userMessageStylesheet.doyaCardFieldListCompact : null,
     ],
-    [isResult],
+    [isCompact, isResult],
   );
 
   return (
     <View style={cardStyle}>
       <View style={stripeStyle} />
-      <DoyaCardIllustration visual={visual} isResult={isResult} />
+      {isCompact ? null : <DoyaCardIllustration visual={visual} isResult={isResult} />}
       <View style={headerStyle}>
         <View style={iconBoxStyle}>
           <Icon size={isResult ? 20 : 22} color={visual.accent} strokeWidth={2.2} />
@@ -2107,12 +2148,22 @@ function UserMessageDoyaTaskCard({
   );
 }
 
-function UserMessageDoyaCard({ card, rawMessage }: { card: DoyaMessageCard; rawMessage: string }) {
+function UserMessageDoyaCard({
+  card,
+  rawMessage,
+  isCompact,
+}: {
+  card: DoyaMessageCard;
+  rawMessage: string;
+  isCompact: boolean;
+}) {
   if (isDoyaSlidesProgressCard(card)) {
-    return <UserMessageDoyaProgressCard card={card} rawMessage={rawMessage} />;
+    return (
+      <UserMessageDoyaProgressCard card={card} rawMessage={rawMessage} isCompact={isCompact} />
+    );
   }
 
-  return <UserMessageDoyaTaskCard card={card} rawMessage={rawMessage} />;
+  return <UserMessageDoyaTaskCard card={card} rawMessage={rawMessage} isCompact={isCompact} />;
 }
 
 function shouldUseDoyaCardBubble(input: {
@@ -2301,7 +2352,9 @@ export const UserMessage = memo(function UserMessage({
               ))}
             </View>
           ) : null}
-          {doyaCard ? <UserMessageDoyaCard card={doyaCard} rawMessage={message} /> : null}
+          {doyaCard ? (
+            <UserMessageDoyaCard card={doyaCard} rawMessage={message} isCompact={isCompact} />
+          ) : null}
           {spokenInput ? (
             <View style={userMessageStylesheet.spokenInput}>
               <View style={userMessageStylesheet.spokenInputHeader}>
@@ -3375,6 +3428,7 @@ export const AssistantMessage = memo(function AssistantMessage({
   spacing = "default",
   onEditImage,
 }: AssistantMessageProps) {
+  const isCompact = useIsCompactFormFactor();
   const markdownParser = useMemo(() => {
     const parser = MarkdownIt({ typographer: true, linkify: true });
     const defaultValidateLink = parser.validateLink.bind(parser);
@@ -3720,7 +3774,7 @@ export const AssistantMessage = memo(function AssistantMessage({
           marginBottom={index < keyedBlocks.length - 1 ? 12 : 0}
         >
           {card ? (
-            <UserMessageDoyaCard card={card} rawMessage={message} />
+            <UserMessageDoyaCard card={card} rawMessage={message} isCompact={isCompact} />
           ) : (
             <MemoizedMarkdownBlock
               text={text ?? ""}

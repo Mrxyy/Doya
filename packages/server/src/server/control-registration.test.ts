@@ -57,8 +57,45 @@ describe("control registration", () => {
       doyaHome: "/tmp/doya",
       capabilities: { providers: [] },
       runtimeAuthToken: "runtime-token",
+      ownerUserId: null,
       status: "online",
     });
+  });
+
+  test("posts cloud daemon registration with a node token and no user header", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ node: { id: "srv_test" } }), { status: 201 });
+    });
+    const registration = createControlRegistration({
+      config: {
+        enabled: true,
+        apiBaseUrl: "https://control.example.com/",
+        authToken: "node-registration-secret",
+        nodeEndpoint: "http://127.0.0.1:6868",
+      },
+      nodeId: "srv_test",
+      doyaHome: "/tmp/doya-cloud",
+      defaultEndpoint: "127.0.0.1:6868",
+      getCapabilities: async () => ({ providers: [] }),
+      logger: pino({ level: "silent" }),
+      fetchImpl,
+    });
+
+    await registration.registerNow();
+
+    expect(calls[0]?.init.headers).toEqual({
+      "Content-Type": "application/json",
+      Authorization: "Bearer node-registration-secret",
+    });
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual(
+      expect.objectContaining({
+        endpoint: "http://127.0.0.1:6868",
+        ownerUserId: null,
+        status: "online",
+      }),
+    );
   });
 
   test("does not register when control is disabled", async () => {

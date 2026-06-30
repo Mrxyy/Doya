@@ -189,6 +189,7 @@ export function BillingPanel({
   }, [inviteLink, t, toast]);
 
   let body: ReactNode = null;
+  let isScrollableBody = false;
   if (isLoading) {
     body = (
       <View style={styles.center}>
@@ -203,6 +204,7 @@ export function BillingPanel({
       </View>
     );
   } else if (summary) {
+    isScrollableBody = true;
     body = (
       <View style={styles.content}>
         <BalanceHeroCard
@@ -286,7 +288,17 @@ export function BillingPanel({
   return (
     <View style={styles.screen}>
       {showHeader ? <BackHeader title={t("billing.title")} onBack={onBack ?? router.back} /> : null}
-      {body}
+      {isScrollableBody ? (
+        <ScrollView
+          style={styles.contentScroll}
+          contentContainerStyle={styles.contentScrollContent}
+          showsVerticalScrollIndicator
+        >
+          {body}
+        </ScrollView>
+      ) : (
+        body
+      )}
     </View>
   );
 }
@@ -1027,7 +1039,15 @@ function buildInviteLink(code: string): string {
 const styles = StyleSheet.create((theme) => ({
   screen: {
     flex: 1,
+    minHeight: 0,
     backgroundColor: "transparent",
+  },
+  contentScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  contentScrollContent: {
+    flexGrow: 1,
   },
   center: {
     flex: 1,
@@ -1037,7 +1057,6 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[6],
   },
   content: {
-    flex: 1,
     width: "100%",
     maxWidth: 900,
     alignSelf: "center",

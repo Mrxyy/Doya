@@ -177,14 +177,19 @@ export class DaemonStartService {
         return { control: { enabled: false } };
       }
 
-      const managedCodex = await this.loadManagedCodexConfigSafely(session);
+      const accountSession = session;
+      if (!accountSession) {
+        return { control: { enabled: false } };
+      }
+
+      const managedCodex = await this.loadManagedCodexConfigSafely(accountSession);
       return {
         control: {
           apiBaseUrl,
           userId,
           accessToken,
         },
-        ...(managedCodex ? { managedCodex } : {}),
+        ...(managedCodex ? { managedCodex: { ...managedCodex, userId } } : {}),
       };
     });
   }

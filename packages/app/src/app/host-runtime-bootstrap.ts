@@ -17,10 +17,20 @@ export interface StartHostRuntimeBootstrapInput {
   store: HostRuntimeBootstrapStore;
   daemonStartService: HostRuntimeBootstrapDaemonStartService;
   shouldStartDaemon: HostRuntimeBootstrapStartGate;
+  bootAfterDaemonStart?: boolean;
   onGateError?: (message: string) => void;
 }
 
 export function startHostRuntimeBootstrap(input: StartHostRuntimeBootstrapInput): void {
+  if (input.bootAfterDaemonStart) {
+    void startDaemonIfGateAllows({
+      daemonStartService: input.daemonStartService,
+      shouldStartDaemon: input.shouldStartDaemon,
+      onGateError: input.onGateError,
+    }).finally(() => input.store.boot());
+    return;
+  }
+
   input.store.boot();
   startDaemonIfGateAllows({
     daemonStartService: input.daemonStartService,
@@ -33,22 +43,22 @@ export function startDaemonIfGateAllows(input: {
   daemonStartService: HostRuntimeBootstrapDaemonStartService;
   shouldStartDaemon: HostRuntimeBootstrapStartGate;
   onGateError?: (message: string) => void;
-}): void {
+}): Promise<void> {
   const gate = input.shouldStartDaemon;
   if (typeof gate === "boolean") {
     if (gate) {
-      void input.daemonStartService.start();
+      return input.daemonStartService.start().then(() => undefined);
     }
-    return;
+    return Promise.resolve();
   }
 
-  void Promise.resolve()
+  return Promise.resolve()
     .then(() => gate())
     .then((shouldStartDaemon) => {
       if (shouldStartDaemon) {
-        void input.daemonStartService.start();
+        return input.daemonStartService.start().then(() => undefined);
       }
-      return null;
+      return undefined;
     })
     .catch((error) => {
       const message = error instanceof Error ? error.message : String(error);

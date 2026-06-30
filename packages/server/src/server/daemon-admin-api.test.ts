@@ -141,6 +141,7 @@ describe("daemon admin API", () => {
         apiBaseUrl: "https://control.example.test",
         userId: "user_123",
         authToken: "token_abc",
+        ownerUserId: "user_123",
       }),
     });
 
@@ -155,6 +156,37 @@ describe("daemon admin API", () => {
         apiBaseUrl: "https://control.example.test",
         userId: "user_123",
         authToken: "token_abc",
+        ownerUserId: "user_123",
+      },
+    ]);
+  });
+
+  it("applies cloud control registration config without a user owner", async () => {
+    const applied: unknown[] = [];
+    const server = await startDaemonAdminApiTestServer(tempRoot, {
+      applyControlRegistration: (config) => applied.push(config),
+    });
+    await new Promise<void>((resolve) => testServer.server.close(() => resolve()));
+    testServer = server;
+
+    const response = await fetch(`${testServer.baseUrl}/api/admin/daemon/control-registration`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        enabled: true,
+        apiBaseUrl: "https://control.example.test",
+        authToken: "node-registration-secret",
+        nodeEndpoint: "http://127.0.0.1:6868",
+      }),
+    });
+
+    expect(response.status).toBe(202);
+    expect(applied).toEqual([
+      {
+        enabled: true,
+        apiBaseUrl: "https://control.example.test",
+        authToken: "node-registration-secret",
+        nodeEndpoint: "http://127.0.0.1:6868",
       },
     ]);
   });
