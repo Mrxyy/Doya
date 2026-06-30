@@ -366,10 +366,12 @@ describe("billing", () => {
       "DOYA_CONTROL_MANAGED_CODEX_API_KEY",
       "DOYA_CONTROL_MANAGED_CODEX_MODEL",
       "DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL",
+      "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL",
       "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY",
     ]);
     delete process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
     process.env.DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL = "https://control.example.com";
+    process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL = "https://upstream.example.com";
     process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY = "upstream-token";
     try {
       const payload = await fetchJson<{
@@ -494,9 +496,11 @@ describe("billing", () => {
     });
     const previousEnv = snapshotEnv([
       "DOYA_CONTROL_MANAGED_CODEX_API_KEY",
+      "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL",
       "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY",
     ]);
     delete process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
+    process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL = "https://upstream.example.com";
     process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY = "upstream-token";
     try {
       const payload = await fetchJson<{
@@ -519,15 +523,17 @@ describe("billing", () => {
     }
   });
 
-  it("uses the default Gateway upstream key when no explicit upstream env is available", async () => {
+  it("withholds the Doya AI Gateway runtime key when upstream env is unavailable", async () => {
     const account = await register();
     const previousBaseUrl = process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL;
     const previousApiKey = process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
     const previousModel = process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL;
+    const previousGatewayUpstreamBaseUrl = process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL;
     const previousGatewayUpstreamApiKey = process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY;
     delete process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL;
     delete process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
     delete process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL;
+    delete process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL;
     delete process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY;
     try {
       const payload = await fetchJson<{
@@ -539,14 +545,17 @@ describe("billing", () => {
         };
       }>("/api/providers/managed-codex", { account });
 
-      expect(payload.codex.enabled).toBe(true);
-      expect(payload.codex.baseUrl).toBe(`${baseUrl}/api/ai-gateway`);
-      expect(payload.codex.apiKey).toMatch(/^doya_rt_/);
-      expect(payload.codex.model).toBe(null);
+      expect(payload.codex).toEqual({
+        enabled: false,
+        baseUrl: null,
+        apiKey: null,
+        model: null,
+      });
     } finally {
       restoreEnv("DOYA_CONTROL_MANAGED_CODEX_BASE_URL", previousBaseUrl);
       restoreEnv("DOYA_CONTROL_MANAGED_CODEX_API_KEY", previousApiKey);
       restoreEnv("DOYA_CONTROL_MANAGED_CODEX_MODEL", previousModel);
+      restoreEnv("DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL", previousGatewayUpstreamBaseUrl);
       restoreEnv("DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY", previousGatewayUpstreamApiKey);
     }
   });

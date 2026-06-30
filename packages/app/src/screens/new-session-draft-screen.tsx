@@ -14,6 +14,7 @@ import {
 import {
   Animated,
   Image,
+  Linking,
   Pressable,
   Text,
   View,
@@ -80,6 +81,7 @@ import {
 } from "@/utils/doya-message-markup";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
+import { resolveDesktopDownloadUrl } from "@/utils/desktop-download-url";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
 import { useHomePresetAgentHistoryStore } from "@/stores/home-preset-agent-history-store";
@@ -2742,7 +2744,7 @@ function NewSessionHomeHeader({ left, onShare }: { left?: ReactNode; onShare: ()
         </View>
         <View style={styles.homeHeaderRight}>
           <ShareButton label={t("home.newSession.share.accessibility")} onPress={onShare} />
-          {showDownloadButton ? <DownloadComingSoonButton /> : null}
+          {showDownloadButton ? <DownloadDesktopButton /> : null}
         </View>
       </View>
     </View>
@@ -2847,6 +2849,7 @@ function ShareLinkModal({
       header={header}
       desktopMaxWidth={440}
       snapPoints={SHARE_MODAL_SNAP_POINTS}
+      cardStyle={styles.shareModalCard}
       testID="new-session-share-modal"
     >
       <View style={styles.shareModalContent}>
@@ -2898,10 +2901,9 @@ function ShareLinkModal({
   );
 }
 
-function DownloadComingSoonButton() {
+function DownloadDesktopButton() {
   const { t } = useI18n();
   const { theme } = useUnistyles();
-  const toast = useToast();
   const motion = usePressMotion({ hoverScale: 1.025, pressScale: 0.97 });
   const pressableStyle = useCallback(
     ({ hovered, pressed }: PressableStateCallbackType & { hovered?: boolean }) => [
@@ -2914,17 +2916,9 @@ function DownloadComingSoonButton() {
     () => [styles.downloadButtonMotionLayer, motion.animatedStyle],
     [motion.animatedStyle],
   );
-  const comingSoonIcon = useMemo(
-    () => (
-      <View style={styles.comingSoonToastIcon}>
-        <Sparkles size={15} color="#f59e0b" />
-      </View>
-    ),
-    [],
-  );
   const handlePress = useCallback(() => {
-    toast.show(t("home.newSession.downloadComingSoon"), { icon: comingSoonIcon });
-  }, [comingSoonIcon, t, toast]);
+    void Linking.openURL(resolveDesktopDownloadUrl());
+  }, []);
 
   return (
     <Pressable
@@ -4011,24 +4005,19 @@ const styles = StyleSheet.create((theme) => ({
     lineHeight: 22,
     fontWeight: theme.fontWeight.medium,
   },
-  comingSoonToastIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: theme.borderRadius.full,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fef3c7",
-  },
   shareModalHeaderIcon: {
     width: 36,
     height: 36,
     borderRadius: theme.borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: "rgba(32, 116, 74, 0.08)",
   },
   shareAccentIcon: {
     color: theme.colors.accent,
+  },
+  shareModalCard: {
+    backgroundColor: "#f4fbf7",
   },
   shareModalContent: {
     position: "relative",
@@ -4049,9 +4038,9 @@ const styles = StyleSheet.create((theme) => ({
     height: 178,
     borderRadius: 20,
     overflow: "hidden",
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: "rgba(32, 116, 74, 0.05)",
     borderWidth: 1,
-    borderColor: theme.colors.borderAccent,
+    borderColor: "rgba(32, 116, 74, 0.14)",
   },
   shareHeroImage: {
     width: "100%",
@@ -4107,7 +4096,7 @@ const styles = StyleSheet.create((theme) => ({
     borderRadius: theme.borderRadius.full,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#dcfce7",
+    backgroundColor: "rgba(32, 116, 74, 0.1)",
   },
   shareLinkTextGroup: {
     flex: 1,
@@ -4158,7 +4147,7 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[1.5],
     borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.surface2,
+    backgroundColor: "rgba(32, 116, 74, 0.07)",
   },
   shareFeaturePillText: {
     color: theme.colors.accent,
@@ -4169,10 +4158,10 @@ const styles = StyleSheet.create((theme) => ({
     paddingHorizontal: theme.spacing[3],
     paddingVertical: theme.spacing[1.5],
     borderRadius: theme.borderRadius.full,
-    backgroundColor: "#ecfdf5",
+    backgroundColor: "rgba(32, 116, 74, 0.07)",
   },
   shareFeaturePillAccentText: {
-    color: "#059669",
+    color: theme.colors.accent,
     fontSize: theme.fontSize.xs,
     fontWeight: theme.fontWeight.medium,
   },

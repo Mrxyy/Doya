@@ -97,10 +97,6 @@ const AI_GATEWAY_ENV = {
   upstreamBaseUrl: "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL",
   upstreamApiKey: "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY",
 } as const;
-const DEFAULT_MANAGED_CODEX_BASE_URL = "https://csdn.cloud";
-const DEFAULT_AI_GATEWAY_UPSTREAM_BASE_URL = "https://csdn.cloud";
-const DEFAULT_AI_GATEWAY_UPSTREAM_API_KEY =
-  "sk-874f7c0d65235c3b3b5a0f1fbb9d39311e1bdf04f08d48ef8d62c46c647216d4";
 const AI_GATEWAY_DEBUG_LOG_PATH = "/tmp/doya-ai-gateway.log";
 
 export function createControlApp(store: ControlStore): express.Express {
@@ -1082,13 +1078,13 @@ async function resolveManagedCodexConfig(input: {
   requestBaseUrl: string;
 }): Promise<ManagedCodexConfig> {
   const { env } = input;
-  const baseUrl = trimEnv(env[MANAGED_CODEX_ENV.baseUrl]) ?? DEFAULT_MANAGED_CODEX_BASE_URL;
+  const baseUrl = trimEnv(env[MANAGED_CODEX_ENV.baseUrl]);
   const explicitApiKey = trimEnv(env[MANAGED_CODEX_ENV.apiKey]);
   const model = trimEnv(env[MANAGED_CODEX_ENV.model]);
 
-  if (explicitApiKey) {
+  if (baseUrl && explicitApiKey) {
     return {
-      enabled: Boolean(baseUrl),
+      enabled: true,
       baseUrl,
       apiKey: explicitApiKey,
       model,
@@ -1140,21 +1136,19 @@ async function handleAiGatewayRequest(input: {
     input.res.status(402).json({ error: "Doya AI usage balance is exhausted" });
     return;
   }
-  const upstreamApiKey = resolveAiGatewayUpstreamApiKey(process.env);
-  if (!upstreamApiKey) {
+  const upstreamConfig = resolveAiGatewayUpstreamConfig(process.env);
+  if (!upstreamConfig) {
     input.res.status(503).json({ error: "AI Gateway upstream is not configured" });
     return;
   }
 
-  const upstreamBaseUrl =
-    trimEnv(process.env[AI_GATEWAY_ENV.upstreamBaseUrl]) ?? DEFAULT_AI_GATEWAY_UPSTREAM_BASE_URL;
   await proxyAiGatewayRequest({
     store: input.store,
     req: input.req,
     res: input.res,
     userId: keyRecord.userId,
-    upstreamBaseUrl,
-    upstreamApiKey,
+    upstreamBaseUrl: upstreamConfig.baseUrl,
+    upstreamApiKey: upstreamConfig.apiKey,
   });
 }
 
@@ -1451,7 +1445,18 @@ function resolveAiGatewayPublicBaseUrl(env: NodeJS.ProcessEnv, requestBaseUrl: s
 }
 
 function resolveAiGatewayUpstreamApiKey(env: NodeJS.ProcessEnv): string | null {
-  return trimEnv(env[AI_GATEWAY_ENV.upstreamApiKey]) ?? DEFAULT_AI_GATEWAY_UPSTREAM_API_KEY;
+  return resolveAiGatewayUpstreamConfig(env)?.apiKey ?? null;
+}
+
+function resolveAiGatewayUpstreamConfig(
+  env: NodeJS.ProcessEnv,
+): { baseUrl: string; apiKey: string } | null {
+  const baseUrl = trimEnv(env[AI_GATEWAY_ENV.upstreamBaseUrl]);
+  const apiKey = trimEnv(env[AI_GATEWAY_ENV.upstreamApiKey]);
+  if (!baseUrl || !apiKey) {
+    return null;
+  }
+  return { baseUrl, apiKey };
 }
 
 function withTrailingSlash(value: string): string {

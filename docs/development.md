@@ -506,7 +506,10 @@ By default the web app is served on `http://localhost:8080`, the daemon on
 `localhost:6767`, and the control API on `http://localhost:6777`. For a remote
 host, copy `docker/.env.example` to `docker/.env`, then set the internal daemon
 endpoint, optional browser-visible daemon endpoint, control endpoint, and matching
-app origins before building:
+app origins before building. Docker control registration also needs a shared
+node registration secret: `DOYA_CONTROL_NODE_REGISTRATION_TOKEN` belongs to the
+control service, and `DOYA_CONTROL_TOKEN` belongs to the daemon; the two values
+must match.
 
 ```bash
 npm run docker:build
@@ -531,6 +534,11 @@ clients by the scheduler. In an nginx TLS deployment, one node can use
 `DOYA_RUNTIME_NODE_ENDPOINT=http://server:6767` and
 `DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT=https://www.example.com`; additional daemons
 can register their own public paths or hostnames.
+The Docker daemon container also runs the normal control-registration heartbeat
+with `DOYA_CONTROL_API_URL=http://control:6777`, `DOYA_CONTROL_TOKEN`, and the
+same daemon endpoints. The `runtime-node-register` service is therefore a
+bootstrap/refresh helper and uses the same node registration token instead of
+account credentials.
 
 For registry-based deployment, set `DOYA_SERVER_IMAGE`, `DOYA_CONTROL_IMAGE`,
 and `DOYA_APP_IMAGE` in `docker/.env`, build and push locally, then copy

@@ -5,6 +5,11 @@ services:
     image: ${DOYA_SERVER_IMAGE}
     environment:
       DOYA_CORS_ORIGINS: ${DOYA_CORS_ORIGINS}
+      DOYA_CONTROL_API_URL: http://control:6777
+      DOYA_CONTROL_DAEMON_ENDPOINT: ${DOYA_RUNTIME_NODE_ENDPOINT}
+      DOYA_CONTROL_DAEMON_PUBLIC_ENDPOINT: ${DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT:-}
+      DOYA_CONTROL_ENABLED: "1"
+      DOYA_CONTROL_TOKEN: ${DOYA_CONTROL_TOKEN}
       DOYA_HOME: /data/doya
       DOYA_HOSTNAMES: ${DOYA_HOSTNAMES}
       DOYA_LISTEN: 0.0.0.0:6767
@@ -25,6 +30,7 @@ services:
     environment:
       DOYA_CONTROL_HOME: /data/control
       DOYA_CONTROL_HOST: 0.0.0.0
+      DOYA_CONTROL_NODE_REGISTRATION_TOKEN: ${DOYA_CONTROL_NODE_REGISTRATION_TOKEN}
       DOYA_CONTROL_PORT: "6777"
       DOYA_SMS_ACCOUNT: ${DOYA_SMS_ACCOUNT:-}
       DOYA_SMS_PASSWORD: ${DOYA_SMS_PASSWORD:-}
@@ -35,6 +41,9 @@ services:
       DOYA_PAYMENT_NOTIFY_URL: ${DOYA_PAYMENT_NOTIFY_URL:-}
       DOYA_PAYMENT_PUBLIC_BASE_URL: ${DOYA_PAYMENT_PUBLIC_BASE_URL:-}
       DOYA_PAYMENT_RETURN_URL: ${DOYA_PAYMENT_RETURN_URL:-}
+      DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL: ${DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL:-}
+      DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL: ${DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL:-}
+      DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY: ${DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY:-}
       NODE_ENV: production
     ports:
       - "6777:6777"
@@ -58,7 +67,7 @@ services:
       - server
     environment:
       DOYA_CONTROL_INTERNAL_URL: http://control:6777
-      DOYA_RUNTIME_NODE_EMAIL: ${DOYA_RUNTIME_NODE_EMAIL}
+      DOYA_CONTROL_NODE_REGISTRATION_TOKEN: ${DOYA_CONTROL_NODE_REGISTRATION_TOKEN}
       DOYA_RUNTIME_NODE_ENDPOINT: ${DOYA_RUNTIME_NODE_ENDPOINT}
       DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT: ${DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT:-}
       DOYA_RUNTIME_NODE_HOME: /data/doya
@@ -78,26 +87,23 @@ services:
         return await response.json();
       }
       async function main() {
-        let account;
         for (let attempt = 1; attempt <= 30; attempt += 1) {
           try {
-            account = await post('/api/account/register', { email: process.env.DOYA_RUNTIME_NODE_EMAIL });
+            await post('/api/nodes/register', {
+              nodeId: process.env.DOYA_RUNTIME_NODE_ID,
+              endpoint: process.env.DOYA_RUNTIME_NODE_ENDPOINT,
+              publicEndpoint: process.env.DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT || null,
+              doyaHome: process.env.DOYA_RUNTIME_NODE_HOME,
+              status: 'online',
+            }, {
+              authorization: 'Bearer ' + process.env.DOYA_CONTROL_NODE_REGISTRATION_TOKEN,
+            });
             break;
           } catch (error) {
             if (attempt === 30) throw error;
             await sleep(1000);
           }
         }
-        await post('/api/nodes/register', {
-          nodeId: process.env.DOYA_RUNTIME_NODE_ID,
-          endpoint: process.env.DOYA_RUNTIME_NODE_ENDPOINT,
-          publicEndpoint: process.env.DOYA_RUNTIME_NODE_PUBLIC_ENDPOINT || null,
-          doyaHome: process.env.DOYA_RUNTIME_NODE_HOME,
-          status: 'online',
-        }, {
-          authorization: 'Bearer ' + account.accessToken,
-          'x-doya-user-id': account.user.id,
-        });
         console.log('Registered runtime node ' + process.env.DOYA_RUNTIME_NODE_ID);
       }
       main().catch((error) => { console.error(error); process.exit(1); });

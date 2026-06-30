@@ -27,7 +27,12 @@ RUN npm run build:server
 
 FROM build AS app-build
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends fakeroot rpm xz-utils \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN npm run build:web --workspace=@getdoya/app
+RUN npm run build:desktop -- --publish never --linux AppImage deb rpm --x64
 
 FROM node:22.20.0-bookworm-slim AS server-deps
 
@@ -118,3 +123,13 @@ COPY docker/nginx-app.conf /etc/nginx/conf.d/default.conf
 COPY --from=app-build /app/packages/app/dist /usr/share/nginx/html
 
 EXPOSE 80
+
+FROM node:22.20.0-bookworm-slim AS desktop-artifacts
+
+WORKDIR /app
+
+COPY package.json ./package.json
+COPY scripts/publish-desktop-artifacts.mjs ./scripts/publish-desktop-artifacts.mjs
+COPY --from=app-build /app/packages/desktop/release ./packages/desktop/release
+
+CMD ["node", "scripts/publish-desktop-artifacts.mjs", "--source", "packages/desktop/release", "--out", "/downloads/desktop"]

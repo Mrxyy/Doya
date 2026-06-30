@@ -13,6 +13,7 @@ export interface ReleaseAssetInfo {
 export function downloadUrls(release: ReleaseAssetInfo) {
   const { version, windowsX64Asset, windowsArm64Asset } = release;
   const base = releaseBase(version);
+  const windowsExeArm64 = windowsArm64Asset ? `${base}/${windowsArm64Asset}` : null;
   return {
     macAppleSilicon: `${base}/Doya-${version}-arm64.dmg`,
     macIntel: `${base}/Doya-${version}-x64.dmg`,
@@ -20,7 +21,7 @@ export function downloadUrls(release: ReleaseAssetInfo) {
     linuxDeb: `${base}/Doya-${version}-amd64.deb`,
     linuxRpm: `${base}/Doya-${version}-x86_64.rpm`,
     windowsExeX64: `${base}/${windowsX64Asset ?? `Doya-Setup-${version}.exe`}`,
-    windowsExeArm64: windowsArm64Asset ? `${base}/${windowsArm64Asset}` : null,
+    windowsExeArm64,
     androidApk: `${base}/doya-v${version}-android.apk`,
   };
 }

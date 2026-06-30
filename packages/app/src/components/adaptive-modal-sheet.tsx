@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useEffect, useMemo } from "react";
 import type { ReactNode, Ref } from "react";
 import { createPortal } from "react-dom";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import type { TextInputProps } from "react-native";
+import type { StyleProp, TextInputProps, ViewStyle } from "react-native";
 import { StyleSheet, useUnistyles, withUnistyles } from "react-native-unistyles";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { getOverlayRoot, OVERLAY_Z } from "../lib/overlay-root";
@@ -229,7 +229,10 @@ const styles = StyleSheet.create((theme) => ({
 
 const SEARCH_INPUT_STYLE = [styles.searchInput, isWeb && { outlineStyle: "none" }];
 
-function SheetBackground({ style }: BottomSheetBackgroundProps) {
+function SheetBackground({
+  style,
+  cardStyle,
+}: BottomSheetBackgroundProps & { cardStyle?: StyleProp<ViewStyle> }) {
   const { theme } = useUnistyles();
   const combinedStyle = useMemo(
     () => [
@@ -239,8 +242,9 @@ function SheetBackground({ style }: BottomSheetBackgroundProps) {
         borderTopLeftRadius: theme.borderRadius.xl,
         borderTopRightRadius: theme.borderRadius.xl,
       },
+      cardStyle,
     ],
-    [style, theme.colors.surface1, theme.borderRadius.xl],
+    [cardStyle, style, theme.colors.surface1, theme.borderRadius.xl],
   );
   return <View style={combinedStyle} />;
 }
@@ -448,6 +452,8 @@ export interface AdaptiveModalSheetProps {
   testID?: string;
   /** Override the max width of the desktop card. */
   desktopMaxWidth?: number;
+  /** Optional per-sheet card surface override. */
+  cardStyle?: StyleProp<ViewStyle>;
   /** Fix the desktop card height so internal panels can own scrolling. */
   desktopHeight?: number;
   /** When provided, wraps the card content in a FileDropZone. */
@@ -464,6 +470,7 @@ export function AdaptiveModalSheet({
   snapPoints,
   testID,
   desktopMaxWidth,
+  cardStyle,
   desktopHeight,
   onFilesDropped,
   scrollable = true,
@@ -487,14 +494,18 @@ export function AdaptiveModalSheet({
     ),
     [],
   );
-
+  const renderBackground = useCallback(
+    (props: BottomSheetBackgroundProps) => <SheetBackground {...props} cardStyle={cardStyle} />,
+    [cardStyle],
+  );
   const desktopCardStyle = useMemo(
     () => [
       styles.desktopCard,
       desktopMaxWidth != null && { maxWidth: desktopMaxWidth },
       desktopHeight != null && { height: desktopHeight },
+      cardStyle,
     ],
-    [desktopHeight, desktopMaxWidth],
+    [cardStyle, desktopHeight, desktopMaxWidth],
   );
   const desktopStaticContentStyle = useMemo(
     () => [styles.desktopStaticContent, desktopHeight != null && styles.desktopStaticContentFixed],
@@ -517,7 +528,7 @@ export function AdaptiveModalSheet({
         onDismiss={handleSheetDismiss}
         backdropComponent={renderBackdrop}
         enablePanDownToClose
-        backgroundComponent={SheetBackground}
+        backgroundComponent={renderBackground}
         handleIndicatorStyle={handleIndicatorStyle}
         keyboardBehavior="extend"
         keyboardBlurBehavior="restore"
