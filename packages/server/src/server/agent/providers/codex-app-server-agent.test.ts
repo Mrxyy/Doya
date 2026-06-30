@@ -154,6 +154,7 @@ fs.appendFileSync(capturePath, JSON.stringify({
   kind: "env",
   OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  CODEX_HOME: process.env.CODEX_HOME,
 }) + "\\n");
 
 function record(method, params) {
@@ -241,6 +242,7 @@ fs.appendFileSync(capturePath, JSON.stringify({
   kind: "env",
   OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  CODEX_HOME: process.env.CODEX_HOME,
 }) + "\\n");
 
 function record(method, params) {
@@ -278,9 +280,11 @@ process.stdin.on("data", (chunk) => {
   const previousBaseUrl = process.env.DOYA_MANAGED_CODEX_BASE_URL;
   const previousApiKey = process.env.DOYA_MANAGED_CODEX_API_KEY;
   const previousModel = process.env.DOYA_MANAGED_CODEX_MODEL;
+  const previousHome = process.env.DOYA_MANAGED_CODEX_HOME;
   process.env.DOYA_MANAGED_CODEX_BASE_URL = input.baseUrl;
   process.env.DOYA_MANAGED_CODEX_API_KEY = input.apiKey;
   process.env.DOYA_MANAGED_CODEX_MODEL = input.model;
+  process.env.DOYA_MANAGED_CODEX_HOME = path.join(tempDir, "codex-home");
 
   const client = new CodexAppServerAgentClient(createTestLogger(), {
     command: { mode: "replace", argv: [process.execPath, fakeAppServerPath] },
@@ -319,6 +323,11 @@ process.stdin.on("data", (chunk) => {
       delete process.env.DOYA_MANAGED_CODEX_MODEL;
     } else {
       process.env.DOYA_MANAGED_CODEX_MODEL = previousModel;
+    }
+    if (previousHome === undefined) {
+      delete process.env.DOYA_MANAGED_CODEX_HOME;
+    } else {
+      process.env.DOYA_MANAGED_CODEX_HOME = previousHome;
     }
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -715,6 +724,7 @@ describe("Codex app-server provider", () => {
       kind: "env",
       OPENAI_BASE_URL: "https://sub2api.example.com",
       OPENAI_API_KEY: "doya-runtime-token",
+      CODEX_HOME: expect.stringContaining("codex-home"),
     });
     expect(capturedThreadStartConfig(capturedRequests)).toEqual({
       model: "managed-codex-model",
@@ -724,13 +734,24 @@ describe("Codex app-server provider", () => {
           name: "OpenAI",
           base_url: "https://sub2api.example.com/v1",
           env_key: "OPENAI_API_KEY",
-          requires_openai_auth: true,
+          requires_openai_auth: false,
           wire_api: "responses",
         },
       },
     });
     const threadStart = capturedRequests.find((record) => record.method === "thread/start");
     expect(threadStart?.params).toMatchObject({ model: "managed-codex-model" });
+  });
+
+  test("does not configure managed Doya routing without an API key", async () => {
+    const capturedRequests = await runManagedCodexProviderTurn({
+      baseUrl: "https://sub2api.example.com",
+      apiKey: "",
+      model: "managed-codex-model",
+    });
+
+    expect(capturedRequests[0]).toEqual({ kind: "env" });
+    expect(capturedThreadStartConfig(capturedRequests)).toBeUndefined();
   });
 
   test("resumeSession does not replace a persisted Codex thread when app-server resume fails", async () => {

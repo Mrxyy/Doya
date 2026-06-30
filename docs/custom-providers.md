@@ -241,23 +241,25 @@ requires_openai_auth = false
 
 ---
 
-## Managed Codex via sub2api
+## Managed Codex via Doya AI Gateway
 
 Desktop-managed daemons can also receive a Doya-managed Codex configuration from
 the control service. This is intended for hosted/account flows where Doya Control
-assigns a user/session token and an OpenAI-compatible base URL, but Doya's own AI
-Gateway is not yet implemented. For now, point the base URL at a sub2api
-deployment.
+assigns a short-lived runtime token and an OpenAI-compatible base URL without
+requiring the user's local Codex login.
 
 ```bash
-DOYA_CONTROL_MANAGED_CODEX_BASE_URL=https://sub2api.example.com
-DOYA_CONTROL_MANAGED_CODEX_API_KEY=doya-runtime-token
+DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL=https://control.example.com
+DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL=https://csdn.cloud
+DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY=sk-...
 DOYA_CONTROL_MANAGED_CODEX_MODEL=gpt-5-codex
 ```
 
-The app reads this via `GET /api/providers/managed-codex` and passes the result
-to the desktop-managed daemon. When the built-in `codex` provider launches, Doya
-maps it to Codex's runtime:
+`GET /api/providers/managed-codex` returns
+`{baseUrl: <control>/api/ai-gateway, apiKey: <short-lived runtime key>}` to
+Doya Desktop for local daemon startup. The Web app does not fetch or hold Codex
+keys. When the built-in `codex` provider launches, Doya maps the daemon
+environment to Codex's runtime:
 
 - `DOYA_MANAGED_CODEX_BASE_URL` becomes `OPENAI_BASE_URL` and a Codex
   `model_providers.doya-managed-codex.base_url` entry.
@@ -269,15 +271,18 @@ maps it to Codex's runtime:
 The intended production ownership is:
 
 1. Doya Control authenticates the user and chooses plan/quota.
-2. Doya Control provisions or mints the user's sub2api/runtime token.
+2. Doya Control issues a short-lived Doya runtime key.
 3. Doya Desktop fetches the managed Codex config from Control and passes it to
    the local daemon.
 4. The daemon starts Codex with the injected base URL and token.
-5. Codex talks to sub2api using the OpenAI-compatible Responses API.
+5. Codex talks to Doya AI Gateway using the OpenAI-compatible Responses API.
+6. Doya AI Gateway validates the runtime key, checks and records Doya billing,
+   then forwards to the configured upstream, such as sub2api.
 
-Do not put a shared upstream OpenAI key in the desktop app or repo. The API key
-value should be per-user or short-lived, revocable, and quota-controlled by the
-control/sub2api side.
+Do not put a shared upstream OpenAI key in the desktop app, daemon package, or
+repo. The upstream key belongs only to Doya AI Gateway. The runtime key visible
+to daemon/Codex should be short-lived, revocable, and quota-controlled by
+Control/Gateway.
 
 Advanced users can still override the binary or endpoint with normal provider
 configuration. Custom providers that extend `"codex"` keep using their explicit

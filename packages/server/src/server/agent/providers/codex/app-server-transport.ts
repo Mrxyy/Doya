@@ -9,6 +9,7 @@ const DEFAULT_TIMEOUT_MS = 14 * 24 * 60 * 60 * 1000;
 const APP_SERVER_GRACEFUL_SHUTDOWN_TIMEOUT_MS = 2_000;
 const APP_SERVER_FORCE_SHUTDOWN_TIMEOUT_MS = 1_000;
 const STDERR_BUFFER_LIMIT = 8192;
+const STDERR_LOG_LINE_LIMIT = 1200;
 
 interface JsonRpcRequest {
   id: number;
@@ -176,9 +177,27 @@ export class CodexAppServerClient {
     });
 
     child.stderr.on("data", (chunk) => {
-      this.stderrBuffer += chunk.toString();
+      const text = chunk.toString();
+      this.stderrBuffer += text;
       if (this.stderrBuffer.length > STDERR_BUFFER_LIMIT) {
         this.stderrBuffer = this.stderrBuffer.slice(-STDERR_BUFFER_LIMIT);
+      }
+      const stderr = text.trim();
+      if (stderr) {
+        const traceContext = this.getTraceContext();
+        this.logger.info(
+          {
+            provider: "codex",
+            agentId: traceContext.agentId,
+            sessionId: traceContext.sessionId,
+            turnId: traceContext.turnId,
+            stderr:
+              stderr.length > STDERR_LOG_LINE_LIMIT
+                ? `${stderr.slice(0, STDERR_LOG_LINE_LIMIT)}...`
+                : stderr,
+          },
+          "provider.codex.app_server_stderr",
+        );
       }
     });
 
@@ -335,8 +354,32 @@ export class CodexAppServerClient {
 
     if (isJsonRpcNotification(raw)) {
       this.traceRawEvent(raw);
+      this.logFailureNotification(raw);
       this.notificationHandler?.(raw.method, raw.params);
     }
+  }
+
+  private logFailureNotification(raw: JsonRpcNotification): void {
+    if (!isRecord(raw.params)) {
+      return;
+    }
+    const msg = raw.params.msg;
+    if (!isRecord(msg) || msg.type !== "turn_failed") {
+      return;
+    }
+    const traceContext = this.getTraceContext();
+    this.logger.info(
+      {
+        provider: "codex",
+        agentId: traceContext.agentId,
+        sessionId: traceContext.sessionId ?? readProviderSessionId(raw.params),
+        turnId: traceContext.turnId ?? readProviderTurnId(raw.params),
+        method: raw.method,
+        error: msg.error,
+        stderrTail: this.stderrBuffer.trim().slice(-STDERR_LOG_LINE_LIMIT) || null,
+      },
+      "provider.codex.app_server_turn_failed",
+    );
   }
 
   private traceRawEvent(raw: JsonRpcRequest | JsonRpcNotification): void {

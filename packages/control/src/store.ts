@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type {
@@ -13,6 +14,7 @@ import type {
   FileSnapshotFileRecord,
   FileSnapshotRecord,
   MessageRole,
+  ManagedRuntimeKeyRecord,
   ModelPricingRecord,
   NodeStatus,
   PaymentOrderRecord,
@@ -76,6 +78,7 @@ interface ControlSnapshot {
   storageQuotas: StorageQuotaRecord[];
   referrals: ReferralRecord[];
   paymentOrders: PaymentOrderRecord[];
+  managedRuntimeKeys: ManagedRuntimeKeyRecord[];
 }
 
 const EMPTY_SNAPSHOT: ControlSnapshot = {
@@ -98,7 +101,10 @@ const EMPTY_SNAPSHOT: ControlSnapshot = {
   storageQuotas: [],
   referrals: [],
   paymentOrders: [],
+  managedRuntimeKeys: [],
 };
+
+const SCHEDULABLE_NODE_HEARTBEAT_MAX_AGE_MS = 2 * 60 * 1000;
 
 export class NotFoundError extends Error {}
 export class BillingPreflightError extends Error {}
@@ -135,6 +141,11 @@ export interface RecordUsageTurnResult {
   usageLog: UsageLogRecord;
   ledgerEntry: CreditLedgerEntryRecord | null;
   balanceCny: number;
+}
+
+export interface IssueManagedRuntimeKeyResult {
+  key: string;
+  record: ManagedRuntimeKeyRecord;
 }
 
 export interface AdminBillingOverview {
@@ -502,6 +513,158 @@ export class ControlStore {
       this.updateBillingAccountStatus(input.userId, "usage_exhausted");
     }
     this.qualifyReferralForUser(input.userId);
+    await this.enqueuePersist();
+    return { applied: true, usageLog, ledgerEntry, balanceCny };
+  }
+
+  async issueManagedRuntimeKey(input: {
+    userId: string;
+    scope: ManagedRuntimeKeyRecord["scope"];
+    ttlMs?: number;
+  }): Promise<IssueManagedRuntimeKeyResult> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    const timestamp = this.timestamp();
+    const key = `doya_rt_${randomUUID().replaceAll("-", "")}`;
+    const record: ManagedRuntimeKeyRecord = {
+      id: createId("mrk"),
+      userId: input.userId,
+      keyHash: hashManagedRuntimeKey(key),
+      scope: input.scope,
+      status: "active",
+      expiresAt: new Date(
+        this.now().getTime() + (input.ttlMs ?? 24 * 60 * 60 * 1000),
+      ).toISOString(),
+      createdAt: timestamp,
+      lastUsedAt: null,
+    };
+    this.snapshot.managedRuntimeKeys = [...this.snapshot.managedRuntimeKeys, record];
+    await this.enqueuePersist();
+    return { key, record };
+  }
+
+  async resolveManagedRuntimeKey(input: {
+    key: string;
+    scope: ManagedRuntimeKeyRecord["scope"];
+  }): Promise<ManagedRuntimeKeyRecord | null> {
+    await this.load();
+    const keyHash = hashManagedRuntimeKey(input.key);
+    const now = this.timestamp();
+    const record = this.snapshot.managedRuntimeKeys.find(
+      (candidate) =>
+        candidate.keyHash === keyHash &&
+        candidate.scope === input.scope &&
+        candidate.status === "active" &&
+        candidate.expiresAt > now,
+    );
+    if (!record) {
+      return null;
+    }
+    const updated = { ...record, lastUsedAt: now };
+    this.snapshot.managedRuntimeKeys = upsertById(
+      this.snapshot.managedRuntimeKeys,
+      updated,
+      (candidate) => candidate.id,
+    );
+    await this.enqueuePersist();
+    return updated;
+  }
+
+  async recordGatewayUsageCharge(input: {
+    userId: string;
+    providerId: string;
+    modelId: string;
+    requestId: string;
+    tokens: UsageTokenInput;
+  }): Promise<RecordUsageTurnResult> {
+    await this.load();
+    this.requireExistingUser(input.userId);
+    const existing = this.snapshot.usageLogs.find((log) => log.requestId === input.requestId);
+    if (existing) {
+      return {
+        applied: false,
+        usageLog: existing,
+        ledgerEntry: null,
+        balanceCny: this.calculateUserBalanceCny(input.userId),
+      };
+    }
+    const pricing = resolveModelPricing({
+      pricing: this.snapshot.modelPricing,
+      providerId: input.providerId,
+      modelId: input.modelId,
+    });
+    if (!pricing) {
+      throw new PricingUnavailableError("Enabled model pricing is required before billing.");
+    }
+    const pricingSnapshot = createPricingSnapshot(pricing);
+    const tokens = normalizeUsageTokens(input.tokens);
+    const cost = calculateUsageCost({
+      tokens,
+      pricing: pricingSnapshot,
+      settings: this.snapshot.billingSettings,
+    });
+    const timestamp = this.timestamp();
+    const usageLog: UsageLogRecord = {
+      id: createId("ulg"),
+      userId: input.userId,
+      sessionId: "gateway",
+      runtimeId: "gateway",
+      nodeId: null,
+      agentId: "codex-gateway",
+      providerId: input.providerId,
+      modelId: input.modelId,
+      turnId: input.requestId,
+      requestId: input.requestId,
+      requestFingerprint: buildUsageRequestFingerprint({
+        userId: input.userId,
+        sessionId: "gateway",
+        runtimeId: "gateway",
+        agentId: "codex-gateway",
+        providerId: input.providerId,
+        modelId: input.modelId,
+        turnId: input.requestId,
+        tokens,
+        cost,
+        pricingSnapshot,
+      }),
+      inputTokens: tokens.inputTokens,
+      outputTokens: tokens.outputTokens,
+      cacheCreationTokens: tokens.cacheCreationTokens,
+      cacheReadTokens: tokens.cacheReadTokens,
+      reasoningTokens: tokens.reasoningTokens,
+      contextWindowUsedTokens: tokens.contextWindowUsedTokens,
+      contextWindowMaxTokens: tokens.contextWindowMaxTokens,
+      ...cost,
+      usdToCnyRate: this.snapshot.billingSettings.usdToCnyRate,
+      tokenMarkupMultiplier: this.snapshot.billingSettings.tokenMarkupMultiplier,
+      pricingSnapshot,
+      status: "charged",
+      createdAt: timestamp,
+    };
+    this.snapshot.usageLogs = [...this.snapshot.usageLogs, usageLog];
+    const account = this.ensureBillingAccountForUser(input.userId);
+    const ledgerEntry: CreditLedgerEntryRecord = {
+      id: createId("led"),
+      userId: input.userId,
+      accountId: account.id,
+      kind: "usage_charge",
+      amountCny: -usageLog.actualCostCny,
+      expiresAt: null,
+      usageLogId: usageLog.id,
+      referralId: null,
+      note: "Doya AI Gateway usage",
+      metadata: {
+        requestId: input.requestId,
+        providerId: input.providerId,
+        modelId: input.modelId,
+      },
+      createdAt: timestamp,
+    };
+    this.snapshot.creditLedger = [...this.snapshot.creditLedger, ledgerEntry];
+    const balanceCny = this.refreshBillingBalance(input.userId);
+    if (balanceCny <= 0) {
+      this.updateBillingAccountStatus(input.userId, "usage_exhausted");
+    }
     await this.enqueuePersist();
     return { applied: true, usageLog, ledgerEntry, balanceCny };
   }
@@ -1609,7 +1772,7 @@ export class ControlStore {
 
   async getSchedulableNode(nodeId: string): Promise<DaemonNodeRecord> {
     const node = await this.getNode(nodeId);
-    if (node.status !== "online") {
+    if (!this.isSchedulableNode(node)) {
       throw new NodeSchedulingUnavailableError(
         `Daemon node ${node.id} is ${node.status} and cannot accept new runtimes`,
       );
@@ -1624,7 +1787,7 @@ export class ControlStore {
     await this.load();
     const activeStatuses = new Set<RuntimeStatus>(["starting", "running"]);
     const candidates = this.snapshot.daemonNodes
-      .filter((node) => node.status === "online")
+      .filter((node) => this.isSchedulableNode(node))
       .map((node) => {
         const activeRuntimeCount = this.snapshot.runtimeAllocations.filter(
           (allocation) => allocation.nodeId === node.id && activeStatuses.has(allocation.status),
@@ -1642,6 +1805,17 @@ export class ControlStore {
       throw new NodeSchedulingUnavailableError("No online daemon nodes can accept new runtimes");
     }
     return { node: selected.node, selectionReason: "least_active_online" };
+  }
+
+  private isSchedulableNode(node: DaemonNodeRecord): boolean {
+    if (node.status !== "online") {
+      return false;
+    }
+    const heartbeatAt = Date.parse(node.lastHeartbeatAt);
+    if (!Number.isFinite(heartbeatAt)) {
+      return false;
+    }
+    return this.now().getTime() - heartbeatAt <= SCHEDULABLE_NODE_HEARTBEAT_MAX_AGE_MS;
   }
 
   async getUserDaemonWorkspace(input: {
@@ -2519,6 +2693,9 @@ function normalizeSnapshot(value: unknown): ControlSnapshot {
           paidAt: typeof order.paidAt === "string" ? order.paidAt : null,
         }))
       : [],
+    managedRuntimeKeys: Array.isArray(record.managedRuntimeKeys)
+      ? record.managedRuntimeKeys.map(normalizeManagedRuntimeKey).filter((entry) => entry !== null)
+      : [],
   };
 }
 
@@ -2629,6 +2806,36 @@ function normalizeBillingStatus(value: unknown): BillingStatus {
     default:
       return "free";
   }
+}
+
+function normalizeManagedRuntimeKey(value: unknown): ManagedRuntimeKeyRecord | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const record = value as Partial<ManagedRuntimeKeyRecord>;
+  if (
+    typeof record.id !== "string" ||
+    typeof record.userId !== "string" ||
+    typeof record.keyHash !== "string" ||
+    typeof record.expiresAt !== "string" ||
+    typeof record.createdAt !== "string"
+  ) {
+    return null;
+  }
+  return {
+    id: record.id,
+    userId: record.userId,
+    keyHash: record.keyHash,
+    scope: record.scope === "codex_gateway" ? "codex_gateway" : "codex_gateway",
+    status: record.status === "revoked" ? "revoked" : "active",
+    expiresAt: record.expiresAt,
+    createdAt: record.createdAt,
+    lastUsedAt: typeof record.lastUsedAt === "string" ? record.lastUsedAt : null,
+  };
+}
+
+function hashManagedRuntimeKey(key: string): string {
+  return createHash("sha256").update(key).digest("hex");
 }
 
 function createRuntimeStatusCounts(): Record<RuntimeStatus, number> {

@@ -163,6 +163,55 @@ DOYA_PAYMENT_CONFIG_FILE=/secure/path/payment.json # optional
 `DOYA_PAYMENT_PUBLIC_BASE_URL` must be reachable by the payment provider because
 successful upgrades are applied only from the server-side notify callback.
 
+### Managed Codex via Doya AI Gateway
+
+Desktop-managed Codex can receive its OpenAI-compatible runtime credentials from
+the control service instead of from the user's local Codex login. The control
+endpoint `GET /api/providers/managed-codex` is authenticated with the Doya
+account session, so the managed key is associated with the Doya user ID, not the
+local machine or daemon process.
+
+Control issues a short-lived Doya runtime key (`doya_rt_...`) and returns
+`{baseUrl: <control>/api/ai-gateway, apiKey: <runtime key>}` to desktop. Codex
+uses that runtime key against Doya AI Gateway. Gateway validates the key, checks
+the Doya account balance before forwarding, proxies the request to the configured
+OpenAI-compatible upstream, then records response `usage` back into Doya billing.
+The upstream provider key is never exposed to desktop, daemon, or Codex.
+
+Managed Codex also receives an isolated `CODEX_HOME` under
+`$DOYA_HOME/managed-codex` by default. This keeps the production desktop flow from
+reusing the user's personal `~/.codex` login state, plugins, or marketplace
+settings. Set `DOYA_MANAGED_CODEX_HOME` or an explicit provider `CODEX_HOME` only
+for local debugging.
+
+Gateway forces `Accept-Encoding: identity` when calling the upstream, but some
+upstreams can still return compressed bodies. Control must decode supported
+compressed responses (`gzip`, `br`, `deflate`, `zstd`) before returning them to
+Codex, because Codex app-server does not accept every content encoding that
+browsers or Node can decode.
+
+![Managed Codex daemon architecture](assets/managed-codex-daemon-architecture.png)
+
+Configure Gateway upstream credentials with:
+
+```bash
+DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL=https://control.example.com
+DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL=https://csdn.cloud
+DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY=sk-...
+```
+
+When `DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL` is omitted, control derives the
+base URL from the incoming request. Set it in hosted deploys so cloud runtimes
+receive a public URL instead of an internal loopback address.
+
+Explicit managed Codex credentials still take precedence for local debugging:
+
+```bash
+DOYA_CONTROL_MANAGED_CODEX_BASE_URL=https://csdn.cloud
+DOYA_CONTROL_MANAGED_CODEX_API_KEY=sk-...
+DOYA_CONTROL_MANAGED_CODEX_MODEL=...
+```
+
 ### Host runtime lazy connections
 
 The app keeps saved host profiles in local state, but it must not open every

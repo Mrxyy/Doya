@@ -246,32 +246,31 @@ Electron wrapper for macOS, Linux, and Windows.
 - Native file access for workspace integration
 - Same WebSocket client as mobile app
 
-### Managed Codex with sub2api
+### Managed Codex via Doya AI Gateway
 
-Managed Codex keeps the coding agent process local while routing model traffic
-through an OpenAI-compatible service. Until Doya's own AI Gateway exists, a
-sub2api deployment can occupy that gateway slot:
+Managed Codex keeps the coding agent process inside a Doya daemon while routing
+model traffic through Doya AI Gateway. The app surface does not hold or request
+Codex credentials. Runtime credentials are distributed only to daemons.
 
-```text
-Doya Control ── provisions user token / quota ──▶ sub2api
-      │
-      │ managed Codex env
-      ▼
-Doya Desktop ── starts ──▶ local daemon ── starts ──▶ codex app-server
-                                                  │
-                                                  │ OPENAI_BASE_URL + OPENAI_API_KEY
-                                                  ▼
-                                               sub2api ──▶ upstream model providers
-```
+![Managed Codex daemon architecture](assets/managed-codex-daemon-architecture.png)
 
-The control service reads `DOYA_CONTROL_MANAGED_CODEX_BASE_URL`,
-`DOYA_CONTROL_MANAGED_CODEX_API_KEY`, and optional
-`DOYA_CONTROL_MANAGED_CODEX_MODEL`, then exposes the per-user managed Codex
-config at `GET /api/providers/managed-codex`. The desktop app fetches that
-config and passes it to the managed daemon. The Codex provider maps those values
-into Codex's OpenAI-compatible provider config and child-process environment.
-Control owns token allocation, quota, and revocation; the desktop package must
-not embed a shared upstream model key.
+There are two daemon paths:
+
+- **User local daemon:** Doya Desktop uses the signed-in account session to fetch
+  the managed Codex config from Control, then starts or updates the local daemon
+  with `DOYA_MANAGED_CODEX_BASE_URL`, `DOYA_MANAGED_CODEX_API_KEY`, and optional
+  `DOYA_MANAGED_CODEX_MODEL`.
+- **Doya server daemon:** hosted daemon execution follows the existing cloud
+  runtime path. Web clients create sessions and view results; they do not mint or
+  pass Codex keys.
+
+Control exposes `GET /api/providers/managed-codex` for desktop-managed local
+daemons. In production it returns a short-lived Doya runtime key and a
+`baseUrl` pointing at Doya AI Gateway. Gateway validates that key, checks the
+Doya account balance, forwards model requests to the configured
+OpenAI-compatible upstream, and records usage back into billing. `sub2api` can
+be used as the upstream model gateway behind Doya AI Gateway; it does not own
+Doya account balance or per-user entitlement.
 
 ### `packages/website` — Marketing site
 

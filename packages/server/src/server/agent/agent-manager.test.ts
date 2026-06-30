@@ -4047,6 +4047,22 @@ test("clearAgentAttention on errored agent stays cleared until a new error trans
   expect(persistedAfterSecondFailure?.attentionReason).toBe("error");
 });
 
+test("clearAgentAttention ignores an unknown agent", async () => {
+  const workdir = mkdtempSync(join(tmpdir(), "agent-manager-attention-missing-"));
+  const storage = new AgentStorage(join(workdir, "agents"), logger);
+  const manager = new AgentManager({
+    clients: {
+      codex: new TestAgentClient(),
+    },
+    registry: storage,
+    logger,
+  });
+
+  await expect(manager.clearAgentAttention("missing-agent")).resolves.toBeUndefined();
+
+  rmSync(workdir, { recursive: true, force: true });
+});
+
 test("streamAgent clears pending run when startTurn fails before a turn id exists", async () => {
   const workdir = mkdtempSync(join(tmpdir(), "agent-manager-start-turn-failure-"));
   const storagePath = join(workdir, "agents");

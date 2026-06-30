@@ -1,4 +1,9 @@
 import path from "node:path";
+import { appendFile } from "node:fs/promises";
+import { request as httpRequest, type IncomingMessage } from "node:http";
+import { request as httpsRequest } from "node:https";
+import { Transform } from "node:stream";
+import * as zlib from "node:zlib";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { ZodError, type ZodType } from "zod";
 import type { DaemonNodeRecord } from "../domain.js";
@@ -86,9 +91,16 @@ const MANAGED_CODEX_ENV = {
   apiKey: "DOYA_CONTROL_MANAGED_CODEX_API_KEY",
   model: "DOYA_CONTROL_MANAGED_CODEX_MODEL",
 } as const;
+const AI_GATEWAY_ENV = {
+  publicBaseUrl: "DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL",
+  upstreamBaseUrl: "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL",
+  upstreamApiKey: "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY",
+} as const;
 const DEFAULT_MANAGED_CODEX_BASE_URL = "https://csdn.cloud";
-const DEFAULT_MANAGED_CODEX_API_KEY =
+const DEFAULT_AI_GATEWAY_UPSTREAM_BASE_URL = "https://csdn.cloud";
+const DEFAULT_AI_GATEWAY_UPSTREAM_API_KEY =
   "sk-874f7c0d65235c3b3b5a0f1fbb9d39311e1bdf04f08d48ef8d62c46c647216d4";
+const AI_GATEWAY_DEBUG_LOG_PATH = "/tmp/doya-ai-gateway.log";
 
 export function createControlApp(store: ControlStore): express.Express {
   const app = express();
@@ -100,6 +112,7 @@ export function createControlApp(store: ControlStore): express.Express {
   app.options("*", (_req, res) => {
     res.status(204).end();
   });
+  app.use("/api/ai-gateway", express.raw({ type: "*/*", limit: "30mb" }));
   app.use(express.json({ limit: "30mb" }));
 
   app.get("/api/health", (_req, res) => {
@@ -170,8 +183,25 @@ export function createControlApp(store: ControlStore): express.Express {
   app.get(
     "/api/providers/managed-codex",
     requireAuth(store),
-    asyncHandler(async (_req, res) => {
-      res.json({ codex: resolveManagedCodexConfig(process.env) });
+    asyncHandler(async (req, res) => {
+      const auth = requireRequestAuth(req);
+      const billingSummary = await store.getBillingSummary({ userId: auth.userId });
+      res.json({
+        codex: await resolveManagedCodexConfig({
+          env: process.env,
+          store,
+          auth,
+          balanceCny: billingSummary.balanceCny,
+          requestBaseUrl: getRequestBaseUrl(req),
+        }),
+      });
+    }),
+  );
+
+  app.all(
+    "/api/ai-gateway/*",
+    asyncHandler(async (req, res) => {
+      await handleAiGatewayRequest({ store, req, res });
     }),
   );
 
@@ -983,21 +1013,397 @@ export function createControlApp(store: ControlStore): express.Express {
   return app;
 }
 
-function resolveManagedCodexConfig(env: NodeJS.ProcessEnv): ManagedCodexConfig {
+async function resolveManagedCodexConfig(input: {
+  env: NodeJS.ProcessEnv;
+  store: ControlStore;
+  auth: AuthContext;
+  balanceCny: number;
+  requestBaseUrl: string;
+}): Promise<ManagedCodexConfig> {
+  const { env } = input;
   const baseUrl = trimEnv(env[MANAGED_CODEX_ENV.baseUrl]) ?? DEFAULT_MANAGED_CODEX_BASE_URL;
-  const apiKey = trimEnv(env[MANAGED_CODEX_ENV.apiKey]) ?? DEFAULT_MANAGED_CODEX_API_KEY;
+  const explicitApiKey = trimEnv(env[MANAGED_CODEX_ENV.apiKey]);
   const model = trimEnv(env[MANAGED_CODEX_ENV.model]);
+
+  if (explicitApiKey) {
+    return {
+      enabled: Boolean(baseUrl),
+      baseUrl,
+      apiKey: explicitApiKey,
+      model,
+    };
+  }
+
+  const upstreamApiKey = resolveAiGatewayUpstreamApiKey(env);
+  if (upstreamApiKey && input.balanceCny > 0) {
+    const runtimeKey = await input.store.issueManagedRuntimeKey({
+      userId: input.auth.userId,
+      scope: "codex_gateway",
+    });
+    return {
+      enabled: true,
+      baseUrl: `${resolveAiGatewayPublicBaseUrl(env, input.requestBaseUrl)}/api/ai-gateway`,
+      apiKey: runtimeKey.key,
+      model,
+    };
+  }
+
   return {
-    enabled: Boolean(baseUrl && apiKey),
-    baseUrl,
-    apiKey,
+    enabled: false,
+    baseUrl: null,
+    apiKey: null,
     model,
   };
+}
+
+async function handleAiGatewayRequest(input: {
+  store: ControlStore;
+  req: Request;
+  res: Response;
+}): Promise<void> {
+  const runtimeKey = readAuthorizationBearer(input.req);
+  if (!runtimeKey) {
+    input.res.status(401).json({ error: "AI Gateway authentication required" });
+    return;
+  }
+  const keyRecord = await input.store.resolveManagedRuntimeKey({
+    key: runtimeKey,
+    scope: "codex_gateway",
+  });
+  if (!keyRecord) {
+    input.res.status(401).json({ error: "Invalid AI Gateway key" });
+    return;
+  }
+  const billingSummary = await input.store.getBillingSummary({ userId: keyRecord.userId });
+  if (billingSummary.balanceCny <= 0) {
+    input.res.status(402).json({ error: "Doya AI usage balance is exhausted" });
+    return;
+  }
+  const upstreamApiKey = resolveAiGatewayUpstreamApiKey(process.env);
+  if (!upstreamApiKey) {
+    input.res.status(503).json({ error: "AI Gateway upstream is not configured" });
+    return;
+  }
+
+  const upstreamBaseUrl =
+    trimEnv(process.env[AI_GATEWAY_ENV.upstreamBaseUrl]) ?? DEFAULT_AI_GATEWAY_UPSTREAM_BASE_URL;
+  await proxyAiGatewayRequest({
+    store: input.store,
+    req: input.req,
+    res: input.res,
+    userId: keyRecord.userId,
+    upstreamBaseUrl,
+    upstreamApiKey,
+  });
+}
+
+function buildAiGatewayUpstreamHeaders(
+  req: Request,
+  upstreamApiKey: string,
+): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const [name, value] of Object.entries(req.headers)) {
+    const lowerName = name.toLowerCase();
+    if (
+      lowerName === "authorization" ||
+      lowerName === "accept-encoding" ||
+      lowerName === "host" ||
+      lowerName === "content-length" ||
+      lowerName === "connection" ||
+      lowerName === "keep-alive" ||
+      lowerName === "proxy-authenticate" ||
+      lowerName === "proxy-authorization" ||
+      lowerName === "te" ||
+      lowerName === "trailer" ||
+      lowerName === "transfer-encoding" ||
+      lowerName === "upgrade"
+    ) {
+      continue;
+    }
+    if (Array.isArray(value)) {
+      headers[name] = value.join(", ");
+    } else if (typeof value === "string") {
+      headers[name] = value;
+    }
+  }
+  headers.Authorization = `Bearer ${upstreamApiKey}`;
+  headers["Accept-Encoding"] = "identity";
+  return headers;
+}
+
+function writeAiGatewayDebugLog(fields: Record<string, unknown>): void {
+  void appendFile(
+    AI_GATEWAY_DEBUG_LOG_PATH,
+    `${JSON.stringify({ time: new Date().toISOString(), ...fields })}\n`,
+  ).catch(() => {});
+}
+
+function buildAiGatewayUpstreamUrl(req: Request, upstreamBaseUrl: string): URL {
+  const gatewayPrefix = "/api/ai-gateway";
+  const rawPath = req.originalUrl.startsWith(gatewayPrefix)
+    ? req.originalUrl.slice(gatewayPrefix.length)
+    : req.url;
+  return new URL(rawPath || "/", withTrailingSlash(upstreamBaseUrl));
+}
+
+function readGatewayRequestBody(req: Request): Buffer {
+  if (Buffer.isBuffer(req.body)) {
+    return req.body;
+  }
+  if (typeof req.body === "string") {
+    return Buffer.from(req.body);
+  }
+  if (req.body === undefined || req.body === null) {
+    return Buffer.alloc(0);
+  }
+  return Buffer.from(JSON.stringify(req.body));
+}
+
+function copyRawGatewayResponseHeaders(
+  headers: Record<string, number | string | string[] | undefined>,
+  res: Response,
+  options: { decodedContent: boolean },
+): void {
+  for (const [name, value] of Object.entries(headers)) {
+    const lowerName = name.toLowerCase();
+    if (
+      value === undefined ||
+      (options.decodedContent &&
+        (lowerName === "content-encoding" || lowerName === "content-length")) ||
+      lowerName === "connection" ||
+      lowerName === "keep-alive" ||
+      lowerName === "proxy-authenticate" ||
+      lowerName === "proxy-authorization" ||
+      lowerName === "te" ||
+      lowerName === "trailer" ||
+      lowerName === "transfer-encoding" ||
+      lowerName === "upgrade"
+    ) {
+      continue;
+    }
+    res.setHeader(name, value);
+  }
+}
+
+function createGatewayContentDecoder(contentEncoding: string): Transform | null {
+  const encoding = contentEncoding
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .at(-1);
+  if (!encoding || encoding === "identity") {
+    return null;
+  }
+  if (encoding === "gzip" || encoding === "x-gzip") {
+    return zlib.createGunzip();
+  }
+  if (encoding === "br") {
+    return zlib.createBrotliDecompress();
+  }
+  if (encoding === "deflate") {
+    return zlib.createInflate();
+  }
+  if (encoding === "zstd") {
+    const createZstdDecompress = (zlib as typeof zlib & { createZstdDecompress?: () => Transform })
+      .createZstdDecompress;
+    return typeof createZstdDecompress === "function" ? createZstdDecompress() : null;
+  }
+  return null;
+}
+
+function createGatewayResponseStream(
+  upstreamRes: IncomingMessage,
+  contentEncoding: string,
+): { stream: NodeJS.ReadableStream; decodedContent: boolean } {
+  const decoder = createGatewayContentDecoder(contentEncoding);
+  if (!decoder) {
+    return { stream: upstreamRes, decodedContent: false };
+  }
+  upstreamRes.pipe(decoder);
+  return { stream: decoder, decodedContent: true };
+}
+
+async function proxyAiGatewayRequest(input: {
+  store: ControlStore;
+  req: Request;
+  res: Response;
+  userId: string;
+  upstreamBaseUrl: string;
+  upstreamApiKey: string;
+}): Promise<void> {
+  const upstreamUrl = buildAiGatewayUpstreamUrl(input.req, input.upstreamBaseUrl);
+  const requestBody = readGatewayRequestBody(input.req);
+  const requestBodyText = requestBody.toString("utf8");
+  const requestFn = upstreamUrl.protocol === "https:" ? httpsRequest : httpRequest;
+  const upstreamHeaders: Record<string, string> = {
+    ...buildAiGatewayUpstreamHeaders(input.req, input.upstreamApiKey),
+    "Content-Length": String(requestBody.length),
+  };
+  writeAiGatewayDebugLog({
+    event: "request",
+    method: input.req.method,
+    path: input.req.originalUrl,
+    upstreamPath: `${upstreamUrl.pathname}${upstreamUrl.search}`,
+    inboundAcceptEncoding: input.req.header("accept-encoding") ?? null,
+    outboundAcceptEncoding: upstreamHeaders["Accept-Encoding"] ?? null,
+    accept: input.req.header("accept") ?? null,
+    contentType: input.req.header("content-type") ?? null,
+    bodyBytes: requestBody.length,
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    const upstreamReq = requestFn(
+      upstreamUrl,
+      {
+        method: input.req.method,
+        headers: upstreamHeaders,
+      },
+      (upstreamRes) => {
+        input.res.status(upstreamRes.statusCode ?? 502);
+        const contentEncoding = String(upstreamRes.headers["content-encoding"] ?? "");
+        const { stream: responseStream, decodedContent } = createGatewayResponseStream(
+          upstreamRes,
+          contentEncoding,
+        );
+        copyRawGatewayResponseHeaders(upstreamRes.headers, input.res, { decodedContent });
+        writeAiGatewayDebugLog({
+          event: "response",
+          method: input.req.method,
+          path: input.req.originalUrl,
+          statusCode: upstreamRes.statusCode ?? null,
+          upstreamContentEncoding: upstreamRes.headers["content-encoding"] ?? null,
+          upstreamContentType: upstreamRes.headers["content-type"] ?? null,
+          responseContentEncoding: input.res.getHeader("content-encoding") ?? null,
+          decodedContent,
+        });
+
+        const responseChunks: Buffer[] = [];
+        let responseBytes = 0;
+        const contentType = String(upstreamRes.headers["content-type"] ?? "");
+        const canInspectUsage =
+          (!contentEncoding || decodedContent) &&
+          contentType.toLowerCase().includes("application/json");
+
+        responseStream.on("data", (chunk: Buffer) => {
+          if (canInspectUsage && responseBytes <= 2 * 1024 * 1024) {
+            responseBytes += chunk.length;
+            responseChunks.push(chunk);
+          }
+          input.res.write(chunk);
+        });
+        responseStream.on("end", () => {
+          input.res.end();
+          if (canInspectUsage && upstreamRes.statusCode && upstreamRes.statusCode < 400) {
+            void recordAiGatewayUsage({
+              store: input.store,
+              userId: input.userId,
+              requestBody: parseJsonObject(requestBodyText),
+              responseText: Buffer.concat(responseChunks).toString("utf8"),
+            });
+          }
+          resolve();
+        });
+        responseStream.on("error", reject);
+        upstreamRes.on("error", reject);
+      },
+    );
+
+    upstreamReq.on("error", reject);
+    upstreamReq.end(requestBody);
+  });
+}
+
+async function recordAiGatewayUsage(input: {
+  store: ControlStore;
+  userId: string;
+  requestBody: unknown;
+  responseText: string;
+}): Promise<void> {
+  const responseBody = parseJsonObject(input.responseText);
+  const requestBody = isRecord(input.requestBody) ? input.requestBody : {};
+  const usage = parseOpenAiUsage(responseBody);
+  if (!usage) {
+    return;
+  }
+  const modelId =
+    readString(responseBody?.model) ?? readString(requestBody.model) ?? "gpt-5.4-mini";
+  const requestId =
+    readString(responseBody?.id) ?? `gateway:${input.userId}:${Date.now()}:${Math.random()}`;
+  await input.store.recordGatewayUsageCharge({
+    userId: input.userId,
+    providerId: "openai",
+    modelId,
+    requestId,
+    tokens: usage,
+  });
+}
+
+function parseOpenAiUsage(value: Record<string, unknown> | null): {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  reasoningTokens: number;
+} | null {
+  const usage = isRecord(value?.usage) ? value.usage : null;
+  if (!usage) {
+    return null;
+  }
+  const inputTokens = readNumber(usage.input_tokens) ?? readNumber(usage.prompt_tokens) ?? 0;
+  const outputTokens = readNumber(usage.output_tokens) ?? readNumber(usage.completion_tokens) ?? 0;
+  const inputDetails = isRecord(usage.input_tokens_details)
+    ? usage.input_tokens_details
+    : isRecord(usage.prompt_tokens_details)
+      ? usage.prompt_tokens_details
+      : {};
+  const outputDetails = isRecord(usage.output_tokens_details)
+    ? usage.output_tokens_details
+    : isRecord(usage.completion_tokens_details)
+      ? usage.completion_tokens_details
+      : {};
+  return {
+    inputTokens,
+    outputTokens,
+    cacheReadTokens: readNumber(inputDetails.cached_tokens) ?? 0,
+    reasoningTokens: readNumber(outputDetails.reasoning_tokens) ?? 0,
+  };
+}
+
+function parseJsonObject(value: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function readNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function resolveAiGatewayPublicBaseUrl(env: NodeJS.ProcessEnv, requestBaseUrl: string): string {
+  return trimEnv(env[AI_GATEWAY_ENV.publicBaseUrl]) ?? requestBaseUrl;
+}
+
+function resolveAiGatewayUpstreamApiKey(env: NodeJS.ProcessEnv): string | null {
+  return trimEnv(env[AI_GATEWAY_ENV.upstreamApiKey]) ?? DEFAULT_AI_GATEWAY_UPSTREAM_API_KEY;
+}
+
+function withTrailingSlash(value: string): string {
+  return value.endsWith("/") ? value : `${value}/`;
 }
 
 function trimEnv(value: string | undefined): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function requireAuth(store: ControlStore) {
@@ -1042,6 +1448,20 @@ function getClientIp(req: Request): string {
     return forwardedFor.split(",")[0]?.trim() || req.ip || "127.0.0.1";
   }
   return req.ip || req.socket.remoteAddress || "127.0.0.1";
+}
+
+function getRequestBaseUrl(req: Request): string {
+  const forwardedProto = readFirstForwardedHeader(req.headers["x-forwarded-proto"]);
+  const forwardedHost = readFirstForwardedHeader(req.headers["x-forwarded-host"]);
+  const proto = forwardedProto ?? req.protocol;
+  const host = forwardedHost ?? req.get("host");
+  return `${proto}://${host}`;
+}
+
+function readFirstForwardedHeader(value: string | string[] | undefined): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const first = raw?.split(",")[0]?.trim();
+  return first || null;
 }
 
 function toPaymentNotifyPayload(query: Request["query"]): PaymentNotifyPayload {

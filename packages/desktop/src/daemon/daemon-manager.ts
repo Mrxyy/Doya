@@ -62,6 +62,7 @@ export interface DesktopDaemonStatus {
   home: string;
   version: string | null;
   desktopManaged: boolean;
+  managedCodexEnabled: boolean;
   error: string | null;
 }
 
@@ -443,6 +444,7 @@ export async function resolveDesktopDaemonStatus(): Promise<DesktopDaemonStatus>
       home,
       version: typeof payload.daemonVersion === "string" ? payload.daemonVersion : null,
       desktopManaged: hasRunningLocalProcess && payload.desktopManaged === true,
+      managedCodexEnabled: hasRunningLocalProcess && payload.managedCodexEnabled === true,
       error: null,
     };
   } catch (error) {
@@ -457,6 +459,7 @@ export async function resolveDesktopDaemonStatus(): Promise<DesktopDaemonStatus>
       home,
       version: null,
       desktopManaged: false,
+      managedCodexEnabled: false,
       error: errorMessage,
     };
   }
@@ -473,6 +476,18 @@ function shouldRestartForVersion(current: DesktopDaemonStatus): boolean {
   const appVersion = normalizeVersion(resolveDesktopAppVersion());
   const daemonVersion = normalizeVersion(current.version);
   return Boolean(appVersion && daemonVersion && appVersion !== daemonVersion);
+}
+
+function shouldRestartForManagedCodex(
+  current: DesktopDaemonStatus,
+  managedCodexEnvOverlay: Record<string, string>,
+): boolean {
+  if (!current.desktopManaged) return false;
+  const wantsManagedCodex = Boolean(
+    managedCodexEnvOverlay.DOYA_MANAGED_CODEX_BASE_URL &&
+    managedCodexEnvOverlay.DOYA_MANAGED_CODEX_API_KEY,
+  );
+  return wantsManagedCodex && !current.managedCodexEnabled;
 }
 
 function assertBuiltInDaemonManagementEnabled(settings: DesktopSettings): void {
@@ -523,6 +538,7 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
   assertBuiltInDaemonManagementEnabled(await getDesktopSettingsStore().get());
   const startupArgs = parseStartDaemonArgs(args);
   const controlEnvOverlay = buildControlEnvOverlay(startupArgs);
+  const managedCodexEnvOverlay = buildManagedCodexEnvOverlay(startupArgs);
 
   const current = await resolveDesktopDaemonStatus();
   logDesktopDaemonLifecycle("initial status check before start", {
@@ -532,12 +548,19 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
     serverId: current.serverId || null,
     error: current.error,
     desktopManaged: current.desktopManaged,
+    managedCodexEnabled: current.managedCodexEnabled,
   });
   if (current.status === "running") {
     if (shouldRestartForVersion(current)) {
       logDesktopDaemonLifecycle("daemon version mismatch, restarting", {
         appVersion: normalizeVersion(resolveDesktopAppVersion()),
         daemonVersion: normalizeVersion(current.version),
+      });
+      await stopDesktopDaemon();
+    } else if (shouldRestartForManagedCodex(current, managedCodexEnvOverlay)) {
+      logDesktopDaemonLifecycle("daemon missing managed Codex environment, restarting", {
+        managedCodexEnabled: current.managedCodexEnabled,
+        managedCodexRequested: true,
       });
       await stopDesktopDaemon();
     } else {
@@ -547,7 +570,6 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
   }
 
   const daemonRunner = resolveDaemonRunnerEntrypoint();
-  const managedCodexEnvOverlay = buildManagedCodexEnvOverlay(startupArgs);
   logDesktopDaemonLifecycle("resolved managed Codex daemon environment", {
     appIsPackaged: app.isPackaged,
     platform: process.platform,

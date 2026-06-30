@@ -108,10 +108,9 @@ const DOYA_BUNDLED_CODEX_PATH_ENV = "DOYA_BUNDLED_CODEX_PATH";
 const DOYA_MANAGED_CODEX_BASE_URL_ENV = "DOYA_MANAGED_CODEX_BASE_URL";
 const DOYA_MANAGED_CODEX_API_KEY_ENV = "DOYA_MANAGED_CODEX_API_KEY";
 const DOYA_MANAGED_CODEX_MODEL_ENV = "DOYA_MANAGED_CODEX_MODEL";
+const DOYA_MANAGED_CODEX_HOME_ENV = "DOYA_MANAGED_CODEX_HOME";
 const MANAGED_CODEX_PROVIDER_ID = "doya-managed-codex";
 const DEFAULT_MANAGED_CODEX_BASE_URL = "https://csdn.cloud";
-const DEFAULT_MANAGED_CODEX_API_KEY =
-  "sk-874f7c0d65235c3b3b5a0f1fbb9d39311e1bdf04f08d48ef8d62c46c647216d4";
 const CODEX_TOOL_THREAD_ITEM_TYPES = new Set([
   "commandExecution",
   "fileChange",
@@ -523,6 +522,15 @@ function resolveCodexHomeDir(): string {
   return process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex");
 }
 
+function resolveManagedCodexHomeDir(): string {
+  const explicitManagedHome = process.env[DOYA_MANAGED_CODEX_HOME_ENV]?.trim();
+  if (explicitManagedHome) {
+    return explicitManagedHome;
+  }
+  const doyaHome = process.env.DOYA_HOME?.trim() || path.join(homedir(), ".doya");
+  return path.join(doyaHome, "managed-codex");
+}
+
 function resolveEffectiveChildEnvValue(
   envOverlay: Record<string, string | undefined>,
   key: string,
@@ -552,6 +560,21 @@ function readManagedCodexRequiresOpenAIAuth(
   const managedProvider = toObjectRecord(modelProviders?.[MANAGED_CODEX_PROVIDER_ID]);
   const requiresOpenAIAuth = managedProvider?.requires_openai_auth;
   return typeof requiresOpenAIAuth === "boolean" ? requiresOpenAIAuth : null;
+}
+
+interface ManagedCodexConfigLogSummary {
+  modelProvider: string | null;
+  baseUrl: string | null;
+}
+
+function readManagedCodexConfigLogSummary(
+  config: Record<string, unknown> | null | undefined,
+): ManagedCodexConfigLogSummary {
+  const modelProvider = typeof config?.model_provider === "string" ? config.model_provider : null;
+  const modelProviders = toObjectRecord(config?.model_providers);
+  const managedProvider = toObjectRecord(modelProviders?.[MANAGED_CODEX_PROVIDER_ID]);
+  const baseUrl = typeof managedProvider?.base_url === "string" ? managedProvider.base_url : null;
+  return { modelProvider, baseUrl };
 }
 
 function decodeEscapedChar(next: string): string {
@@ -3131,14 +3154,15 @@ function resolveManagedCodexValue(
   if (managedEnvKey === DOYA_MANAGED_CODEX_BASE_URL_ENV) {
     return DEFAULT_MANAGED_CODEX_BASE_URL;
   }
-  if (managedEnvKey === DOYA_MANAGED_CODEX_API_KEY_ENV) {
-    return DEFAULT_MANAGED_CODEX_API_KEY;
-  }
   return undefined;
 }
 
-function resolveManagedCodexDefaultModel(): string | undefined {
-  const model = process.env[DOYA_MANAGED_CODEX_MODEL_ENV]?.trim();
+function resolveManagedCodexDefaultModel(
+  runtimeSettings: ProviderRuntimeSettings | undefined,
+): string | undefined {
+  const model =
+    runtimeSettings?.env?.[DOYA_MANAGED_CODEX_MODEL_ENV]?.trim() ||
+    process.env[DOYA_MANAGED_CODEX_MODEL_ENV]?.trim();
   return model || undefined;
 }
 
@@ -3146,19 +3170,21 @@ function buildManagedCodexEnv(
   runtimeSettings: ProviderRuntimeSettings | undefined,
 ): Record<string, string> {
   const env: Record<string, string> = {};
-  if (!runtimeSettings?.env?.OPENAI_BASE_URL?.trim()) {
+  const runtimeApiKey = runtimeSettings?.env?.OPENAI_API_KEY?.trim();
+  const managedApiKey = process.env[DOYA_MANAGED_CODEX_API_KEY_ENV]?.trim();
+  const hasRuntimeManagedCredential = Boolean(runtimeApiKey || managedApiKey);
+  if (!runtimeSettings?.env?.OPENAI_API_KEY?.trim() && managedApiKey) {
+    env.OPENAI_API_KEY = managedApiKey;
+  }
+  if (!runtimeSettings?.env?.OPENAI_BASE_URL?.trim() && hasRuntimeManagedCredential) {
     const baseUrl =
       process.env[DOYA_MANAGED_CODEX_BASE_URL_ENV]?.trim() || DEFAULT_MANAGED_CODEX_BASE_URL;
     if (baseUrl) {
       env.OPENAI_BASE_URL = baseUrl;
     }
   }
-  if (!runtimeSettings?.env?.OPENAI_API_KEY?.trim()) {
-    const apiKey =
-      process.env[DOYA_MANAGED_CODEX_API_KEY_ENV]?.trim() || DEFAULT_MANAGED_CODEX_API_KEY;
-    if (apiKey) {
-      env.OPENAI_API_KEY = apiKey;
-    }
+  if (!runtimeSettings?.env?.CODEX_HOME?.trim() && hasRuntimeManagedCredential) {
+    env.CODEX_HOME = resolveManagedCodexHomeDir();
   }
   return env;
 }
@@ -3168,6 +3194,15 @@ function buildManagedCodexProviderConfig(
   customProvider: CodexAppServerAgentDeps["customProvider"],
 ): Record<string, unknown> | null {
   if (customProvider) {
+    return null;
+  }
+
+  const apiKey = resolveManagedCodexValue(
+    runtimeSettings,
+    "OPENAI_API_KEY",
+    DOYA_MANAGED_CODEX_API_KEY_ENV,
+  );
+  if (!apiKey) {
     return null;
   }
 
@@ -3190,17 +3225,10 @@ function buildManagedCodexProviderConfig(
     base_url: normalizedBaseUrl,
     wire_api: "responses",
   };
-  const apiKey = resolveManagedCodexValue(
-    runtimeSettings,
-    "OPENAI_API_KEY",
-    DOYA_MANAGED_CODEX_API_KEY_ENV,
-  );
-  if (apiKey) {
-    providerConfig.env_key = "OPENAI_API_KEY";
-    providerConfig.requires_openai_auth = true;
-  }
+  providerConfig.env_key = "OPENAI_API_KEY";
+  providerConfig.requires_openai_auth = false;
 
-  const managedModel = resolveManagedCodexDefaultModel();
+  const managedModel = resolveManagedCodexDefaultModel(runtimeSettings);
   return {
     ...(managedModel ? { model: managedModel } : {}),
     model_provider: MANAGED_CODEX_PROVIDER_ID,
@@ -5697,7 +5725,7 @@ export class CodexAppServerAgentClient implements AgentClient {
       : buildManagedCodexEnv(this.runtimeSettings);
     const managedCodexDefaultModel = this.deps.customProvider
       ? undefined
-      : resolveManagedCodexDefaultModel();
+      : resolveManagedCodexDefaultModel(this.runtimeSettings);
     return {
       ...this.deps,
       customCodexConfig:
@@ -5780,6 +5808,9 @@ export class CodexAppServerAgentClient implements AgentClient {
     const managedProviderRequiresOpenAIAuth = readManagedCodexRequiresOpenAIAuth(
       sessionDeps.customCodexConfig,
     );
+    const managedCodexConfigSummary = readManagedCodexConfigLogSummary(
+      sessionDeps.customCodexConfig,
+    );
     this.logger.trace(
       {
         agentId: options?.agentId,
@@ -5792,6 +5823,8 @@ export class CodexAppServerAgentClient implements AgentClient {
         openAIApiKeySource,
         codexHome,
         managedProviderRequiresOpenAIAuth,
+        managedModelProvider: managedCodexConfigSummary.modelProvider,
+        managedProviderBaseUrl: managedCodexConfigSummary.baseUrl,
         codexAuthDebug:
           openAIApiKeySource !== "none" ? "openai-api-key-env-present" : "no-openai-api-key-env",
         goalsEnabled: options?.goalsEnabled === true,
@@ -5811,11 +5844,14 @@ export class CodexAppServerAgentClient implements AgentClient {
         openAIApiKeySource,
         codexHome,
         managedProviderRequiresOpenAIAuth,
+        managedModelProvider: managedCodexConfigSummary.modelProvider,
+        managedProviderBaseUrl: managedCodexConfigSummary.baseUrl,
         codexAuthDebug:
           openAIApiKeySource !== "none" ? "openai-api-key-env-present" : "no-openai-api-key-env",
       },
       "provider.codex.binary_selected",
     );
+    fsSync.mkdirSync(codexHome, { recursive: true });
     const child = spawnProcess(launchPrefix.command, args, {
       detached: process.platform !== "win32",
       stdio: ["pipe", "pipe", "pipe"],

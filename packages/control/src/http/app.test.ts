@@ -1,7 +1,8 @@
-import { createServer, type Server } from "node:http";
+import { createServer, request as httpRequest, type Server } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import * as zlib from "node:zlib";
 import { describe, expect, it, afterEach, beforeEach } from "vitest";
 import { createControlApp } from "./app.js";
 import { ControlStore } from "../store.js";
@@ -323,14 +324,144 @@ describe("billing", () => {
     }
   });
 
-  it("returns hardcoded managed Codex config when control environment is incomplete", async () => {
+  it("returns a Doya AI Gateway runtime key for the current Doya user", async () => {
     const account = await register();
-    const previousBaseUrl = process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL;
-    const previousApiKey = process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
-    const previousModel = process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL;
-    delete process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL;
+    const previousEnv = snapshotEnv([
+      "DOYA_CONTROL_MANAGED_CODEX_API_KEY",
+      "DOYA_CONTROL_MANAGED_CODEX_MODEL",
+      "DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL",
+      "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY",
+    ]);
     delete process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
-    delete process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL;
+    process.env.DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL = "https://control.example.com";
+    process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY = "upstream-token";
+    try {
+      const payload = await fetchJson<{
+        codex: {
+          enabled: boolean;
+          baseUrl: string | null;
+          apiKey: string | null;
+          model: string | null;
+        };
+      }>("/api/providers/managed-codex", { account });
+
+      expect(payload.codex.enabled).toBe(true);
+      expect(payload.codex.baseUrl).toBe("https://control.example.com/api/ai-gateway");
+      expect(payload.codex.apiKey).toMatch(/^doya_rt_/);
+      expect(payload.codex.model).toBe(null);
+    } finally {
+      restoreEnvSnapshot(previousEnv);
+    }
+  });
+
+  it("proxies AI Gateway requests and bills response usage to Doya balance", async () => {
+    const account = await register();
+    const upstream = await startFakeAiGatewayUpstream();
+    const previousEnv = snapshotEnv([
+      "DOYA_CONTROL_MANAGED_CODEX_API_KEY",
+      "DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL",
+      "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL",
+      "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY",
+    ]);
+    delete process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
+    process.env.DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL = baseUrl;
+    process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL = upstream.baseUrl;
+    process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY = "upstream-token";
+    try {
+      const managed = await fetchJson<{
+        codex: { enabled: boolean; baseUrl: string | null; apiKey: string | null };
+      }>("/api/providers/managed-codex", { account });
+      expect(managed.codex.apiKey).toMatch(/^doya_rt_/);
+
+      const before = await store.getBillingSummary({ userId: account.user.id });
+      const response = await fetch(`${baseUrl}/api/ai-gateway/v1/responses`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept-Encoding": "gzip, deflate, br, zstd",
+          Authorization: `Bearer ${managed.codex.apiKey}`,
+        },
+        body: JSON.stringify({ model: "gpt-5.4-mini", input: "hello" }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(
+        expect.objectContaining({ id: "resp_gateway_test", model: "gpt-5.4-mini" }),
+      );
+      expect(upstream.authorizationHeaders()).toEqual(["Bearer upstream-token"]);
+      expect(upstream.acceptEncodingHeaders()).toEqual(["identity"]);
+      const after = await store.getBillingSummary({ userId: account.user.id });
+      expect(after.balanceCny).toBeLessThan(before.balanceCny);
+      expect(after.recentUsageLogs[0]).toEqual(
+        expect.objectContaining({
+          providerId: "openai",
+          modelId: "gpt-5.4-mini",
+          inputTokens: 100,
+          outputTokens: 20,
+        }),
+      );
+    } finally {
+      restoreEnvSnapshot(previousEnv);
+      await upstream.close();
+    }
+  });
+
+  it("decodes zstd-encoded AI Gateway upstream responses before returning to Codex", async () => {
+    const upstream = await startFakeAiGatewayUpstream({ contentEncoding: "zstd" });
+    const account = await register();
+    await store.createAdminTopUp({
+      userId: account.user.id,
+      amountCny: 3,
+      note: "managed codex zstd upstream",
+    });
+    const previousEnv = snapshotEnv([
+      "DOYA_CONTROL_MANAGED_CODEX_API_KEY",
+      "DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL",
+      "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL",
+      "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY",
+    ]);
+    delete process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
+    process.env.DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL = baseUrl;
+    process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_BASE_URL = upstream.baseUrl;
+    process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY = "upstream-token";
+    try {
+      const managed = await fetchJson<{
+        codex: { apiKey: string | null };
+      }>("/api/providers/managed-codex", { account });
+
+      const response = await rawHttpRequest(`${baseUrl}/api/ai-gateway/v1/responses`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept-Encoding": "gzip, deflate, br, zstd",
+          Authorization: `Bearer ${managed.codex.apiKey}`,
+        },
+        body: JSON.stringify({ model: "gpt-5.4-mini", input: "hello" }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.headers["content-encoding"]).toBeUndefined();
+      expect(response.body).toContain("resp_gateway_test");
+      expect(upstream.acceptEncodingHeaders()).toEqual(["identity"]);
+    } finally {
+      restoreEnvSnapshot(previousEnv);
+      await upstream.close();
+    }
+  });
+
+  it("withholds the Doya AI Gateway runtime key when the account has no balance", async () => {
+    const account = await register();
+    await store.createAdminAdjustment({
+      userId: account.user.id,
+      amountCny: -3,
+      note: "managed codex zero balance",
+    });
+    const previousEnv = snapshotEnv([
+      "DOYA_CONTROL_MANAGED_CODEX_API_KEY",
+      "DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY",
+    ]);
+    delete process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
+    process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY = "upstream-token";
     try {
       const payload = await fetchJson<{
         codex: {
@@ -342,15 +473,45 @@ describe("billing", () => {
       }>("/api/providers/managed-codex", { account });
 
       expect(payload.codex).toEqual({
-        enabled: true,
-        baseUrl: "https://csdn.cloud",
-        apiKey: "sk-874f7c0d65235c3b3b5a0f1fbb9d39311e1bdf04f08d48ef8d62c46c647216d4",
+        enabled: false,
+        baseUrl: null,
+        apiKey: null,
         model: null,
       });
+    } finally {
+      restoreEnvSnapshot(previousEnv);
+    }
+  });
+
+  it("uses the default Gateway upstream key when no explicit upstream env is available", async () => {
+    const account = await register();
+    const previousBaseUrl = process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL;
+    const previousApiKey = process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
+    const previousModel = process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL;
+    const previousGatewayUpstreamApiKey = process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY;
+    delete process.env.DOYA_CONTROL_MANAGED_CODEX_BASE_URL;
+    delete process.env.DOYA_CONTROL_MANAGED_CODEX_API_KEY;
+    delete process.env.DOYA_CONTROL_MANAGED_CODEX_MODEL;
+    delete process.env.DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY;
+    try {
+      const payload = await fetchJson<{
+        codex: {
+          enabled: boolean;
+          baseUrl: string | null;
+          apiKey: string | null;
+          model: string | null;
+        };
+      }>("/api/providers/managed-codex", { account });
+
+      expect(payload.codex.enabled).toBe(true);
+      expect(payload.codex.baseUrl).toBe(`${baseUrl}/api/ai-gateway`);
+      expect(payload.codex.apiKey).toMatch(/^doya_rt_/);
+      expect(payload.codex.model).toBe(null);
     } finally {
       restoreEnv("DOYA_CONTROL_MANAGED_CODEX_BASE_URL", previousBaseUrl);
       restoreEnv("DOYA_CONTROL_MANAGED_CODEX_API_KEY", previousApiKey);
       restoreEnv("DOYA_CONTROL_MANAGED_CODEX_MODEL", previousModel);
+      restoreEnv("DOYA_CONTROL_AI_GATEWAY_UPSTREAM_API_KEY", previousGatewayUpstreamApiKey);
     }
   });
 
@@ -1278,6 +1439,26 @@ describe("daemon scheduling", () => {
     });
   });
 
+  it("rejects scheduler selection when online daemon heartbeats are stale", async () => {
+    await store.registerNode({
+      nodeId: "node_stale",
+      endpoint: "http://127.0.0.1:6767",
+      status: "online",
+    });
+    advanceTestClock(3 * 60 * 1000);
+
+    const response = await fetch(`${baseUrl}/api/scheduler/runtime-node`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ providerId: "codex", modelId: "gpt-5" }),
+    });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: expect.stringContaining("No online daemon nodes"),
+    });
+  });
+
   it("rejects runtime allocation on offline or draining daemon nodes", async () => {
     const account = await register();
     const sessionResponse = await createGeneratedSession(account, "Scheduled runtime");
@@ -1913,6 +2094,139 @@ async function createGeneratedSession(
   });
 }
 
+async function startFakeAiGatewayUpstream(input?: { contentEncoding?: string }): Promise<{
+  baseUrl: string;
+  authorizationHeaders: () => string[];
+  acceptEncodingHeaders: () => string[];
+  close: () => Promise<void>;
+}> {
+  const authorizationHeaders: string[] = [];
+  const acceptEncodingHeaders: string[] = [];
+  const upstreamServer = createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1");
+    if (req.method === "POST" && url.pathname === "/v1/responses") {
+      authorizationHeaders.push(req.headers.authorization ?? "");
+      acceptEncodingHeaders.push(req.headers["accept-encoding"] ?? "");
+      await readRequestJson(req);
+      const body = {
+        id: "resp_gateway_test",
+        object: "response",
+        model: "gpt-5.4-mini",
+        usage: {
+          input_tokens: 100,
+          output_tokens: 20,
+          input_tokens_details: {
+            cached_tokens: 10,
+          },
+          output_tokens_details: {
+            reasoning_tokens: 4,
+          },
+        },
+      };
+      if (input?.contentEncoding) {
+        res.setHeader("Content-Encoding", input.contentEncoding);
+      }
+      respondJson(res, 200, body, { contentEncoding: input?.contentEncoding });
+      return;
+    }
+    respondJson(res, 404, { error: "not found" });
+  });
+  await new Promise<void>((resolve) => upstreamServer.listen(0, "127.0.0.1", () => resolve()));
+  const address = upstreamServer.address();
+  if (!address || typeof address === "string") {
+    throw new Error("Fake AI upstream server did not bind to a TCP port");
+  }
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}`,
+    authorizationHeaders: () => [...authorizationHeaders],
+    acceptEncodingHeaders: () => [...acceptEncodingHeaders],
+    close: () => new Promise<void>((resolve) => upstreamServer.close(() => resolve())),
+  };
+}
+
+async function readRequestJson(req: AsyncIterable<Buffer>): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  const text = Buffer.concat(chunks).toString("utf8");
+  if (!text) {
+    return {};
+  }
+  return JSON.parse(text) as Record<string, unknown>;
+}
+
+async function rawHttpRequest(
+  url: string,
+  input: {
+    method: string;
+    headers: Record<string, string>;
+    body: string;
+  },
+): Promise<{
+  status: number;
+  headers: Record<string, string | string[] | undefined>;
+  body: string;
+}> {
+  return await new Promise((resolve, reject) => {
+    const req = httpRequest(
+      url,
+      {
+        method: input.method,
+        headers: {
+          ...input.headers,
+          "Content-Length": String(Buffer.byteLength(input.body)),
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => {
+          chunks.push(chunk);
+        });
+        res.on("end", () => {
+          resolve({
+            status: res.statusCode ?? 0,
+            headers: res.headers,
+            body: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+        res.on("error", reject);
+      },
+    );
+    req.on("error", reject);
+    req.end(input.body);
+  });
+}
+
+function respondJson(
+  res: {
+    statusCode: number;
+    setHeader(name: string, value: string): void;
+    end(body: string | Buffer): void;
+  },
+  statusCode: number,
+  body: unknown,
+  options: { contentEncoding?: string } = {},
+): void {
+  res.statusCode = statusCode;
+  res.setHeader("Content-Type", "application/json");
+  const text = JSON.stringify(body);
+  if (options.contentEncoding === "zstd") {
+    res.end(zstdCompressSync(Buffer.from(text)));
+    return;
+  }
+  res.end(text);
+}
+
+function zstdCompressSync(input: Buffer): Buffer {
+  const compress = (zlib as typeof zlib & { zstdCompressSync?: (buffer: Buffer) => Buffer })
+    .zstdCompressSync;
+  if (typeof compress !== "function") {
+    throw new Error("Current Node runtime does not expose zstdCompressSync");
+  }
+  return compress(input);
+}
+
 async function startFakeDaemon(input: {
   runtimes: Map<string, "starting" | "running" | "stopped" | "lost">;
   createdRuntimeId: string;
@@ -2133,4 +2447,18 @@ function restoreEnv(name: string, value: string | undefined): void {
     return;
   }
   process.env[name] = value;
+}
+
+function snapshotEnv(names: string[]): Record<string, string | undefined> {
+  const snapshot: Record<string, string | undefined> = {};
+  for (const name of names) {
+    snapshot[name] = process.env[name];
+  }
+  return snapshot;
+}
+
+function restoreEnvSnapshot(snapshot: Record<string, string | undefined>): void {
+  for (const [name, value] of Object.entries(snapshot)) {
+    restoreEnv(name, value);
+  }
 }

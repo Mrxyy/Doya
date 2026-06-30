@@ -148,6 +148,17 @@ export interface PaymentOrderRecord {
   paidAt: string | null;
 }
 
+export interface ManagedRuntimeKeyRecord {
+  id: string;
+  userId: string;
+  keyHash: string;
+  scope: "codex_gateway";
+  status: "active" | "revoked";
+  expiresAt: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
 export interface ModelPricingRecord {
   id: string;
   providerId: string;

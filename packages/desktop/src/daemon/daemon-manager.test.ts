@@ -157,6 +157,7 @@ describe("daemon-manager commands", () => {
       home: "/tmp/doya-home",
       version: null,
       desktopManaged: false,
+      managedCodexEnabled: false,
       error: null,
     });
 
@@ -188,6 +189,7 @@ describe("daemon-manager commands", () => {
       home: "/tmp/doya-home",
       version: null,
       desktopManaged: false,
+      managedCodexEnabled: false,
       error: null,
     });
 
@@ -235,6 +237,7 @@ describe("daemon-manager commands", () => {
       home: "/tmp/doya-home",
       version: "1.2.2",
       desktopManaged: false,
+      managedCodexEnabled: false,
       error: null,
     });
 
@@ -255,6 +258,7 @@ describe("daemon-manager commands", () => {
       hostname: "dev-host",
       daemonVersion: "0.1.88",
       desktopManaged: true,
+      managedCodexEnabled: false,
     });
     const handlers = createDaemonCommandHandlers();
 
@@ -284,6 +288,77 @@ describe("daemon-manager commands", () => {
           authToken: "token_abc",
         }),
       },
+    );
+  });
+
+  it("restarts a desktop-managed daemon when managed Codex was not injected", async () => {
+    mocks.runExternalCliJsonCommand
+      .mockResolvedValueOnce({
+        localDaemon: "running",
+        connectedDaemon: "reachable",
+        serverId: "server-1",
+        pid: 7675,
+        listen: "127.0.0.1:6767",
+        hostname: "dev-host",
+        daemonVersion: "0.1.88",
+        desktopManaged: true,
+        managedCodexEnabled: false,
+      })
+      .mockResolvedValueOnce({
+        localDaemon: "running",
+        connectedDaemon: "reachable",
+        serverId: "server-1",
+        pid: 7675,
+        listen: "127.0.0.1:6767",
+        hostname: "dev-host",
+        daemonVersion: "0.1.88",
+        desktopManaged: true,
+        managedCodexEnabled: false,
+      })
+      .mockResolvedValueOnce({ action: "stopped" })
+      .mockResolvedValue({
+        localDaemon: "stopped",
+        connectedDaemon: "unreachable",
+        serverId: "",
+      });
+    mocks.spawnProcess.mockImplementation(() => {
+      const child = createMockChildProcess();
+      scheduleFailedStartupOutput(child);
+      return child;
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(
+      handlers.start_desktop_daemon({
+        managedCodex: {
+          baseUrl: "http://localhost:6777/api/ai-gateway",
+          apiKey: "doya-runtime-token",
+          model: "managed-codex-model",
+        },
+      }),
+    ).rejects.toThrow("Daemon failed to start");
+
+    expect(mocks.runExternalCliJsonCommand).toHaveBeenCalledWith([
+      "daemon",
+      "stop",
+      "--json",
+      "--timeout",
+      "5",
+      "--force",
+      "--kill-timeout",
+      "5",
+    ]);
+    expect(mocks.spawnProcess).toHaveBeenCalledWith(
+      "node",
+      [],
+      expect.objectContaining({
+        envOverlay: expect.objectContaining({
+          DOYA_DESKTOP_MANAGED: "1",
+          DOYA_MANAGED_CODEX_BASE_URL: "http://localhost:6777/api/ai-gateway",
+          DOYA_MANAGED_CODEX_API_KEY: "doya-runtime-token",
+          DOYA_MANAGED_CODEX_MODEL: "managed-codex-model",
+        }),
+      }),
     );
   });
 
