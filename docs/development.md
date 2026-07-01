@@ -44,12 +44,40 @@ installer without Apple signing credentials:
 npm run build:desktop:local
 ```
 
+See [desktop-control-env.zh.md](desktop-control-env.zh.md) for the Chinese
+desktop control URL, app env, daemon env, and runtime daemon packaging notes.
+
 This builds the Electron web bundle, skips macOS signing with
 `--config.mac.identity=null`, and validates the generated DMG before finishing.
 If electron-builder creates a DMG that is missing Electron's framework binary,
 the desktop package rebuilds the DMG from the complete unpacked `.app` under
 `packages/desktop/release/mac-*`. CI release builds do not silently repair that
 case; they fail instead so a broken installer is not published.
+
+Desktop packaging runs against npm workspace symlinks during local builds. The
+packaged app must not include workspace-local state such as
+`packages/server/.doya-dev`, `packages/server/.debug`, or source-level asset
+duplicates; `packages/desktop/scripts/after-pack.js` prunes those after
+electron-builder resolves dependencies. Codex is bundled from the npm
+`@openai/codex` package and its platform-specific optional package under
+`app.asar.unpacked/node_modules/@openai`; do not add a second copied Codex
+binary under `resources/codex`.
+
+Desktop production builds call `scripts/prepare-desktop-build-env.mjs` before
+the Expo export. The script reads `docker/.env` by default, or
+`DOYA_DESKTOP_ENV_FILE` when set, and copies only a small allowlist into the
+desktop build. Public app values such as `EXPO_PUBLIC_CONTROL_API_URL` are
+exported for `expo export`; safe daemon runtime values are written to
+`packages/desktop/generated/daemon-env.json` and packaged as `daemon-env.json`.
+Desktop builds map `DOYA_PUBLIC_CONTROL_API_URL`, or
+`DOYA_CONTROL_AI_GATEWAY_PUBLIC_BASE_URL` when the generic public control URL is
+empty, to `EXPO_PUBLIC_CONTROL_API_URL`.
+Do not add SMS, payment, node-registration, or upstream AI provider secrets to
+that desktop runtime allowlist.
+
+Desktop builds clear the Expo/Metro cache during the web export. Expo production
+bundles inline `EXPO_PUBLIC_*` values in Babel, and Metro's transform cache can
+otherwise reuse a bundle generated when those environment variables were empty.
 
 Local dev disables the hosted relay by default (`DOYA_RELAY_ENABLED=0`) so
 startup does not depend on external network access. Set this when you are

@@ -24,6 +24,13 @@ RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
 
 RUN npm run postinstall
 RUN npm run build:server
+RUN ./node_modules/.bin/esbuild packages/control/src/server.ts \
+  --bundle \
+  --platform=node \
+  --format=esm \
+  --target=node22 \
+  --banner:js="import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" \
+  --outfile=packages/control/dist/server.bundle.js
 
 FROM build AS app-build
 
@@ -49,18 +56,8 @@ COPY packages/server/package.json packages/server/package.json
 COPY packages/website/package.json packages/website/package.json
 
 RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts --include-workspace-root=false \
+  --workspace=@getdoya/server \
   && cp -R node_modules/zod-to-json-schema packages/server/node_modules/zod-to-json-schema
-
-FROM node:22.20.0-bookworm-slim AS control-deps
-
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-COPY packages/control/package.json packages/control/package.json
-
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev --ignore-scripts --include-workspace-root=false \
-  --workspace=@getdoya/control \
-  && npm install --omit=dev --ignore-scripts zod@^3.23.8
 
 FROM nikolaik/python-nodejs:python3.12-nodejs22-slim AS server
 
@@ -106,13 +103,12 @@ ENV DOYA_CONTROL_PORT=6777
 ENV NODE_ENV=production
 
 COPY package.json package-lock.json ./
-COPY --from=control-deps /app/node_modules ./node_modules
 COPY --from=build /app/packages/control/package.json ./packages/control/package.json
-COPY --from=build /app/packages/control/dist ./packages/control/dist
+COPY --from=build /app/packages/control/dist/server.bundle.js ./packages/control/dist/server.bundle.js
 
 EXPOSE 6777
 
-CMD ["node", "packages/control/dist/server.js"]
+CMD ["node", "packages/control/dist/server.bundle.js"]
 
 FROM nginx:1.27-alpine AS app
 

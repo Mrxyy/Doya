@@ -6,8 +6,6 @@ DESKTOP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 APP_DIR="$(cd "$DESKTOP_DIR/../app" && pwd)"
 ROOT_DIR="$(cd "$DESKTOP_DIR/../.." && pwd)"
 
-# Build the Electron main process
-node "$DESKTOP_DIR/scripts/prepare-bundled-codex.js"
 npm run build:main
 
 # Prefer Metro's stable default port so dev browser storage keeps the same

@@ -45,6 +45,7 @@ const STARTUP_POLL_MAX_ATTEMPTS = 150;
 const DETACHED_STARTUP_GRACE_MS = 1200;
 const STARTUP_OUTPUT_CAPTURE_LIMIT_CHARS = 64 * 1024;
 const DOYA_BUNDLED_CODEX_PATH_ENV = "DOYA_BUNDLED_CODEX_PATH";
+const DESKTOP_DAEMON_ENV_RESOURCE = "daemon-env.json";
 const MANAGED_CODEX_ENV_KEYS = [
   "DOYA_MANAGED_CODEX_BASE_URL",
   "DOYA_MANAGED_CODEX_API_KEY",
@@ -221,6 +222,37 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function readDesktopDaemonRuntimeEnv(): Record<string, string> {
+  const candidates = [
+    ...(app.isPackaged ? [path.join(process.resourcesPath, DESKTOP_DAEMON_ENV_RESOURCE)] : []),
+    path.join(app.getAppPath(), "generated", DESKTOP_DAEMON_ENV_RESOURCE),
+  ];
+
+  for (const candidate of candidates) {
+    if (!existsSync(candidate)) {
+      continue;
+    }
+    try {
+      const raw = JSON.parse(readFileSync(candidate, "utf-8")) as unknown;
+      if (!isRecord(raw)) {
+        continue;
+      }
+      return Object.fromEntries(
+        Object.entries(raw).flatMap(([key, value]) => {
+          if (typeof value !== "string" || value.trim().length === 0) {
+            return [];
+          }
+          return [[key, value.trim()]];
+        }),
+      );
+    } catch {
+      return {};
+    }
+  }
+
+  return {};
+}
+
 function resolveDesktopAppVersion(): string {
   if (app.isPackaged) {
     return app.getVersion();
@@ -294,6 +326,16 @@ function resolveCodexTargetTriple(): string | null {
   return null;
 }
 
+function resolveCodexPlatformPackageName(): string | null {
+  if (process.platform === "darwin" && process.arch === "arm64") return "codex-darwin-arm64";
+  if (process.platform === "darwin" && process.arch === "x64") return "codex-darwin-x64";
+  if (process.platform === "linux" && process.arch === "arm64") return "codex-linux-arm64";
+  if (process.platform === "linux" && process.arch === "x64") return "codex-linux-x64";
+  if (process.platform === "win32" && process.arch === "arm64") return "codex-win32-arm64";
+  if (process.platform === "win32" && process.arch === "x64") return "codex-win32-x64";
+  return null;
+}
+
 function resolveBundledCodexPath(): string | null {
   const explicitPath = process.env[DOYA_BUNDLED_CODEX_PATH_ENV]?.trim();
   if (explicitPath) {
@@ -302,17 +344,17 @@ function resolveBundledCodexPath(): string | null {
 
   const binaryName = process.platform === "win32" ? "codex.exe" : "codex";
   const targetTriple = resolveCodexTargetTriple();
+  const platformPackageName = resolveCodexPlatformPackageName();
   const candidates = [
-    ...resolvePackagedBundledCodexCandidatePaths(targetTriple, binaryName),
-    ...(targetTriple
-      ? [path.join(app.getAppPath(), ".generated", "codex", targetTriple, "bin", binaryName)]
-      : []),
+    ...resolvePackagedBundledCodexCandidatePaths(targetTriple, platformPackageName, binaryName),
+    ...resolveDevelopmentBundledCodexCandidatePaths(targetTriple, platformPackageName, binaryName),
   ];
   return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
 
 function resolvePackagedBundledCodexCandidatePaths(
   targetTriple: string | null,
+  platformPackageName: string | null,
   binaryName: string,
 ): string[] {
   if (!app.isPackaged) {
@@ -320,10 +362,46 @@ function resolvePackagedBundledCodexCandidatePaths(
   }
 
   return [
-    ...(targetTriple
-      ? [path.join(process.resourcesPath, "codex", targetTriple, "bin", binaryName)]
+    ...(targetTriple && platformPackageName
+      ? [
+          path.join(
+            process.resourcesPath,
+            "app.asar.unpacked",
+            "node_modules",
+            "@openai",
+            platformPackageName,
+            "vendor",
+            targetTriple,
+            "bin",
+            binaryName,
+          ),
+        ]
       : []),
     path.join(process.resourcesPath, "bin", binaryName),
+  ];
+}
+
+function resolveDevelopmentBundledCodexCandidatePaths(
+  targetTriple: string | null,
+  platformPackageName: string | null,
+  binaryName: string,
+): string[] {
+  const workspaceNodeModules = path.resolve(app.getAppPath(), "..", "..", "node_modules");
+  return [
+    ...(targetTriple && platformPackageName
+      ? [
+          path.join(
+            workspaceNodeModules,
+            "@openai",
+            platformPackageName,
+            "vendor",
+            targetTriple,
+            "bin",
+            binaryName,
+          ),
+        ]
+      : []),
+    path.join(workspaceNodeModules, "@openai", "codex", "bin", "codex.js"),
   ];
 }
 
@@ -559,6 +637,7 @@ async function pollForRunningDaemon(): Promise<DesktopDaemonStatus> {
 async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemonStatus> {
   assertBuiltInDaemonManagementEnabled(await getDesktopSettingsStore().get());
   const startupArgs = parseStartDaemonArgs(args);
+  const runtimeEnvOverlay = readDesktopDaemonRuntimeEnv();
   const controlEnvOverlay = buildControlEnvOverlay(startupArgs);
   const managedCodexEnvOverlay = buildManagedCodexEnvOverlay(startupArgs);
 
@@ -627,6 +706,7 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
     arch: process.arch,
     controlRegistrationEnabled: controlEnvOverlay.DOYA_CONTROL_ENABLED === "1",
     controlApiUrl: controlEnvOverlay.DOYA_CONTROL_API_URL ?? null,
+    runtimeEnvKeys: Object.keys(runtimeEnvOverlay).sort(),
     managedCodexEnabled: Boolean(managedCodexEnvOverlay.DOYA_MANAGED_CODEX_BASE_URL),
     bundledCodexPath: managedCodexEnvOverlay.DOYA_BUNDLED_CODEX_PATH ?? null,
   });
@@ -637,6 +717,7 @@ async function startDaemon(args?: Record<string, unknown>): Promise<DesktopDaemo
     env: invocation.env,
     envOverlay: {
       DOYA_DESKTOP_MANAGED: "1",
+      ...runtimeEnvOverlay,
       ...controlEnvOverlay,
       ...managedCodexEnvOverlay,
     },

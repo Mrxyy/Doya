@@ -73,6 +73,15 @@ function pruneSharpLibvips(nodeModules, platform, arch) {
   }
 }
 
+function pruneDoyaWorkspaceLeakage(nodeModules) {
+  const serverRoot = path.join(nodeModules, "@getdoya", "server");
+  if (!fs.existsSync(serverRoot)) return;
+
+  for (const relativePath of [".doya-dev", ".debug", "assets"]) {
+    rmSafe(path.join(serverRoot, relativePath));
+  }
+}
+
 function pruneNativeModules(appOutDir, platform, arch) {
   const resourcesDir =
     platform === "darwin"
@@ -87,6 +96,7 @@ function pruneNativeModules(appOutDir, platform, arch) {
   pruneClaudeAgentSdk(nodeModules, platform, arch);
   pruneNodePty(nodeModules, platform, arch);
   pruneSharpLibvips(nodeModules, platform, arch);
+  pruneDoyaWorkspaceLeakage(nodeModules);
 
   const after = dirSizeSync(nodeModules);
   const savedMB = ((before - after) / 1024 / 1024).toFixed(1);

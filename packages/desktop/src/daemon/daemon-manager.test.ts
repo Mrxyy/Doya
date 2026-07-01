@@ -86,6 +86,16 @@ function currentCodexTargetTriple(): string {
   return "unsupported";
 }
 
+function currentCodexPlatformPackageName(): string {
+  if (process.platform === "darwin" && process.arch === "arm64") return "codex-darwin-arm64";
+  if (process.platform === "darwin" && process.arch === "x64") return "codex-darwin-x64";
+  if (process.platform === "linux" && process.arch === "arm64") return "codex-linux-arm64";
+  if (process.platform === "linux" && process.arch === "x64") return "codex-linux-x64";
+  if (process.platform === "win32" && process.arch === "arm64") return "codex-win32-arm64";
+  if (process.platform === "win32" && process.arch === "x64") return "codex-win32-x64";
+  return "unsupported";
+}
+
 type MockChildProcess = EventEmitter & {
   stdout: EventEmitter;
   stderr: EventEmitter;
@@ -539,6 +549,50 @@ describe("daemon-manager commands", () => {
     );
   });
 
+  it("passes generated desktop daemon runtime env to the detached daemon process", async () => {
+    const desktopRoot = mkdtempSync(path.join(tmpdir(), "doya-desktop-runtime-env-"));
+    mocks.appPath = desktopRoot;
+    mkdirSync(path.join(desktopRoot, "generated"), { recursive: true });
+    writeFileSync(
+      path.join(desktopRoot, "generated", "daemon-env.json"),
+      JSON.stringify({
+        DOYA_RELAY_ENABLED: "0",
+        DOYA_HOSTNAMES: "localhost,127.0.0.1",
+        IGNORED_EMPTY: "",
+        IGNORED_NUMBER: 1,
+      }),
+    );
+    mocks.runExternalCliJsonCommand.mockResolvedValue({
+      localDaemon: "stopped",
+      connectedDaemon: "unreachable",
+      serverId: "",
+    });
+    mocks.spawnProcess.mockImplementation(() => {
+      const child = createMockChildProcess();
+      scheduleFailedStartupOutput(child);
+      return child;
+    });
+    const handlers = createDaemonCommandHandlers();
+
+    await expect(handlers.start_desktop_daemon()).rejects.toThrow("Daemon failed to start");
+
+    expect(mocks.spawnProcess).toHaveBeenCalledWith(
+      "node",
+      [],
+      expect.objectContaining({
+        envOverlay: expect.objectContaining({
+          DOYA_DESKTOP_MANAGED: "1",
+          DOYA_RELAY_ENABLED: "0",
+          DOYA_HOSTNAMES: "localhost,127.0.0.1",
+        }),
+      }),
+    );
+    expect(mocks.spawnProcess.mock.calls[0]?.[2]?.envOverlay).not.toHaveProperty("IGNORED_EMPTY");
+    expect(mocks.spawnProcess.mock.calls[0]?.[2]?.envOverlay).not.toHaveProperty("IGNORED_NUMBER");
+
+    rmSync(desktopRoot, { recursive: true, force: true });
+  });
+
   it("passes managed Codex settings to the detached daemon process", async () => {
     vi.stubEnv("DOYA_BUNDLED_CODEX_PATH", "/Applications/Doya.app/Contents/Resources/bin/codex");
     vi.stubEnv("DOYA_MANAGED_CODEX_BASE_URL", "https://sub2api.example.com");
@@ -573,12 +627,15 @@ describe("daemon-manager commands", () => {
     );
   });
 
-  it("uses the prepared bundled Codex path in development mode", async () => {
+  it("uses the npm Codex platform package path in development mode", async () => {
     const tempDir = mkdtempSync(path.join(tmpdir(), "doya-desktop-codex-"));
+    const appPath = path.join(tempDir, "packages", "desktop");
     const codexPath = path.join(
       tempDir,
-      ".generated",
-      "codex",
+      "node_modules",
+      "@openai",
+      currentCodexPlatformPackageName(),
+      "vendor",
       currentCodexTargetTriple(),
       "bin",
       process.platform === "win32" ? "codex.exe" : "codex",
@@ -586,7 +643,7 @@ describe("daemon-manager commands", () => {
     mkdirSync(path.dirname(codexPath), { recursive: true });
     writeFileSync(codexPath, "#!/bin/sh\n");
     chmodSync(codexPath, 0o755);
-    mocks.appPath = tempDir;
+    mocks.appPath = appPath;
     mocks.runExternalCliJsonCommand.mockResolvedValue({
       localDaemon: "stopped",
       connectedDaemon: "unreachable",

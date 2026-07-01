@@ -11,6 +11,7 @@ result
 # Environment variables
 .env
 docker/.env
+.desktop-build.env
 .env.test
 .env.local
 .env.test.local
@@ -89,6 +90,7 @@ packages/server/src/server/fixtures/dictation/dictation-debug-largest.transcript
 /artifacts
 packages/desktop/.cache/
 packages/desktop/.generated/
+packages/desktop/generated/daemon-env.json
 packages/desktop/src-tauri/resources/managed-runtime/
 app.json
 .doya-dev

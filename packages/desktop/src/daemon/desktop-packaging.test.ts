@@ -24,6 +24,9 @@ describe("desktop packaging", () => {
     expect(config).toContain("!node_modules/@getdoya/*/src/**");
     expect(config).toContain("!node_modules/@getdoya/**/*.test.*");
     expect(config).toContain("!node_modules/@getdoya/**/*.spec.*");
+    expect(config).toContain("!node_modules/@getdoya/server/.doya-dev/**");
+    expect(config).toContain("!node_modules/@getdoya/server/.debug/**");
+    expect(config).toContain("!node_modules/@getdoya/server/assets/**");
   });
 
   it("explicitly includes workspace runtime packages used by the bundled daemon", () => {
@@ -45,7 +48,7 @@ describe("desktop packaging", () => {
     expect(config).toContain("node_modules/@getdoya/cli/bin/**/*");
   });
 
-  it("bundles the prepared Codex runtime as an external resource", () => {
+  it("uses the npm Codex package as the bundled runtime", () => {
     const config = readFileSync(join(packageRoot, "electron-builder.yml"), "utf8");
     const pkg = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8")) as {
       dependencies?: Record<string, string>;
@@ -53,9 +56,26 @@ describe("desktop packaging", () => {
     };
 
     expect(pkg.dependencies?.["@openai/codex"]).toBeDefined();
-    expect(pkg.scripts?.build).toContain("node scripts/prepare-bundled-codex.js");
-    expect(config).toContain("from: .generated/codex");
-    expect(config).toContain("to: codex");
+    expect(pkg.scripts?.build).not.toContain("prepare-bundled-codex");
+    expect(config).not.toContain("from: .generated/codex");
+    expect(config).not.toContain("to: codex");
+  });
+
+  it("includes generated daemon runtime env in desktop resources", () => {
+    const config = readFileSync(join(packageRoot, "electron-builder.yml"), "utf8");
+
+    expect(config).toContain("from: generated/daemon-env.json");
+    expect(config).toContain("to: daemon-env.json");
+  });
+
+  it("prunes workspace state and duplicate Codex platform packages after packing", () => {
+    const afterPack = readFileSync(join(packageRoot, "scripts", "after-pack.js"), "utf8");
+
+    expect(afterPack).toContain("pruneDoyaWorkspaceLeakage");
+    expect(afterPack).toContain('".doya-dev"');
+    expect(afterPack).toContain('".debug"');
+    expect(afterPack).toContain('"assets"');
+    expect(afterPack).not.toContain("pruneBundledCodexDuplicates");
   });
 
   // electron-builder packs production dependencies declared in package.json into
