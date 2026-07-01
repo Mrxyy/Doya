@@ -454,6 +454,8 @@ export const en = {
   "home.newSession.share.featureEncrypted": "E2E encrypted",
   "home.newSession.share.featureRemote": "Remote coding",
   "home.newSession.downloadDesktop": "Download desktop",
+  "home.newSession.downloadDesktopUnavailable":
+    "This desktop download is not available for your system yet.",
   "admin.access.description": "Enter the admin password to continue.",
   "admin.access.error": "Incorrect password.",
   "admin.access.passwordPlaceholder": "Admin password",
@@ -2285,6 +2287,7 @@ export const zh: Record<keyof typeof en, string> = {
   "home.newSession.share.featureEncrypted": "端到端加密",
   "home.newSession.share.featureRemote": "远程编程",
   "home.newSession.downloadDesktop": "下载电脑版",
+  "home.newSession.downloadDesktopUnavailable": "当前系统的电脑版安装包暂未发布。",
   "admin.access.description": "请输入管理密码后继续。",
   "admin.access.error": "密码不正确。",
   "admin.access.passwordPlaceholder": "管理密码",

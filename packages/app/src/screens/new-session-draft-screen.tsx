@@ -81,7 +81,7 @@ import {
 } from "@/utils/doya-message-markup";
 import { buildHostAgentDetailRoute } from "@/utils/host-routes";
 import { normalizeAgentSnapshot } from "@/utils/agent-snapshots";
-import { resolveDesktopDownloadUrl } from "@/utils/desktop-download-url";
+import { resolveAvailableDesktopDownloadUrl } from "@/utils/desktop-download-url";
 import { useAccountLoginModalStore } from "@/stores/account-login-modal-store";
 import { useBillingUpgradeModalStore } from "@/stores/billing-upgrade-modal-store";
 import { useHomePresetAgentHistoryStore } from "@/stores/home-preset-agent-history-store";
@@ -154,7 +154,6 @@ import {
 const MAX_SESSION_TITLE_LENGTH = 60;
 const RIGHT_PANEL_BACKGROUND = "#fcfcfc";
 const HOME_CONTENT_WIDTH = 800;
-const SHARE_LINK = "https://doya.sh";
 const SHARE_MODAL_HERO_SOURCE = require("../../assets/images/share-link-modal-hero.png");
 const HOME_IMAGE_ICON_SOURCE = require("../../assets/images/new-session-icon-image.png");
 const HOME_SLIDES_ICON_SOURCE = require("../../assets/images/new-session-icon-slides.png");
@@ -200,6 +199,13 @@ function buildHomeInviteLink(code: string): string {
     return `${window.location.origin}/?invite=${encodedCode}`;
   }
   return `doya://?invite=${encodedCode}`;
+}
+
+function buildHomeShareFallbackLink(): string {
+  if (isWeb && typeof window !== "undefined" && window.location.origin) {
+    return window.location.origin;
+  }
+  return "doya://";
 }
 const HOME_PRESET_BASE64_ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -2802,7 +2808,9 @@ function ShareLinkModal({
   const { t } = useI18n();
   const [billingSummary, setBillingSummary] = useState<ControlBillingSummary | null>(null);
   const referralCode = billingSummary?.referralCode ?? "";
-  const inviteLink = referralCode ? buildHomeInviteLink(referralCode) : SHARE_LINK;
+  const inviteLink = referralCode
+    ? buildHomeInviteLink(referralCode)
+    : buildHomeShareFallbackLink();
   const header = useMemo<SheetHeader>(
     () => ({
       title: t("home.newSession.share.title"),
@@ -2903,6 +2911,7 @@ function ShareLinkModal({
 
 function DownloadDesktopButton() {
   const { t } = useI18n();
+  const toast = useToast();
   const { theme } = useUnistyles();
   const motion = usePressMotion({ hoverScale: 1.025, pressScale: 0.97 });
   const pressableStyle = useCallback(
@@ -2917,8 +2926,16 @@ function DownloadDesktopButton() {
     [motion.animatedStyle],
   );
   const handlePress = useCallback(() => {
-    void Linking.openURL(resolveDesktopDownloadUrl());
-  }, []);
+    void (async () => {
+      const downloadUrl = await resolveAvailableDesktopDownloadUrl();
+      if (!downloadUrl) {
+        toast.error(t("home.newSession.downloadDesktopUnavailable"));
+        return;
+      }
+
+      void Linking.openURL(downloadUrl);
+    })();
+  }, [t, toast]);
 
   return (
     <Pressable

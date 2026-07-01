@@ -16,6 +16,20 @@ export function resolveDesktopDownloadUrl(): string {
   return joinUrlPath(DEFAULT_DESKTOP_DOWNLOAD_BASE_URL, fileName);
 }
 
+export async function resolveAvailableDesktopDownloadUrl(): Promise<string | null> {
+  const url = resolveDesktopDownloadUrl();
+  if (!isWeb || typeof fetch === "undefined") {
+    return url;
+  }
+
+  try {
+    const response = await fetch(url, { method: "HEAD", cache: "no-store" });
+    return response.ok ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 function detectDesktopDownloadTarget(): DesktopDownloadTarget {
   if (!isWeb || typeof navigator === "undefined") {
     return "mac-arm64";
